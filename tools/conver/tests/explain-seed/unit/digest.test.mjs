@@ -1,0 +1,90 @@
+// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// PX-222 @verifies C003
+// PX-222 @verifies C008
+//
+// The digest is what lets a re-run keep a section or reopen it. It has to depend on the
+// facts a section rests on and on nothing else: a digest that moved when an unrelated
+// section moved would reopen a section for no reason and throw away the human's thinking,
+// and a digest that failed to move when a feeding fact moved would present a stale
+// judgement as current.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  EXPLAIN_SECTION_FACTS,
+  INFO_SECTION_IDS,
+  computeFrameDigests,
+  computeInfoDigests,
+  movedFactNames,
+  readDigestBlock,
+  renderDigestBlock,
+} from '../../../.claude/scripts/explain-seed/lib/digest.mjs';
+import { FRAME_SECTIONS } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import { syntheticInfoSections } from '../helpers/synthetic-facts.mjs';
+
+test('C003 invariant: every EXPLAIN section declares which INFO sections feed it, and only known ids', () => {
+  assert.deepEqual(
+    EXPLAIN_SECTION_FACTS.map((entry) => entry.id),
+    FRAME_SECTIONS.map((section) => section.id),
+    'the mapping covers the frame sections in order',
+  );
+  for (const entry of EXPLAIN_SECTION_FACTS) {
+    assert.ok(entry.info.length > 0, `${entry.id} rests on at least one INFO section`);
+    for (const infoId of entry.info) assert.ok(INFO_SECTION_IDS.includes(infoId), `${infoId} is a known INFO section`);
+  }
+});
+
+test('C003 invariant: a section digest is a function of its feeding INFO sections and nothing else', () => {
+  const base = computeFrameDigests(syntheticInfoSections());
+  const unrelatedMoved = computeFrameDigests(syntheticInfoSections({ I1: '## 1. この文書が確かめたこと\n\n- workspace root: `/tmp/other`\n' }));
+
+  assert.deepEqual(unrelatedMoved, base, 'INFO 1 feeds no explanation section, so nothing reopens');
+
+  const positionMoved = computeFrameDigests(syntheticInfoSections({ I2: '## 2. 全体の中での位置\n\n全体は 3 パッケージで構成されています。\n' }));
+  const moved = Object.keys(positionMoved).filter((id) => positionMoved[id].digest !== base[id].digest);
+
+  assert.deepEqual(moved, ['E1', 'E2'], 'only the sections that rest on INFO 2 reopen');
+});
+
+test('C003 invariant: each section records its own digest and the digest of every fact it rests on', () => {
+  const digests = computeFrameDigests(syntheticInfoSections());
+  const infoDigests = computeInfoDigests(syntheticInfoSections());
+
+  for (const entry of EXPLAIN_SECTION_FACTS) {
+    assert.match(digests[entry.id].digest, /^[0-9a-f]{64}$/);
+    assert.deepEqual(
+      digests[entry.id].facts.map((fact) => fact.id),
+      entry.info,
+    );
+    for (const fact of digests[entry.id].facts) assert.equal(fact.digest, infoDigests[fact.id]);
+  }
+  assert.deepEqual(Object.keys(infoDigests), INFO_SECTION_IDS, 'every INFO section is digested, feeding or not');
+});
+
+test('C003 postcondition: the digest block round-trips and names the facts it was built from', () => {
+  const digests = computeFrameDigests(syntheticInfoSections());
+  const document = ['# 文書', '', renderDigestBlock(digests)].join('\n');
+  const recorded = readDigestBlock(document);
+
+  assert.deepEqual(recorded, digests);
+  assert.match(renderDigestBlock(digests), /<!-- explain-seed:facts/, 'the block names its own schema');
+});
+
+test('C008 invariant: a document with no digest block, or an unreadable one, records nothing rather than guessing', () => {
+  assert.equal(readDigestBlock('# 文書\n'), null);
+  assert.equal(readDigestBlock('# 文書\n\n<!-- explain-seed:facts\n{ not json\n-->\n'), null);
+  assert.equal(readDigestBlock('# 文書\n\n<!-- explain-seed:facts\n-->\n'), null);
+});
+
+test('C008 postcondition: the moved facts are named, so a reopened section can say what changed', () => {
+  const recorded = computeFrameDigests(syntheticInfoSections());
+  const computed = computeFrameDigests(
+    syntheticInfoSections({
+      I2: '## 2. 全体の中での位置\n\n全体は 3 パッケージで構成されています。\n',
+      I7: '## 7. 禁じられた依存と非干渉\n\n- pkg-0001 → pkg-0002 は禁止（理由コード: layer-direction）\n',
+    }),
+  );
+
+  assert.deepEqual(movedFactNames({ recorded, computed }), { E1: ['I2'], E2: ['I2'], E6: ['I7'], E7: ['I7'] });
+  assert.deepEqual(movedFactNames({ recorded, computed: recorded }), {});
+});

@@ -1,246 +1,237 @@
-# conver.js — ACP-based Ticket Processing Pipeline 設計全体マップ
+# Supreme law
 
-> このファイルは `/formulate-tickets` によって自動生成されました。
-> **生成元:** tools/conver/RFC_ROOT.md
-> **生成日:** 2026-06-25
+All code in this project is subject to these non-negotiable laws.
 
-## 目的とスコープ
+## 1. TDD Red-Green-Refactor — mandatory, strict order
 
-conver.js は二層構造の開発パイプラインにおける内部ループ（内側ループ）を完全自動化する。
-`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、
-Tickets.json に定義されたチケットに対して make → plan → start → review → resolve → find の
-一連の工程を自動実行する。各工程は独立したACPセッションで実行され、
-DeepSeek V4（flash / pro）のモデル選択に対応し、エラー発生時には Slack への通知とプロセス停止を行う。
+no skip, reorder, or parallel execution.
 
-## アーキテクチャ概要
+Flow:
+1. **Red** — write failing tests first.
+   contract: 100% coverage of Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, Invariants (7 elements; partial = unacceptable).
+   contract: if ticket defines Contracts (Pre/Post/Invariant from graph edge) → translate each into testable form (input schema, output assertion, invariant predicate) before coding it; untestable Contract = not yet fully specified.
+   judge: deterministic-but-untestable feature → architectural defect, not a test gap. Redesign until testable before implementing.
+   gate: confirm every test fails red for the right reason (absence of implementation). Accidental-green (meaningless assertion) tests are invalid.
+2. **Green** — implement behavior, not test-passing as an end.
+   prohibition: hardcoding, input-specific branching, stubbed returns that merely satisfy literal test wording.
+   judge: if genuine-vs-disguised-green is indistinguishable by testing, coverage is insufficient — add tests until distinguishable before proceeding.
+   prohibition: modifying, deleting, or weakening tests to pass. Implementation conforms to tests, never the reverse.
+   invariant: an implementation whose correctness cannot be proven is invalid until restructured into provably-correct form.
+3. **Refactor** — green state only; refactor-in-red is prohibited.
+   contract: apply Boy Scout Rule — eliminate `unwrap()`, hardcoded values, false comments, untested code in anything touched.
+   Heal-loop: check green before and after each refactor step; break → roll back immediately.
 
-```
-conver/
-├── tsconfig.json           # TypeScript コンパイル設定
-├── package.json            # ビルドスクリプト定義
-├── src/
-│   ├── conver.ts           # エントリポイント
-│   ├── cli.ts              # CLI引数パース（副作用ゼロ）
-│   ├── session.ts          # ACP セッション管理（spawn/run/dispose）
-│   ├── runner.ts           # ループ制御・Slack通知統合
-│   ├── tickets.ts          # Tickets.json 読み込み・状態確認
-│   ├── notifier.ts         # Slack通知送信
-│   └── error.ts            # エラー型定義
-└── dist/
-    └── conver.js           # ビルド成果物（tsc 出力）
-```
+Note: a Green failure (disguised green, test tampering) is not a retry target — it means Green was never validly reached. There is no "back to Red" edge; more tests are added to the same Red set (see Green's judge line above).
 
-### 4セッション完全分離アーキテクチャ
-
-```
-チケット P0-1 の処理フロー:
-
-   [Session A]  make-ticket → plan-ticket → start-ticket
-        │
-        ▼ dispose
-   [Session B]  review-ticket
-        │
-        ▼ dispose
-   [Session C]  resolve-ticket
-        │
-        ▼ dispose
-   (必要に応じて Session D: find-omissions-for-next-rfc)
-        │
-        ▼ dispose
-   次のチケット P0-2 へ（再び Session A から）
-```
-
-## 主要な型とデータ構造
-
-| モジュール | 型/構造体 | 責務 |
+Criteria — Definition of Done (all must pass):
+| id | check | fail pattern |
 |---|---|---|
-| `error.ts` | `CommandTimeoutError` | タイムアウトエラー型 |
-| `cli.ts` | `CliOptions` | CLI引数の型定義 |
-| `session.ts` | `AcpSession` | ACPセッション（proc/stream/sessionId/ctx/session） |
-| `runner.ts` | `LoopOptions` | ループ制御の全オプション |
-| `runner.ts` | `Ticket` | チケット情報（id/phaseId/status/title） |
-| `runner.ts` | `TicketsJson` | Tickets.json 全体構造 |
-| `notifier.ts` | `ErrorContext` | エラー通知コンテキスト |
+| D1 | tests fully/precisely specify intended behavior | ambiguous or partial spec coverage |
+| D2 | all tests pass green, no exception | selective/skipped tests reported as done |
+| D3 | correctness empirically guaranteed, not disguised green | green via hardcode/stub/branch |
+| D4 | zero gap between test coverage and intended behavior | untested behavior treated as out of scope |
+| D5 | green reached without modifying/weakening tests | green-via-test-edit |
+| D6 | green reached without stubs | green-via-stub |
 
-## モジュール間の関係
+## 2. No-Justification Rule
 
-```
-error.ts ── (依存なし)
-    ↑
-session.ts ── 依存: error.ts, @agentclientprotocol/sdk, node:child_process
-    ↑
-cli.ts ── 依存: node:util
-    ↑
-tickets.ts ── 依存: node:fs
-    ↑
-notifier.ts ── 依存: node:https, node:child_process
-    ↑
-runner.ts ── 依存: session.ts, notifier.ts, tickets.ts
-    ↑
-conver.ts ── 依存: cli.ts, runner.ts
-```
+prohibition: a paragraph-long comment excusing a workaround means the code is wrong. Fix the code; do not document around it.
 
-## スタブ一覧と解決計画
+## 3. Mandatory stub resolution — opportunistic trigger
 
-conver.js の実装において、スタブは発生しない。
-すべての関数は TypeScript の完全な型定義を持ち、外部依存モジュール（ACP SDK の型等）は
-npm パッケージとしてインストールされる。
+trigger: during implementation, a `[::STUB::]` marker's dependencies become resolved.
+gate: resolve it immediately — replace with the real implementation — even if this was not in the plan.
+fail (resolution impossible): leave the `[::STUB::]` marker with the reason, and record it in the implementation summary.
 
----
+## 4. Initial Design Artifact header — absolute prohibition
 
-## 拡張: RFC OMISSIONS-001 — 実装乖離5件の修正設計
+Files generated by `/boundify-graph` carry a header beginning `Initial Design Artifact — RFC-driven Implementation`. It encodes the link between every implementation file and its originating RFC graph node.
+prohibition (absolute): never delete, alter, or comment out this header. Violation severs the traceability chain — critical defect.
 
-> このセクションは `/formulate-tickets-for-next` によって自動生成されました。
-> **生成元:** tools/conver/RFC_OMISSIONS-001.md
-> **生成日:** 2026-06-26
+# Project Instructions
 
-### 目的
+## Language Protocol
 
-RFC-001（conver.js）の実装過程で発見された5件の実装乖離（omission）を修正する。各 omission は独立した修正単位であり、RFC-001 のアーキテクチャや外部インターフェースを変更することなく解決される。
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | mandatory ONLY when addressing the user directly |
+| Code comments | **English** | language AI understands most reliably |
+| Design docs, plans, tasks | **English** | language AI understands most reliably |
+| Runtime logs (`log::info!`, etc.) | **English** | international debugging environment and searchability |
+| Everything else — any context not addressing the user | **English** | language AI understands most reliably |
 
-### 修正対象一覧
+## Comments are first-class citizens
 
-| ID | 種別 | 重要度 | 概要 | 修正モジュール |
-|----|------|--------|------|--------------|
-| O-001 | 実装漏れ | medium | 起動パラメータログが6項目中2項目のみ | conver.ts |
-| O-002 | 実装漏れ | medium | ファイルパスの絶対パス変換が未実装 | cli.ts, runner.ts |
-| O-003 | 設計不一致 | low | tickets.ts 公開関数が phaseId を欠落 | tickets.ts, runner.ts |
-| O-004 | 不整合 | low | RFC型名と実装型名の乖離（SDK更新） | session.ts, RFC_ROOT.md |
-| O-005 | 不整合 | low | Makefile エントリの RFC 未反映 | Makefile, RFC_ROOT.md |
+Criteria (all apply):
+| id | check | fail pattern |
+|---|---|---|
+| M1 | comment carries weight — explains intent/constraint/context code alone can't | trivial paraphrase (`// i++ // increment i`) |
+| M2 | comment agrees with the code | comment and code contradict — comment is wrong regardless |
+| M3 | comment updated when code changes | stale comment (= a bug) |
+| M4 | comment change reviewed like any code change | unreviewed comment edit |
+| M5 | comment on ticket-modified code carries provenance | no ticket-key + runnable design-context command |
 
-### 修正後の依存関係
+prohibition: "it compiles, ship it" is not acceptable — intent must also be conveyed.
 
-O-003 により runner.ts の `loadPendingTickets()` / `checkAllReviewed()` が削除され、tickets.ts の公開関数に統合される。これにより runner.ts → tickets.ts の依存が強化される。
+## Readability is Translatability
 
-```
-tickets.ts ── loadPendingTickets() に phaseId 付与ロジック追加
-    ↑ (統合)
-runner.ts ── 独自 loadPendingTickets 削除、tickets.ts の公開関数を import して使用
+contract: source code is executable prose; readable iff top-to-bottom line-by-line translatable into natural language.
 
-cli.ts ── parseCliOptions() で ticketsPath を path.resolve() で絶対パス変換
-    ↑
-runner.ts ── cwd を path.resolve() で正規化
+| unit | role |
+|---|---|
+| functions | verb phrases (`execute`, `validate`, `transform`); call sequence tells the flow |
+| classes/structs | nouns (`User`, `AuthToken`, `Config`); structure expresses the domain concept |
+| modules/files | paragraphs (`Authentication`, `Payment flow`); group related sentences/nouns into one discussion |
 
-conver.ts ── 起動パラメータログを6行 key=value 形式に拡張
-```
+Split to make the code self-narrating — DRY alone does not justify the split.
 
----
+```rust
+// ❌ Bad: code that cannot be translated
+fn process(&self, input: &str) -> Result<String> {
+    let x = self.db.query("SELECT status FROM users WHERE id = ?", &[input])?;
+    if x == "active" {
+        let y = self.cache.get(format!("user:{}", input));
+        let z = self.mailer.send(y.unwrap_or("guest@example.com"), "Welcome!")?;
+        Ok(z.to_string())
+    } else {
+        Ok(String::new())
+    }
+}
 
-## 拡張: RFC ADDITION-002 — find の収束問題と Goal Gate の導入
-
-> このセクションは `/formulate-tickets-for-next` によって自動生成されました。
-> **生成元:** tools/conver/RFC_ADDITION-002.md
-> **生成日:** 2026-07-01
-
-### 目的
-
-find のループを重ねると omission が減らず発散する問題を解決する。目的（purpose）・目標（goals）・成功条件（successCriteria）にもとづく Goal Gate フィルタと、機械的な収束検知・重複排除スクリプトを導入する。
-
-### 追加スクリプト一覧
-
-| スクリプト | 種類 | 決定論度 | 配置先 |
-|-----------|------|---------|-------|
-| `dedup-omissions-by-history.js` | 新規 | 100%（決定論） | `.claude/scripts/tickets/` |
-| `materiality-filter.js` | 新規 | 80%（決定論）+ 20%（AI への情報提供） | `.claude/scripts/tickets/` |
-| `diminishing-returns.js` | 新規 | 100%（決定論） | `.claude/scripts/tickets/` |
-
-### find-omissions ワークフロー変更
-
-既存の Step 3 と Step 4 の間に **Step 3.5（機械的フィルタリング）** を新設する：
-
-```
-Step 3.5: 機械的フィルタリング（新設）
-  ├── dedup-omissions-by-history.js → 過去との重複排除
-  ├── materiality-filter.js → Goal 阻害度による severity 確定
-  └── diminishing-returns.js → 発散/収束の最終判定
+// ✅ Good: code that can be read as prose
+fn process(&self, user_id: &str) -> Result<String> {
+    let user_status = self.fetch_user_status(user_id)?;
+    if user_status.is_active() {
+        let user_email = self.resolve_email(user_id);
+        self.send_welcome_email(&user_email)?;
+        Ok(EmailSendResult::success())
+    } else {
+        Ok(EmailSendResult::skipped())
+    }
+}
+// Reads as: "fetch user status; if active, resolve email and send welcome email,
+// then return success; otherwise return skipped."
 ```
 
-### 決定論 vs 非決定論の設計原則
+Benefits: review efficiency (no mental translation needed) · higher bug-discovery rate (flow-vs-code mismatches are visible) · faster onboarding (domain↔code correspondence inferable without docs) · easier/safer LLM collaboration.
 
-```
-決定論で確定できること → スクリプトが確定判断（AI は受け入れるのみ）
-非決定論が不可欠なこと → AI が判断（ただし決定論の結果を制約として与える）
-```
+Boy Scout triggers (fix when you touch code showing these):
+| trigger | fix |
+|---|---|
+| comment-dependent code | extract block into a function named after what it does |
+| function chaining responsibilities with AND/THEN | split by responsibility |
+| generic names (`x`, `data`, `info`, `tmp`) | rename to domain concept |
+| hardcoded value | extract into named constant |
 
-### 発散防止の3層防御
+```rust
+// ❌ Untranslatable: impossible to understand without comments
+fn apply(v: &[u8], p: &[u8], k: &[u8]) -> Vec<u8> {
+    let mut r = v.to_vec();
+    for (i, &b) in p.iter().enumerate() {
+        r[i % v.len()] ^= b;
+    }
+    r
+}
 
-| Layer | タイミング | 内容 |
-|-------|-----------|------|
-| Layer 1 | Step 3 各子ステップ終了時 | 即時 Goal Gate — materiality 評価・低スコアは cosmetic に格下げ |
-| Layer 2 | Step 3.5 | 機械的フィルタリング — 重複排除 + severity 確定 + 発散傾向検知 |
-| Layer 3 | check-final | 独立した二重計測 — cosmetic のみなら PASS |
+// ✅ Translatable: function names and structure tell the story
+fn encrypt_with_xor(plaintext: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
+    let mut ciphertext = iv.to_vec();
+    xor_with_key(&mut ciphertext, plaintext, key);
+    ciphertext
+}
 
----
-
-## 拡張: RFC GRAPHIFY-001 — `/graphify-rfc` スラッシュコマンド
-
-> このセクションは `/formulate-tickets-for-next` によって自動追記されました。
-> **生成元:** tools/conver/RFC-GRAPHIFY.md
-> **生成日:** 2026-07-06
-
-### 目的
-
-長大なMarkdown設計文書をI/O境界単位の細粒度ノードに分割し、属性付きエッジで結んだグラフ構造として永続化する `/graphify-rfc` スラッシュコマンドを定義する。graphify（発散）→ formulate（収束）のパイプラインにより、チケット分解の品質と再現性を向上させる。
-
-### 主要な型とデータ構造
-
-| スキーマ | 内容 |
-|----------|------|
-| `node.schema.json` | ノード: id(N0001〜), title, kind(12種), summary, sourceRanges(refId+行番号) |
-| `edge.schema.json` | エッジ: from, to, type(12種), attributes(strength/bidirectional) |
-| `graph.schema.json` | グラフ全体: sourceFile, nodes[], edges[] |
-
-### モジュール／コンポーネント間の関係
-
-```
-.claude/scripts/rfc-graph/
-  crud.js               ← グラフの唯一の書き込み経路（全スクリプトの前提）
-  verify.js             → crud.js で作成されたグラフを検証
-  embed-markers.js      → 検証済みグラフのマーカーを元文書に埋め込み
-  query.js              → 完成グラフのマルチホップ探索
-  update-step-status.js → 全スクリプトから子プロセス呼び出しでStep進行管理
+fn xor_with_key(buffer: &mut Vec<u8>, data: &[u8], key: &[u8]) {
+    for (i, &byte) in data.iter().enumerate() {
+        buffer[i % buffer.len()] ^= byte;
+    }
+}
 ```
 
-### フェーズ・チケット一覧
+Division of labor: code (names, structure) says **what** it does; comments say **why** and **what constraints apply**. Needing a comment to know *what* the code does is poor readability, not a comment gap.
 
-全7チケットが5フェーズ（P12〜P16）に分割され、Tickets.json に追加済み。
-既存フェーズ（P0〜P11）は一切変更していない。
+## Workflow
 
----
+### Plan Gate
 
-## 拡張: RFC BOUNDIFY-001 — `/boundify-graph` スラッシュコマンド
+Criteria — Tiny Change (all 3 must hold):
+| id | check |
+|---|---|
+| T1 | single-file change only |
+| T2 | `cargo fmt` or comment-only fix |
+| T3 | 1–2 line obvious-bug fix, zero side-effect risk |
 
-> このセクションは `/formulate-tickets-for-next` によって自動追記されました。
-> **生成元:** tools/conver/RFC-BOUNDIFY.md
-> **生成日:** 2026-07-07
+Never-Tiny (any 1 overrides Tiny — planning mandatory regardless):
+`unsafe` block change/addition · public API change (struct fields, function signatures) · new dependency crate · architecture-related change.
 
-### 目的
+gate: Tiny → auto; edit directly.
+gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → plan → start → review). Do NOT use `/plan` directly.
 
-`/graphify-rfc` が生成するグラフJSONを入力として受け取り、ディレクトリと名前空間で構築された安全な境界を持つ実装ディレクトリツリーを提案・洗練・生成する。graphify（論理グラフ）→ boundify（物理ディレクトリ）のパイプラインにより、設計から実装までのシームレスな接続を実現する。
+### Verification — mandatory, in order
 
-### 主要な型とデータ構造
+1. exact verification command (prefer `make` when a Makefile exists)
+2. report the execution result only after confirming it passes
+3. self-correct before reporting — reporting with failing tests is forbidden
 
-| スキーマ/構造体 | 内容 |
-|----------------|------|
-| `Dirs-Tree.json` | ツリー構造（名前・種別・kind・mappedNodeIds・子要素） |
-| `DirNode` | ディレクトリ/ファイルの単一ノード型（typeで区別） |
-| `languageRules` | ディレクトリノードの言語別可視性ルール |
-| `GRAPH-LANG.json` | 元グラフに language 注釈を追加した拡張版 |
-| `dependencyDirections` | ディレクトリ間依存方向のトップレベル配列 |
+### Zero Tolerance for quality-checker issues
 
-### モジュール／コンポーネント間の関係
+prohibition: resolve only by fixing the code. Forbidden excuses: "It's acceptable" / "No problem" / "The project rules allow it" / "It's test code" / "It's existing code" / any other code-avoiding excuse.
 
+gate: sole exception — technically unfixable AND demonstrable with concrete code/values → explain why, then **ask; stop** for the user's explicit approval before skipping.
+prohibition: talking out of a fix even once, without that approval, makes the task incomplete.
+
+### Self-Review — before final response
+
+| severity | examples |
+|---|---|
+| Blocker | breaking changes, unjustified `unsafe`, test failures |
+| Major | logic errors, type-definition deficiencies, missing error handling |
+| Minor/Nit | code style, minor improvements |
+
+## Thoroughness over Efficiency
+
+prohibition: never skip safe ordering (DB migration steps, exclusive control, locking) because "it seems to work anyway."
+prohibition: "just overwrite it" — designs neglecting state/resource cleanup via overwrite are lazy; follow the side-effect-aware procedure.
+prohibition: never skip Plan descriptions or design rationale because "explaining is tedious."
+prohibition: never skip compilation checks or tests because "it's a small fix."
+invariant: evaluation standard = accuracy, safety, no regression — not speed.
+
+## Boy Scout Rule
+
+invariant: existing non-compliant code is an accepted known state; no need to fix everything at once. But code you touch must leave in a better state than you found it.
+
+| found in touched code | fix |
+|---|---|
+| `unwrap()` | replace with `Result` propagation |
+| hardcoded path | extract into constant or config |
+| now-false comment | rewrite to the truth |
+| untested touched code | add tests |
+
+## Stub marker — first-class rule, absolute
+
+Every incomplete implementation (stub, mock, placeholder, temporary impl, by any name) MUST carry a `[::STUB::]` marker. No exceptions for test code, sample code, or prototypes. This rule fully supersedes any prior stub policy; conflicts resolve in this rule's favor. It is independent of, and in addition to, Supreme Law §3's opportunistic-resolution trigger above — that rule fires on dependency-resolution during implementation; this rule fires on any incomplete implementation existing at all, found by any means.
+
+Affected code (any of these = incomplete, marker required):
+`todo!()` / `unimplemented!()` / `panic!()`; empty function body; unimplemented `Ok(())` / `None` / `Default::default()`; commented-out implementation; `TODO` / `FIXME` / `HACK` / `XXX`; Mock/Fake objects; `#[allow(...)]` suppression.
+
+Marker format:
+```rust
+// [::STUB::] <ticket-id>: <description of how it will be resolved>
+fn placeholder() -> Result<()> { Ok(()) }
 ```
-.claude/scripts/rfc-graph/
-  boundify-graph-to-dirs.js    ← メインスクリプト（新規）
-  validate-dirs-tree-schema.js ← Dirs-Tree.json スキーマ検証（新規）
-  generate-dir-template.js     ← 実ディレクトリ生成（新規）
-  update-step-status.js        ← --status= フラグ追加（既存改修）
-
-.claude/commands/
-  boundify-graph.md    ← スラッシュコマンド定義（新規）
+Unknown ticket:
+```rust
+// [::STUB::] MUST RESOLVE: <information known so far>
+fn placeholder() -> Result<()> { Ok(()) }
 ```
 
-### スタブ一覧と解決計画
+Sweep (every phase — make / plan / start / review):
+scan: `.claude/scripts/tickets/scan-crimes.sh` (auto-initializes on first run) against `.claude/commands/Malfeasance.json`
+found unmarked incomplete impl →
+  add `[::STUB::]` marker now
+  record: `node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>" "[note]"`
+  resolve now if possible
+    resolved → `node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"`
+    not resolvable → record the reason in the crime's `note`; leave `status` unchanged
+none found → next
 
-本RFCに基づく実装でスタブは発生しない。すべての関数は JavaScript の完全な実装としてスクリプト内に記述される。`.en.md` の英文はスクリプト内の const としてハードコードされる。
+List all stubs: `node .claude/scripts/tickets/review/find-all-stubs.js src`
