@@ -8,7 +8,7 @@
  * The published set is exactly those three; anything else the run created is
  * removed by the cleanup step.
  */
-import { readdirSync, statSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { createStagingRoot, materializeDirectories, publishStagedTree } from './lib/tree-staging.mjs';
@@ -66,11 +66,69 @@ function expandPlannedDirectories(relativeDirs) {
 }
 
 /**
+ * The top-level root entries a publication places.
+ *
+ * The publish moves top-level entries; seeds and the manifest live inside the tree,
+ * so planning their top-level names is enough to place them. Rollback judges the
+ * same set, which is why it is derived here once rather than in each of them.
+ *
+ * @param {{ plan: object, renderedByPackage: Map<string, object> }} input
+ * @returns {string[]} sorted top-level entry names
+ */
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+export function publishedTopLevelNames({ plan, renderedByPackage }) {
+  return [...new Set([
+    ...(plan.relativeDirs ?? []).map((relativeDir) => relativeDir.split('/')[0]),
+    ...[...renderedByPackage.values()].map(({ package: pkg }) => pkg.path.split('/')[0]),
+    ALLOCATE_MANIFEST_FILE_NAME,
+  ])].sort();
+}
+
+/**
+ * Remove the top-level entries a publication created, leaving the root as it was.
+ *
+ * A run that published and then failed a later gate must not leave a tree behind:
+ * the workspace would show a half-verified state that no operator agreed to. The
+ * rollback therefore removes exactly the entries this run created.
+ *
+ * `preExistingEntries` is what the root held before the publish, and it is the
+ * safety of the whole operation: `publishStagedTree` refuses to rename onto an
+ * existing destination, so every entry absent from that set was created by this
+ * run and no entry present in it can belong to it. A name that pre-existed is
+ * never a candidate, which is what keeps the rollback from deleting the host
+ * project's own directories.
+ *
+ * `removed` is a record of what the rollback did, so it names only the entries that
+ * were actually there: a publication that failed before placing an entry leaves
+ * nothing to remove, and reporting it as removed would misdescribe the workspace.
+ *
+ * @param {{ manifestDir: string, topLevelNames: string[], preExistingEntries: Set<string> }} input
+ * @returns {{ removed: string[] }} the entries removed, sorted
+ */
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+export function rollbackPublication({ manifestDir, topLevelNames, preExistingEntries }) {
+  const removed = [];
+  for (const name of topLevelNames) {
+    if (preExistingEntries.has(name)) {
+      continue;
+    }
+    const target = path.join(manifestDir, name);
+    if (!existsSync(target)) {
+      continue;
+    }
+    rmSync(target, { recursive: true, force: true });
+    removed.push(name);
+  }
+  return { removed: removed.sort() };
+}
+
+/**
  * Stage and publish the tree, the seeds and the allocate manifest.
  *
  * @param {{ manifestDir: string, plan: object, renderedByPackage: Map<string, object>, allocateManifest: object }} input
  * @returns {{ published: boolean, reason?: string, stagingRoot: string|null }}
  */
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function publishWorkspace({ manifestDir, plan, renderedByPackage, allocateManifest }) {
   const staging = createStagingRoot(manifestDir);
   try {
@@ -90,13 +148,7 @@ export function publishWorkspace({ manifestDir, plan, renderedByPackage, allocat
       return { published: false, reason: `staging verification failed: ${JSON.stringify(staged)}`, stagingRoot: null };
     }
 
-    // The publish moves top-level entries; seeds and the manifest live inside the
-    // tree, so planning their top-level names is enough to place them.
-    const topLevelNames = [...new Set([
-      ...plan.relativeDirs.map((relativeDir) => relativeDir.split('/')[0]),
-      ...renderedByPackage.values().map(({ package: pkg }) => pkg.path.split('/')[0]),
-      ALLOCATE_MANIFEST_FILE_NAME,
-    ])].sort();
+    const topLevelNames = publishedTopLevelNames({ plan, renderedByPackage });
     const published = publishStagedTree(staging.path, manifestDir, topLevelNames);
     if (!published.published) {
       rmSync(staging.path, { recursive: true, force: true });

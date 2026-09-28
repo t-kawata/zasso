@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,4 +58,55 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+test('C005 acceptance: a host project root holding unrelated directories still publishes', () => {
+  const { dir, manifestPath, manifest } = materializeSeedFixture();
+  try {
+    // The shape the defect lived in: the workspace root is the host project's own
+    // root - the specification and the manifest beside directories the plan says
+    // nothing about. G2 already passes here because the planned paths are fresh; the
+    // reload scan is what refused, after the publication had happened.
+    mkdirSync(join(dir, 'docs/archive'), { recursive: true });
+    mkdirSync(join(dir, 'node_modules/left-pad'), { recursive: true });
+    writeFileSync(join(dir, '.gitignore'), 'node_modules\n');
+    stageAllocateDecisions(dir, makeDecisions(manifest));
+
+    const finalize = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    assert.equal(finalize.status, 0, finalize.stderr);
+    const summary = JSON.parse(finalize.stdout);
+    assert.equal(summary.published, true, "the reload scan must not report the operator's own directories");
+
+    // The publication happened, and nothing the root already held was touched.
+    assert.equal(existsSync(join(dir, 'crates', 'protocol', 'alpha', 'RFC-SEED.md')), true);
+    assert.equal(existsSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), true);
+    assert.equal(existsSync(join(dir, 'docs', 'archive')), true);
+    assert.equal(existsSync(join(dir, 'node_modules', 'left-pad')), true);
+    assert.equal(readFileSync(join(dir, '.gitignore'), 'utf8'), 'node_modules\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+test('C005 the two post-publication refusals undo the publication before they throw', () => {
+  // A refusal after the publication cannot be produced from the command line: the
+  // published set is the plan, and the plan is what the scan compares the root
+  // against, so no invocation makes a run-created directory unexpected. The wiring is
+  // therefore asserted in the source of runFinalize, where it is observable - the
+  // same form the reverse suite uses for its own unreachable A1 path.
+  const source = readFileSync(RUN, 'utf8');
+  const finalize = source.slice(source.indexOf('export function runFinalize'));
+  const at = (needle) => {
+    const index = finalize.indexOf(needle);
+    assert.notEqual(index, -1, `runFinalize must contain ${needle}`);
+    return index;
+  };
+  const undoCalls = [...finalize.matchAll(/rollbackPublicationOfThisRun\(\);/g)].map((match) => match.index);
+
+  assert.equal(undoCalls.length, 2, 'each post-publication refusal undoes the publication');
+  assert.ok(at('snapshotDirectories(manifestDir)') < at('publishWorkspace({'), 'the snapshot is read before the publication');
+  assert.ok(undoCalls[0] > at('publishWorkspace({') && undoCalls[0] < at("gateId: 'G6.4'"), 'G6.4 undoes the publication');
+  assert.ok(undoCalls[1] > at("gateId: 'G6.4'") && undoCalls[1] < at("gateId: 'G6.5'"), 'G6.5 undoes the publication');
 });

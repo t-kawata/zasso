@@ -1,3 +1,4 @@
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C005
 import { test } from 'node:test';
@@ -12,6 +13,7 @@ import {
   materializeDirectories,
   verifyStaging,
   publishStagedTree,
+  snapshotDirectories,
   verifyDirectorySet,
   STAGING_PREFIX,
 } from '../../../.claude/scripts/workspacify-allocate/lib/tree-staging.mjs';
@@ -21,6 +23,12 @@ function tempDir(label) {
 }
 
 const PLAN = ['crates/protocol/alpha'];
+
+// The pre-existing-directory cases need a plan whose leaf is the directory they
+// build, so that a root holding only that tree is fully planned. PLAN above has a
+// different leaf and those cases would fail on it for a reason unrelated to the
+// behaviour they assert, so they carry their own fixture instead of redefining this one.
+const GAIA_PLAN = ['crates/protocol/gaia-soul'];
 
 test('C005 checkExistingOutputPolicy passes on a fresh workspace', () => {
   const dir = tempDir('wt-189-pol-');
@@ -159,6 +167,89 @@ test('C005 empty plan publishes nothing but still verifies', () => {
     const result = publishStagedTree(staging.path, dir, []);
     assert.ok(result.published);
     assert.ok(verifyDirectorySet(dir, []).ok);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C001 snapshotDirectories lists every directory as a sorted root-relative path', () => {
+  const dir = tempDir('wt-snap-');
+  try {
+    mkdirSync(join(dir, 'crates/protocol/gaia-soul'), { recursive: true });
+    mkdirSync(join(dir, 'docs/archive'), { recursive: true });
+    assert.deepEqual(snapshotDirectories(dir), [
+      'crates', 'crates/protocol', 'crates/protocol/gaia-soul', 'docs', 'docs/archive',
+    ].sort());
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C001 snapshotDirectories names no file and skips the reserved root', () => {
+  const dir = tempDir('wt-snap2-');
+  try {
+    mkdirSync(join(dir, 'crates'), { recursive: true });
+    mkdirSync(join(dir, 'workspacify/allocate'), { recursive: true });
+    writeFileSync(join(dir, 'spec.md'), '# spec\n');
+    assert.deepEqual(snapshotDirectories(dir), ['crates']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C002 verifyDirectorySet keeps strict equality when no snapshot is given', () => {
+  const dir = tempDir('wt-strict-');
+  try {
+    mkdirSync(join(dir, 'crates/protocol/gaia-soul'), { recursive: true });
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    const verdict = verifyDirectorySet(dir, GAIA_PLAN);
+    assert.equal(verdict.ok, false, 'the default must stay strict');
+    assert.ok(verdict.unexpected.includes('docs'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C002 verifyDirectorySet passes when the only extra directories pre-existed the run', () => {
+  const dir = tempDir('wt-pre-');
+  try {
+    mkdirSync(join(dir, 'docs/archive'), { recursive: true });
+    mkdirSync(join(dir, 'sim/src'), { recursive: true });
+    const preExisting = snapshotDirectories(dir);
+    mkdirSync(join(dir, 'crates/protocol/gaia-soul'), { recursive: true });
+    const verdict = verifyDirectorySet(dir, GAIA_PLAN, { preExisting });
+    assert.deepEqual(verdict.unexpected, [], "pre-existing content is not this run's leakage");
+    assert.deepEqual(verdict.missing, []);
+    assert.equal(verdict.ok, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C002 verifyDirectorySet still reports a directory the run created outside its plan', () => {
+  const dir = tempDir('wt-leak-');
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    const preExisting = snapshotDirectories(dir);
+    mkdirSync(join(dir, 'crates/protocol/gaia-soul'), { recursive: true });
+    mkdirSync(join(dir, 'crates/leaked'), { recursive: true });
+    const verdict = verifyDirectorySet(dir, GAIA_PLAN, { preExisting });
+    assert.equal(verdict.ok, false);
+    assert.deepEqual(verdict.unexpected, ['crates/leaked']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('C002 verifyDirectorySet still reports a planned directory that does not exist', () => {
+  const dir = tempDir('wt-miss-');
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    const preExisting = snapshotDirectories(dir);
+    mkdirSync(join(dir, 'crates'), { recursive: true });
+    const verdict = verifyDirectorySet(dir, GAIA_PLAN, { preExisting });
+    assert.equal(verdict.ok, false);
+    assert.deepEqual(verdict.missing, ['crates/protocol', 'crates/protocol/gaia-soul']);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
