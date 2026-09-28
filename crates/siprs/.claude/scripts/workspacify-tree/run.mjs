@@ -381,7 +381,7 @@ function prepareForwardPipeline(specPath, decisionsPath) {
 }
 
 /** The manifest sections the forward rotation publishes, and reverse mode extends. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-217) --for-spec --no-implementation-order`.
 function buildForwardManifestSections(prepared) {
   const { analysis, decisions, inventory, specPulse, ownershipTable, dependencyReview, pipeline } = prepared;
   return {
@@ -398,6 +398,7 @@ function buildForwardManifestSections(prepared) {
       required_tests: inventory.requiredTests,
       terms: inventory.terms,
       normalization_decisions: inventory.normalization_decisions,
+      object_claim_collisions: inventory.object_claim_collisions,
       unresolved_candidates: inventory.unresolved_candidates,
     },
     requirements: { normative_candidates: inventory.terms },
@@ -887,12 +888,16 @@ function analyzeSpec(specPath) {
   };
 }
 
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function buildInventory(analysis) {
   const objects = harvestObjectCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const claims = harvestClaimCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const normative = harvestNormativeCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const requirements = harvestRequirementCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
-  const normalizedObjects = normalizeAliases(objects);
+  // The claim list is supplied so that a name harvested as both an object and a
+  // claim is reported rather than silently resolved: the check exists inside
+  // normalizeAliases and only fires when it is given something to compare against.
+  const normalizedObjects = normalizeAliases(objects, { collisionWith: claims });
   const categories = harvestCategoryInventory({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const unresolvedCandidates = normalizedObjects.candidates
     .filter((candidate) => candidate.classification === 'unknown')
@@ -906,10 +911,12 @@ function buildInventory(analysis) {
     requiredTests: categories.requiredTests,
     terms: [...normative, ...requirements],
     normalization_decisions: normalizedObjects.decisions,
+    object_claim_collisions: normalizedObjects.collisions,
     unresolved_candidates: unresolvedCandidates,
   };
 }
 
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function prepareInventory(analysis, decisions) {
   const rawInventory = buildInventory(analysis);
   const ownership = decisions.ownership;
@@ -939,6 +946,10 @@ function prepareInventory(analysis, decisions) {
     requiredTests: rawInventory.requiredTests,
     terms,
     normalization_decisions: rawInventory.normalization_decisions,
+    // Ownership and approvals answer who owns a candidate and whether it is
+    // confirmed; a collision asks whether the name should be both at all, so it
+    // travels to the gate unaltered and is resolved there by name.
+    object_claim_collisions: rawInventory.object_claim_collisions,
     unresolved_candidates: unresolvedCandidates,
   };
 }

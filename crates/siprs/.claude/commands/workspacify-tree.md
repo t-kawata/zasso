@@ -55,11 +55,13 @@ Statuses: `PASS|FAIL|REVIEW_REQUIRED|BLOCKED|COMPLETE`.
 - `REVIEW_REQUIRED` ≠ success; unresolved review prevents COMPLETE
 - `BLOCKED`: existing manifest input hash differs; never overwrite
 
-Gates: G0 input lock → G1 headings/segments/reconstruction → G2 requirement inventory → G3 catalog/ownership/over-splitting/mandatory responsibilities → G4 DAG/layers/cycles/implementation-order proof → G5 schema/self-hash artifact completeness. Rule: parent not PASS ⇒ child never PASS.
+Gates: G0 input lock → G1 headings/segments/reconstruction → G2 requirement inventory → G3 catalog/ownership/over-splitting/mandatory responsibilities/port-adapter boundary/object-claim collisions/alias cycles → G4 DAG/layers/cycles/implementation-order proof → G5 schema/self-hash artifact completeness/raw SQL/DB-type leakage/migration atomicity misuse. Rule: parent not PASS ⇒ child never PASS.
+
+Every count a gate decides on is reported twice: in that gate's `counts` and in `finalAudit`. A count that decides a status and appears in neither is invisible to an operator reading the manifest, which is the defect the two-report rule exists to prevent.
 
 ## The boundary between design judgement and mechanisation
 
-Machine: harvesting, format, ownership uniqueness, DAG/cycles, forbidden layers, raw SQL, DB-type leakage, self-hash. AI: workspace tree, ownership, final over-splitting decision, adapter/DB applicability, reasonCode, forbidden-edge alternative, REVIEW_REQUIRED approval. Boundary-review finds risk candidates; extractor harvests; verifier checks constraints; neither decides semantics.
+Machine: harvesting, format, ownership uniqueness, DAG/cycles, forbidden layers, raw SQL, DB-type leakage, migration-atomicity misuse, port-adapter attachment, missing ports, object/claim name collisions, alias cycles, self-hash. AI: workspace tree, ownership, final over-splitting decision, adapter/DB applicability, reasonCode, forbidden-edge alternative, REVIEW_REQUIRED approval, and the approval that resolves a name collision. Boundary-review finds risk candidates; extractor harvests; verifier checks constraints; neither decides semantics. Each machine check is wired into the gate that publishes it: a check the pipeline does not consult is not a check.
 
 ## The hand-off contract to stage two (ALLOCATE)
 
@@ -155,7 +157,11 @@ Out: per-gate status and stdout `finalAudit`; COMPLETE/exit 0 iff all gates PASS
 | `orphan_object_count|orphan_claim_count|owner_collision_count` | ③ ownership |
 | `unknown_dependency_count|layer_violation_count|cycle_count` | ④ edges/boundaries |
 | `forbidden_dependency_count` | ④ forbidden-edge alternative |
-| `raw_sql_count|db_type_leak_count` | adapters/databasePolicy |
+| `raw_sql_count|db_type_leak_count|migration_atomicity_misuse_count` | adapters/databasePolicy; migration atomicity is never domain atomicity |
+| `unattached_adapter_count` | ② a `kind: "adapter"` package no port names in `implementedBy` |
+| `missing_port_count` | ② a capability declared as an external implementation that no port `provides` |
+| `object_claim_collision_count|unresolved_object_claim_collision_count` | ③ or ⑥; approve the `normalized_key` when the same name is both an object and a claim by design |
+| `alias_cycle_count` | ⑥ `normalization_decisions` maps a name back onto itself |
 | `status` semantic review | ⑦ full AI checklist and APPROVED |
 
 Unlisted causes appear in `reasons`: tree/catalog path mismatch, edge/boundary mismatch, missing category-owner table; choose correction from wording. Heal-loop: fix exact cause; rerun gate until COMPLETE. After correction rerun `extract` and gate; confirm no extraction contradiction.
