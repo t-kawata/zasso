@@ -24,7 +24,7 @@ Role: take an existing project with substantial implementation; run R0–R8 once
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
-First-Class Rule — `[::STUB::]`: every incomplete implementation—stub, mock, placeholder, temporary implementation, any name—must carry `[::STUB::]`. Read `Malfeasance.json` in every phase; verify no unresolved crimes. On violation: resolve immediately, or add marker and record immediately.
+**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception — an absolute, inviolable law. Violations are recorded as crimes in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. On discovery: resolve immediately, or add the marker and record the crime on the spot.
 
 ## The five-layer loop, and where this command sits
 
@@ -47,8 +47,8 @@ No positional arguments. Subject: current working directory. Destination: `works
 - Refused: `--out`, `--through`, `--query`, bare path → no publish
 - Tree immutable during run: pre/post digest; any byte change outside destination → refuse publish
 - Permitted supplied paths only:
-  - `run.mjs decide --answers=<path>` in Step 5: six decisions
-  - `run.mjs analyze --semantics=<path>` in Step 7: one design reading per package×item cell
+  - `--answers=<path>` on `run.mjs decide` in Step 5 — the six decisions, one key per judgement
+  - `--semantics=<path>` on `run.mjs analyze` in Step 7 — one design reading per package and item cell
 - `gate` reads reserved `DECISIONS.json`; `readings` reads reserved spec; no other Step passes a path
 
 ## The four principles
@@ -60,16 +60,32 @@ No positional arguments. Subject: current working directory. Destination: `works
 
 ## What the machine decides, and what you decide
 
-Machine decides deterministically: root boundary/artifact classification; structural measurement; dependency graph/cycles/cohesion; execution surface; semantic extraction; claim ledger/evidence independence; history/quality; gaps; oracle validity; Red plan/generated properties; origin-spec validation/Markdown round trip; unchanged-target proof. Measurements are material, not verdict. Accept measurement; still inspect code when directed. Locator/search is a place to look, never evidence.
+Machine decides deterministically:
+- root boundary and artifact classification
+- structural measurement
+- dependency graph, cycles and cohesion
+- execution surface
+- semantic extraction
+- claim ledger and evidence independence
+- history and quality
+- gaps
+- oracle validity
+- Red plan and generated properties
+- origin-spec validation and Markdown round trip
+- unchanged-target proof
+
+- measurements are accepted, not re-opened: a finding is material, not a verdict
+
+Accept measurement; still inspect code when directed. Locator/search is a place to look, never evidence.
 
 Decide exactly six, nothing else. Schema rejects absent, extra, or invalid key.
 
-1. `package_boundary`: `{"packages":[{"path":"…","name":"…"}],"rationale":"…"}`
-2. `owner_assignment`: `[{"package":"…","owns":["…"]}]`
-3. `layer_estimation`: `[{"package":"…","layer":"…"}]`
-4. `contract_meaning`: `[{"contract":"…","meaning":"…"}]`
-5. `over_splitting`: `{"decision":"…","rationale":"…"}`
-6. `proposition_classification`: `[{"claim":"…","class":"observed"}]`, class ∈ `observed|inferred|normative|unresolved`
+1. **`package_boundary`** — the final determination of the package boundary; `{"packages":[{"path":"…","name":"…"}],"rationale":"…"}`
+2. **`owner_assignment`** — owner assignment; `[{"package":"…","owns":["…"]}]`
+3. **`layer_estimation`** — layer estimation; `[{"package":"…","layer":"…"}]`
+4. **`contract_meaning`** — what a contract means; `[{"contract":"…","meaning":"…"}]`
+5. **`over_splitting`** — the over-splitting decision; `{"decision":"…","rationale":"…"}`
+6. **`proposition_classification`** — the classification of each proposition as observed, inferred, normative or unresolved; `[{"claim":"…","class":"observed"}]`
 
 Writer validates against `schemas/workspacify-reverse-decisions.schema.json`.
 
@@ -103,59 +119,85 @@ Not used by this procedure: `detect`, `scrub [--apply]`, `verify`, `regression <
 
 ## Statuses and gates
 
-Machine vocabulary: `proved` / `not proved` only; never succeeded/failed. Reverse-engineering success is post-loop human judgement.
+Machine vocabulary: `proved` / `not proved` only. "Succeeded" and "failed" are not available to it; reverse-engineering success is a human judgement taken after several loop rounds. Reverse-engineering success is post-loop human judgement.
 
 No refusal gate over subject may exist: incompleteness is input; existing `RFC-ROOT.md`/`Tickets.json` are prior work to read. Frozen forward fixtures are maintainer gate over this repository, never subject precondition. Every gate below is progress gate: reports a Step’s missing output, correction, return Step. `analyze`: 0 published, 1 stage could not run, 2 usage. `gate`: 0 decisions recorded, 1 otherwise.
 
 ## Step 0: identify the input
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs pattern`
+**The purpose of this step**: determine the project pattern mechanically, from the filesystem.
 
-Read filesystem facts: root `*-GRAPH.json`, `*-Dirs-Tree.json`, `Tickets.json`, `RFC-*.md`, per-directory `RFC-SEED.md`, `WORKSPACIFY-*MANIFEST*`; determine pattern. R0 re-derives and publishes `PATTERN.json`.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs pattern`
+
+**Read filesystem facts**: root `*-GRAPH.json`, `*-Dirs-Tree.json`, `Tickets.json`, `RFC-*.md`, per-directory `RFC-SEED.md`, `WORKSPACIFY-*MANIFEST*`; the pattern is decided by their presence and absence. R0 re-derives and publishes `PATTERN.json`.
 
 | Pattern | Input | Must happen |
 |---|---|---|
-| 1 | independently implemented; no conver artifacts | create four layers |
-| 2 | complete root four-layer artifacts | re-instantiate per directory, finer |
-| 3 | partial conver | retain existing; create missing |
-| 4 | empty + long specification | do not enter reverse; enter tree builder directly |
+| Pattern 1 | independently implemented; no conver artifacts | create four layers |
+| Pattern 2 | complete root four-layer artifacts | re-instantiate per directory, finer |
+| Pattern 3 | partial conver | retain existing; create missing |
+| Pattern 4 | empty + long specification | Pattern 4 does not enter through the reverse rotation; enter tree builder directly |
 
-Gate: pattern is mechanically derived, not impression. It is not refusal: patterns 1–3 and `undetermined` run to R8. Fail: read published `PATTERN.json` after Step 2; carry it; Step 1. Record: none.
+**Gate**: pattern is mechanically derived, not impression. It is not refusal: patterns 1–3 and `undetermined` run to R8.
+**If the gate fails**: read published `PATTERN.json` after Step 2; carry it; Step 1.
+**Record**: none.
 
 ## Step 1: record what is already there
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs inventory`
+**The purpose of this step**: record what exists, so prior work is read rather than overwritten.
 
-Read artifacts, ticket lifecycle, `DesignTree.json`, prior partition. Interrupted work: record; never silently continue/delete. Pattern 2/3 root dirs tree: prior, not answer. Gate: material named and counterpart remains on disk; no tidying write. Fail: reread/name disk; Step 0. Record: none.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs inventory`
+
+**Read**: artifacts, ticket lifecycle, `DesignTree.json`, prior partition. Interrupted work: record; never silently continue/delete. Pattern 2/3 root dirs tree: prior, not answer.
+**Gate**: the named material and its counterpart on disk (`DesignTree.json` against its prior) remain; no tidying write.
+**If the gate fails**: reread/name disk; Step 0.
+**Record**: none.
 
 ## Step 2: fix the boundary and the scope
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs analyze`
+**The purpose of this step**: fix the boundary and the scope in one analysis run.
 
-One invocation, fourteen stages, no CLI prefix; run to exit. Gate: exit 0; verdict names destination, stages, docs, assertions; scope records commit/hash, digest exclusions, exclusion rules, permissions, external-transmission policy.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs analyze`
 
-Fail: no prefix, no blind rerun, no partial read. Read stderr stage/input (`root|out|through`)/reason; correct named input, then re-run Step 2 over changed input only. Record: all analysis scope, pattern, structure, dependencies, execution surface, semantics, claim ledger, history, gaps, Red plan, generated properties, serving packet, origin spec, capability profile; one atomic act.
+One invocation, fourteen stages, no CLI prefix; run to exit.
+**Gate**: exit 0 over the `*-GRAPH.json` input; verdict names destination, stages, docs, assertions; scope records commit/hash, digest exclusions, exclusion rules, permissions, external-transmission policy.
+
+**If the gate fails**: no prefix, no blind rerun, no partial read. Return to `## Step 2: fix the boundary and the scope` once the named input has changed. Read stderr stage/input (`root|out|through`)/reason, correct that input, and re-run over the changed input only.
+**Record**: all analysis scope, pattern, structure, dependencies, execution surface, semantics, claim ledger, history, gaps, Red plan, generated properties, serving packet, origin spec, capability profile; one atomic act.
 
 ## Step 3: reach the exit
 
-Order: `r0, r0.5, r2.5, r1, r2, r3, r3.5, r4, r5, r5.5, r6, r6.5, r7, r8`; dependency order, not numeric order.
+**The purpose of this step**: reach the exit, where every stage completes and every document publishes once.
 
-Mechanical facts:
+r0, r0.5, r2.5, r1, r2, r3, r3.5, r4, r5, r5.5, r6, r6.5, r7, r8
+
+Dependency order, not numeric order: R2.5 runs before R1 and R2 because publishing is atomic. A stage identifier is written lowercase because it is the identifier the command line matches, and uppercase is the label a reader sees.
+
+**Mechanical facts**:
 - Every stage completes; target re-digest; all documents publish once. Stop → no partial document/no cleanup state.
-- CLI has no prefix instrument. `analyzeProject(... through ...)` is API-only; never use it here.
-- Pre/post digest target. Any byte outside reserved destination → refuse publish. No stage writes target tree.
+- No command-line prefix instrument: `analyzeProject(... through ...)` is API-only; never use it here.
+- Publishing is atomic: the entrance digests the tree before and after, and a single byte moved outside the reserved destination refuses publication. No stage writes target tree.
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs status`
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs status`
 
-Gate: read `ANALYSIS-SCOPE.json` before all else; confirm both origin files present. Fail: Step 2; no prefix or cleanup. Record: none.
+**Gate**: read `ANALYSIS-SCOPE.json` before all else; confirm both origin files present.
+**If the gate fails**: Step 2; no prefix or cleanup.
+**Record**: none.
 
 ## Step 4: read the material in the order it is needed
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs status`
+**The purpose of this step**: read the material in the order the decisions need it.
 
-Read non-empty: `R0-R2-REPORT.md` (boundary/structure/dependencies/execution/attempt ledger; distinguishes `extracted_count:0` found-none from could-not-analyse); `CLAIM-LEDGER.json` (claims/evidence independence); `R7-SERVING.md` (unsettled question); `ORIGIN-LONG-SPEC.md` (all six/falsification); `CAPABILITY-PROFILE.json` (five proof limits; no eligibility verdict). `status` exit validates exit documents, not this five-document gate. For every decision-touching claim: open named `file:line` and surrounding source. Gate: all five present/non-empty. Fail: Step 2. Record: none.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs status`
+
+**Read non-empty**: `R0-R2-REPORT.md` (boundary/structure/dependencies/execution/attempt ledger; distinguishes `extracted_count:0` found-none from could-not-analyse); `CLAIM-LEDGER.json` (claims/evidence independence); `R7-SERVING.md` (unsettled question); `ORIGIN-LONG-SPEC.md` (all six/falsification); `CAPABILITY-PROFILE.json` (five proof limits; no eligibility verdict). `status` exit validates exit documents, not this five-document gate. For every decision-touching claim: open named `file:line` and surrounding source.
+**Gate**: all five documents present and non-empty (`R0-R2-REPORT.md` first).
+**If the gate fails**: Step 2.
+**Record**: none.
 
 ## Step 5: decide the partition
+
+**The purpose of this step**: decide the partition, as exactly six answers the writer records.
 
 Create exactly one JSON object with exactly six keys; writer, never hand-write destination.
 
@@ -163,14 +205,20 @@ Create exactly one JSON object with exactly six keys; writer, never hand-write d
 {"package_boundary":{"packages":[{"path":".","name":"root"}],"rationale":"…"},"owner_assignment":[{"package":".","owns":["…"]}],"layer_estimation":[{"package":".","layer":"…"}],"contract_meaning":[{"contract":"…","meaning":"…"}],"over_splitting":{"decision":"…","rationale":"…"},"proposition_classification":[{"claim":"…","class":"observed"}]}
 ```
 
+**Run**:
+
 ```bash
 node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<path>
 node .claude/scripts/workspacify-reverse/run.mjs gate
 ```
 
-Gate: all six beside their material in `DECISIONS.json`; gate 0. Grounds include R2 cohesion, dependency density, SCC condensation, co-change history, boundary-crossing calls. Missing/extra/invalid → whole refusal/no partial write. Fail: missing answer → change answers, Step 5; missing material → Step 2. Record `DECISIONS.json`.
+**Gate**: all six beside their material in `DECISIONS.json`; gate 0. Grounds include R2 cohesion, dependency density, SCC condensation, co-change history, boundary-crossing calls. Missing/extra/invalid → whole refusal/no partial write.
+**If the gate fails**: missing answer → change answers, Step 5; missing material → Step 2.
+**Record**: `DECISIONS.json`.
 
 ## Step 6: author the design semantics
+
+**The purpose of this step**: author one reading or reasoned decline for every package and item cell.
 
 Unit: every package × every 21 items. Every cell: reading or reasoned decline; `N/A`/`none` refused. Reading is inference, not measurement; `basis` is existing measured-claim-id array; falsification is executable `file:line` or command; no measurement repetition, duplicate cell sentence, or reopening claim via id/type/evidence.
 
@@ -183,11 +231,17 @@ node .claude/scripts/workspacify-reverse/run.mjs readings --scope=src/api --item
 {"readings":[{"scope":"src/api","item":"purpose","statement":"src/api owns the request lifecycle, so no caller outside it observes a half-built request","falsification":"publish a request from src/state before the guard at src/api/login.rs:7 returns, then observe consumer state","basis":["clm-login-boundary_crossing-1"]}],"declined":[{"scope":"src/build","item":"concurrency","reason":"single-threaded; no concurrent state"}]}
 ```
 
-Re-read source where basis changed. Run: `node .claude/scripts/workspacify-reverse/run.mjs analyze --semantics=<path>`. Gate: 0; all cells closed/bases resolve; `clm-design-*` claims under packages; design-semantics section records readings/declines. Fail: correct named cell/rule/action, then rerun after file changes; no partial publish. Record readings file/destination.
+Re-read source where basis changed.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs analyze --semantics=<path>`.
+**Gate**: 0; all cells closed/bases resolve; `clm-design-*` claims under packages; design-semantics section records readings/declines.
+**If the gate fails**: correct named cell/rule/action, then rerun after file changes; no partial publish.
+**Record**: readings file and destination.
 
 ## Step 7: inspect, repair and reinforce the semantics
 
-For each cell: `node .claude/scripts/workspacify-reverse/run.mjs readings --scope=<path> --item=<key>`; open anchored source. Locator window is not evidence. Judge code truth, correct invariant/owner/counterpart, and uncaught reader obligation. Repair false/thin reading or dishonest decline.
+**The purpose of this step**: inspect, repair and reinforce each reading against the source it names.
+
+**Run**: for each cell, `node .claude/scripts/workspacify-reverse/run.mjs readings --scope=<path> --item=<key>`; open anchored source. Locator window is not evidence. Judge code truth, correct invariant/owner/counterpart, and uncaught reader obligation. Repair false/thin reading or dishonest decline.
 
 Repair evidence: record repaired cell, inspected source, locator `file:line`. Changed wording without opening described source is rewording, not repair.
 
@@ -196,29 +250,46 @@ node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<same path>
 node .claude/scripts/workspacify-reverse/run.mjs gate
 ```
 
-Gate: readings 0 and gate 0. Semantics analyze erased destination; `DECISIONS.json` is not published; re-run decide. Fail: open cell → Step 6 after correction; red gate → Step 7, same answers. Record repaired file/cell/source anchor.
+**Gate**: readings 0 and gate 0. Semantics analyze erased destination; `DECISIONS.json` is not published; re-run decide.
+**If the gate fails**: open cell → Step 6 after correction; red gate → Step 7, same answers.
+**Record**: repaired file, cell and source anchor.
 
 ## Step 8: record the seam
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs seam`
+**The purpose of this step**: record the seam between the prior partition and this one.
 
-Pattern 1: no seam; skip Step 9. Patterns 2/3: retain old partition, work in flight, bidirectional difference; never eliminate to tidy. Old root dirs tree is prior, not answer. Gate: readable prior root tree and fixed destination spec; seam 0 in both directions. Fail: repair/move named corrupt partition then Step 8; same bytes do not help. If immovable, record uncomputable seam; never guess. Record no disk artifact here; downstream reverse tree builder publishes `ARCHITECTURE-DELTA.json`.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs seam`
+
+Pattern 1: no seam; skip Step 9. Patterns 2/3: retain old partition, work in flight, bidirectional difference; never eliminate to tidy. Old root dirs tree is prior, not answer.
+**Gate**: the prior root `DesignTree.json` is readable and the destination spec is fixed; seam 0 in both directions.
+**If the gate fails**: repair/move named corrupt partition then Step 8; same bytes do not help. If immovable, record uncomputable seam; never guess. 
+**Record**: no disk artifact here; downstream reverse tree builder publishes `ARCHITECTURE-DELTA.json`.
 
 ## Step 9: hand over
 
-Run: `node .claude/scripts/workspacify-tree/run.mjs reverse`
+**The purpose of this step**: hand over to the reverse tree builder.
 
-Reverse tree builder consumes reserved Markdown. Bare tree builder is forward mode; never use it here. Responsibility ends here; do not run/wait for allocator or inner loops. Gate: both origin files and accepted decisions beside them. Fail: Step 2. No separate human norm-setting stage; later unresolved answers return by residual → grill → RFC path. Record none.
+**Run**: hand over to the reverse tree builder.
+
+Build it with `node .claude/scripts/workspacify-tree/run.mjs reverse`: the reverse tree builder consumes reserved Markdown. Bare tree builder is forward mode; never use it here. Responsibility ends here; do not run/wait for allocator or inner loops.
+**Gate**: both origin files and `DECISIONS.json` beside them.
+**If the gate fails**: Step 2. No separate human norm-setting stage; later unresolved answers return by residual → grill → RFC path.
+**Record**: none.
 
 ## Step 10: report
 
-Run: `node .claude/scripts/workspacify-reverse/run.mjs report`
+**The purpose of this step**: report the stage list, the destination and the verdict.
 
-Report/gate only: stage list, destination, `proved|not proved`; nothing else. Fail: empty destination → Step 2; absent required report field → reread exit/verdict; report only known field; Step 10 after destination change. Unreadable root: report path, not bare errno. Empty target: explicit empty origin spec. Record none.
+**Run**: `node .claude/scripts/workspacify-reverse/run.mjs report`
 
+Report/gate only: stage list, destination, `proved|not proved`; nothing else.
+**If the gate fails**: empty destination → Step 2; absent required report field → reread exit/verdict; report only known field; Step 10 after destination change. Unreadable root: report path, not bare errno. Empty target: explicit empty origin spec.
+**Record**: none.
+
+**Gate**: `ORIGIN-LONG-SPEC.json` and the rendered Markdown exist at the destination.
 ## The terminal state this command serves
 
-Not reached here. Downstream terminal state: every package including root `.` has complete four-layer set (`RFC-<PKG>.md`, graph, dirs tree, `Tickets.json`, three graphify/boundify/split status files); one `RFC-SEED.md` per package; root `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json`, `ARCHITECTURE-DELTA.json`; every inconsistency named/located, never silently preferred. `lib/terminal-state.mjs` measures whole chain under downstream gates. Do not declare terminal correctness from complete package set.
+Not reached here. Downstream terminal state: every package including root `.` has complete four-layer set (`RFC-<PKG>.md`, graph, dirs tree, `Tickets.json`, three graphify/boundify/split status files); one `RFC-SEED.md` per package; root `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json`, `ARCHITECTURE-DELTA.json`; every inconsistency is recorded and located, never silently preferred; the partition is explicit. `lib/terminal-state.mjs` measures whole chain under downstream gates. Do not declare terminal correctness from complete package set.
 
 ## What this command cannot yet reach
 
@@ -235,6 +306,8 @@ Closure is measured, not remembered: `tests/workspacify-reverse/helpers/module-c
 Treat absences/exclusions, never subject findings. First two: complete R8 run with fewer sections. Last three: decisions, not debts.
 
 ## Error recovery
+
+The loop rule: A Step is re-entered only after something it reads has changed. Unfinished work, an ambiguous reading or a failed stage is never a reason to end the run without the origin spec.
 
 Re-enter Step only after an input it reads changes. Same bytes → same finding, not retry. Change named tree, answers file, partition document, or CLI option. If no mutable named input, proceed through Step that can publish reachable analysis; record what it cannot. Finding never ends run before origin spec.
 
@@ -260,5 +333,7 @@ Loop ends when both origin files exist in reserved destination and `gate` 0 over
 - No subject-refusal gate
 
 ## Definition of success
+
+The loop does not end before the origin spec is published. A report that reverse engineering could not be carried out is not this command's outcome at all.
 
 Success is both: (1) complete analysis—R8 reached; origin spec/sidecar published; Markdown round-trips; gate records six decisions—and (2) forward rotation untouched—frozen fixtures still reproduce; gate remains `proved`. Neither optional; stopped analysis is not smaller success; cannot-complete report is not outcome. Only origin spec at destination closes work.

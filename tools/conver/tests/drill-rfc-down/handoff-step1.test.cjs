@@ -1,3 +1,4 @@
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 /**
  * handoff-step1.test.cjs — Verifies the handoff doc section 5 reflects the implemented Step 1
  *
@@ -13,7 +14,8 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const HANDOFF = path.resolve(__dirname, '../../docs/drill-rfc-down-implementation-handoff.md');
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+const HANDOFF = path.resolve(__dirname, '../../docs/archive/drill-rfc-down-implementation-handoff.md');
 const md = fs.readFileSync(HANDOFF, 'utf8');
 
 describe('handoff doc section 5 (Step 1: grill)', () => {

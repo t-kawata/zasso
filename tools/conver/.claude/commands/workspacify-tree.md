@@ -104,7 +104,7 @@ Purpose: decide workspace split, owners, permitted dependencies; encode machine-
 6. Approval register: every judgement grounds in `approvals` (`decisionId|rationale|approver`)
 7. Final semantic approval: check every checklist item; only then record `{status:"APPROVED",statement,approver}`; otherwise redesign
 
-Write staging decision only at derived fixed `workspacify/tree/DECISIONS.json` beneath workspace root; no argument/env/pre-existing file relocates it. Validate `schemas/workspacify-tree-decisions.schema.json`. It is staging, not record: success finalize sweeps it and empty containing dirs; refusal preserves it for repair.
+Write staging decision only at derived fixed `workspacify/tree/DECISIONS.json` beneath workspace root; no argument/env/pre-existing file relocates it. Validate `schemas/workspacify-tree-decisions.schema.json`. It is the authored input of record: both refusal and success preserve it, and its containing directory.
 
 ```json
 {"workspace":[{"id":"pkg-0001","name":"alpha-protocol","path":"crates/protocol/alpha","layer":"protocol","kind":"production-library","responsibilities":["owns alpha records and validity"],"seed_required":true,"owns":{"objects":["obj-000001"],"claims":[],"invariants":["req-000001"],"state_machines":[],"error_codes":[],"required_tests":[]}}],"tree":[{"name":"crates","path":"crates","kind":"dir","children":[]}],"ownership":[{"objectId":"obj-000001","packageId":"pkg-0001"}],"dependencies":[],"boundaries":[],"adapters":{"ports":[],"databasePolicy":{"applicable":false}},"approvals":[{"decisionId":"obj-000001","rationale":"domain record; confirmed object","approver":"ai-session"}],"semantic_review":{"status":"APPROVED","statement":"ownership, DB policy, boundaries, order, over-splitting checked","approver":"ai-session"}}
@@ -193,8 +193,7 @@ Mechanical prohibitions and Step-3 design guidance are exhaustive; add no discre
 Both: AI final semantic approval (`semantic_review.status=="APPROVED"`) and every machine gate PASS/unresolved review 0. Neither alone suffices. Final confirmation: reload manifest; schema/required values/self-hash; semantic-review record; stage-two entry-gate acceptance invoked by finalize.
 
 ## Reverse mode (T1 to T6)
-
-Runs only when `reverse-decisions-mode` holds. Forward invokes finalize; absent/empty/unrecognized mode resolves FORWARD; this section cannot fire forward.
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. Forward invokes finalize; absent/empty/unrecognized mode resolves FORWARD; this section cannot fire forward.
 
 Role: existing substantial implementation requires measured-tree grounding; preserve physical layout exactly; maintain logical architecture separately; record technical debt, never canonize it as designed. Invoke `run.mjs reverse`; subject=current directory only.
 
@@ -203,7 +202,7 @@ Role: existing substantial implementation requires measured-tree grounding; pres
 - Root graph: `RFC-ROOT-GRAPH.json`; layer seam: `RFC-ROOT-Dirs-Tree.json`; omitted measurement ≠ empty measurement; T3/T4 distinguish
 - Root holds manifest and `ARCHITECTURE-DELTA.json`; never build workspace under reserve
 - Refuse whole token, never ignore: `--spec|--graph|--measured|--sidecars|--root|--delta|--out|--prior-partition|decisions argument`
-- Decisions: fixed `workspacify/tree/DECISIONS.json`; read once; success sweeps it
+- Decisions: fixed `workspacify/tree/DECISIONS.json`; read once; retained after success
 - No dialogue/env/hook/external fetch
 
 Forward G0–G5 unchanged; then T1–T6:

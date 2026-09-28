@@ -32,31 +32,30 @@ const { execFileSync } = require('child_process');
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-/** Generate a slug (kebab-case) from a title */
-function generateSlug(title) {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 80);
-}
-
 /** Extract a numeric ID from a ticket key */
 function extractTicketId(ticketKey) {
   const match = ticketKey.match(/(\d+)$/);
   return match ? parseInt(match[1], 10) : null;
 }
 
-/** Derive spec file path from a ticket key and title (new naming convention) */
-function resolveSpecPath(ticketKey, title) {
-  const id = extractTicketId(ticketKey);
-  if (id === null) return null;
-  const slug = generateSlug(title || '');
-  // Resolve specs directory relative to a conventional tickets/ directory
-  const cwd = process.cwd();
-  const ticketsDir = cwd.includes('tickets') ? cwd : path.resolve(cwd, 'tickets');
-  const specsDir = path.resolve(ticketsDir, 'specs');
-  return path.resolve(specsDir, id + '-' + slug + '.md');
+/**
+ * Derive the spec file path for a ticket key.
+ *
+ * The specs directory sits beside Tickets.json, and every spec in it is named by its
+ * ticket key. Both facts are the ones `lib/resolve-spec-path.js` already applies for the
+ * exporters that read a written spec, so this function applies them rather than deriving
+ * a second address: a private spelling here is what put a generation of specs under a
+ * `tickets/specs/` directory nothing else looked in, named after a slug of the
+ * Tickets.json path rather than after the ticket.
+ *
+ * @param {string} ticketKey - "P{phaseId}-{ticketId}" or "PX-{ticketId}"
+ * @param {string} ticketsPath - path to Tickets.json
+ * @returns {string|null} absolute spec path, or null when the key carries no ticket id
+ */
+function resolveSpecPath(ticketKey, ticketsPath) {
+  if (extractTicketId(ticketKey) === null) return null;
+  const specsDir = path.resolve(path.dirname(path.resolve(ticketsPath)), 'specs');
+  return path.resolve(specsDir, ticketKey + '.md');
 }
 
 /** Parse command-line arguments */
@@ -183,4 +182,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, main, resolveSpecPath, generateSlug, extractTicketId };
+module.exports = { parseArgs, main, resolveSpecPath, extractTicketId };

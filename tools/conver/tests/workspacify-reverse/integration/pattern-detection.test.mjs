@@ -39,7 +39,8 @@ import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const PATTERNS_FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/patterns');
-const DESIGN_DOCUMENT = join(PROJECT_ROOT, 'docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+const DESIGN_DOCUMENT = join(PROJECT_ROOT, 'docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const SCOPE_MODULE = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib/scope.mjs');
 
 /**
@@ -227,9 +228,9 @@ test('IT: the pipeline walks the tree once, and this is what would catch a secon
     'one call in the pipeline, and the classification default that call satisfies — a third would be a second walk',
   );
   assert.match(source, /classifyArtefacts\(\{[^}]*artefacts[^}]*\}\)/, 'the boundary is handed the walk, not left to take its own');
-  // P26-3 routed both call sites through one function: the identification is still handed
-  // the walk rather than taking its own, and the name now says it is the directory-level
-  // entry point.
+  // P26-3 routed both call sites through one shared entry: the identification is still
+  // handed the walk rather than taking its own, and the name now says it is the
+  // directory-level entry point of the classification.
   assert.match(source, /detectPatternAt\([^)]*artefacts[^)]*\)/, 'and so is the identification');
 });
 

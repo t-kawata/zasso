@@ -6,9 +6,9 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (`/workspacify-*`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /start-ticket
 
@@ -18,13 +18,13 @@ Strictly prohibit questions, confirmations, approvals, options, and human decisi
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Position in the Workflow
 

@@ -165,10 +165,11 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     assert.deepEqual(allocateManifest.source_coverage.material_segments.sort(), material.map((segment) => segment.id).sort());
     assert.deepEqual(allocateManifest.source_coverage.non_material_segments.sort(), prose.map((segment) => segment.id).sort());
     assert.deepEqual(allocateManifest.implementation_order.serial, ['pkg-a', 'pkg-b']);
-    // The residue is the published set plus the pre-existing files, and nothing
-    // else: both staging documents were swept, and the reserve with them.
+    // The residue is the published set plus the pre-existing files plus the reserve
+    // that holds the decisions document the run read: staging is swept, the authored
+    // input of record is not.
     assert.deepEqual(readdirSync(dir).sort(), [
-      'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'crates', 'spec.md',
+      'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'crates', 'spec.md', 'workspacify',
     ]);
 
     // The seeds carry the contract on both sides and reference the published manifest.

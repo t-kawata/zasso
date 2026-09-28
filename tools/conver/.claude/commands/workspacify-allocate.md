@@ -49,7 +49,7 @@ In:
 ## The canonical output and its constraints
 
 Artifacts:
-- staging: scratch/intermediate files; not records; finalizer deletes them after reload verification.
+- staging: scratch/intermediate files; not records; the finalizer removes the staging root after reload verification. The staged decisions document is not staging - it is the authored input of record and is retained.
 - published: directory tree; exactly one `RFC-SEED.md` per package; one `WORKSPACIFY-ALLOCATE-MANIFEST.json`; all in `workspaceRoot`.
 - allocate manifest: sole machine final authority; proof record, not goal.
 
@@ -57,7 +57,7 @@ Invariants:
 - fresh workspace only: existing target file/symlink/non-empty directory → `BLOCKED`; never merge, overwrite, or delete existing content.
 - each seed: 14 headings; §1/§2/§3/§14 machine-injected; AI writes §4–§13 only.
 - §1 has source-spec, stage-1-manifest, stage-2-manifest references; stage-2 reference is canonical path only, never its hash.
-- success residue: only published kinds plus pre-existing files.
+- success residue: published kinds, the retained decisions document, plus pre-existing files.
 
 ## The hand-off contract from stage one (the assumptions on the receiving side)
 
@@ -188,7 +188,7 @@ Before `APPROVED`, judge all:
 - no over-splitting/unnatural boundary; if found, return upstream.
 
 Artifacts:
-- decisions: staging, repairable after refusal; finalizer deletes it and empty holder directories only after published-set reload verification.
+- decisions: the authored input of record, repairable after refusal and retained after success; the finalizer leaves the document and its holder directory in place.
 - published allocate manifest: record of approved/applied semantics.
 
 ## Step 4: the gate loop (G3/G4/G5/order)
@@ -225,7 +225,7 @@ Publish:
 2. verify staged set: planned directories, all seeds, nothing beyond manifest.
 3. atomic rename per top-level entry; rollback on failure.
 4. reload verification.
-5. mechanically delete staging.
+5. mechanically delete the staging root. The decisions document is not staging and is not removed.
 
 Reload verification:
 - rescan tree; parse every seed; extract contracts; rebuild WIG and compare hash; rederive order; reprove coverage; verify manifest self-hash.
@@ -309,7 +309,7 @@ $ node .claude/scripts/workspacify-allocate/run.mjs gate ./WORKSPACIFY-TREE-MANI
 {"status":"COMPLETE","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS semantic:APPROVED"}
 
 $ node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json
-{"published":true,"workspaceRoot":"/work/specs","allocateManifestPath":"/work/specs/WORKSPACIFY-ALLOCATE-MANIFEST.json","allocateManifestHash":"ef56…","residue":["WORKSPACIFY-ALLOCATE-MANIFEST.json","WORKSPACIFY-TREE-MANIFEST.json","crates","spec.md"],"inputManifestHash":"cd34…","directoryCount":7,"packageCount":3,"seedCount":3,"contractCount":2,"waveCount":2,"segmentCoverage":"5/5","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS G6:PASS semantic:APPROVED"}
+{"published":true,"workspaceRoot":"/work/specs","allocateManifestPath":"/work/specs/WORKSPACIFY-ALLOCATE-MANIFEST.json","allocateManifestHash":"ef56…","residue":["WORKSPACIFY-ALLOCATE-MANIFEST.json","WORKSPACIFY-TREE-MANIFEST.json","crates","spec.md","workspacify"],"inputManifestHash":"cd34…","directoryCount":7,"packageCount":3,"seedCount":3,"contractCount":2,"waveCount":2,"segmentCoverage":"5/5","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS G6:PASS semantic:APPROVED"}
 ```
 
 failure stdout: `{status:"FAIL", gateId, reason}`; stderr: human-readable next-action guide.
@@ -374,13 +374,12 @@ This command never starts downstream flows. It settles machine-readable coupling
 All required:
 - `semantic_review.status === "APPROVED"`.
 - every machine gate PASS; zero transfer loss; bilateral contracts; 0 WIG violations; order == stage-1 proof; reload PASS.
-- final rescan; every seed re-parsed/contracts re-extracted; WIG rebuilt; order rederived; manifest self-hash valid; residue only published kinds + pre-existing files.
+- final rescan; every seed re-parsed/contracts re-extracted; WIG rebuilt; order rederived; manifest self-hash valid; residue is the published kinds, the retained decisions document and pre-existing files.
 
 ---
 
 ## Reverse mode (A1 to A6)
-
-Mode: forward | reverse.
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. Mode: forward | reverse.
 - detect once: `reverse-decisions-mode` → reverse; absent/empty/unrecognised → forward; no re-detect.
 - forward: `finalize` from manifest arg.
 - reverse: `run.mjs reverse`; subject = current directory/workspace root.

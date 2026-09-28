@@ -17,13 +17,13 @@ Strictly prohibit questions, confirmations, approvals, options, and human decisi
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Arguments
 

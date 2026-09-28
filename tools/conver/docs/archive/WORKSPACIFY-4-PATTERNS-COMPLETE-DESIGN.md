@@ -114,7 +114,7 @@ Evidence, all from the code:
 | `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:43` — `` path: `${pkg.path}/${SEED_FILE_NAME}` `` |
 | There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:212` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
 | The seed names its package | `seed-render.mjs:76` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
-| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:44` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
+| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:47` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
 | The graph and the Dirs-Tree sit **beside their RFC** | `.claude/commands/boundify-graph.md` — `basename="$(basename "$1" -GRAPH.json)"`, `dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"` |
 | The workspace root **is itself a package**, path `.` | `workspacify-tree/lib/structure-parity.mjs` — `ROOT_PACKAGE_PATH = '.'` (line 69); the comment and the assignment at lines 126–131 read *"A file at the project root is owned by the package whose path is `.` … Without this a project with a root-level `build.rs` could satisfy neither gate"*; `packageOwnsPath` (line 172) treats `.` as owning everything |
 
@@ -701,7 +701,7 @@ think the rows are still there.
 | The analysis does not write to its subject | The run's own digest comparison; plus `git status` clean afterwards |
 | The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 172 |
 | `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:212` |
-| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:44` |
+| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:47` |
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
 | The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:66` |

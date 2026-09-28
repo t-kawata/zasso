@@ -38,7 +38,7 @@ import { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mj
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const RESERVED_ROOT_SOURCE = join(PROJECT_ROOT, '.claude/scripts/workspacify-tree/lib/reserved-root.mjs');
-const DESIGN_PATH = join(PROJECT_ROOT, 'docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+const DESIGN_PATH = join(PROJECT_ROOT, 'docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-tree/fixtures');
 /** The fixture pair that reaches COMPLETE through the forward gates. */
 const SPEC_NAME = 'objects-table.md';
@@ -185,9 +185,10 @@ test('PX-215 / C001 precondition: the derived path is one binding, and nothing o
   );
 });
 
-test('PX-215 / C001 postcondition: gate and finalize complete with no decisions argument, and the staging file is swept', () => {
+test('PX-215 / C001 postcondition: gate and finalize complete with no decisions argument, and the decisions document is retained', () => {
   const subject = createSubject();
   try {
+    const stagedText = readFileSync(subject.decisionsPath, 'utf8');
     const gate = runChain(['gate', `--spec=${subject.specPath}`], subject.root);
     assert.equal(gate.status, 0, gate.text);
     const finalize = runChain(['finalize', `--spec=${subject.specPath}`], subject.root);
@@ -196,13 +197,18 @@ test('PX-215 / C001 postcondition: gate and finalize complete with no decisions 
     assert.equal(existsSync(subject.manifestPath), true, 'the manifest is published at the workspace root');
     assert.equal(
       existsSync(subject.decisionsPath),
-      false,
-      'the staging decisions document is swept once the manifest it produced is published',
+      true,
+      'the decisions document is the authored input of record and survives the run that read it',
+    );
+    assert.equal(
+      readFileSync(subject.decisionsPath, 'utf8'),
+      stagedText,
+      'and it survives byte-identical, so the workspace stays reproducible from its own inputs',
     );
     assert.equal(
       existsSync(join(subject.root, RESERVED_ROOT_NAME, RESERVED_TREE_SUBDIRECTORY)),
-      false,
-      'the directory that held nothing but staging goes with it, so the residue is the published set',
+      true,
+      'its holder directory survives with it, so the residue reports the reserve rather than the published set alone',
     );
   } finally {
     subject.dispose();

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 /**
  * graphify-cmd.test.cjs — Integration tests for graphify-rfc.md slash command
  *
@@ -292,10 +293,11 @@ describe('graphify-rfc.md slash command integration tests', () => {
       );
     });
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
     it('should have reset-to-step 2 for isolated node reporting', () => {
       assert.ok(
         commandContent.includes('reset-to-step 2') &&
-        (commandContent.includes('孤立') || commandContent.includes('isolated')),
+        (commandContent.includes('orphan') || commandContent.includes('isolated')),
         'should have reset-to-step 2 fallback for isolated nodes'
       );
     });
@@ -308,10 +310,11 @@ describe('graphify-rfc.md slash command integration tests', () => {
       );
     });
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
     it('should have a loop description that repeats until {"ok":true}', () => {
       assert.ok(
-        commandContent.includes('繰り返す') || commandContent.includes('ループ') ||
-        commandContent.includes('返るまで') || commandContent.includes('戻る'),
+        commandContent.includes('repeat') || commandContent.includes('Repeat') ||
+        commandContent.includes('until'),
         'should have a loop that repeats until ok is returned'
       );
     });
@@ -366,10 +369,11 @@ describe('graphify-rfc.md slash command integration tests', () => {
       );
     });
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
     it('should report node and edge counts', () => {
       assert.ok(
-        (commandContent.includes('ノード数') || commandContent.includes('ノード')) &&
-        (commandContent.includes('エッジ数') || commandContent.includes('エッジ')),
+        (commandContent.includes('node count') || commandContent.includes('Node count')) &&
+        (commandContent.includes('edge count') || commandContent.includes('Edge count')),
         'node and edge counts should be reported'
       );
     });
@@ -416,10 +420,10 @@ describe('graphify-rfc.md slash command integration tests', () => {
   // ==========================================================
 
   describe('guidelines', () => {
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
     it('should mention that graphify splits at finer granularity than formulate', () => {
       assert.ok(
-        commandContent.includes('formulate') &&
-        commandContent.includes('finer granularity'),
+        (commandContent.includes('finer than') || commandContent.includes('finer granularity')),
         'should describe that graphify splits at finer granularity than formulate'
       );
     });

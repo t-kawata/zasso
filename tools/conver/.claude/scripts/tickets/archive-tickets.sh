@@ -27,9 +27,12 @@ cp "$PROJECT_ROOT/tickets/queue.md" "$ARCHIVE_DIR/queue.md"
 # ----------------------------------------------------------
 # 3. Recursively copy all files in specs/
 #    Skip if directory is empty (checked via ls exit code)
+#    specs/ sits beside Tickets.json, not under tickets/: the
+#    tickets/specs/ directory this once read was never the
+#    convention and has been removed.
 # ----------------------------------------------------------
-if ls "$PROJECT_ROOT/tickets/specs/"* >/dev/null 2>&1; then
-    cp -r "$PROJECT_ROOT/tickets/specs/"* "$ARCHIVE_DIR/specs/"
+if ls "$PROJECT_ROOT/specs/"* >/dev/null 2>&1; then
+    cp -r "$PROJECT_ROOT/specs/"* "$ARCHIVE_DIR/specs/"
 fi
 
 # ----------------------------------------------------------
@@ -45,10 +48,10 @@ fi
 # 5a. queue.md: keep only the header line
 echo "# Ticket Queue" > "$PROJECT_ROOT/tickets/queue.md"
 
-# 5b. specs/: delete all files
-if ls "$PROJECT_ROOT/tickets/specs/"* >/dev/null 2>&1; then
-    rm -f "$PROJECT_ROOT/tickets/specs/"*
-fi
+# 5b. specs/: nothing to clear.
+#     The archive above is a copy, not a move: a spec is the durable record of what a
+#     ticket was asked to do, so emptying the directory would destroy the record the
+#     archive exists to preserve. Only the queue working area is cleared.
 
 # 5c. context/: delete all directories
 if ls "$PROJECT_ROOT/tickets/context/"* >/dev/null 2>&1; then

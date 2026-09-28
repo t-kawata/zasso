@@ -15,12 +15,24 @@ const PROJECT_ROOT = process.env.TICKETS_PROJECT_ROOT
   : path.resolve(__dirname, '../../..');
 const TICKETS_DIR = path.resolve(PROJECT_ROOT, 'tickets');
 
+/**
+ * Where spec files live: beside Tickets.json, not beneath `tickets/`.
+ *
+ * `tickets/` was the drafts-and-queue working area, and a generation of specs was
+ * written under `tickets/specs/` because of that neighbourhood. The directory was
+ * never the convention: `lib/resolve-spec-path.js` resolves a ticket's spec beside
+ * Tickets.json, `create-spec.js` derives the same place from `dirname(ticketsPath)`,
+ * and every spec on disk is named by its ticket key. `TICKETS_DIR` keeps its other
+ * roles; only the specs directory moves out of it.
+ */
+const SPECS_DIR = path.resolve(PROJECT_ROOT, 'specs');
+
 /** @returns {{ ticketsDir: string, specsDir: string, contextDir: string, draftsDir: string, queueFile: string, backupDir: string, review: object }} */
 function loadConfig() {
   return {
     // Directory/file paths (all resolved absolutely relative to __dirname)
     ticketsDir: TICKETS_DIR,
-    specsDir: path.resolve(TICKETS_DIR, 'specs'),
+    specsDir: SPECS_DIR,
     contextDir: path.resolve(TICKETS_DIR, 'context'),
     draftsDir: path.resolve(TICKETS_DIR, 'drafts'),
     queueFile: path.resolve(TICKETS_DIR, 'queue.md'),
