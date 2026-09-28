@@ -1,103 +1,89 @@
 # Supreme law
 
-All code in this project is subject to the following non-negotiable supreme laws.
+All code in this project is subject to these non-negotiable laws.
 
-## 1. Implementation Order — "TDD Red-Green-Refactor" is the mandatory engineering process
+## 1. TDD Red-Green-Refactor — mandatory, strict order
 
-Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.
+no skip, reorder, or parallel execution.
 
-### 1.1 Red — Fully Implement Failing Tests
+Flow:
+1. **Red** — write failing tests first.
+   contract: 100% coverage of Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, Invariants (7 elements; partial = unacceptable).
+   contract: if ticket defines Contracts (Pre/Post/Invariant from graph edge) → translate each into testable form (input schema, output assertion, invariant predicate) before coding it; untestable Contract = not yet fully specified.
+   judge: deterministic-but-untestable feature → architectural defect, not a test gap. Redesign until testable before implementing.
+   gate: confirm every test fails red for the right reason (absence of implementation). Accidental-green (meaningless assertion) tests are invalid.
+2. **Green** — implement behavior, not test-passing as an end.
+   prohibition: hardcoding, input-specific branching, stubbed returns that merely satisfy literal test wording.
+   judge: if genuine-vs-disguised-green is indistinguishable by testing, coverage is insufficient — add tests until distinguishable before proceeding.
+   prohibition: modifying, deleting, or weakening tests to pass. Implementation conforms to tests, never the reverse.
+   invariant: an implementation whose correctness cannot be proven is invalid until restructured into provably-correct form.
+3. **Refactor** — green state only; refactor-in-red is prohibited.
+   contract: apply Boy Scout Rule — eliminate `unwrap()`, hardcoded values, false comments, untested code in anything touched.
+   Heal-loop: check green before and after each refactor step; break → roll back immediately.
 
-Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec's **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.
+Note: a Green failure (disguised green, test tampering) is not a retry target — it means Green was never validly reached. There is no "back to Red" edge; more tests are added to the same Red set (see Green's judge line above).
 
-When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), the Red phase must first translate each Contract into testable form — input schemas, output assertions, and invariant predicates — before implementing them as concrete test code. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified.
-
-- Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.
-- If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.
-- Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.
-
-### 1.2 Green — Implement Behavior (No Stubs, No Test Modification)
-
-Implement the **behavior** specified by the tests; do not treat passing the tests as an end in itself. Tests are a means of verifying correctness, not the goal itself.
-
-- Implementations that merely satisfy the literal wording of tests—via hardcoding, input-specific branching, or stubbed return values—are prohibited. The implementation must be a generalized, correct solution.
-- If it is impossible to distinguish, via testing, whether an implementation is genuine or a disguised green, this indicates a design flaw caused by insufficient coverage. Add tests until the distinction is possible before proceeding with implementation.
-- Modifying, deleting, or weakening tests to make an implementation pass is strictly forbidden. The implementation must conform to the tests; the reverse is never acceptable.
-- An implementation whose correctness cannot be proven is invalid. It is not considered complete until it (or its design) is restructured into a provably correct form.
-
-### 1.3 Refactor — Apply the Boy Scout Rule (Green State Only)
-
-Refactor only after all tests are green. Refactoring in a red state is prohibited.
-
-- Apply the Boy Scout Rule (leave the code cleaner than you found it; readability = translatability) to eliminate `unwrap()` calls, hardcoded values, false comments, and untested code in anything you touch.
-- Verify that all tests remain green before and after each refactoring step. If a refactor breaks green, roll it back immediately.
-
-### Definition of Done
-
-Implementation is considered incomplete unless all of the following are satisfied:
-
-- The tests fully and precisely specify the intended behavior.
-- The implementation passes all tests green, without exception.
-- Correctness is empirically guaranteed by the tests (not a disguised green).
-- No gap exists between test coverage and intended behavior.
-
-Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.
+Criteria — Definition of Done (all must pass):
+| id | check | fail pattern |
+|---|---|---|
+| D1 | tests fully/precisely specify intended behavior | ambiguous or partial spec coverage |
+| D2 | all tests pass green, no exception | selective/skipped tests reported as done |
+| D3 | correctness empirically guaranteed, not disguised green | green via hardcode/stub/branch |
+| D4 | zero gap between test coverage and intended behavior | untested behavior treated as out of scope |
+| D5 | green reached without modifying/weakening tests | green-via-test-edit |
+| D6 | green reached without stubs | green-via-stub |
 
 ## 2. No-Justification Rule
 
-Code must justify itself. If you need a paragraph-long comment to explain why a workaround is acceptable, the code is wrong — fix the code, do not document the workaround. A long explanatory comment is an admission that the code is broken. Refactor instead.
+prohibition: a paragraph-long comment excusing a workaround means the code is wrong. Fix the code; do not document around it.
 
-## 3. MANDATORY STUB RESOLUTION
+## 3. Mandatory stub resolution — opportunistic trigger
 
-If you encounter a `[::STUB::]` marker whose dependencies have been resolved during implementation, resolve it immediately (replace with real implementation) even if it was not in the plan. If resolution is impossible, leave the `[::STUB::]` marker with the reason and record it in the implementation summary.
+trigger: during implementation, a `[::STUB::]` marker's dependencies become resolved.
+gate: resolve it immediately — replace with the real implementation — even if this was not in the plan.
+fail (resolution impossible): leave the `[::STUB::]` marker with the reason, and record it in the implementation summary.
 
-## 4. ABSOLUTE PROHIBITION — NEVER DELETE OR EDIT THE `Initial Design Artifact` HEADER
+## 4. Initial Design Artifact header — absolute prohibition
 
-Files generated by `/boundify-graph` carry a header beginning with `Initial Design Artifact — RFC-driven Implementation`. That header is the heart of design traceability and the bloodstream of provenance information — it encodes the link between every implementation file and its originating RFC graph node. You must NEVER delete, alter, or comment out this header under any circumstances. Violation of this rule severs the traceability chain and is a critical defect.
+Files generated by `/boundify-graph` carry a header beginning `Initial Design Artifact — RFC-driven Implementation`. It encodes the link between every implementation file and its originating RFC graph node.
+prohibition (absolute): never delete, alter, or comment out this header. Violation severs the traceability chain — critical defect.
 
 # Project Instructions
-
-## Project Overview
-
-<!-- MUST-WRITE -->
-
-### Technology Stack
-
-<!-- MUST-WRITE -->
 
 ## Language Protocol
 
 | Context | Language | Reason |
 |---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Chat, proposals, explanations | **Japanese** | mandatory ONLY when addressing the user directly |
+| Code comments | **English** | language AI understands most reliably |
+| Design docs, plans, tasks | **English** | language AI understands most reliably |
+| Runtime logs (`log::info!`, etc.) | **English** | international debugging environment and searchability |
+| Everything else — any context not addressing the user | **English** | language AI understands most reliably |
 
-## Everything as Code — Comments are first-class citizens
+## Comments are first-class citizens
 
-All comments are **part of the code** and must be written and maintained with the same rigor as the code itself. Follow these principles:
+Criteria (all apply):
+| id | check | fail pattern |
+|---|---|---|
+| M1 | comment carries weight — explains intent/constraint/context code alone can't | trivial paraphrase (`// i++ // increment i`) |
+| M2 | comment agrees with the code | comment and code contradict — comment is wrong regardless |
+| M3 | comment updated when code changes | stale comment (= a bug) |
+| M4 | comment change reviewed like any code change | unreviewed comment edit |
+| M5 | comment on ticket-modified code carries provenance | no ticket-key + runnable design-context command |
 
-1. **Comments must carry their weight**: A comment exists to explain intent, constraints, and context that cannot be expressed in code alone. Trivial paraphrases like `// i++  // increment i` are forbidden.
-2. **Comments must not lie**: The moment a comment and the code contradict each other, the comment is wrong. A lying comment damages code quality more than the code error itself.
-3. **Comments must not rot**: When you change code, update the corresponding comments at the same time. A stale comment is a bug.
-4. **Comments are review subjects**: Adding or modifying a comment must pass code review, just like any code change.
-5. **Comments must encode provenance**: Source code modified under a ticket must carry an annotation pairing the ticket key with an executable command that retrieves its full design context. This makes the link between code and its originating design self-contained and verifiable — a runnable pointer that guarantees traceability.
-
-"It compiles, ship it" is not acceptable. A complete implementation must also convey its intent accurately.
+prohibition: "it compiles, ship it" is not acceptable — intent must also be conveyed.
 
 ## Readability is Translatability
 
-**Source code is executable prose.** Readability is measured by whether the code can be read top-to-bottom and translated line-by-line into natural language (Japanese, English, or any other) as a complete text.
+contract: source code is executable prose; readable iff top-to-bottom line-by-line translatable into natural language.
 
-### Functions are verbs, classes are nouns, modules are paragraphs
+| unit | role |
+|---|---|
+| functions | verb phrases (`execute`, `validate`, `transform`); call sequence tells the flow |
+| classes/structs | nouns (`User`, `AuthToken`, `Config`); structure expresses the domain concept |
+| modules/files | paragraphs (`Authentication`, `Payment flow`); group related sentences/nouns into one discussion |
 
-The decision to split into functions, classes, or structs is not driven solely by DRY ("I wrote this twice"). That alone is insufficient. Split **to make the code speak for itself**. Specifically:
-
-- **Functions = verb phrases** ("execute", "validate", "transform"): Arrange function calls so their sequence tells the narrative of the processing flow.
-- **Classes/structs = nouns** ("User", "AuthToken", "Config"): The data structure itself should express the domain concept.
-- **Modules/files = paragraphs** ("Authentication", "Payment flow", "Log management"): Group related "sentences" and "nouns" into a coherent discussion.
+Split to make the code self-narrating — DRY alone does not justify the split.
 
 ```rust
 // ❌ Bad: code that cannot be translated
@@ -127,20 +113,15 @@ fn process(&self, user_id: &str) -> Result<String> {
 // then return success; otherwise return skipped."
 ```
 
-This translatability provides the following benefits:
-- **Review efficiency**: No need to mentally translate code into natural language to follow the logic.
-- **Bug discovery rate**: Mismatches between "the intended flow" and "what the code says" are immediately obvious.
-- **Newcomer onboarding**: The correspondence between domain knowledge and code can be inferred without documentation.
-- **LLM collaboration**: Translatable code is also easier for LLMs to understand and modify accurately.
+Benefits: review efficiency (no mental translation needed) · higher bug-discovery rate (flow-vs-code mismatches are visible) · faster onboarding (domain↔code correspondence inferable without docs) · easier/safer LLM collaboration.
 
-### Boy Scout Rule integration
-
-When you encounter untranslatable code in existing code, proactively refactor by extracting into functions and structs — leave it cleaner than you found it:
-
-- Code that is incomprehensible without reading a comment → extract each processing block into a function named after what it does
-- A single function chaining multiple responsibilities with "AND" or "THEN" → split by responsibility
-- Overly generic variable names (`x`, `data`, `info`, `tmp`) → rename to domain concepts
-- Hardcoded values → extract into named constants
+Boy Scout triggers (fix when you touch code showing these):
+| trigger | fix |
+|---|---|
+| comment-dependent code | extract block into a function named after what it does |
+| function chaining responsibilities with AND/THEN | split by responsibility |
+| generic names (`x`, `data`, `info`, `tmp`) | rename to domain concept |
+| hardcoded value | extract into named constant |
 
 ```rust
 // ❌ Untranslatable: impossible to understand without comments
@@ -166,141 +147,91 @@ fn xor_with_key(buffer: &mut Vec<u8>, data: &[u8], key: &[u8]) {
 }
 ```
 
-### Division of labor with comments
-
-This policy **complements** Everything as Code (detailed code comments), it does **not replace** it:
-
-- Source code (function names, variable names, structure) → tells **"what it does"** in a natural-language-like way
-- Comments (detailed explanations) → explain **"why it does it that way"** and **"what constraints apply"**
-
-A design that requires reading comments to understand what the code does has poor readability. Aim for a state where the code itself reveals the processing flow, and comments focus on deeper intent.
+Division of labor: code (names, structure) says **what** it does; comments say **why** and **what constraints apply**. Needing a comment to know *what* the code does is poor readability, not a comment gap.
 
 ## Workflow
 
 ### Plan Gate
 
-For non-trivial work (anything beyond a "Tiny Change"), do not edit code immediately — ask the user whether to start the `/make-ticket` pipeline (make → plan → start → review). Do NOT use `/plan`.
+Criteria — Tiny Change (all 3 must hold):
+| id | check |
+|---|---|
+| T1 | single-file change only |
+| T2 | `cargo fmt` or comment-only fix |
+| T3 | 1–2 line obvious-bug fix, zero side-effect risk |
 
-**Tiny Change definition (only if ALL conditions are met):**
-- Single-file change only
-- `cargo fmt` or comment-only fix
-- One or two lines fixing an obvious bug with zero side-effect risk
+Never-Tiny (any 1 overrides Tiny — planning mandatory regardless):
+`unsafe` block change/addition · public API change (struct fields, function signatures) · new dependency crate · architecture-related change.
 
-**The following are NEVER Tiny (planning mandatory):**
-- `unsafe` block changes or additions
-- Public API changes (struct fields, function signatures)
-- Adding new dependency crates
-- Architecture-related changes
+gate: Tiny → auto; edit directly.
+gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → plan → start → review). Do NOT use `/plan` directly.
 
-### Verification (Mandatory)
+### Verification — mandatory, in order
 
-After every implementation, you MUST provide:
-1. **Exact verification command**: use `make` when a Makefile exists
-2. **Execution result**: report only after confirming it passes
-3. **Self-correction**: fix before reporting completion. Reporting with failing tests is forbidden.
+1. exact verification command (prefer `make` when a Makefile exists)
+2. report the execution result only after confirming it passes
+3. self-correct before reporting — reporting with failing tests is forbidden
 
-### Zero Tolerance for Quality Checker Issues
+### Zero Tolerance for quality-checker issues
 
-Issues reported by `run-quality-checks.js` must be **resolved by fixing the code, and only by fixing the code**.
-The following explanations are forbidden as a way to avoid fixing:
+prohibition: resolve only by fixing the code. Forbidden excuses: "It's acceptable" / "No problem" / "The project rules allow it" / "It's test code" / "It's existing code" / any other code-avoiding excuse.
 
-- "It's acceptable" / "No problem" / "The project rules allow it"
-- "It's test code" / "It's existing code"
-- Any other excuse intended to avoid modifying the code
+gate: sole exception — technically unfixable AND demonstrable with concrete code/values → explain why, then **ask; stop** for the user's explicit approval before skipping.
+prohibition: talking out of a fix even once, without that approval, makes the task incomplete.
 
-The sole exception is when the issue is **technically unfixable and the reason can be demonstrated with concrete code and values**. Even then, explain why it cannot be fixed and obtain the user's explicit approval before skipping. If you try to talk your way out even once, the task is considered incomplete.
+### Self-Review — before final response
 
-### Self-Review
+| severity | examples |
+|---|---|
+| Blocker | breaking changes, unjustified `unsafe`, test failures |
+| Major | logic errors, type-definition deficiencies, missing error handling |
+| Minor/Nit | code style, minor improvements |
 
-Before the final response, classify and report issues:
+## Thoroughness over Efficiency
 
-- **Blocker**: Breaking changes, unjustified `unsafe`, test failures
-- **Major**: Logic errors, type definition deficiencies, missing error handling
-- **Minor/Nit**: Code style, minor improvements
+prohibition: never skip safe ordering (DB migration steps, exclusive control, locking) because "it seems to work anyway."
+prohibition: "just overwrite it" — designs neglecting state/resource cleanup via overwrite are lazy; follow the side-effect-aware procedure.
+prohibition: never skip Plan descriptions or design rationale because "explaining is tedious."
+prohibition: never skip compilation checks or tests because "it's a small fix."
+invariant: evaluation standard = accuracy, safety, no regression — not speed.
 
-## "Thoroughness over Efficiency" — Cutting corners is laziness
+## Boy Scout Rule
 
-**"Working efficiently" is not the goal.** "Efficiency" is easily used as a euphemism for cutting corners (skipping necessary steps). When you find yourself thinking "this is more efficient," it is most often a desire to take the easy way out.
+invariant: existing non-compliant code is an accepted known state; no need to fix everything at once. But code you touch must leave in a better state than you found it.
 
-Follow these principles:
+| found in touched code | fix |
+|---|---|
+| `unwrap()` | replace with `Result` propagation |
+| hardcoded path | extract into constant or config |
+| now-false comment | rewrite to the truth |
+| untested touched code | add tests |
 
-1. **Never skip safe ordering**: Sequential DB migration steps, exclusive control, locking — do not skip procedures because "it seems to work anyway."
-2. **"Just overwrite it" is a danger signal**: Designs that neglect state management and resource cleanup by relying on overwrites are lazy. Always follow the correct procedure that accounts for side effects.
-3. **Never skip explanations**: Do not omit Plan descriptions or design rationale because "explaining is tedious" or "they can read the code."
-4. **Never skip verification**: Do not skip compilation checks or tests because "it's a small fix" or "it's probably fine."
+## Stub marker — first-class rule, absolute
 
-The evaluation standard for this project is not **"how fast you finished"** but **"how accurately, safely, and without regression you implemented."**
+Every incomplete implementation (stub, mock, placeholder, temporary impl, by any name) MUST carry a `[::STUB::]` marker. No exceptions for test code, sample code, or prototypes. This rule fully supersedes any prior stub policy; conflicts resolve in this rule's favor. It is independent of, and in addition to, Supreme Law §3's opportunistic-resolution trigger above — that rule fires on dependency-resolution during implementation; this rule fires on any incomplete implementation existing at all, found by any means.
 
-## Boy Scout Rule — Leave it cleaner than you found it
+Affected code (any of these = incomplete, marker required):
+`todo!()` / `unimplemented!()` / `panic!()`; empty function body; unimplemented `Ok(())` / `None` / `Default::default()`; commented-out implementation; `TODO` / `FIXME` / `HACK` / `XXX`; Mock/Fake objects; `#[allow(...)]` suppression.
 
-Existing code may not comply with current rules. Accept this as a known state; there is no need to fix everything at once.
-
-However, **code you touch must be in a better state when you leave it.**
-When you discover a rule violation during your work, fix it — **within reasonable scope**. Specifically:
-
-- If an `unwrap()` exists in a function you edited, replace it with `Result` propagation
-- If a hardcoded path appears on a line you touched, extract it into a constant or config
-- If a comment you modified is now a lie, rewrite it to the truth
-- If code you touched has no tests, add them
-
-Do not leave it as "not my concern this time." The next person to touch that code will see the same violation. One step at a time, always moving forward.
-
-## First-Class Rule — `[::STUB::]` marker is an absolute obligation
-
-Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is the project's **first-class rule** — an **absolute, inviolable law**. Violations are recorded as "crimes" in `.claude/commands/Malfeasance.json` and must be resolved immediately.
-
-This section completely replaces the old "Stub Policy." Where the old rules conflict with this rule, this rule takes precedence.
-
-### Affected code
-
-The following patterns are all considered "incomplete implementations" and require a `[::STUB::]` marker:
-
-- `todo!()`, `unimplemented!()`, `panic!()` — macros indicating unimplemented code
-- Empty function bodies (`fn foo() {}`) — placeholder stubs
-- Unimplemented `return Ok(())` / `return None` / `return Default::default()` — incomplete error handling
-- Commented-out implementation code — leftover debris
-- `TODO` / `FIXME` / `HACK` / `XXX` comments — incomplete tasks (must be accompanied by `[::STUB::]`)
-- Mock / Fake objects — incomplete real binding
-- `#[allow(...)]` warning suppression — unresolved items pending fix
-
-**No exceptions**: Test code, sample code, and prototypes are not exempt. All code in this project is subject to this rule.
-
-### Marker format
-
+Marker format:
 ```rust
 // [::STUB::] <ticket-id>: <description of how it will be resolved>
 fn placeholder() -> Result<()> { Ok(()) }
 ```
-
-When the target ticket is unknown:
-
+Unknown ticket:
 ```rust
 // [::STUB::] MUST RESOLVE: <information known so far>
 fn placeholder() -> Result<()> { Ok(()) }
 ```
 
-### Crime detection and recording
+Sweep (every phase — make / plan / start / review):
+scan: `.claude/scripts/tickets/scan-crimes.sh` (auto-initializes on first run) against `.claude/commands/Malfeasance.json`
+found unmarked incomplete impl →
+  add `[::STUB::]` marker now
+  record: `node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>" "[note]"`
+  resolve now if possible
+    resolved → `node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"`
+    not resolvable → record the reason in the crime's `note`; leave `status` unchanged
+none found → next
 
-1. **In every phase (make/plan/start/review), read Malfeasance.json and check for unresolved crimes**
-2. **If you find an incomplete implementation without a `[::STUB::]` marker**:
-   a. Add the `[::STUB::]` marker immediately
-   b. Record it as a crime via `malfeasance-create.js`
-   c. Resolve it immediately (complete the implementation, add the marker, etc.)
-3. **If resolution is impossible**: Record the reason in the crime record's `note` and keep the `status`
-4. **If resolved**: Change `status` to `resolved` via `malfeasance-update.js`
-
-### Script reference
-
-```bash
-# Scan for crimes (show all unresolved crimes; auto-initializes on first run)
-.claude/scripts/tickets/scan-crimes.sh
-
-# Record a crime (when direct manipulation is needed)
-node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>" "[note]"
-
-# Mark a crime as resolved
-node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
-
-# List all stubs
-node .claude/scripts/tickets/review/find-all-stubs.js src
-```
+List all stubs: `node .claude/scripts/tickets/review/find-all-stubs.js src`
