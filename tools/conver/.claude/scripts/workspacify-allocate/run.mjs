@@ -25,7 +25,6 @@ import {
   RESERVED_ROOT_NAME,
   reservedAllocateDecisionsPath,
 } from '../workspacify-tree/lib/reserved-root.mjs';
-import { sweepStagingDecisions } from '../workspacify-tree/lib/staging-decisions.mjs';
 
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './lib/tree-manifest-input.mjs';
 import { buildDirectoryPlan } from './lib/directory-plan.mjs';
@@ -525,10 +524,10 @@ export function runFinalize(args) {
     throw new WorkSpacifyTreeError(`reload seed parity failed: ${describeParity(reloadParity)}`, { gateId: 'G6.5' });
   }
 
-  // Staging, swept where the doctrine calls it staging and only after a publication
-  // that succeeded: the allocate manifest is the record of what was decided, and this
-  // document is what the gate read on the way there.
-  sweepStagingDecisions(decisionsPath);
+  // The decisions document is not cleaned up here: it is the authored input of
+  // record rather than an intermediate the run owns, and removing it destroyed the
+  // only copy of what the gate approved. `removeWorkspaceArtifacts` below removes
+  // the staging paths this run created, and the reserve is not one of them.
   const cleanup = removeWorkspaceArtifacts({ workspaceRoot: manifestDir, stagingRoot: null });
   emit({
     published: true,
@@ -752,10 +751,8 @@ export function runReverse(args) {
     return reportReverseOutcome(records);
   }
 
-  // Swept for the same reason the forward finalize sweeps it: the manifest this run
-  // publishes is the record of what was decided, and the document the gates read is
-  // staging.
-  sweepStagingDecisions(decisionsPath);
+  // Left in place, as in the forward finalize: the reverse allocate run reads the
+  // decisions document and does not own it.
   process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
   emit({
     status: GATE_STATUS.COMPLETE,

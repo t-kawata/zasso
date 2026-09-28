@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { TERMINAL_ARTEFACTS } from '../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const ANALYSIS_DIRECTORY = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis');
 
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8');

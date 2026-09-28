@@ -50,9 +50,10 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
       assert.ok(seedText.includes('WORKSPACIFY-ALLOCATE-MANIFEST.json'));
     }
 
-    // A second finalize is BLOCKED (fresh-workspace-only policy).
-    // Staged again: the first finalize published, and a published run sweeps the document.
-    stageAllocateDecisions(dir, makeDecisions(manifest));
+    // A second finalize is BLOCKED (fresh-workspace-only policy). The decisions
+    // document is not re-staged: the first finalize left it in place, which is the
+    // point of the retention rule, so this run is refused for the fresh-workspace
+    // policy and for nothing else.
     const second = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
     assert.notEqual(second.status, 0);
   } finally {

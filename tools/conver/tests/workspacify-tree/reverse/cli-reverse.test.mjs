@@ -89,10 +89,9 @@ function authorDelta(deltaPath, mismatches = []) {
 
 // [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
 function runReverseCli(workspace, extraArgs = []) {
-  // Staged before every run, because a reverse run that publishes sweeps the
-  // document: the manifest it wrote is the record of what was decided, and the
-  // document is what the gates read on the way there.
-  stageTreeDecisions(workspace.measuredRoot, readFileSync(join(FIXTURES, DECISIONS_NAME), 'utf8'));
+  // Nothing is staged here: a reverse run that publishes leaves the decisions
+  // document in place, because the document is the authored input of record and not
+  // an intermediate the run owns. The workspace is built with it and it stays.
   return spawnSync(
     process.execPath,
     [RUN_SCRIPT, 'reverse', ...extraArgs],
@@ -124,8 +123,13 @@ test('IT-1 a reverse run generates a manifest whose package paths match the meas
     assert.match(run.stdout, /T6:PASS/);
     assert.equal(
       existsSync(workspace.decisionsPath),
-      false,
-      'the staging decisions document is swept once the manifest it produced is published',
+      true,
+      'the decisions document survives the run that read it',
+    );
+    assert.equal(
+      readFileSync(workspace.decisionsPath, 'utf8'),
+      readFileSync(join(FIXTURES, DECISIONS_NAME), 'utf8'),
+      'and its content is unchanged - the authored input of record is not the run residue',
     );
   } finally {
     rmSync(workspace.dir, { recursive: true, force: true });

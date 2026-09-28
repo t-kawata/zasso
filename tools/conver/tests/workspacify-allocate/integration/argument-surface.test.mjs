@@ -39,7 +39,7 @@ import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-ma
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-allocate/run.mjs');
-const DESIGN_PATH = join(PROJECT_ROOT, 'docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+const DESIGN_PATH = join(PROJECT_ROOT, 'docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const COMMAND_PATH = join(PROJECT_ROOT, '.claude/commands/workspacify-allocate.md');
 const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
@@ -195,7 +195,8 @@ test('PX-215 / C003 precondition: the derived decisions path is the workspace ro
 test('PX-215 / C003 postcondition: finalize completes with no decisions argument and publishes into dirname(manifestPath)', () => {
   const fixture = materializeSeedFixture();
   try {
-    authorDecisions(fixture.dir, fixture.manifest);
+    const decisionsPath = authorDecisions(fixture.dir, fixture.manifest);
+    const stagedText = readFileSync(decisionsPath, 'utf8');
     const run = runChain(['finalize', fixture.manifestPath], fixture.dir);
     assert.equal(run.status, 0, run.text);
 
@@ -212,8 +213,13 @@ test('PX-215 / C003 postcondition: finalize completes with no decisions argument
     );
     assert.equal(
       existsSync(join(fixture.dir, RESERVED_ROOT_NAME)),
-      false,
-      'the reserve held nothing but staging, so the residue is the published set',
+      true,
+      'the reserve keeps the decisions document the run read, so the workspace stays reproducible from its own inputs',
+    );
+    assert.equal(
+      readFileSync(decisionsPath, 'utf8'),
+      stagedText,
+      'and the document survives byte-identical - the authored input of record is not swept as residue',
     );
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
