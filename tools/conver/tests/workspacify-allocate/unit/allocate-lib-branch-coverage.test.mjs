@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from '../../../.claude/scripts/workspacify-allocate/lib/tree-manifest-input.mjs';
 import { classifyUnsafePath, isPathContained, resolvePackagePath, checkPlannedPathSafety } from '../../../.claude/scripts/workspacify-allocate/lib/path-safety.mjs';
 import { buildDirectoryPlan } from '../../../.claude/scripts/workspacify-allocate/lib/directory-plan.mjs';
-import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, verifyDirectorySet, rollbackPublished } from '../../../.claude/scripts/workspacify-allocate/lib/tree-staging.mjs';
+import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, verifyDirectorySet, rollbackRenamedTopLevels } from '../../../.claude/scripts/workspacify-allocate/lib/tree-staging.mjs';
 import { buildValidManifest } from '../helpers/build-valid-manifest.mjs';
 
 function tempDir(label) {
@@ -151,13 +151,13 @@ test('tree-manifest-input: readManifestSource rejects missing source_hash', () =
   }
 });
 
-test('tree-staging: rollbackPublished removes only listed top-level dirs', () => {
+test('tree-staging: rollbackRenamedTopLevels removes only the names a publish attempt renamed', () => {
   const dir = tempDir('wt-189-bc-rb-');
   try {
     mkdirSync(join(dir, 'keep'), { recursive: true });
     mkdirSync(join(dir, 'remove-me'), { recursive: true });
     writeFileSync(join(dir, 'keep', 'sentinel'), 'x');
-    rollbackPublished(dir, ['remove-me']);
+    rollbackRenamedTopLevels(dir, ['remove-me']);
     // The listed dir is gone; the unlisted dir remains.
     assert.equal(existsSync(join(dir, 'remove-me')), false);
     assert.equal(existsSync(join(dir, 'keep')), true);

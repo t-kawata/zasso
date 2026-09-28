@@ -232,7 +232,8 @@ test('C002 invariant: reverse mode cannot rename by construction — no rename p
   );
   assert.doesNotMatch(source, /\brenameSync\b/, 'reverse mode never renames');
   assert.doesNotMatch(source, /publishStagedTree/, 'the atomic top-level publish is a forward-only step');
-  assert.doesNotMatch(source, /rollbackPublished/, 'there is nothing to roll back: reverse mode creates no directory');
+  assert.doesNotMatch(source, /rollbackRenamedTopLevels/, 'there is nothing to roll back: reverse mode creates no directory');
+  assert.doesNotMatch(source, /rollbackPublication/, 'nor does it publish anything a later gate could take back');
 });
 
 // ---------------------------------------------------------------------------

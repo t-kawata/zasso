@@ -114,7 +114,7 @@ export function publishStagedTree(stagingRoot, root, plan) {
   const topLevels = [...new Set(plan.map((relPath) => relPath.split('/')[0]))].sort();
   const renamed = [];
   const abort = (reason) => {
-    rollbackPublished(root, renamed);
+    rollbackRenamedTopLevels(root, renamed);
     rmSync(stagingRoot, { recursive: true, force: true });
     return { published: false, reason };
   };
@@ -205,13 +205,21 @@ function expandWithAncestors(plan) {
 }
 
 /**
- * Remove the listed top-level directories from the root (rollback).
+ * Undo the renames one publish attempt already made, during that attempt.
+ *
+ * The contract is the caller's, and the name says so: `renamedTopLevels` holds only
+ * the names `publishStagedTree` renamed after finding no destination for them, so
+ * every name here is one this attempt created and a removal cannot reach content the
+ * root already held. It is not the way to undo a publication that completed - a run
+ * that published and then failed a later gate is undone by `rollbackPublication` in
+ * `publish-allocate-manifest.mjs`, which carries the pre-publish snapshot that makes
+ * that safe.
  *
  * @param {string} root - workspace root (absolute)
- * @param {string[]} topLevels - top-level directories to remove
+ * @param {string[]} renamedTopLevels - top-level names this attempt renamed
  */
-export function rollbackPublished(root, topLevels) {
-  for (const topLevel of topLevels) {
+export function rollbackRenamedTopLevels(root, renamedTopLevels) {
+  for (const topLevel of renamedTopLevels) {
     rmSync(path.join(root, topLevel), { recursive: true, force: true });
   }
 }
