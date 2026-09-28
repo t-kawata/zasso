@@ -10,7 +10,7 @@ const path = require("path");
 const os = require("os");
 
 const SCRIPT = path.resolve(__dirname, "../.claude/scripts/tickets/ensure-ticket.js");
-const { resolveSpecPath, generateSlug, extractTicketId } = require("../.claude/scripts/tickets/ensure-ticket");
+const { resolveSpecPath, extractTicketId } = require("../.claude/scripts/tickets/ensure-ticket");
 
 function createTicketsJson() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eas-int-"));
@@ -145,7 +145,7 @@ describe("ensure-ticket — integration", function () {
   });
 });
 
-describe("ensure-ticket — resolveSpecPath / generateSlug", function () {
+describe("ensure-ticket — resolveSpecPath / extractTicketId", function () {
   it("extractTicketId: PX-53 → 53", () => {
     assert.strictEqual(extractTicketId("PX-53"), 53);
   });
@@ -155,16 +155,14 @@ describe("ensure-ticket — resolveSpecPath / generateSlug", function () {
   it("extractTicketId: no number → null", () => {
     assert.strictEqual(extractTicketId("PX-"), null);
   });
-  it("generateSlug: normal title", () => {
-    assert.strictEqual(generateSlug("Minimal Test"), "minimal-test");
+  it("resolveSpecPath: the specs directory beside Tickets.json, named by ticket key", () => {
+    const p = resolveSpecPath("PX-9999", path.join(os.tmpdir(), "conver", "Tickets.json"));
+    assert.strictEqual(p, path.join(os.tmpdir(), "conver", "specs", "PX-9999.md"));
+    assert.ok(!p.includes("tickets/specs"), `never the tickets/ subdirectory: ${p}`);
   });
-  it("generateSlug: special chars", () => {
-    assert.strictEqual(generateSlug("Fix #123! @Home"), "fix-123-home");
-  });
-  it("resolveSpecPath: PX-9999 + 'Minimal Test'", () => {
-    const p = resolveSpecPath("PX-9999", "Minimal Test");
-    assert.ok(p.endsWith("9999-minimal-test.md"), `ends with 9999-minimal-test.md: ${p}`);
-    assert.ok(p.includes("tickets/specs"), `includes tickets/specs: ${p}`);
+  it("resolveSpecPath: a phase ticket keeps its key as the file name", () => {
+    const p = resolveSpecPath("P22-1", path.join(os.tmpdir(), "conver", "Tickets.json"));
+    assert.strictEqual(p, path.join(os.tmpdir(), "conver", "specs", "P22-1.md"));
   });
   it("resolveSpecPath: PX- → null", () => {
     assert.strictEqual(resolveSpecPath("PX-", "test"), null);

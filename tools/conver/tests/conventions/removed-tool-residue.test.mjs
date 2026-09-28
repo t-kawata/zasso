@@ -35,7 +35,7 @@ import { COMMITTED_BUNDLE_PATH } from '../lib/bundle-freshness.mjs';
 import { repositoryRootFrom, trackedPaths } from '../lib/repo-hygiene.mjs';
 
 const REPOSITORY_ROOT = repositoryRootFrom(dirname(fileURLToPath(import.meta.url)));
-const DESIGN_PATH = 'tools/conver/docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md';
+const DESIGN_PATH = 'tools/conver/docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md';
 
 /** This file, the one path the scan exempts because it carries the names it searches for. */
 const SELF_PATH = 'tools/conver/tests/conventions/removed-tool-residue.test.mjs';
@@ -101,14 +101,16 @@ const isGeneratedBundle = (path) =>
 /**
  * The records that keep their text: what past tickets did, not what to do now.
  *
- * Each is asserted to exist, so an exemption cannot outlive the file it names.
+ * Each is asserted to exist, so an exemption cannot outlive the file it names. The
+ * three archived documents moved under `docs/archive/` after this guard was written;
+ * the exemption follows them there, because what it grants is the record's existence
+ * and not its address.
  */
 const FROZEN_RECORDS = Object.freeze([
   'tools/conver/specs/',
-  'tools/conver/tickets/specs/',
   'tools/conver/Tickets.json',
-  'tools/conver/docs/P22-HANDOFF.md',
-  'tools/conver/docs/REVIEW-2-FOR-ABOUT-REVERSE.md',
+  'tools/conver/docs/archive/P22-HANDOFF.md',
+  'tools/conver/docs/archive/REVIEW-2-FOR-ABOUT-REVERSE.md',
 ]);
 
 /**
