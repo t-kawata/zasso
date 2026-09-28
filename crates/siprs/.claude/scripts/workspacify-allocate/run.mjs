@@ -10,7 +10,7 @@
  * package, and WORKSPACIFY-ALLOCATE-MANIFEST.json — the machine authority that
  * records what was proven. Intermediate artefacts are removed before it returns.
  */
-import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import process from 'node:process';
@@ -25,12 +25,11 @@ import {
   RESERVED_ROOT_NAME,
   reservedAllocateDecisionsPath,
 } from '../workspacify-tree/lib/reserved-root.mjs';
-import { sweepStagingDecisions } from '../workspacify-tree/lib/staging-decisions.mjs';
 
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './lib/tree-manifest-input.mjs';
 import { buildDirectoryPlan } from './lib/directory-plan.mjs';
 import { checkPlannedPathSafety } from './lib/path-safety.mjs';
-import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, verifyDirectorySet } from './lib/tree-staging.mjs';
+import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, snapshotDirectories, verifyDirectorySet } from './lib/tree-staging.mjs';
 import { deriveExpectedAllocation, lookupInventoryItem } from './lib/allocation-model.mjs';
 import { buildAuthoringPacket } from './lib/seed-authoring-packet.mjs';
 import { SEED_FILE_NAME, ALLOCATE_MANIFEST_FILE_NAME, validateDecisionsAuthoringSurface } from './lib/seed-model.mjs';
@@ -43,7 +42,7 @@ import { deriveImplementationOrder, verifyOrderAgainstStage1 } from './lib/imple
 import { walkSeedContracts } from './walk-seed-contracts.mjs';
 import { adviseFailure } from '../workspacify-tree/lib/gate-advice.mjs';
 import { buildAllocateManifest, renderAllocateManifest } from './lib/allocate-manifest.mjs';
-import { publishWorkspace } from './publish-allocate-manifest.mjs';
+import { publishWorkspace, publishedTopLevelNames, rollbackPublication } from './publish-allocate-manifest.mjs';
 import { removeWorkspaceArtifacts } from './cleanup-workspace-artifacts.mjs';
 import { reloadAndVerify } from './lib/allocate-reload.mjs';
 import { renderSeed } from './lib/seed-render.mjs';
@@ -447,6 +446,7 @@ export function runGate(args) {
   guide('Gate PASS: every automatic gate is green and the AI semantic approval is recorded. Next: run finalize to publish.');
 }
 
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function runFinalize(args) {
   refuseDecisionsArgument(args.slice(1));
   const manifestPath = args[1];
@@ -489,18 +489,31 @@ export function runFinalize(args) {
     },
   });
 
+  // The reload scan and the rollback both judge what this run created, so the root's
+  // own content is read before publication: the workspace root may be a host project
+  // directory that holds the spec and the manifest beside its own sources, and none
+  // of that is this workspace.
+  const preExistingDirs = snapshotDirectories(manifestDir);
+  const preExistingEntries = new Set(readdirSync(manifestDir));
+  const topLevelNames = publishedTopLevelNames({ plan, renderedByPackage });
+  const rollbackPublicationOfThisRun = () => rollbackPublication({ manifestDir, topLevelNames, preExistingEntries });
+
   const publishResult = publishWorkspace({ manifestDir, plan, renderedByPackage, allocateManifest });
   if (!publishResult.published) {
     throw new WorkSpacifyTreeError(publishResult.reason, { gateId: 'G6.6' });
   }
 
-  // Reload verification: the published artefacts must reproduce the proof.
-  const reloadDirs = verifyDirectorySet(manifestDir, plan.relativeDirs);
+  // Reload verification: the published artefacts must reproduce the proof. A gate that
+  // refuses after publication takes the publication back with it, so a failed run
+  // leaves the workspace as it found it rather than half-verified.
+  const reloadDirs = verifyDirectorySet(manifestDir, plan.relativeDirs, { preExisting: preExistingDirs });
   if (!reloadDirs.ok) {
+    rollbackPublicationOfThisRun();
     throw new WorkSpacifyTreeError(`reload directory scan failed: missing ${listOrNone(reloadDirs.missing)}, unexpected ${listOrNone(reloadDirs.unexpected)}`, { gateId: 'G6.4' });
   }
   const reloadVerdict = reloadAndVerify({ workspaceRoot: manifestDir, plan, manifest, manifestPath, expected: allocateManifest });
   if (!reloadVerdict.ok) {
+    rollbackPublicationOfThisRun();
     removeWorkspaceArtifacts({ workspaceRoot: manifestDir, stagingRoot: null });
     throw new WorkSpacifyTreeError(`reload verification failed: ${describeDivergences(reloadVerdict.divergences)}`, { gateId: 'G6.5' });
   }
@@ -511,10 +524,10 @@ export function runFinalize(args) {
     throw new WorkSpacifyTreeError(`reload seed parity failed: ${describeParity(reloadParity)}`, { gateId: 'G6.5' });
   }
 
-  // Staging, swept where the doctrine calls it staging and only after a publication
-  // that succeeded: the allocate manifest is the record of what was decided, and this
-  // document is what the gate read on the way there.
-  sweepStagingDecisions(decisionsPath);
+  // The decisions document is not cleaned up here: it is the authored input of
+  // record rather than an intermediate the run owns, and removing it destroyed the
+  // only copy of what the gate approved. `removeWorkspaceArtifacts` below removes
+  // the staging paths this run created, and the reserve is not one of them.
   const cleanup = removeWorkspaceArtifacts({ workspaceRoot: manifestDir, stagingRoot: null });
   emit({
     published: true,
@@ -738,10 +751,8 @@ export function runReverse(args) {
     return reportReverseOutcome(records);
   }
 
-  // Swept for the same reason the forward finalize sweeps it: the manifest this run
-  // publishes is the record of what was decided, and the document the gates read is
-  // staging.
-  sweepStagingDecisions(decisionsPath);
+  // Left in place, as in the forward finalize: the reverse allocate run reads the
+  // decisions document and does not own it.
   process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
   emit({
     status: GATE_STATUS.COMPLETE,

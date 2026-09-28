@@ -80,7 +80,7 @@ try {
     const result = runScript('ensure-ticket-structure.js', '', null);
     assert(result.success === true, 'creates structure successfully');
     assert(fs.existsSync('tickets'), 'tickets dir created');
-    assert(fs.existsSync('tickets/specs'), 'specs dir created');
+    assert(fs.existsSync('specs'), 'specs dir created');
     assert(fs.existsSync('tickets/context'), 'context dir created');
     assert(fs.existsSync('tickets/drafts'), 'drafts dir created');
     assert(fs.existsSync('tickets/queue.md'), 'queue.md created');
@@ -419,7 +419,9 @@ try {
   {
     // create-ticket.js は spec ファイルを作成するが Tickets.json には追加しない。
     // delete-ticket.js は Tickets.json から削除するため、先に手動で追加する。
-    const specPath = path.resolve(process.cwd(), 'tickets/specs/0043-to-delete.md');
+    // specs/ sits beside Tickets.json: the tickets/specs/ directory this once wrote to
+    // was never the convention and has been removed.
+    const specPath = path.resolve(process.cwd(), 'specs/0043-to-delete.md');
     // spec ファイルを直接作成
     if (!fs.existsSync(path.dirname(specPath))) {
       fs.mkdirSync(path.dirname(specPath), { recursive: true });
@@ -434,7 +436,7 @@ try {
     assert(result.success === true, 'deletes ticket');
     assert(result.deleted === true, 'deleted flag is true');
     // 手動で作成した spec ファイルも削除（delete-ticket.js は Tickets.json からの削除のみ行う）
-    const specsDir = path.resolve(process.cwd(), 'tickets/specs');
+    const specsDir = path.resolve(process.cwd(), 'specs');
     const specToDelete = path.join(specsDir, '0043-to-delete.md');
     try { if (fs.existsSync(specToDelete)) fs.unlinkSync(specToDelete); } catch (_) {}
     const resolveResult = runScript('resolve-ticket.js', '43', null);

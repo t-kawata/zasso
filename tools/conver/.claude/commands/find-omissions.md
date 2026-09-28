@@ -6,156 +6,119 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (`/workspacify-*`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /find-omissions
 
-Inspect every reviewed ticket to verify that its contracts are fully and accurately translated into test code. When gaps are found, record them as structured omission tickets for the subsequent implementation loop.
+Role: inspect every reviewed ticket — verify its contracts are fully and accurately translated into test code. gaps → record as structured omission tickets for the next implementation loop.
+
+## Language Protocol
+
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Pre-flight — argument + consolidation prerequisite validation (mandatory)
 
-Before any other step, validate the argument and the consolidation prerequisite. The consolidation prerequisite is satisfied when a complete grouped unit manifest exists:
-
+Gate:
 ```bash
 node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
 node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2
 ```
-
-`require-consolidated-manifest.js` exits 0 when `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** when the stub scan finds 0 stubs (a 0-stub tree legitimately has no manifest — the printer only writes it when markers exist). In the 0-stub case it prints a PASS explanation on stdout instructing to **SKIP Step 1** (re-ticketize consumes the manifest and has nothing to do) and proceed to **Step 2**. It exits 2 (with a cause/action message) only when stubs exist without a manifest — the consolidation prerequisite is unmet, so stop here.
+`require-consolidated-manifest.js`:
+- exit0 — `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** stub scan finds 0 stubs (0-stub tree legitimately has no manifest). 0-stub case: prints PASS on stdout instructing **SKIP Step 1**, proceed to **Step 2**.
+- exit2 — stubs exist without a manifest (cause/action message printed) → stop; consolidation prerequisite unmet.
 
 ## Overview
 
-```
-Step 1 (re-ticketize, before inspection): a marker needing a new resolving ticket → batch-create-resolving-tickets.js (auto, never ask the human)
-
-Inspection loop — one command, repeated per ticket:
-
-  node get-next-check-target-ticket.js
-    │
-    ├─ [first run only] auto-creates _tmp-omissions-*.json if missing
-    ├─ [first run only] auto-creates _tmp-check-target-tickets-cmds-*.json if missing
-    │
-    ├─ pops the next unchecked ticket (done:true, status→remanded)
-    ├─ displays ticket context
-    └─ repeat the same command for the next ticket
-
-  ↓  when a gap is found:
-
-  echo '<foundOmissions JSON>' | node add-omission-ticket.js --ticket-key=<KEY>
-    └─ appends to _tmp-omissions-*.json
-```
+flow: Step 1 re-ticketize (auto; never ask) → inspection loop: `get-next-check-target-ticket.js` → inspect → on gap: `add-omission-ticket.js` appends to `_tmp-omissions-*.json` → repeat.
 
 ## How the Script Works
 
-Each time you run `get-next-check-target-ticket.js`, it:
-
-1. **Auto-creates tmp files** if they don't exist:
-   - `_tmp-omissions-<timestamp>.json` — holds omission tickets you record
-   - `_tmp-check-target-tickets-cmds-<timestamp>.json` — queue of all reviewed/remanded tickets
-
-2. **Pops the next unchecked ticket** from the cmds queue:
-   - Marks the entry `done: true` (persisted to disk)
-   - Changes the ticket's `status` to `"remanded"` in Tickets.json
-   - The `[!]` symbol in `list-phases-and-tickets.js` shows remanded tickets
-
-3. **Displays the ticket context**:
-   - Prefix: `Total N tickets to inspect. Inspecting ticket M/N.`
-   - Followed by the full output of `show-ticket-context.js --for-spec --no-implementation-order`
-
-4. **Waits for you** to analyze and act. The script exits after outputting the context.
+Each `get-next-check-target-ticket.js` run:
+1. auto-creates `_tmp-omissions-<ts>.json` (holds recorded omissions) and `_tmp-check-target-tickets-cmds-<ts>.json` (queue of reviewed/remanded tickets) if missing.
+2. pops next unchecked ticket: marks `done:true` (persisted), sets ticket `status:"remanded"` in Tickets.json (`[!]` symbol shows in `list-phases-and-tickets.js`).
+3. displays: `Total N tickets to inspect. Inspecting ticket M/N.` + full `show-ticket-context.js --for-spec --no-implementation-order` output.
+4. exits; waits for AI to analyze and act.
 
 ## ABC Inspection Criteria
 
-These are the three criteria you **MUST** evaluate for EVERY ticket by analyzing the actual source code — do NOT rely solely on the show-ticket-context.js output, which may be stale.
+invariant: evaluate all 3 for EVERY ticket via actual source code — never rely solely on `show-ticket-context.js` output (may be stale).
 
 ### Criterion A — Contract Translation
 
-**Question**: Are all contracts (Precondition / Postcondition / Invariant) accurately translated into test code?
+Question: are all contracts (Precondition/Postcondition/Invariant) accurately translated into test code?
+check per `Contracts` entry — Precondition: test sets up exact input condition? Postcondition: test asserts exact output/state? Invariant: test/assertion verifies it holds?
 
-Check each contract defined in the ticket's `Contracts` section:
-- **Precondition** → Is there a test that sets up the exact input condition?
-- **Postcondition** → Is there a test that asserts the exact output/state?
-- **Invariant** → Is there a test or assertion that verifies the invariant holds?
-
-**Pass example**: Contract says "Precondition: input is a valid email" → test has `let input = "user@example.com";`
-
-**Fail example**: Contract says "Postcondition: returns Ok with user object" → test only checks `result.is_ok()` but never checks the user object fields.
+Pass example: Contract says "Precondition: input is a valid email" → test has `let input = "user@example.com";`
+Fail example: Contract says "Postcondition: returns Ok with user object" → test only checks `result.is_ok()`, never the user object fields.
 
 ### Criterion B — Violation Detection
 
-**Question**: Can every contract violation be detected by an existing test assertion?
+Question: would every contract violation be caught by an existing test assertion?
+check: precondition-check removed → caught? postcondition violated → assertion fails? invariant broken → detected?
 
-Check whether the tests would **fail** if a violation were introduced:
-- If a precondition check were removed, would a test catch it?
-- If a postcondition were violated, would an assertion fail?
-- If an invariant were broken, would a test detect it?
-
-**Pass example**: Removing input validation → test with invalid input would fail.
-
-**Fail example**: A contract says "must not overflow" but the only test uses values far below the boundary.
+Pass example: removing input validation → invalid-input test would fail.
+Fail example: contract says "must not overflow" but the only test uses values far below the boundary.
 
 ### Criterion C — Test Precision
 
-**Question**: Are tests precise and unambiguous, or are they loose/sloppy?
-
-Check for:
-- **Too-broad assertions**: `assert!(result.is_ok())` when specific field checks are needed
-- **Missing negative tests**: Only testing happy path, no error/edge cases
-- **Stale or commented tests**: Tests that don't actually test current behavior
-- **Circular reasoning**: Test that uses the same logic being tested
-- **Low coverage masking**: `unwrap()` without error context, `#[allow(...)]` without justification
+Question: are tests precise/unambiguous, or loose/sloppy?
+check for: too-broad assertions (`assert!(result.is_ok())` when field checks are needed) / missing negative tests (happy-path only) / stale or commented-out tests / circular reasoning (test uses the logic being tested) / low-coverage masking (`unwrap()` without error context, unjustified `#[allow(...)]`).
 
 ## Step-by-Step Inspection Procedure
 
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 
-The consolidation Step 5 gate (`consolidate-stubs-gate.sh`) has already guaranteed the marker tree is clean: no orphan keys, no terminal excuses, every marker re-pointed to a valid key, and a complete grouped unit manifest emitted. Step 1 consumes that manifest: pipe it into `batch-create-resolving-tickets.js`, which creates **one resolving ticket per (sourceKey, unit) group** and atomically rewrites every on-disk marker key. **Never pause to ask the human** — this is the AI's work item, per the no-external-excuse rule.
+invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already guarantees a clean marker tree (no orphan keys, no terminal excuses, every marker re-pointed, a complete grouped-unit manifest emitted). Step 1 consumes that manifest via `batch-create-resolving-tickets.js` — one resolving ticket per (sourceKey, unit) group, atomic on-disk marker-key rewrite. auto; never pause to ask the human — this is the AI's work item per the no-external-excuse rule.
 
-Run from the directory containing Tickets.json (the source root is cwd):
-
+cwd = Tickets.json root (source root).
 ```bash
 MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)
 cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write   # review (zero side effects)
 cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js               # commit
 ```
+out: review (`--no-write`) prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`; commit prints the same with `dryRun: false` — Tickets.json gains one `todo` ticket per non-skipped entry, on-disk marker lines re-point to the new key (C007-skipped markers, already referencing an active ticket, untouched).
+invariant: re-run-safe (already-active-referencing markers skipped, never duplicates). on failure: nothing written; stderr lists each failure (file:line + Action-directive) — fix and re-run.
 
-**What to expect**:
-- **review first (`--no-write`)**: validates the whole manifest with zero side effects; stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`.
-- **commit**: on success stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: false }` — Tickets.json gained one `todo` ticket per non-skipped entry, and every on-disk marker line of a created unit now references its new key (C007-skipped markers — already referencing an active ticket — are left untouched).
-- **re-run is safe**: markers already referencing an active ticket are skipped, so re-running never duplicates tickets.
-- **on failure nothing is written**: stderr lists each failure with its file:line and an Action-directive; fix the reported marker and re-run.
-
-> **Manifest handoff**: consolidation Step 5 writes the grouped manifest to `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, with `file` cwd-relative:
+> Manifest handoff: consolidation Step 5 wrote `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, `file` cwd-relative:
 > ```json
 > [{ "sourceKey": "P4-2", "stubs": [{ "file": "src/a.rs", "line": 4, "content": "// [::STUB::] P4-2: reason -- Implement" }] }]
 > ```
-> Pipe it straight into the tool with `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
+> pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
 
-**Post-creation content rewrite (mandatory)**: each new resolving ticket carries the SOURCE ticket's **OLD content** (it is a deep-clone). Rewrite each one into the NEW work item **one field at a time (max 3 fields per `update-ticket.js` call)**, in this order: `title` → `background` → `scope` → `acceptanceCriteria` → `invariants` → `testUnit` → `testIntegration` → `testExceptions` → `contracts` → `investigation` → `boyScoutPlan` → `instrumentation` → `notes`. **PRESERVE** `nodeIds`/`relatedTicketIds`/`referenceSection`/`referenceUrls`/`sourcePaths`/`rfcDiscrepancies` — they are already correct from the clone; add to arrays, never overwrite.
+Post-creation content rewrite (mandatory): each new resolving ticket is a deep-clone carrying the SOURCE's OLD content.
+```
+Batch-write ticket (post-creation rewrite):
+  order: title → background → scope → acceptanceCriteria → invariants → testUnit → testIntegration → testExceptions → contracts → investigation → boyScoutPlan → instrumentation → notes
+  max-per-call: 3
+  preserve (append-only, never overwrite): nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies
+```
 
-**Residual safety net (after the commit)** — sweep for markers the consolidation did not cover (added after consolidate, or left UNASSIGNED), then run the no-excuse validator as the loop condition:
-
+Residual safety net (after commit) — sweep markers the consolidation didn't cover (added after consolidate, or left UNASSIGNED):
 ```bash
 node .claude/scripts/tickets/preflight-stub-cleanup.js
 node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 ```
+- exit0 → Step 2.
+- exit1 → judge: parse each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line; fix marker (remove/rewrite plan/rewrite key); re-run. loop until exit0. round with no progress = hard-stop diagnostic.
 
-- **exit 0** → zero failures, proceed to Step 2.
-- **exit 1** → read each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line, fix the marker (remove / rewrite the plan / rewrite the key), and re-run the gate. **Loop until exit 0.** A round that makes no progress is a hard-stop diagnostic — do not proceed with unresolved excuses.
+judge: why a completed-key marker can fail here — this validator runs in normal mode (`--fail-on-excuse`), where Check C rejects a marker referencing a **completed** ticket, unlike the consolidation gate (which accepts completed keys via `--for-consolidate`). this safety net catches completed-key leftovers (`UNASSIGNED`, or added post-apply); `preflight-stub-cleanup.js` classifies and prints the `remove-stub.js`/`create-resolving-ticket.js` fix commands.
 
-> **Why a completed-key marker can fail here**: this validator runs in normal mode (`--fail-on-excuse`), where Check C rejects a marker referencing a **completed** ticket — unlike the consolidation Step 5 gate, which accepts completed keys via `--for-consolidate`. That gate covers only the *grouped* markers; completed-key leftovers (left `UNASSIGNED`, or added after the consolidate apply) are this safety net's job. `preflight-stub-cleanup.js` classifies them and prints the `remove-stub.js` / `create-resolving-ticket.js` commands — resolve each, then re-run the validator.
-
-**Output message convention**: every stdout/stderr line from these scripts is English, self-contained, and Action-directive. A fresh session must be able to act on a message alone.
+invariant: every stdout/stderr line from these scripts is English, self-contained, Action-directive — a fresh session must be able to act on the message alone.
 
 ### Step 2 — Run the script
 
 ```bash
 node .claude/scripts/tickets/get-next-check-target-ticket.js
 ```
-
-Output:
+out:
 ```
 Total 133 tickets to inspect. Inspecting ticket 4/133.
 
@@ -165,58 +128,49 @@ Total 133 tickets to inspect. Inspecting ticket 4/133.
 
 ### Step 3 — Understand the ticket
 
-Read the entire output carefully. Key sections to extract:
+Read carefully; extract:
 
 | Section | What to look for |
 |---------|-----------------|
-| `## Contracts` | The exact Precondition/Postcondition/Invariant to verify |
-| `## Acceptance Criteria` | What behavior was supposed to be implemented |
-| `## Test Plan` | What tests were planned (testUnit / testIntegration / testExceptions) |
-| `## Scope` | Which modules and files are in scope |
-| `### Implementation Target File Paths` | Concrete file paths to read first — always listed under Scope as `default_files`. Start here, but never be bound by them. |
-| `## Investigation` | Evidence from the original investigation |
-| `## Invariants` | Invariant conditions the system must always satisfy |
-| `## Notes` | Known risks, caveats, open items |
+| `## Contracts` | exact Precondition/Postcondition/Invariant to verify |
+| `## Acceptance Criteria` | behavior supposed to be implemented |
+| `## Test Plan` | planned tests (testUnit/testIntegration/testExceptions) |
+| `## Scope` | modules/files in scope |
+| `### Implementation Target File Paths` | concrete file paths (under Scope, `default_files`) — start here, never be bound by them |
+| `## Investigation` | evidence from original investigation |
+| `## Invariants` | conditions the system must always satisfy |
+| `## Notes` | known risks, caveats, open items |
 
 ### Step 4 — Analyze source code (core of the pipeline)
 
-This is the **most critical step**. The quality of the entire pipeline depends on the rigor of this analysis. Superficial analysis produces sloppy omissions, which cause the implementation loop to diverge rather than converge.
+invariant: this is the most critical step — pipeline quality depends on its rigor. superficial analysis → sloppy omissions → implementation loop diverges.
 
-**Start from `Implementation Target File Paths` — but NEVER be bound by them.** Use them as entry points, then follow the code trail wherever it leads:
+Start from `Implementation Target File Paths` as entry points only — never be bound by them; follow the trail:
+1. read every listed implementation file
+2. for each Contracts-referenced function, trace its full call chain
+3. find the **actual** test files on disk — do not limit to the ticket's test plan; search test modules, integration tests, helper/fixture files
+4. read every unread type/trait/module encountered
+5. read every helper/fixture a test imports
+6. continue until every contract element is traced to its actual code
 
-1. Read every implementation file listed in `Implementation Target File Paths`
-2. For each function referenced in Contracts, trace its full call chain
-3. Find the **actual test files** — do NOT limit yourself to the test plans in the ticket. The spec may list planned tests, but you must read whatever test files exist on disk. Search for test modules, integration test files, and any test helper/fixture files that exercise the relevant code.
-4. When you encounter a type, trait, or module you haven't read yet — read it
-5. When a test imports a helper or fixture — read that too
-6. Continue until you have traced every contract element to its actual code
+Rules:
+- no speculation — every claim cites a specific file + surrounding code; "I think"/"probably" forbidden
+- no assumptions from names — `validate_email` may not validate anything; read its body
+- no trust in comments — comments lie; code is the only truth
+- follow the trail — contract check not in the listed files → search the whole crate (parent caller, validation trait, type constraint)
+- check test boundaries — a passing test ≠ contract covered; verify inputs exercise the precondition boundary, assertions verify the postcondition, invariant is asserted outside the implementation
+- no shortcuts — "looks correct" is not an evaluation; confirm a violation WOULD be caught (Criterion B)
 
-**Fundamental rules:**
-
-- **No speculation**: Every claim in your evaluation must cite a specific file and the surrounding source code. "I think" or "probably" is forbidden.
-- **No assumptions from names**: A function named `validate_email` may not actually validate anything. Read its body.
-- **No trust in comments**: Comments lie. The code is the only truth.
-- **Follow the trail**: If a contract says "input must be non-empty" but you don't see a check in the listed files, search the entire crate for where that check might live. It may be in a parent caller, a validation trait, or a type system constraint.
-- **Check test boundaries**: A passing test doesn't mean the contract is covered. Check whether the test inputs actually exercise the precondition boundary, whether the assertions actually verify the postcondition, and whether the invariant is ever asserted outside the implementation itself.
-- **No shortcuts**: "This looks correct" is not an evaluation. You must confirm that a violation WOULD be caught by an existing test (Criterion B).
-
-Your deliverable is not a summary of the code — it is a **verification** that each contract is enforced by test code, with specific source code evidence (file + codes).
+deliverable = verification that each contract is enforced by test code, with source evidence (file + code) — not a summary.
 
 ### Step 5 — Evaluate and record (per-contract, per-criterion, immediately)
 
-For EACH contract defined in the ticket, evaluate ALL three criteria (A, B, C).  
-**Only record when you confirm a contract violation** — that is, when `passed = false` for any of A/B/C on any contract.  
-**Record it the moment you confirm it** — do not batch, do not rely on memory.  
-**Do NOT record vague unease, style preferences, or observations unrelated to the three criteria.**
+For EACH contract, evaluate all 3 criteria (A/B/C).
+rule: record only when `passed=false` for any criterion. record the moment confirmed — no batching, no memory-reliance. never record vague unease/style preferences/off-criteria observations.
 
-#### Evaluation procedure (per criterion, not per contract)
+judge: evaluate one criterion at a time (never bundle criteria into one block).
 
-Do NOT bundle multiple criteria into one evaluation block. **Evaluate and record one criterion at a time.**
-
-**Step 5a — Evaluate one criterion**
-
-Pick one contract and one criterion (A, B, or C). Trace the code. Determine `passed`.
-
+Step 5a — evaluate one criterion:
 ```
 Example thought process for Criterion B on Contract C001:
 
@@ -228,10 +182,8 @@ Example thought process for Criterion B on Contract C001:
   → PASSED = false
 ```
 
-**Step 5b — If `passed = false`, record immediately**
-
+Step 5b — if `passed=false`, record immediately:
 ```bash
-# Step 5b execution — no delay, no further analysis first
 echo '[{"evaluations":[{
   "criterion": "B",
   "passed": false,
@@ -244,31 +196,26 @@ echo '[{"evaluations":[{
   --ticket-key=P0-4
 ```
 
-**Step 5c — Continue with the next criterion**
-
-After recording, move to the next criterion (or next contract). Do not batch.
-
+Step 5c — continue with the next criterion:
 ```
 Criterion C on same contract:
   Same test at tests/validation.rs:52 uses assert_eq!(result, Err(ValidationError::EmptyInput)).
-  This is precise — it checks the exact error variant, not just is_err().
+  This is precise — checks the exact error variant, not just is_err().
   → PASSED = true  (no recording needed)
 ```
 
-**Rules for the evaluation (applies to each individual criterion):**
-
-- `passed` must be a **boolean**. `true` = no issue found. `false` = omission found.
-- `reason` must cite **specific file + surrounding code** evidence. "The code looks correct" is forbidden.
-- `evidence` must be an array of `{file: string, line: number}` objects — no free text, no code snippets.
-- If `passed = false`, the `reason` must explain **what is missing** and **what should exist**, in a self-contained way.
-- **Do NOT construct a single JSON with multiple evaluations** unless you discovered them simultaneously and they share the same `severity`/`recommendation`. When in doubt, make separate calls.
+Rules per criterion:
+- `passed` must be boolean. `true`=no issue, `false`=omission.
+- `reason` cites specific file+code evidence — "the code looks correct" forbidden.
+- `evidence` = array of `{file: string, line: number}` — no free text, no snippets.
+- `passed=false` → `reason` explains what is missing and what should exist, self-contained.
+- do NOT construct one JSON with multiple evaluations unless discovered simultaneously and sharing `severity`/`recommendation`. when in doubt, separate calls.
 
 ### Step 6 — Record an omission (execute the moment a gap is found)
 
-As soon as you confirm a `passed = false`, construct the foundOmissions entry and pipe it.
+The moment a `passed=false` is confirmed, construct the `foundOmissions` entry and pipe it.
 
-#### Example: first omission found for contract C001, criterion B
-
+Example — first omission, contract C001 criterion B:
 ```bash
 echo '[{
   "evaluations": [{
@@ -285,10 +232,7 @@ echo '[{
   --ticket-key=P0-4
 ```
 
-#### Multiple evaluations in one call (for multiple criteria on the same contract)
-
-When you find gaps in multiple criteria at once, include them all:
-
+Example — multiple criteria found together, same contract:
 ```bash
 echo '[{
   "severity": "critical",
@@ -318,48 +262,40 @@ echo '[{
   --ticket-key=P0-4
 ```
 
-**Key principles:**
+Key principles:
 
 | Principle | Why |
 |-----------|-----|
-| **Record the moment you find it** | Your analysis context is fresh. Delaying risks losing detail. The script handles deduplication via `originalTicketKey`. |
-| **One finding = one `evaluations[]` entry** | Each evaluation is a single criterion on a single contract. If you find two gaps, include two evaluations. |
-| **`passed = false` is an omission** | The merge pipeline uses this to determine which tickets need re-implementation. |
-| **`evidence[]` must be exhaustive** | List every file:line you inspected for this evaluation. The next implementer will trace your steps. |
-| **`reason` must be self-contained** | It should make sense without reading the original ticket. Include the contract text, what you found, and what is missing. |
-| **`severity` is optional but helpful** | Use `"critical"` for missing entire contract coverage, `"major"` for partial coverage, `"minor"` for imprecise assertions. |
+| record the moment you find it | analysis context is fresh; delay risks losing detail. script dedups via `originalTicketKey` |
+| one finding = one `evaluations[]` entry | each evaluation = one criterion on one contract |
+| `passed=false` is an omission | merge pipeline uses this to pick tickets needing re-implementation |
+| `evidence[]` must be exhaustive | list every file:line inspected — the next implementer retraces your steps |
+| `reason` must be self-contained | must make sense without reading the original ticket |
+| `severity` optional but helpful | `"critical"`=missing entire contract coverage, `"major"`=partial, `"minor"`=imprecise assertions |
 
 ### Step 7 — Repeat
 
-Run Step 2 again to get the next ticket. Continue until you see:
-
-```
-All tickets inspected.
-```
+re-run Step 2 until: `All tickets inspected.`
 
 ### Step 8 — Clean up
 
 ```bash
 node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 ```
-
-Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
-Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of this command.
+removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`. before deleting, copies `_tmp-omissions-*.json` to `OMISSIONS-<ts>.json` — the deliverable of this command.
 
 # Step 9 — Merge into Tickets.json
 
 ```bash
 node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 ```
-
-This computes optimal phase/ticket boundaries from the omissions found in Steps 2-7 and merges them mechanically into Tickets.json. Because the merge is algorithmic, phase names are generic (P6, P7, ...). The stdout lists each phase's node titles and ticket info, followed by the exact `rename-phases.js` commands to assign meaningful names. You **must** follow those instructions in Step 10.
-
-**STUB key rewrite (built into phasify)**: when a cloned ticket carries `stubs[]` from a marker that referenced an OLD ticket key, phasify rewrites every marker key to the clone's new key (`P{newPhase}-{newId}`). The actual source marker lines are always rewritten relative to the current directory (the Tickets.json root). The merge is REJECTED (exit non-zero) if any stub still carries a terminal excuse — run Step 1 again and clear all excuses before re-running.
+computes optimal phase/ticket boundaries from Steps 2–7's omissions, merges mechanically into Tickets.json. mechanical merge → generic phase names (P6, P7, ...); stdout lists each phase's node titles/ticket info + the exact `rename-phases.js` commands (follow in Step 10).
+invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to cwd (Tickets.json root).
+gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 
 # Step 10 — Rename phases
 
-Run the `rename-phases.js` commands printed in Step 9's stdout. Each re-implementation phase name **must** start with the prefix `"Omissions: "` to clearly mark it as omission-derived. Example:
-
+Run the `rename-phases.js` commands from Step 9's stdout. each re-implementation phase name **must** start with `"Omissions: "`.
 ```bash
 node .claude/scripts/tickets/rename-phases.js --phase=6 --name="Omissions: Storage & Connection Layer"
 node .claude/scripts/tickets/rename-phases.js --phase=7 --name="Omissions: Migration Runner"
@@ -367,36 +303,35 @@ node .claude/scripts/tickets/rename-phases.js --phase=7 --name="Omissions: Migra
 
 # Step 11 — Clean up transient consolidation artifacts (full success only)
 
-After ALL of the above steps pass (tickets created, markers rewritten, omissions merged and renamed), remove the transient consolidation artifacts the pipeline no longer needs:
-
+After ALL prior steps pass (tickets created, markers rewritten, omissions merged and renamed):
 ```bash
 node .claude/scripts/tickets/clean-consolidation-artifacts.js
 ```
-
-This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. Idempotent — exit 0 when nothing to remove. The rollback backup only exists to undo a *wrong* consolidation; once the manifest has been consumed and tickets created, restoring the rollback would desync markers from the created tickets, so it is removed at the same time. Re-running requires a fresh consolidation (the mandatory model).
+removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. idempotent (exit0 when nothing to remove).
+rationale: the rollback backup exists only to undo a *wrong* consolidation; once the manifest is consumed and tickets created, restoring it would desync markers from created tickets — remove both together. re-running requires a fresh consolidation.
 
 ## Reverse rotation only — the return path from an omission to its uncertainty
 
-**Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. Without `--mode=reverse` the artefact is returned itself and no return reference is written, so this section cannot fire in a forward rotation. An omission recorded during the forward rotation carries exactly the fields it carried before this section existed.
+Mode: forward | reverse
+  detect: `return-refs-reverse-mode` holds / `--mode=reverse` passed. without it, this section cannot fire — the artefact returns itself, no return reference written.
 
-An omission is recorded as a shortfall of the original hypothesis, norm or scope — not as "not enough tests" (ABOUT-REVERSE 1.3). To make it actionable rather than merely countable, the omission names the uncertainty it descends from: the claims it affects, and the residuals that produced it (ABOUT-REVERSE 6.12.3 layer B, and the return edge of 6.10.1).
+forward: an omission recorded during forward rotation carries exactly the fields it carried before this section existed (no change).
 
-1. **Read the registry before writing a reference.** `affected_claim_ids` are resolved against the claim ledger (`CLAIM-LEDGER.json`) and `origin_residual_ids` against the residual registry (`RESIDUAL-REGISTRY.json`). A reference that cannot be resolved is **reported, never written** — a pointer to nothing reads as a chain that exists, which is worse than no pointer.
-2. **Resolve, then attach.** Call `return-refs.js` with the omission, `mode: "reverse"`, and the identifiers the analysis found. It returns the omission carrying only the references that resolved, plus a finding for each that did not.
-3. **Pass only the resolved omission to Step 6's `add-omission-ticket.js`.** The unresolved findings are reported to the human in plain English, in the order they were found; they are not silently dropped and they are not turned into a field with an invented value.
-4. **An omission with no originating uncertainty carries no new fields and remains valid.** Omission is optional, and an empty `affected_claim_ids` reads as a chain that was followed and found empty — which is a different and false claim.
-
+reverse: an omission names the uncertainty it descends from — the claims it affects, the residuals that produced it (not "not enough tests").
+1. judge: resolve `affected_claim_ids` against `CLAIM-LEDGER.json` and `origin_residual_ids` against `RESIDUAL-REGISTRY.json`. prohibition: an unresolvable reference is reported, never written — a pointer to nothing reads as a chain that exists, which is worse than no pointer.
 ```bash
-# Resolve the return references against the ledgers, then report what did not resolve.
-# The omission arrives on stdin, exactly as the analysis recorded it (references included);
-# it leaves with only the references that resolved, followed by the report in plain English.
 node .claude/scripts/tickets/lib/return-refs.js \
   --kind=omission \
   --claim-ledger="<path to CLAIM-LEDGER.json>" \
   --residual-registry="<path to RESIDUAL-REGISTRY.json>" \
   < "<the omission as the analysis recorded it>.json"
 ```
+2. out: the omission returns carrying only the references that resolved, plus a finding for each that did not.
+3. pass only the resolved omission to Step 6's `add-omission-ticket.js`. prohibition: unresolved findings are reported to the human in plain English, in the order found — never silently dropped, never turned into an invented field value.
+4. an omission with no originating uncertainty carries no new fields and remains valid — an empty `affected_claim_ids` would be a *different, false* claim (a chain followed and found empty), not the same as omitting the field.
 
-The command exits 0 whether or not every reference resolved: the report is the output and the judgement is the human's. Pass the printed artefact — not the input — to `add-omission-ticket.js` in Step 6.
+exit: `return-refs.js` exits 0 regardless of resolution — the report is the output, the judgment is the human's (out, not ask;stop — processing continues without waiting). pass the printed artefact, not the input, to Step 6.
 
-**Forward guarantee.** The forward output of this command is byte-identical to its pre-change form. No required field is added, so a consumer that does not know about `affected_claim_ids` or `origin_residual_ids` continues to work unchanged. The P22-1 regression gate's command-file digest is run before and after every edit to this file.
+Invariants:
+- forward output byte-identical to its pre-change form — no required field added; a consumer unaware of `affected_claim_ids`/`origin_residual_ids` continues to work unchanged
+- P22-1 regression gate's command-file digest runs before and after every edit to this file

@@ -45,7 +45,6 @@ import {
   reservedReverseDirectory,
   reservedTreeDecisionsPath,
 } from './lib/reserved-root.mjs';
-import { sweepStagingDecisions } from './lib/staging-decisions.mjs';
 import { LAYER_FORBIDDEN_TARGETS } from './lib/workspace-model.mjs';
 import { readSpecInput } from './lib/fs-safe.mjs';
 import { normalizeTextBytes } from './lib/normalization.mjs';
@@ -285,11 +284,10 @@ function runFinalize(args) {
     return exitWhenDrained(EXIT_CODES.FAIL);
   }
 
-  // Staging, and the doctrine says the script deletes it: the published manifest is
-  // the record of what was decided, and this document is what the gate read on the
-  // way there. Swept only after a publication that succeeded, so a refused run
-  // leaves the author's document where they can repair it.
-  sweepStagingDecisions(decisionsPath);
+  // The decisions document is not cleaned up here: it is the authored input of
+  // record rather than an intermediate the run owns, and removing it destroyed the
+  // only copy of what the gate approved. It is left in place, with its holding
+  // directory, and the residue reports the reserve.
 
   process.stdout.write(
     formatSuccess({
@@ -569,11 +567,9 @@ function runReverse(args) {
     return reportReverseFailure(records, summary);
   }
 
-  // Swept for the same reason the forward finalize sweeps it: the manifest this run
-  // published is the record of what was decided, and the document the gate read is
-  // staging. Leaving it would put a second copy of the decisions beside a manifest
-  // that already carries them.
-  sweepStagingDecisions(decisionsPath);
+  // Left in place, as in the forward finalize: a reverse run reads the decisions
+  // document, it does not own it, and the manifest it publishes records what was
+  // decided without replacing the authored input.
   publishAndReportReverse({ outcome: { manifest, records, prepared, outDir, measuredRoot }, seam });
 }
 

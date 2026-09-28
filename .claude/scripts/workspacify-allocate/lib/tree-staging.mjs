@@ -114,7 +114,7 @@ export function publishStagedTree(stagingRoot, root, plan) {
   const topLevels = [...new Set(plan.map((relPath) => relPath.split('/')[0]))].sort();
   const renamed = [];
   const abort = (reason) => {
-    rollbackPublished(root, renamed);
+    rollbackRenamedTopLevels(root, renamed);
     rmSync(stagingRoot, { recursive: true, force: true });
     return { published: false, reason };
   };
@@ -135,22 +135,52 @@ export function publishStagedTree(stagingRoot, root, plan) {
 }
 
 /**
+ * Every directory beneath a root, as sorted root-relative POSIX paths.
+ *
+ * The reader that compares a workspace against a plan needs the directory set the
+ * root holds now; taking it through the same walk as the staging checks keeps one
+ * definition of what counts as a directory of the workspace and one exclusion of
+ * the reserved root.
+ *
+ * @param {string} root - directory to scan (absolute)
+ * @returns {string[]} sorted root-relative directory paths
+ */
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+export function snapshotDirectories(root) {
+  return [...walkTree(root).dirs].sort();
+}
+
+/**
  * Verify that the workspace root realizes the plan's directory topology.
  *
  * Only directories are compared: every planned directory must exist and no
- * extra directory may appear. Pre-existing root-level files (the spec and the
- * manifest) are intentionally outside the directory-set contract; seed files
- * are verified separately by the seed checks in PX-190/PX-191.
+ * directory this run did not plan may appear.
+ *
+ * `preExisting` is the directory set the root held before the run published. A root
+ * that is not dedicated to this workspace - a host project directory holding the
+ * spec and the manifest beside its own sources - already contains directories the
+ * plan says nothing about, and they are the operator's content rather than this
+ * run's leakage. Naming them keeps the scan's verdict about what the run created:
+ * a directory absent from both the plan and the snapshot is still reported. The
+ * default is empty, so a caller that compares a root it fully controls keeps the
+ * strict equality it had.
+ *
+ * Root-level files are outside the contract entirely: the spec and the manifest
+ * are pre-existing files by construction, and seed files are verified separately
+ * by the seed checks in PX-190/PX-191.
  *
  * @param {string} root - workspace root (absolute)
  * @param {string[]} plan - root-relative planned directories
+ * @param {{ preExisting?: string[] }} [options] - directories present before the run published
  * @returns {{ ok: boolean, missing: string[], unexpected: string[] }}
  */
-export function verifyDirectorySet(root, plan) {
+// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+export function verifyDirectorySet(root, plan, { preExisting = [] } = {}) {
   const expectedDirs = expandWithAncestors(plan);
+  const preExistingDirs = new Set(preExisting);
   const { dirs } = walkTree(root);
   const missing = expectedDirs.filter((relPath) => !dirs.includes(relPath));
-  const unexpected = dirs.filter((relPath) => !expectedDirs.includes(relPath));
+  const unexpected = dirs.filter((relPath) => !expectedDirs.includes(relPath) && !preExistingDirs.has(relPath));
   return { ok: missing.length === 0 && unexpected.length === 0, missing, unexpected };
 }
 
@@ -175,13 +205,21 @@ function expandWithAncestors(plan) {
 }
 
 /**
- * Remove the listed top-level directories from the root (rollback).
+ * Undo the renames one publish attempt already made, during that attempt.
+ *
+ * The contract is the caller's, and the name says so: `renamedTopLevels` holds only
+ * the names `publishStagedTree` renamed after finding no destination for them, so
+ * every name here is one this attempt created and a removal cannot reach content the
+ * root already held. It is not the way to undo a publication that completed - a run
+ * that published and then failed a later gate is undone by `rollbackPublication` in
+ * `publish-allocate-manifest.mjs`, which carries the pre-publish snapshot that makes
+ * that safe.
  *
  * @param {string} root - workspace root (absolute)
- * @param {string[]} topLevels - top-level directories to remove
+ * @param {string[]} renamedTopLevels - top-level names this attempt renamed
  */
-export function rollbackPublished(root, topLevels) {
-  for (const topLevel of topLevels) {
+export function rollbackRenamedTopLevels(root, renamedTopLevels) {
+  for (const topLevel of renamedTopLevels) {
     rmSync(path.join(root, topLevel), { recursive: true, force: true });
   }
 }
