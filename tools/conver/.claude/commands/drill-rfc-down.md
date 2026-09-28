@@ -143,19 +143,19 @@ Ask validated 5–10-question turn; await answers. Determine evolution by grill 
 
 Every question; ordered; detail proportional to decision complexity; do not over-compress:
 0. unique turn-local `Q<number>` ID.
-1. background/rationale: need, options, trade-offs.
-2. Markdown options: one option per newline/list item; never multiple options on one line.
-3. concrete recommendation + why better than alternatives.
+1. Background and rationale: the need, the options, their trade-offs.
+2. Newline-separated options: one per list item; never two on one line.
+3. Recommendation with reasoning: the concrete choice, and why it beats the others.
 
 User answer: Yes/No or A/B/C only; never request free-form answer; unsolicited free text allowed.
 
 Grill contract:
-- bundling: 1 question = 3–5 nodes; 1 turn = 5–10 questions.
-- two pass: architecture → details.
-- each turn end: summarize settled decisions.
+- Coarse-grained bundling: 1 question = 3–5 nodes; 1 turn = 5–10 questions.
+- Two-pass approach: architecture → details.
+- Summarize settled decisions at each turn end.
 - before display: run `validate-question-format.js` until `valid: true`; never skip.
-- answer received → immediately update node: add/resolve/batch-resolve; add-child/refine/delete as required.
-- no RFC write while grilling.
+- answer received → immediately update the node: `node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" add '<json>'` — the standalone `add` for a new top-level node, then `resolve` / `batch-resolve`; `add-child` / `refine` / `delete` as required.
+- Do not write the RFC while grilling.
 
 ```bash
 node "$DRILL_DIR/validate-question-format.js" "<question text>"
@@ -182,7 +182,7 @@ node "$DRILL_DIR/tree-query.js" "$SESSION_DIR" stats
 #### 1-6. Completion Judgment
 
 precondition: `open-count == 0`.
-ask; stop: simultaneously propose grill end and ask to start RFC-requirements CheckList generation. Approval → 1-7.
+ask the user; stop: simultaneously propose grill end and ask to start RFC-requirements CheckList generation. Approval → 1-7.
 
 ```bash
 node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" open-count
@@ -192,7 +192,7 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-6
 
 #### 1-7. CheckList Generation & Approval
 
-Generate CheckList; AI visually inspect every item; append notes for ambiguous nodes/project constraints; present to user.
+Generate CheckList; the AI visually inspects all items; append notes for ambiguous nodes and project-specific constraints; present to user.
 ask; stop: user approval required; then `CHECKLIST_APPROVED`.
 
 ```bash
@@ -216,7 +216,7 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-8
 #### 1-9. CheckList Verification
 
 Proceed after 1-7 approval; no additional approval gate. Verify every CheckList item; repair until all `✅`.
-- detect `TBD`, `TODO`, `will be addressed in a later version` → warn; incomplete; do not complete until fully written.
+- detect `TBD`, `TODO`, `will be addressed in a later version` → warn; incomplete; do not declare completion until fully written.
 
 ```bash
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-state REVIEWING
@@ -244,14 +244,14 @@ node "$DRILL_DIR/rfc-evolution.js" verify "$RFC_PATH"
 Machine: append-only, delta extraction, well-formedness, contradiction candidates; write `$SESSION_DIR/delta.json`.
 - exit 1 → back to 1-8.
 
-AI expert judgment; inspect result, `delta.json`, resolved DesignTree, scope:
+AI engineering expert judgment; inspect result, `delta.json`, resolved DesignTree, scope:
 - Danger: breaks existing design/implementation/contracts?
 - Omission: every resolved node reflected?
 - Contradiction: existing RFC/GRAPH/Dirs-Tree/Tickets contradiction?
 - Deficiency: each decision code example, I/O boundary info, sufficient detail?
 
 Heal-loop quality:
-- any insufficient → back to 1-8; fix; repeat 1-8 → 1-11.
+- any insufficient → return to 1-8 without compromise; fix; repeat 1-8 → 1-11.
 - all pass → next.
 
 ```bash
@@ -299,9 +299,9 @@ node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --source="$RFC_PATH" --
 node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --source="$RFC_PATH" --reject
 ```
 
-- `--approve`: does not re-run analyzer; validates/promotes exact AI-designed staging graph.
-- verifier: uncovered headings, isolated nodes, headingRefs resolvability, uniqueness.
-- deletion: forbidden by default; explicit AI approval only.
+- `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging graph.
+- verifier (`verify.js`): uncovered headings, isolated nodes, headingRefs resolvability, uniqueness.
+- Destructive change: deletion forbidden by default; explicit AI approval only; never hand-edit the JSON — design it through the loop.
 - only graph writes: staging `crud.js`; driver promote.
 
 ### Step 3: boundify
@@ -309,7 +309,7 @@ node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --source="$RFC_PATH" --
 Goal: evolve existing `*-Dirs-Tree.json` and real `$RFC_DIR/src` from Step-1 delta + Step-2 `$GRAPH_PATH.delta.json`. AI designs; scripts supply candidates, safe edits, validation.
 
 Evolution loop Dirs-Tree:
-1. stage: copy real → `<dirsTree>.staging.json`; write candidates + four-axis advisory; real Dirs-Tree/src unchanged.
+1. stage: copy real → `<dirsTree>.staging.json`; write `<dirsTree>.candidates.json` + four-axis advisory; real Dirs-Tree/src unchanged.
 2. judge: cross-check candidates, graph delta, RFC, src drift; candidates advisory only.
 3. edit: staging only; `dirs-tree-crud.js` only; schema validation every edit.
 4. approve: validation PASS → derive `dirs-tree-delta.json`; generate allowed src effects; promote. FAIL → no promotion; fix; retry.
@@ -333,11 +333,11 @@ node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR
 node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --graph="$GRAPH_PATH" --reject
 ```
 
-- `--approve`: does not re-run analyzer; validates/promotes exact AI-designed staging Dirs-Tree.
-- validator: GRAPH/Dirs-Tree consistency, `mappedNodeIds` resolution, dependency cycles.
+- `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Dirs-Tree.
+- validator (`validate-dirs-tree-schema`): GRAPH/Dirs-Tree consistency, `mappedNodeIds` resolution, dependency cycles.
 - PASS effects: delta-only `newFiles` via `generate-dir-templates-delta.js`, Initial Design Artifact header; existing mapped-file headers/cross-references via `refresh-file-headers.js` when graph delta given; never implementation body.
 - delta generator inapplicable → AI may hand-create file.
-- file/directory deletion or move: forbidden by default; explicit AI approval: `remove-node --force` only.
+- Destructive change: file/directory deletion or move forbidden by default; explicit AI approval: `remove-node --force` only; never hand-edit the JSON.
 - only Dirs-Tree writes: staging `dirs-tree-crud.js`; driver promote.
 
 ### Step 4: split
@@ -345,7 +345,7 @@ node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR
 Goal: evolve existing `Tickets.json` from `$DIRS_TREE_PATH.delta.json` through ticket edits/additions. AI designs; scripts supply candidates, safe edits, validation.
 
 Evolution loop Tickets:
-1. stage: copy real → `<tickets>.staging.json`; write candidates + four-axis advisory; real Tickets unchanged.
+1. stage: copy real → `<tickets>.staging.json`; write `<tickets>.candidates.json` + four-axis advisory; real Tickets unchanged.
 2. judge: cross-check candidates, Dirs-Tree delta, existing statuses; candidates advisory only.
 3. edit: staging only; `add-ticket.js` / `update-ticket.js` only; schema validation every edit.
 4. approve: validation PASS → derive `tickets-delta.json`; promote. FAIL → no promotion; fix; retry.
@@ -367,10 +367,10 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --approve
 node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 ```
 
-- `--approve`: does not re-run analyzer; validates/promotes exact AI-designed staging Tickets.
-- validator: title/round/metadata/phases/ticket-status/phaseId consistency.
+- `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Tickets.
+- validator (`validate-tickets`): title/round/metadata/phases/ticket-status/phaseId consistency.
 - never silently overwrite status.
-- ticket deletion: forbidden by default; explicit AI approval only.
+- Destructive change: ticket deletion forbidden by default; explicit AI approval only; never hand-edit the JSON.
 - round `R<N>` / `phaseId`: existing phasify conventions.
 - only ticket writes: staging add/update tools; driver promote.
 
@@ -394,3 +394,33 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 - high finding → exit 1; back to Step 2; repair Steps 2 → 3 → 4; re-run G5 until exit 0.
 - low/cosmetic findings only → PASS.
 - verifier: deterministic, read-only, no artifact rewrite.
+
+## Reverse rotation only — staleness as an input to this drill
+
+**Rotation gate** — this section runs only when `claim-ledger` holds. The forward rotation writes no `CLAIM-LEDGER.json`, and `staleness.mjs` takes it as a required argument, so this section cannot fire in one. The forward steps above are unchanged and run the same scripts they always ran.
+
+A record is only as current as the artefacts it was read from. When a dependency, a configuration, a schema or an external contract moves on, the record keeps its shape and quietly stops describing the code (ABOUT-REVERSE 7.6 F13): nothing throws and nothing turns red, so the next reader treats a stale claim as a current one. Propagation is the signal that was missing, and a re-examination condition is exactly the kind of question this command already asks.
+
+1. **Read the recorded hashes, then compare.** `staleness.mjs` reads `forward_refs.ref_hashes` from `CLAIM-LEDGER.json`, hashes each named input as it stands now, and marks every claim whose recorded hash differs. The authority for the comparison sits in the reverse sidecar, so no forward artefact gains a field (ABOUT-REVERSE 6.12.2, "Option 2.5-refined").
+2. **A comparison that could not be made is reported, never assumed unchanged.** An input that cannot be hashed and a recorded hash that is not a hash are both reported by name: a claim that stopped being checked must not read like one that was checked and found current.
+3. **Emit, then pass as material.** The emitted document is an ordinary material argument, the third input type this command already accepts; nothing about the input contract changes.
+4. **Staleness never cancels `COMPLETE`.** The two are independent axes: `COMPLETE` is a value the forward rotation reads, staleness is a reverse-rotation concept. A stale claim is a question for the grill, not a completion verdict, and no reader of `COMPLETE` is changed by it. Conflating them would let a reverse-only signal alter forward behaviour, which the phase forbids.
+5. **A claim with no recorded `ref_hashes` is not stale.** A normal branch rather than an error; reporting it would drown the real signal.
+6. **A run that found nothing stale says so in words.** The material states that no claim is stale rather than emitting an empty document, which reads as a failure where nothing failed.
+
+```bash
+# Mark the claims whose recorded reference hashes no longer match, and emit
+# their re-examination conditions as material. Nothing is written unless --out
+# is given, and the measured tree is never written to at all.
+node .claude/scripts/workspacify-reverse/lib/staleness.mjs \
+  --claim-ledger="<directory holding CLAIM-LEDGER.json>" \
+  --changed=graph="<the GRAPH as it stands now>" \
+  --changed=dirs_tree="<the Dirs-Tree as it stands now>" \
+  --out="<destination>"
+
+/drill-rfc-down <destination>/STALENESS-REEXAMINATION.md
+```
+
+`STALENESS-INDEX.json` is written beside it as the record of what was found. A claim whose `staleness_ref` points here is the one this command's grill must re-examine.
+
+**Forward guarantee.** The forward output of this command is byte-identical to its pre-change form: no required field is added and no existing step is altered. The P22-1 regression gate's command-file digest is run before and after every edit to this file.

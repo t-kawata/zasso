@@ -384,3 +384,26 @@ out:
 - graph summary: kind-organized node list + edge relationships.
 
 Done: graph available to `/split-to-tickets` and `/boundify-graph` through `show-graph-summary-markdown.js --with-cli-examples`; referenced by `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`.
+
+## Reverse mode (GF1, GF2)
+
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
+Same command, same steps; two gates added, neither changes the schema: `*-GRAPH.json` is layer C and gains nothing, so the grounding is published beside the graph and never written into it.
+
+Why the gates exist: `node.schema.json` carries no file field and `additionalProperties` is false, so a graph can be internally consistent — every heading referenced, every edge joined — and connected to nothing real. And an RFC written from the code agrees with the code by construction, so a reconciliation that finds nothing is the **ratification RFC** (F1, ABOUT-REVERSE 3.4), not a clean result. Reverse mode makes both failures visible instead of silent.
+
+| Change | Does |
+|---|---|
+| **GF1 grounding** | `grounding-check.js` — every node resolves to a file that exists under the measured tree, T3's rule. A missing declared path and a node declaring no path fail alike, reported **by identifier**; reads through `crud.js` and adds no second write path |
+| **GF2 contract reconciliation** | `contract-diff.js` — R3 contract candidates (what the code does) against RFC-derived contracts (what the edges state). Every difference is recorded as an **omission or RESIDUE candidate**, never discarded; gap-versus-artefact is the grill's judgement, this step decides only what is unmatched |
+
+**Prohibitions**
+
+- No extension of `node.schema.json`, `edge.schema.json` or `graph.schema.json`: a grounding is a table beside the graph, not a node field.
+- No second graph write path: `crud.js` remains the only one, both scripts read.
+- Never remove a difference to make the reconciliation clean — a removed difference destroys the only evidence that the RFC disagrees with the code.
+- Never report zero differences as success: zero is F1's signature, and the record must say the comparison was made rather than that nothing was found.
+- Never classify a difference by guessing intent; an unclassifiable one is recorded `unclassified` and carried to the grill.
+
+**Report additions**: GF1 status and every unresolvable node identifier; GF2 difference count split by direction with the recorded candidates; and on zero, the sentence saying a zero result is to be scrutinised rather than trusted.

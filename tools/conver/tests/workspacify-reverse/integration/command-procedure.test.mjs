@@ -1,3 +1,4 @@
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 // [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
@@ -545,8 +546,9 @@ test('C002 boundary: no Step names a document a later Step publishes', () => {
 
 // --- Boundary: the guards discriminate --------------------------------------
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C002/UT: a mutated Language Protocol table fails the shared digest rather than passing as close enough', () => {
-  const mutated = TEXT.replace('| Context | Language | Reason |', '| Context |  Language | Reason |');
+  const mutated = TEXT.replace('| Context | Language |', '| Context |  Language |');
   assert.notEqual(mutated, TEXT, 'the fixture is actually different');
   assert.throws(
     () => assertCommandFileStructure(mutated, { projectRoot: PROJECT_ROOT }),
@@ -790,12 +792,13 @@ test('C001/UT: every installed copy states the rule and quotes the order unchang
   }
 });
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C001 invariant: the quotation sits on the line this file records for it', () => {
   // An anchor rather than a decoration: the line number is the whole assertion, so a
   // line inserted or removed above the quotation is reported here by name instead of
   // moving in silence. The citations into this file under `specs/` are dated
   // measurements that keep their text, so this number is updated on its own.
-  assert.deepEqual(declaredOrderLines(TEXT), [198], 'the quotation is where this file says it is');
+  assert.deepEqual(declaredOrderLines(TEXT), [172], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

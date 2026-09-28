@@ -1,3 +1,4 @@
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
@@ -224,12 +225,13 @@ test('C002 postcondition: the obligation sentence is frozen where it exists and 
   }
 });
 
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C002 postcondition: a damaged Language Protocol table is reported by name', () => {
   const root = makeCommandsCopy();
   try {
     const baseline = digestCommandFiles(root);
     const target = commandPath(root, 'boundify-graph');
-    writeFileSync(target, readFileSync(target, 'utf8').replace(/\|\s*Chat,\s*proposals,\s*explanations\s*\|[^\n]*/g, '| Chat | English |'));
+    writeFileSync(target, readFileSync(target, 'utf8').replace(/\|\s*Chat,[^|\n]*\|[^\n]*/g, '| Chat | English |'));
 
     const findings = compareDigests(baseline, digestCommandFiles(root));
     assert.equal(findings.length, 1);

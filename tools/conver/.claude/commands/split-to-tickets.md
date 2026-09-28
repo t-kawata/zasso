@@ -372,3 +372,33 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ## Notes
 
 Existing destination `Tickets.json` → confirm with user before overwrite.
+
+## Reverse mode (S1 to S6)
+
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
+Forward: a design document is decomposed into phases and tickets that declare what is to be built. Reverse: the same step describes what is there. Entered by naming a subject tree rather than a design document, and it changes four things.
+
+- **The input is a tree, not a document.** `--root` names the project to describe; there is no RFC and no `GRAPH.json` to read first, and the directory structure comes from the `/boundify-graph` reverse branch.
+- **`default_files` is measured, not resolved.** Forward resolves it from the Dirs-Tree through `nodeIds`; here the implementation already exists, so the file is measured on disk and recorded. When none exists yet that fact is recorded explicitly rather than left as an empty list: the loop runs one ticket per session, so an empty file list is a ticket no session can execute.
+- **Tickets are reconstruction tickets.** A contract whose test never had a Red cannot be proved by a green suite — the test was written against an implementation that already existed. Each such contract produces exactly one ticket to rebuild that Red, recording whether the absence is re-checkable or is a candidate only a human can settle.
+- **`counterexample_plan_id` is mandatory.** It names what the ticket will confirm or refute, not merely what it will implement. A ticket without it is refused rather than emitted: the uncertainty the plan encoded would dissolve at implementation time and the reconstruction would become ordinary test-writing.
+
+```bash
+node .claude/scripts/tickets/lib/reverse-split.js --root=<subject tree> \
+  --tickets=<path> [--test-dir=<dir>] [--gaps=<path>] [--ledger=<path>] \
+  [--language=<name>] [--out=<dir>] [--candidate=<path>] [--json]
+```
+
+The exit code is a gate verdict, not a measure of success: 0 when every existing test is mapped and every reconstruction ticket carries a plan identifier, non-zero otherwise. An absence count of zero is a comparison result and never a pass — it means either that no contract was measured or that the detection reads nothing.
+
+Nothing here executes a reconstruction ticket; executing them is a separate step and these tickets are its input.
+
+Absent-Red detection is compared against the frozen answer key rather than asserted, which is what keeps it a measurement:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage mapping \
+  --candidate=<path written by --candidate>
+```
+
+The comparison lists disagreements by name in both directions, and never a score or a verdict. Classifying each is a human's work.

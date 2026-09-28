@@ -52,7 +52,8 @@ import {
 import { REPRESENTATIVE_ROOTS } from '../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'P22-ANALYSIS-TECH.md');
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'archive', 'P22-ANALYSIS-TECH.md');
 
 /** The six languages, in the order the matrix renders them. */
 const SIX = Object.freeze([...TARGET_LANGUAGES]);

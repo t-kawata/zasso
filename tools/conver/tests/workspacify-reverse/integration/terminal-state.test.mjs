@@ -112,7 +112,8 @@ const RECORD_PATH = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis
 const RECORD_REGENERATE_ENV = 'WSP_TERMINAL_STATE_REGENERATE';
 
 /** The design document §7.3 lives in, and where the claim it records is replaced by a citation. */
-const DESIGN_PATH = join('docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+const DESIGN_PATH = join('docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 
 /** The design section §7.3 occupies, so the assertions read the claim rather than the whole document. */
 const NOT_VERIFIED_SECTION = Object.freeze({ from: '### 7.3', to: '### 7.4' });

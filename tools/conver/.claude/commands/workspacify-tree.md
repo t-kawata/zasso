@@ -193,8 +193,7 @@ Mechanical prohibitions and Step-3 design guidance are exhaustive; add no discre
 Both: AI final semantic approval (`semantic_review.status=="APPROVED"`) and every machine gate PASS/unresolved review 0. Neither alone suffices. Final confirmation: reload manifest; schema/required values/self-hash; semantic-review record; stage-two entry-gate acceptance invoked by finalize.
 
 ## Reverse mode (T1 to T6)
-
-Runs only when `reverse-decisions-mode` holds. Forward invokes finalize; absent/empty/unrecognized mode resolves FORWARD; this section cannot fire forward.
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. Forward invokes finalize; absent/empty/unrecognized mode resolves FORWARD; this section cannot fire forward.
 
 Role: existing substantial implementation requires measured-tree grounding; preserve physical layout exactly; maintain logical architecture separately; record technical debt, never canonize it as designed. Invoke `run.mjs reverse`; subject=current directory only.
 

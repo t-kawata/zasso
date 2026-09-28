@@ -263,3 +263,38 @@ Report:
 - auto-generated declaration stub count.
 
 Done: implementation may begin from generated tree/files.
+
+### Reverse Mode
+
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
+The implementation exists, so the tree exists: boundify describes it instead of creating it. Second entry point, and **Step 3 is not run at all** — running it would create the tree that is already there.
+
+```bash
+# Plan only. Nothing is written to the measured tree, which is the default.
+node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir"
+
+# Attach the headers. --apply is required before anything is written.
+node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir" --apply
+```
+
+| Gate | FAIL | PASS |
+|---|---|---|
+| **B1 existing structure preserved** | a file created or removed inside the measured tree | none was |
+| **B2 header attached afterwards** | a line outside the header changed | every diff is the header alone |
+| **B3 correspondence table** | the table for the files not generated is absent | it exists, even when empty |
+
+- **B2 reconstructs** the after-content from the before-content with one contiguous insertion. Byte-for-byte equality, so a same-length substitution in the body is refused rather than accepted as "no change in size". A refusal names the file and the line.
+- **B1 compares** the measured file inventory before and after the write, so a created path fails it by name.
+- **`--apply` is opt-in.** Forward writes by default; here a write is the exceptional act. At 150 subject files a body-modifying bug is a 150-file corruption rather than a small mistake.
+
+An existing `Initial Design Artifact` header is **never** rewritten: preserved byte for byte, reported `header_preserved`. A declared path with no file is reported `absent` rather than dropped — that declaration is exactly what B3 exists to surface.
+
+Placement is measured against the answer key rather than judged:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage headers \
+  --candidate="$candidatePath" --project-root .
+```
+
+Disagreements are named by file, in both directions; never a score and never a verdict. Classifying each is a human's work (ABOUT-REVERSE 6.14, F1).

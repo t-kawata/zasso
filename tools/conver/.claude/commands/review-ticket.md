@@ -6,118 +6,98 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (`/workspacify-*`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /review-ticket
 
-**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
+**First-Class Rule — [::STUB::]**: every incomplete implementation (stub/mock/placeholder/temp-impl, any name) carries a marker, no exception. violation = crime in Malfeasance.json.
+cmd: read Malfeasance.json every phase of this command; verify zero unresolved crimes.
+fail → resolve immediately, or add marker + record on the spot.
 
-**Role**: Quality verification of `done` tickets.
+Role: quality verification of `done` tickets.
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Position in the Workflow
 
-The workflow flow is `make → plan → start → review`, currently executing `review`.
+make → plan → start → **review** (this command)
+- make-ticket: produces implementation spec doc
+- plan-ticket: produces implementation-level plan
+- start-ticket: produces implementation; sets ticket status "done"
+- review-ticket: verifies "done" tickets
 
-- **`/make-ticket`**: Creates and details an implementation specification (spec) document.
-- **`/plan-ticket`**: Detailed implementation-level planning.
-- **`/start-ticket`**: Implementation.
-- **`/review-ticket`**: Reviews completed tickets.
+## In
 
-## Argument Interpretation
+- arg: `P{phaseID}-{ticketID}` (e.g. `P0-1`, `PX-53`) → ticket key → `show-ticket-context.js --ticket-key`
+- missing / numeric-only / other → stop (error)
 
-- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required. Passed to `show-ticket-context.js`'s `--ticket-key`.
-- No argument → Interrupt with error
-- Numeric only → Interrupt with error
-- Anything else → Interrupt with error
+## Criteria — Boy Scout Rule (advisory, detect via grep, all noun-phrase fail patterns)
 
-## Boy Scout Rule — Review Perspective
+| id | check | fail pattern |
+|---|---|---|
+| A | improvement evidence in existing code | no error-propagation fix / no constant extraction / no function split |
+| B | function naming | non-verb-phrase function name |
+| C | variable naming | new single-char or generic var name |
+| D | numeric literals | hardcoded magic number |
+| E | debug output | leftover debug print |
+| F | comment quality | what-comment instead of why-comment |
 
-**Verify whether the implementer made improvements to existing code.** Check not only the quality of new code, but also evidence of improvements to existing code (error propagation fixes, constant extraction, function splitting, etc.). Translatability checks (select grep patterns per language):
+judge: evaluate against source, not cached summaries.
 
-- Grep function definitions for function names that are not verb phrases
-- Grep variable declarations for newly added single-character variables or generic names
-- Check for hardcoded magic numbers
-- Check for leftover debug output
-- Comments should only explain "why" (the "what" should be conveyed by the code itself)
+## Scripts (`.claude/scripts/tickets/`)
 
-## List of Scripts Used
-
-Located under `.claude/scripts/tickets/`.
-
-| Script | Arguments | Description |
-|--------|-----------|-------------|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --for-spec --review` | **Executed in Step 1**. Outputs ticket information in Markdown. With `--review`, interrupts on Not Found. |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields and change status. Use `--append` to retain existing content and append. |
-| `scan-crimes.sh` | (none) | **Executed in Step 3, 4**. Crime scan of Malfeasance.json. |
-| `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
-| `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
-| `review/generate-report.js` | (via stdin) | **Executed in Step 5**. Generate quality report. |
-| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--verify]` | **Executed in Step 5 (annotation check)**. Verifies that ticket-key annotations exist on all changed source files. |
-| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --check-ambiguous` | **Executed in Step 5 (loop guard)**. Exits 0 if no `[::AMBIGUOUS::]` markers remain; exits 1 if unresolved markers exist. |
-| `resolve-ambiguous-markers.js` | `--mode=list-definitions --file=<path> --ticket-key=<key>` | **Executed in Step 5 (AMBIGUOUS resolution)**. Read-only: prints Markdown with git diff -U5 context + definitions table for AI review. |
-| `resolve-ambiguous-markers.js` | `--mode=inject-at --file=<path> --ticket-key=<key> --definition-line=<N1,N2,...>` | **Executed in Step 5 (AMBIGUOUS resolution)**. Inserts `[::TICKET::]` annotation(s) before the specified definition line(s). Multiple lines comma-separated (e.g. `5,14`). Inserts in descending order to prevent line shifts; deduplicates automatically. Removes all `[::AMBIGUOUS::]` markers. |
+| Script | Arguments | Used in |
+|--------|-----------|---------|
+| `show-ticket-context.js` | `--ticket-key=<key> --for-spec --review` | Step 1; `--review` interrupts on Not Found |
+| `update-ticket.js` | `<Tickets.json path> <key>` (stdin: update JSON) | update fields/status; `--append` = retain+append |
+| `scan-crimes.sh` | none | Step 3, 4; auto-inits on first run |
+| `review/find-all-stubs.js` | `<path>` | Step 3; find all `[::STUB::]` |
+| `review/run-quality-checks.js` | `<files...>` | Step 8; static checks |
+| `review/generate-report.js` | stdin | Step 8; report gen |
+| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<key> [--verify]` | Step 5; verify annotation on changed files |
+| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<key> --check-ambiguous` | Step 5; exit0 = no `[::AMBIGUOUS::]`, exit1 = unresolved |
+| `resolve-ambiguous-markers.js` | `--mode=list-definitions --file=<path> --ticket-key=<key>` | Step 5; read-only, prints diff -U5 + definitions table |
+| `resolve-ambiguous-markers.js` | `--mode=inject-at --file=<path> --ticket-key=<key> --definition-line=<N1,N2,...>` | Step 5; inserts `[::TICKET::]` before given line(s), descending order, auto-dedup, removes all `[::AMBIGUOUS::]` |
 
 ## Workflow
 
-### Step 0: Status gate — verify ticket is ready for review
+### Step 0
+G0 status: `node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=review`
+- exit0 → G1
+- exit1 → stop; out: "Status gate blocked: /review-ticket cannot proceed until the ticket status is 'done'. Run /start-ticket first."
 
-Before proceeding, verify that the ticket's current status in Tickets.json is `"done"` (i.e., `/start-ticket` has completed). If the status is not `"done"`, the command blocks with an error message.
+### Step 1
+G1 existence: `node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --review`
+- output starts `# {ticketKey}: Not Found` → stop; out: "The ticket does not exist, so /review-ticket is interrupted."
+- else → Markdown design info + related-info exploration methods = context → G2
 
-```bash
-node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=review
-```
+### Step 2 (common, no formal gate)
+cmd, per Node-ID in "Related RFC graph NODE-IDs to check":
+`node .claude/scripts/rfc-graph/query.js --graph=<GRAPH.json> --source=<RFC-?.md> --dirs-tree=<Dirs-Tree.json> --id=Nxxxx --hops=<N>` (hops: 1=direct edges, 2+=grandchildren+)
+judge: AI decides drill depth.
+invariant: every claim backed by actual source-code analysis. review without material evidence = hallucination = prohibited.
+also, as needed: explore "Related Tickets" listed in Step 1 output, same drill-depth judgment, same evidence invariant.
+cmd (supplementary context): `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<key> --for-spec --no-implementation-order`
 
-- **Exit 0** (status is `"done"`) → proceed to Step 1
-- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /review-ticket cannot proceed until the ticket status is 'done'. Run /start-ticket first." and abort.
+### Step 3
+Heal-loop crime (priority: max, unbounded until clear; skip = prohibited):
+check: `.claude/scripts/tickets/scan-crimes.sh` (auto-inits on first run)
+open crimes found → resolve before continuing review
+judge: follow crime-resolution procedure (role: "Emergency crime resolution" procedure defined for the implementation phase; contract: resolves open Malfeasance.json entries — see start-ticket.md)
 
-### Step 1: Existence check + retrieve ticket information
-
-```bash
-node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --review
-```
-
-If the output starts with `# {ticketKey}: Not Found` → Follow the output, respond with "The ticket does not exist, so /review-ticket is interrupted." and exit. If Not Found is not the case, design information and methods for exploring related information are output as Markdown; use this as context.
-
-### Step 2: Explore and understand design information, related design information, related ticket information, and source code
-
-Understand the output of Step 1. Then, following "Usage of query.js," execute the following for every Node ID listed in "Related RFC graph NODE-IDs to check" to explore detailed design information. The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis**, and the review must be conducted with material evidence regarding the implementation status. A review without material evidence is a hallucination and is strictly prohibited.
-
-```bash
-node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
-```
-
-As needed, explore information about related tickets shown in "Related Tickets." The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis**, and the review must be conducted with material evidence regarding the implementation status. A review without material evidence is a hallucination and is strictly prohibited.
-
-```bash
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order
-```
-
-### Step 3: Emergency crime resolution (highest priority — First-Class Rule)
-
-Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with priority over the review process**. This is the highest priority task; skipping is prohibited.
-
-```bash
-# Execute crime scan (auto-initializes on first run)
-.claude/scripts/tickets/scan-crimes.sh
-```
-
-Follow the crime resolution procedure in start-ticket.md's "Emergency crime resolution." Do not proceed with the review until all crimes are resolved.
-
-Also verify that there are no new crimes in the implementation code of this ticket (incomplete implementations without `[::STUB::]` markers). If found:
-1. Use `insert-stub.js` to add a `[::STUB::]` marker (do NOT edit source files directly):
-
+also-check: unmarked incomplete implementation in this ticket's code.
+found →
+1. add marker (do NOT edit source directly):
 ```bash
 # insert-stub.js: Insert [::STUB::] marker with resolve-by-ticket validation
 #   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1).
@@ -145,181 +125,102 @@ node .claude/scripts/tickets/insert-stub.js \
   --tickets-path=Tickets.json \
   --ticket-key="$ARGUMENTS"
 ```
+retry: exit≠0 → read error (problem/blocking-reason/redo-instruction); fix args; re-run. never abort this command on this failure.
+2. record crime via `malfeasance-create.js`
+3. resolve (complete implementation or add marker)
 
-> **Retry until success**: If `insert-stub.js` exits non-zero, read the error (problem / blocking reason / redo instruction), fix the arguments, and re-run. Never abort this command because of an `insert-stub.js` failure.
+### Step 4
+cmd: `node .claude/scripts/tickets/review/find-all-stubs.js .`
+G no-excuse: `node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse`
+exit≠0 → report failures; return ticket for re-implementation
 
-2. Record it as a crime via `malfeasance-create.js`
-3. Resolve the crime (complete implementation or add marker)
+Criteria (stub classification, exactly one applies per stub):
+| id | class | action |
+|---|---|---|
+| 1 | resolvable (deps done) | auto; never ask — implement on the spot; `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>` |
+| 2 | needs a new ticket | auto; never ask — decide/act per non-interactive mandate; out: recommendation recorded in final report (not a live approval-wait) |
+| 3 | correctly deferred | auto; never ask; out: reason + resolution-ticket-ID in final report |
 
-### Step 4: List and evaluate [::STUB::] markers
+unmarked stub found → `insert-stub.js` (add marker, do NOT edit source directly) + record crime via `malfeasance-create.js` → classify per table above
+out: stub evaluation results → review report
 
-Extract all stubs via `find-all-stubs.js` and evaluate them in the following 3 categories:
+### Step 5 (mandatory, no skip)
+cmd: `git diff --name-only "$(git merge-base HEAD origin/master)"`
+cmd: `git diff "$(git merge-base HEAD origin/master)"`
 
+Criteria (8, exhaustive scan of changed code; all must be `[::STUB::]`-marked or clean):
+| id | pattern | check |
+|---|---|---|
+| 1 | `todo!()` / `unimplemented!()` / `panic!()` | has `[::STUB::]`? |
+| 2 | empty function body | left as placeholder? |
+| 3 | `return Ok(())` / `return None` | error handling incomplete? |
+| 4 | commented-out code | debris left behind? |
+| 5 | `TODO`/`FIXME`/`HACK`/`XXX` | has `[::STUB::]`? |
+| 6 | mock/fake object | has `[::STUB::]`? |
+| 7 | `#[allow(...)]` | suppression reason has `[::STUB::]`? |
+| 8 | ticket-key provenance annotation | every changed source file annotated? |
+
+G-annotate: `node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key="$ARGUMENTS" --verify`
+- file lacks annotation → defect (implementer skipped start-ticket.md's annotation step) → out: review finding + request re-run
+- all changed files non-source → script reports no source files → ok, no action
+- file has `[::AMBIGUOUS::]` → Heal-loop ambiguous below, then re-verify
+
+Heal-loop ambiguous (hard gate: zero remaining before Step 6):
+check: `node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key="$ARGUMENTS" --check-ambiguous`
+- exit0 → next
+- exit1 → for each reported file:
+  phase1 (read-only): `node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=list-definitions --file="<file-path>" --ticket-key="$ARGUMENTS"`
+  judge: read JSON (line/name/kind + `[::AMBIGUOUS::]` line); pick correct definition line(s)
+  phase2 (write): `node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=inject-at --file="<file-path>" --ticket-key="$ARGUMENTS" --definition-line=<N1,N2,...>`
+  invariant: annotation format always via `buildAnnotation()`; never hand-typed. multi-line comma-separated (e.g. `5,14`); descending-order insert; auto-dedup.
+  re-run check
+rule: reaching Step 6 with unresolved `[::AMBIGUOUS::]` = defect
+
+incomplete implementation found (criteria 1–7) →
+1. no `[::STUB::]` → add marker on the spot
+2. record crime: `node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"`
+3. resolve immediately; unresolvable → set `false_positive` + reason in `note`
+then: re-run `.claude/scripts/tickets/scan-crimes.sh` → verify reflected in Malfeasance.json
+
+### Step 6
+Heal-loop build:
+judge: working dir per change-scope; if `cd` needed, use subshell `(cd <dir> && <cmd>)`
+judge: Makefile has `check` target → prefer `make`; else `cargo check`
+judge: Makefile has `test` target → prefer `make test`; else `cargo test`; scope = impact range of changes
 ```bash
-# List all stubs
-node .claude/scripts/tickets/review/find-all-stubs.js .
-```
-
-**No-excuse gate**: run the validator over the review scope — a `done` ticket's code must not carry a terminal-excuse stub or a stale-key stub. If it exits non-zero, the implementation did not complete its obligations; report the failures and return the ticket for re-implementation.
-
-```bash
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
-```
-
-**Classification criteria**:
-
-1. **Resolvable stubs** — Dependency tickets are complete, and can now be replaced with actual implementation
-   → **Implement on the spot, then remove the marker via `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>`**
-
-2. **Stubs requiring a separate ticket** — Resolution requires a new ticket
-   → **Propose creating a new ticket to the user**
-
-3. **Stubs that are correctly deferred** — Scheduled for resolution in a future ticket, currently correct as stubs
-   → **Clarify the reason, verify the planned resolution ticket ID, and report to the user**
-
-**When an unmarked stub is found**: If code content clearly indicates a stub but no `[::STUB::]` marker is attached, **use `insert-stub.js` to add the marker (do NOT edit source files directly) and record it as a crime via `malfeasance-create.js`**. Then evaluate according to the classification above.
-
-The results of the stub evaluation must be recorded in the review report.
-
-### Step 5: Active search for incomplete implementations (mandatory)
-
-Before entering compilation verification, **scrutinize the entire changed code** of the review target and check for mixed-in incomplete implementations. This is an **active step to discover omissions that automated scripts cannot detect**; skipping is prohibited.
-
-```bash
-# View the list of changed files
-git diff --name-only "$(git merge-base HEAD origin/master)"
-
-# Confirm changed lines of each file
-git diff "$(git merge-base HEAD origin/master)"
-```
-
-**Verification criteria (7 patterns)**:
-1. `todo!()`, `unimplemented!()`, `panic!()` — Does it have a `[::STUB::]` marker?
-2. Empty function bodies — Is it left as a placeholder?
-3. `return Ok(())` / `return None` — Is error handling incomplete?
-4. Commented-out code — Is debris left behind?
-5. `TODO` / `FIXME` / `HACK` / `XXX` — Is it accompanied by a `[::STUB::]` marker?
-6. Mock / Fake objects — Does it have a `[::STUB::]` marker?
-7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
-
-**8. Ticket-key annotation check — Verify that every changed source file has the correct ticket-key provenance annotation:**
-
-```bash
-node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
-  --ticket-key="$ARGUMENTS" --verify
-```
-
-- If a file lacks an annotation, this is a defect in the implementation — the implementer skipped Step 5a of start-ticket.md. Report it in the review findings and request re-execution of the annotation step.
-- If a file contains a `[::AMBIGUOUS::]` marker, the AI must resolve it using the two-phase deterministic script below, then re-verify.
-- If all changed files are non-source (config, docs, etc.), the annotation script will report no source files — this is acceptable and requires no action.
-
-**AMBIGUOUS marker resolution (deterministic script flow, mandatory before proceeding):**
-
-```bash
-# Check if any AMBIGUOUS markers remain
-node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
-  --ticket-key="$ARGUMENTS" --check-ambiguous
-```
-
-If exit code 1, resolve each reported file as follows.
-
-**Phase 1 — AI reviews available definitions (script is read-only, mechanical):**
-
-```bash
-node .claude/scripts/tickets/resolve-ambiguous-markers.js \
-  --mode=list-definitions --file="<file-path>" --ticket-key="$ARGUMENTS"
-```
-
-This outputs JSON with every definition's line number, name, and kind, plus the `[::AMBIGUOUS::]` line. **AI reviews the output and decides which definition line is correct.**
-
-**Phase 2 — Script injects `[::TICKET::]` annotation(s) (format guaranteed by `buildAnnotation()`):**
-
-```bash
-node .claude/scripts/tickets/resolve-ambiguous-markers.js \
-  --mode=inject-at --file="<file-path>" --ticket-key="$ARGUMENTS" \
-  --definition-line=<AI-chosen-line-number(s)>
-```
-
-Single line: `--definition-line=5`
-Multiple lines (comma-separated): `--definition-line=5,14`
-
-This inserts `[::TICKET::]` annotation(s) before the specified definition(s) and removes all `[::AMBIGUOUS::]` markers. The annotation format is always generated by `buildAnnotation()` — **never hand-typed by AI**. When multiple lines are specified, the script inserts in descending order to prevent line shifts and deduplicates automatically.
-
-Repeat for each reported file until `--check-ambiguous` exits with code 0.
-
-**Zero AMBIGUOUS markers is a hard gate.** Proceeding to Step 6 with unresolved markers is a defect.
-
-If an incomplete implementation is found:
-1. If no `[::STUB::]` marker → Add the marker on the spot
-2. Record it as a crime via `malfeasance-create.js`
-3. Resolve it immediately. If unresolvable, change to `false_positive` and record the reason in `note`
-
-```bash
-node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
-```
-
-After recording, re-run `scan-crimes.sh` to verify the crime has been correctly reflected in Malfeasance.json:
-
-```bash
-.claude/scripts/tickets/scan-crimes.sh
-```
-
-### Step 6: Compilation verification and unit test verification
-
-First, run compilation verification. Follow the guidelines below; the AI determines the approach based on the situation:
-
-- **Working directory**: Execute in the appropriate directory depending on the scope of changes. If `cd` is needed, use a **subshell** `(cd <dir> && <command>)` to avoid affecting subsequent commands.
-- **Compilation verification**: If a Makefile exists in the selected directory with `check`-family targets defined, prefer `make`; otherwise use `cargo check`.
-- **Test execution**: Similarly, if a Makefile has a `test` target defined, prefer `make test`; otherwise use `cargo test`. Determine the test scope based on the impact range of the changes.
-
-```bash
-# Example: Using the project root Makefile
 (cd "$(git rev-parse --show-toplevel)" && make check-be)
-
-# Example: Using cargo directly in a specific crate
 (cd crates/voiput && cargo check --all-targets)
 ```
+checks: compile, then Step-1 Test Plan coverage + execution
+- fail (compile) → fix before proceeding
+- fail (test missing/failing) → fix before proceeding; only spec-declared "exceptions (unit-testable items)" may remain untested
 
-If compilation does not pass, fix before proceeding.
+invariant: complete warning/error resolution — zero unresolved from `cargo check`/`cargo test` (or `make`); proceeding with any unresolved item = prohibited; proceeding with any failing test = prohibited.
+exception-path: warning/error unavoidable (e.g. deferred to another ticket) → `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` (must pre-exist in Tickets.json) + suppress via `#[allow(...)]`/`#[cfg(test)]`; must not block other tickets' build/test.
+insufficient suppression blocking downstream builds/tests → bug.
 
-Next, verify that all tests defined in the Test Plan obtained in Step 1 are implemented, then run the tests. The execution guidelines are the same as for compilation verification:
+Heal-loop suppression-consistency (after compile passes):
+check: every `#[allow(...)]` site has matching `[::STUB::]` + resolution-ticket-ID at same location
+- no-STUB found → `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` (never hand-type ticket ID in source)
+- STUB-without-suppression → error present? add `#[allow(...)]` : no error? suppression unneeded (deliberate design stub)
+→ re-run compile verification
 
-If tests do not exist or any fail → Fix before proceeding.
-Only items explicitly stated in the spec as "exceptions (unit-testable items)" are allowed to remain untested.
+### Step 7
+G6 completeness: judge design (Step 1) + exploration (Step 2) + source vs implementation.
+judge: actively search 4 categories — risk, omission, contradiction, deficiency. tenacious, exhaustive.
+pass condition (sole, all required): Step-1 design fully satisfied AND all tests pass AND zero errors AND zero warnings → G7
+fail → back to relevant earlier step (re-explore/re-implement)
 
-**Principle of complete warning/error resolution**:
-- Warnings and errors detected by `cargo check`, `cargo test` (or via `make` commands) **must be resolved without exception**. Proceeding to the next step with unresolved items is prohibited.
-- Proceeding to the next step when **even one `cargo test` (or `make test`) fails** is prohibited. Fix until all tests pass.
-- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add a `[::STUB::]` marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**. The ticket referenced in `--resolve-by-ticket` MUST already exist in Tickets.json.
-- If the suppression is insufficient and blocks subsequent builds or tests, it is considered a bug.
+### Step 8
+cmd: `node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"`
 
-**Suppression and `[::STUB::]` consistency verification**:
-- After `cargo check` (or `make check-*`) passes, extract all locations where suppression mechanisms such as `#[allow(...)]` are used, and verify that each has a corresponding `[::STUB::]` marker and planned resolution ticket ID clearly stated at the same location
-- **Suppression without `[::STUB::]`** → Use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add the marker. Do NOT write ticket IDs directly in source files.
-- **`[::STUB::]` without suppression** → Check whether compilation verification produces an error. If there is an error, add `#[allow(...)]`; if there is no error, suppression is unnecessary (it can be considered a deliberate design stub)
-- After consistency verification, **re-run compilation verification**
+### Step 9
+cmd: re-execute all grep commands defined by the translatability-check definitions from the plan phase (role: `/plan-ticket`'s grep-pattern set; contract: same patterns, same scope)
 
-### Step 7: Thoroughly inspect implementation completeness
-
-Using the design information obtained in Step 1, the exploration information obtained in Step 2, and the source code analysis, inspect whether the implementation fully satisfies everything described in the design information from Step 1.
-
-Actively search through the design information from Step 1 in 4 categories: **risks, omissions, contradictions, deficiencies**. Focus on discovering risks, omissions, contradictions, and deficiencies — demonstrate tenacity in not overlooking anything.
-
-The sole condition for proceeding to Step 8 is: the design information from Step 1 is fully satisfied, all tests pass, and there are zero errors and zero warnings.
-
-### Step 8: Static quality check
-
-```bash
-node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"
-```
-
-### Step 9: Translatability check
-
-Re-execute all grep commands defined in `/plan-ticket`.
-
-### Step 10: Save review report
-
-After all checks pass, save the review results to the ticket's JSON fields via `update-ticket.js`:
+### Step 10
+Artifacts:
+- staging: `specs/$ARGUMENTS.md` (regenerated snapshot; overwritten each run, not itself the record)
+- published: Tickets.json fields `instrumentation`, `rfcDiscrepancies`, `notes` (the record)
 
 ```bash
 echo '{
@@ -328,73 +229,39 @@ echo '{
   "notes": "Review report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: consistency verified\n- Issues found and fixes applied: ..."
 }' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
-
-This makes it possible to trace "how the review was conducted and quality assured" when checking the ticket later.
-
-#### Re-export spec file (final snapshot)
-
-Re-export the spec file to reflect any fixes applied during review (crimes resolved, AMBIGUOUS markers resolved, quality fixes):
-
+then (re-export spec, final snapshot):
 ```bash
 mkdir -p specs && \
 node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
-### Step 10b: Verify final contract fulfillment
+### Step 10b
+G7 contracts: `node .claude/scripts/tickets/verify-final-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"`
+G7b targets: `node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"`
 
-Before transitioning to reviewed, verify that all prerequisites (graph contracts annotated,
-ticket contracts merged, test plan covers contracts, @verifies present) have been completed
-and that all contracts are fulfilled.
+Heal-loop contracts+targets:
+either exits 1 → fix reported violations (resolve remaining stubs, update statuses); re-run
+both pass → Step 11
+rule: loop until both G7 and G7b pass before proceeding
 
-```bash
-# Verify all ticket contracts are fulfilled
-node .claude/scripts/tickets/verify-final-contracts.js \
-  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
-```
-
-**Additionally — validate targetStubs resolution (mandatory):**
-
-Confirm that all targetStubs from the start phase have been properly resolved:
-
-```bash
-node .claude/scripts/tickets/validate-ticket-targets.js \
-  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
-```
-
-**Convergence loop**: If validate-ticket-targets exits 1, the ticket's start phase did not complete its obligations. Fix the reported violations (resolve remaining stubs, update statuses) and re-run the Gate. **Loop until both verify-final-contracts and validate-ticket-targets pass before proceeding to Step 11.**
-
-### Step 11: Transition to reviewed
-
-After all checks pass, update the status together with the review completion date:
-
+### Step 11
+publish:
 ```bash
 echo "{\"status\":\"reviewed\",\"completedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 12: Commit the pipeline changes (no push)
-
-After all review steps pass and the ticket is marked as reviewed, commit the accumulated changes from the entire `make → plan → start → review` pipeline.
-
-**IMPORTANT — NEVER PUSH**. This step stages and commits only. Pushing is a separate operation performed deliberately by the user.
-
-First, verify the working tree state:
-
+### Step 12 (commit only, no push)
+stop (absolute, no exception): never `git push` in this step. combined with push = critical pipeline defect.
 ```bash
-# Show working tree state
 git status
-
-# Show staged changes (if any pre-existing staged content exists)
 git diff --cached --stat
 ```
-
-Then, craft an appropriate commit message:
-
-- **Scope**: Use the ticket key (e.g. `P0-1`) as the scope
-- **Type**: Use `feat` for feature implementation, `fix` for bug fixes, `refactor` for refactoring, `test` for test additions, `chore` for infrastructure changes
-- **Subject**: Summarize the core change of this ticket
-- **Body**: List the files changed and what was done in each. Reference the ticket key.
-
+judge: craft commit message —
+- scope: ticket key (e.g. `P0-1`)
+- type: `feat`/`fix`/`refactor`/`test`/`chore`
+- subject: core change summary
+- body: file-by-file what/why; reference ticket key
 ```
 <type>(<scope>): <imperative subject line>
 
@@ -404,36 +271,22 @@ Then, craft an appropriate commit message:
 
 Ticket: <ticketKey>
 ```
-
-**Composing the commit message**:
-1. Retrieve the ticket title via `show-ticket-context.js` to understand what this ticket was about
-2. Use `git diff --stat` and `git diff` to review the actual changes made
-3. Compose a conventional commit message following [git-workflow.md](.claude/rules/common/git-workflow.md)
-
+judge: retrieve ticket title via `show-ticket-context.js`; review via `git diff --stat`/`git diff`; compose per repo commit-convention rules (role: git-workflow conventions; contract: conventional-commit format as templated above — see .claude/rules/common/git-workflow.md)
 ```bash
-# Retrieve ticket info for the commit message
 node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --no-implementation-order 2>/dev/null | head -20
-```
-
-Stage and commit:
-
-```bash
-# Stage all changed files
 git add -A
-
-# Commit with a crafted message
 git commit -m "<type>(<scope>): <subject line>
 
 <body lines...>
 
 Ticket: $ARGUMENTS"
 ```
+verify: `git log -1 --oneline`
 
-**DO NOT run `git push` under any circumstances.** If this step is combined with push, it is considered a critical defect in the pipeline execution.
-
-Verification: After committing, confirm the commit was created correctly:
-
-```bash
-# Show the latest commit
-git log -1 --oneline
-```
+## Done
+- ticket status = `reviewed`, `completedAt` set
+- Tickets.json `notes`/`instrumentation`/`rfcDiscrepancies` recorded
+- `specs/$ARGUMENTS.md` re-exported (post-fix snapshot)
+- zero open crimes; zero unclassified `[::STUB::]`; zero `[::AMBIGUOUS::]`
+- compile + tests clean, zero warnings/errors
+- exactly one commit created; NOT pushed

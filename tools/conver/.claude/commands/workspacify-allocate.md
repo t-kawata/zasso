@@ -379,8 +379,7 @@ All required:
 ---
 
 ## Reverse mode (A1 to A6)
-
-Mode: forward | reverse.
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. Mode: forward | reverse.
 - detect once: `reverse-decisions-mode` → reverse; absent/empty/unrecognised → forward; no re-detect.
 - forward: `finalize` from manifest arg.
 - reverse: `run.mjs reverse`; subject = current directory/workspace root.
