@@ -23,12 +23,12 @@ const DECIDED = [
   '### 判断 H1 — boundary-001',
   '- 誰の体験が変わるか:',
   '  却下の形は面を作る開発者の体験を変える。',
-  '<!-- 判断内容を人間が書き込む -->',
+  '<!-- 人間の判断 -->',
   '却下はエラーコードで返す。',
   '理由は帯域外に落とさない。',
   '',
   '### 判断 H2 — boundary-003',
-  '<!-- 判断内容を人間が書き込む -->',
+  '<!-- 人間の判断 -->',
 ].join('\n');
 
 // [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
@@ -64,8 +64,8 @@ test('C001 postcondition: a section holding no item of this heading yields no it
 
 test('C001 invariant: indentation cannot hide a placeholder, so a second one is a second place to write', () => {
   const body = [
-    '<!-- 判断内容を人間が書き込む -->',
-    '  <!-- 判断内容を人間が書き込む -->',
+    '<!-- 人間の判断 -->',
+    '  <!-- 人間の判断 -->',
     '決定: A',
   ].join('\n');
 
@@ -79,7 +79,7 @@ test('C001 invariant: indentation cannot hide a placeholder, so a second one is 
 
 test('C001 invariant: the decision is a substring of the document and is never rewritten', () => {
   const body = [
-    '<!-- 判断内容を人間が書き込む -->',
+    '<!-- 人間の判断 -->',
     '却下はエラーコードで返す。',
     '',
     '  補足: 帯域外に落とさない。  ',

@@ -38,6 +38,7 @@ import {
   isPlaceholderLine,
   markerOffsetInLine,
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
+import { REFERENCE_SEPARATOR } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
 import { fillEveryMarker } from '../helpers/fill-frame.mjs';
 import {
   ABSENT_SETTLEMENTS_STATEMENT,
@@ -524,4 +525,26 @@ test('C001 invariant: reopening a question for its shape keeps what the person w
 
   assert.ok(merged.text.includes(note), 'the note is carried into the reopened item by the record it was written against');
   assert.deepEqual(merged.faults, [], 'and the earlier document is read without complaint');
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C001 postcondition: every question is numbered, and the number is the one it is asked under', () => {
+  const facts = syntheticFacts();
+  const frame = buildFrame({ facts, previous: null });
+  const headings = frame.text.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING));
+
+  assert.ok(headings.length > 0, 'the fixture asks at least one question');
+  for (const [index, heading] of headings.entries()) {
+    assert.ok(
+      heading.startsWith(`${HUMAN_ITEM_HEADING} Q${index + 1}${REFERENCE_SEPARATOR}`),
+      `the question the human will know as Q${index + 1} is the ${index + 1}th one asked: ${heading}`,
+    );
+  }
+
+  const again = buildFrame({ facts, previous: null });
+  assert.deepEqual(
+    again.text.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING)),
+    headings,
+    'and the number a question is asked under does not move between runs of the same facts',
+  );
 });

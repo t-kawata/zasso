@@ -76,7 +76,7 @@ const NEIGHBOUR_EXPLANATION = [
   '### 判断 H1 — boundary-001',
   `- ${PARTY_LABEL}:`,
   '  却下の形は面を作る開発者の体験を変える。',
-  '<!-- 判断内容を人間が書き込む -->',
+  '<!-- 人間の判断 -->',
   NEIGHBOUR_DECISION,
 ].join('\n');
 
@@ -265,7 +265,7 @@ test('C002 invariant: the facts carry no explanation vocabulary, so nothing in t
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const { info } = documentsOf(workspace);
 
-  for (const banned of ['[::MUST-FILL::]', '<!-- 判断内容を人間が書き込む -->', PARTY_LABEL, COUNT_LABEL]) {
+  for (const banned of ['[::MUST-FILL::]', '<!-- 人間の判断 -->', PARTY_LABEL, COUNT_LABEL]) {
     assert.equal(info.includes(banned), false, `INFO must not contain ${banned}`);
   }
 });

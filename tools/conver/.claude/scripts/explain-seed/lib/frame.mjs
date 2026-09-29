@@ -4,7 +4,7 @@
  * This is the other half of a split the command exists to make. `render.mjs` states the
  * facts; this module writes a document addressed to the human, in which every point that
  * needs prose is an open `[::MUST-FILL::]` instruction for the AI, every point that needs
- * a human judgement carries a `<!-- 判断内容を人間が書き込む -->` place for the human to write,
+ * a human judgement carries a `<!-- 人間の判断 -->` place for the human to write,
  * and every engineering question the facts and conventions already settle is decided here,
  * with the ground it rests on and the condition that would overturn it. The point of
  * deciding those here is that the human should arrive at the grill holding only what only
@@ -537,10 +537,16 @@ function renderRecommendationBlock() {
   ];
 }
 
-/** One question for the human, with the recorded material behind it and a place to answer. */
+/**
+ * One question for the human, numbered so an answer can name it, with the recorded material
+ * behind it and a place to answer.
+ *
+ * The number is the frame's, not the AI's: a count the AI kept would drift between rounds, and
+ * an answer that named Q3 would then name a different question than the one it was given.
+ */
 // [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
 function renderHumanItem({ item, index, note, movedFacts }) {
-  const lines = [`${HUMAN_ITEM_HEADING} H${index + 1}${REFERENCE_SEPARATOR}${item.id}`, ''];
+  const lines = [`${HUMAN_ITEM_HEADING} Q${index + 1}${REFERENCE_SEPARATOR}${item.id}`, ''];
   if (item.topic !== null) lines.push(`- 記録された論点: ${truncate(item.topic)}`);
   if (item.whyUnresolved !== null) lines.push(`- 未解決とされた理由: ${truncate(item.whyUnresolved)}`);
   lines.push(...renderRecordedContracts(item));
@@ -824,7 +830,7 @@ export function buildFrame({ facts, previous }) {
     '',
     'これから grill を始める人が、この seed が全体のどこで何を担っているかを先に掴むための文書です。',
     '事実そのものは同じディレクトリの `INFO-RFC-SEED.md` にあり、この文書はそれを説明したものです。',
-    '`[::MUST-FILL::]` はAIが説明を書く箇所、`<!-- 判断内容を人間が書き込む -->` は人間が判断を書き込む箇所です。',
+    '`[::MUST-FILL::]` はAIが説明を書く箇所、`<!-- 人間の判断 -->` は人間が判断を書き込む箇所です。',
     '',
     `- 対象の seed: \`${facts.seedPath}\``,
     '',

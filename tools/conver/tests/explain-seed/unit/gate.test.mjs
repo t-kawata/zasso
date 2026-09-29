@@ -163,7 +163,7 @@ test('C005 invariant: an item citing nothing the manifests recorded is refused a
   const invented = rewriteSection(
     authored(facts),
     E5_TITLE,
-    (body) => `### ${HUMAN_ITEM_HEADING.slice(4)} X1 — エラーコードの命名\n\n決め方が分かりません。\n<!-- 判断内容を人間が書き込む -->\n\n${body}`,
+    (body) => `### ${HUMAN_ITEM_HEADING.slice(4)} X1 — エラーコードの命名\n\n決め方が分かりません。\n<!-- 人間の判断 -->\n\n${body}`,
   );
   const verdict = verifyExplanation({ facts, explainText: invented });
 
@@ -177,7 +177,7 @@ test('C007 postcondition: an item without its placeholder is refused by section'
     .split('\n')
     .filter((line) => !isPlaceholderLine(line) || line.includes('x'))
     .join('\n')
-    .replace(/<!-- 判断内容を人間が書き込む -->\n/g, '');
+    .replace(/<!-- 人間の判断 -->\n/g, '');
   const verdict = verifyExplanation({ facts, explainText: stripped });
 
   assert.equal(verdict.ok, false);
@@ -189,7 +189,7 @@ test('C007 postcondition: one item carrying two placeholders is refused by secti
   const doubled = rewriteSection(
     authored(facts),
     E5_TITLE,
-    (body) => body.replace(/<!-- 判断内容を人間が書き込む -->/, '<!-- 判断内容を人間が書き込む -->\n<!-- 判断内容を人間が書き込む -->'),
+    (body) => body.replace(/<!-- 人間の判断 -->/, '<!-- 人間の判断 -->\n<!-- 人間の判断 -->'),
   );
   const verdict = verifyExplanation({ facts, explainText: doubled });
 
@@ -259,7 +259,7 @@ test('C003 invariant: an item the manifests no longer record as open is refused 
     authored(facts),
     E5_TITLE,
     (body) =>
-      `### ${HUMAN_ITEM_HEADING.slice(4)} H9 — boundary-001\n\n- ${PARTY_LABEL}:\n  面を作る開発者。\n<!-- 判断内容を人間が書き込む -->\n\n${body}`,
+      `### ${HUMAN_ITEM_HEADING.slice(4)} H9 — boundary-001\n\n- ${PARTY_LABEL}:\n  面を作る開発者。\n<!-- 人間の判断 -->\n\n${body}`,
   );
   const verdict = verifyExplanation({ facts, explainText: bothAskedAndRecorded });
 
@@ -400,7 +400,7 @@ test('C005 postcondition: the command document carries the asking step and the g
   const askingStep = flowItem(commandFile, 4);
 
   assert.match(askingStep, /answers/, 'the asking step ends at the operation that decides it');
-  assert.match(askingStep, /判断内容を人間が書き込む/, 'and says where the answer is written');
+  assert.match(askingStep, /人間の判断/, 'and says where the answer is written');
   assert.match(sectionAround(commandFile, 'G5'), /answers/, 'the gate the step ends at is the third operation');
   assert.match(sectionAround(commandFile, 'G5'), /G4/, 'and only an explanation the earlier gate accepted may be put to the human');
   assert.match(sectionAround(commandFile, '### Kind'), /K7/, 'the Kind table states the standard the new prose is held to');
@@ -516,4 +516,19 @@ test('C005 invariant: every table in the criteria section has as many cells per 
       );
     }
   }
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 postcondition: the asking step states what may be asked and how it is answered', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+  const askingStep = flowItem(commandFile, 4);
+  const rules = sectionAround(commandFile, '### The question');
+
+  assert.match(askingStep, /Q1/, 'the step puts each question under the number the frame wrote, as `Q1: `');
+  assert.match(askingStep, /technical/i, 'and says a technical question is not put to the human');
+  assert.match(rules, /technical/i, 'the standard says the same, and where the technical part is settled instead');
+  assert.match(askingStep, /`A`/, 'the directions are put as letters');
+  assert.match(askingStep, /prose/i, 'and the answer is a letter with prose only as an addition');
+  assert.match(rules, /W7/, 'the number is a rule, not a habit');
+  assert.match(rules, /W8/, 'and so is the letter the answer names');
 });

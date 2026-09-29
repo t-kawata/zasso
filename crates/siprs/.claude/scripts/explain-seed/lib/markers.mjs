@@ -16,7 +16,7 @@
  */
 export const MUST_FILL_MARKER = '[::MUST-FILL::]';
 
-export const HUMAN_PLACEHOLDER = '<!-- 判断内容を人間が書き込む -->';
+export const HUMAN_PLACEHOLDER = '<!-- 人間の判断 -->';
 
 /** The literal, escaped for use inside a character-class-free regular expression. */
 const MARKER_LITERAL = MUST_FILL_MARKER.replace(/[[\]]/g, '\\$&');

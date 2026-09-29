@@ -12,9 +12,17 @@
  * moved rather than only that something did.
  */
 import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
+import { INFO_SECTION_TITLES } from './render.mjs';
 
-/** The nine sections of the facts document, in the order the renderer emits them. */
-export const INFO_SECTION_IDS = Object.freeze(['I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8', 'I9']);
+/**
+ * The sections of the facts document, in the order the renderer emits them.
+ *
+ * Derived from the renderer's own titles rather than restated: a list written out twice is a
+ * list that can be extended in one place and forgotten in the other, and the failure that
+ * follows is silent — a section nothing digests never reopens.
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export const INFO_SECTION_IDS = Object.freeze(Object.keys(INFO_SECTION_TITLES));
 
 /**
  * Which facts each explanation section rests on.
@@ -25,12 +33,15 @@ export const INFO_SECTION_IDS = Object.freeze(['I1', 'I2', 'I3', 'I4', 'I5', 'I6
  * section whenever anything at all changed.
  */
 export const EXPLAIN_SECTION_FACTS = Object.freeze([
-  Object.freeze({ id: 'E1', restsOn: Object.freeze(['I2', 'I3']) }),
+  // E1, E5 and E6 also rest on INFO 10, which records what a neighbour has settled: a boundary
+  // leaving or joining the human's section changes the count the introduction declares, the
+  // items the human section holds, and the pre-decisions that record the answer.
+  Object.freeze({ id: 'E1', restsOn: Object.freeze(['I2', 'I3', 'I10']) }),
   Object.freeze({ id: 'E2', restsOn: Object.freeze(['I2']) }),
   Object.freeze({ id: 'E3', restsOn: Object.freeze(['I3', 'I6']) }),
   Object.freeze({ id: 'E4', restsOn: Object.freeze(['I4', 'I5']) }),
-  Object.freeze({ id: 'E5', restsOn: Object.freeze(['I9']) }),
-  Object.freeze({ id: 'E6', restsOn: Object.freeze(['I5', 'I7', 'I8']) }),
+  Object.freeze({ id: 'E5', restsOn: Object.freeze(['I9', 'I10']) }),
+  Object.freeze({ id: 'E6', restsOn: Object.freeze(['I5', 'I7', 'I8', 'I10']) }),
   Object.freeze({ id: 'E7', restsOn: Object.freeze(['I7', 'I6']) }),
 ]);
 

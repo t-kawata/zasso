@@ -35,7 +35,7 @@ const DECIDED_BY_BETA = [
   '### 判断 H1 — boundary-001',
   '- 誰の体験が変わるか:',
   '  却下の形は面を作る開発者の体験を変える。',
-  '<!-- 判断内容を人間が書き込む -->',
+  '<!-- 人間の判断 -->',
   '却下はエラーコードで返す。',
   '真偽値で読み飛ばせないようにする。',
 ].join('\n');
@@ -47,7 +47,7 @@ const UNDECIDED_BY_BETA = [
   '### 判断 H1 — boundary-001',
   '- 誰の体験が変わるか:',
   '  [::MUST-FILL::] 誰の体験が変わるか。',
-  '<!-- 判断内容を人間が書き込む -->',
+  '<!-- 人間の判断 -->',
 ].join('\n');
 
 /** Every file under a root with its bytes, so a run that writes can be told from one that does not. */
@@ -136,7 +136,7 @@ test('C002 postcondition: an item offering two places to write is refused rather
   writeNeighbourExplanation({
     workspace,
     packageId: 'pkg-0002',
-    documentText: DECIDED_BY_BETA.replace('<!-- 判断内容を人間が書き込む -->', '<!-- 判断内容を人間が書き込む -->\n<!-- 判断内容を人間が書き込む -->'),
+    documentText: DECIDED_BY_BETA.replace('<!-- 人間の判断 -->', '<!-- 人間の判断 -->\n<!-- 人間の判断 -->'),
   });
 
   const { settled, unreadable } = collectSettledDecisions({ root: workspace.root, packageId: 'pkg-0001', ...PARTIES });
