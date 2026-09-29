@@ -27,6 +27,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `tickets` | `commonjs` |
 | `utils` | `unknown` |
 | `workspacify-allocate` | `module` |
+| `workspacify-order` | `module` |
 | `workspacify-reverse` | `module` |
 | `workspacify-tree` | `module` |
 
