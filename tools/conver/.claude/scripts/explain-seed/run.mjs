@@ -3,8 +3,9 @@
  * explain-seed — one seed path in, the facts out, and an explanation maintained beside them.
  *
  * Usage:
- *   node .claude/scripts/explain-seed/run.mjs info  <path-to-RFC-SEED.md>
- *   node .claude/scripts/explain-seed/run.mjs check <path-to-RFC-SEED.md>
+ *   node .claude/scripts/explain-seed/run.mjs info    <path-to-RFC-SEED.md>
+ *   node .claude/scripts/explain-seed/run.mjs check   <path-to-RFC-SEED.md>
+ *   node .claude/scripts/explain-seed/run.mjs answers <path-to-RFC-SEED.md>
  *
  * The seed is the only input because the seed already knows everything else: its identity
  * block names the package and the three reference paths, and the workspace root is the
@@ -18,8 +19,14 @@
  * runs the command, not by the person the explanation is written for.
  *
  * `check` is the gate. It exits 0 only when every instruction has been answered, every
- * question for the human names whose experience changes, and every section rests on facts
- * that are still the facts on disk. The AI may report only what this gate accepts.
+ * question for the human offers directions and a recommendation and names whose experience
+ * changes, and every section rests on facts that are still the facts on disk. The AI may
+ * report only what this gate accepts.
+ *
+ * `answers` is the other half of the same question: `check` says the explanation may be put to
+ * the human, and `answers` says the human has answered it. It exits 0 only when every question
+ * in the human's section carries prose under its placeholder, and names the ones that do not,
+ * so a round of questions ends at a verdict rather than at a hope.
  *
  * Nothing is written until every recorded hash has been recomputed and agreed, with or
  * without a document from an earlier run: an earlier document changes what is preserved,
@@ -36,15 +43,27 @@ import { verifyRecordedHashes } from './lib/verify.mjs';
 import { boundaryPairs, packagePaths, projectPackage } from './lib/projection.mjs';
 import { collectSettledDecisions } from './lib/neighbour-decisions.mjs';
 import { loadOrderFacts } from './lib/order.mjs';
+import { splitItems, decisionUnderPlaceholder } from './lib/items.mjs';
 import { INFO_DOCUMENT_FILE_NAME, INFO_SECTION_TITLES, renderInfo } from './lib/render.mjs';
-import { EXPLAIN_FILE_NAME, FRAME_SECTIONS, buildFrame, verifyExplanation } from './lib/frame.mjs';
+import {
+  EXPLAIN_FILE_NAME,
+  FRAME_SECTIONS,
+  HUMAN_ITEM_HEADING,
+  HUMAN_SECTION_ID,
+  buildFrame,
+  locateSections,
+  verifyExplanation,
+} from './lib/frame.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 const ERROR_PREFIX = '[explain-seed]';
 
-/** The two things this command does, and nothing else. */
-const OPERATIONS = Object.freeze({ INFO: 'info', CHECK: 'check' });
+/** The things this command does, and nothing else. */
+export const OPERATIONS = Object.freeze({ INFO: 'info', CHECK: 'check', ANSWERS: 'answers' });
+
+/** What the refusal names, derived so the message cannot describe a parser that no longer exists. */
+const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
 
 /** What each fault means, said in the terms the operator reading the report is holding. */
 const FAULT_MESSAGES = Object.freeze({
@@ -52,6 +71,10 @@ const FAULT_MESSAGES = Object.freeze({
   'missing-placeholder': 'there is no place for the human to write',
   'duplicate-placeholder': 'there is more than one place for the human to write',
   'unnamed-party': 'the item does not say whose experience changes',
+  'too-few-options': 'the item offers fewer than two directions to choose between, or two that carry the same letter',
+  'missing-recommendation': 'the item does not recommend one of the directions it offers',
+  'missing-recommendation-reason': 'the reason for the recommendation is not stated',
+  'missing-recommendation-override': 'the condition that would overturn the recommendation is not stated',
   'unrecorded-decision': 'a question the manifests never recorded is being asked of the human',
   'missing-decision': 'the decision is not stated',
   'missing-ground': 'the ground it rests on is not stated',
@@ -69,18 +92,18 @@ const FAULT_MESSAGES = Object.freeze({
 });
 
 /** The operation and the one seed path it acts on. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function parseArguments(argv) {
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+export function parseArguments(argv) {
   const [operation, seedArgument, ...rest] = argv;
   const refused = () =>
     new ExplainSeedError(
-      `explain-seed takes an operation (${OPERATIONS.INFO} or ${OPERATIONS.CHECK}) and one seed path; received ${JSON.stringify(argv)}`,
+      `explain-seed takes an operation (${OPERATION_NAMES.join(', ')}) and one seed path; received ${JSON.stringify(argv)}`,
       { field: 'arguments' },
     );
 
   if (operation === undefined || seedArgument === undefined || rest.length > 0) throw refused();
   if (operation.startsWith('-') || seedArgument.startsWith('-')) throw refused();
-  if (operation !== OPERATIONS.INFO && operation !== OPERATIONS.CHECK) throw refused();
+  if (!OPERATION_NAMES.includes(operation)) throw refused();
   return { operation, seedPath: resolve(seedArgument) };
 }
 
@@ -199,25 +222,83 @@ function runInfo(seedPath) {
   return EXIT_OK;
 }
 
-/** Decide whether the explanation may be reported. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function runCheck(seedPath) {
+/** The explanation this run reads, or a failure naming the path it looked for. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function readExplanationOrFail(seedPath) {
   const { explainPath } = documentPaths(seedPath);
   if (!existsSync(explainPath)) {
     throw new ExplainSeedError(`the explanation cannot be read: ${explainPath}`, { field: EXPLAIN_FILE_NAME });
   }
+  return readFileSync(explainPath, 'utf8');
+}
 
+/** Decide whether the explanation may be reported. */
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+function runCheck(seedPath) {
+  const explainText = readExplanationOrFail(seedPath);
   const { facts } = produceInfo(seedPath);
-  const verdict = verifyExplanation({ facts, explainText: readFileSync(explainPath, 'utf8') });
+  const verdict = verifyExplanation({ facts, explainText });
   process.stdout.write(renderVerdict(verdict));
   return verdict.ok ? EXIT_OK : EXIT_FAILURE;
 }
 
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+/**
+ * How far the round of questions has got, read from one explanation.
+ *
+ * A section that cannot be found or that appears twice is a reading failure rather than an
+ * empty round: "no question has an answer yet" and "there is nowhere answers go" are different
+ * states, and a reader that reported the second as the first would call an unreadable document
+ * finished.
+ *
+ * @param {string} explainText
+ * @returns {{ asked: number, answered: number, unanswered: Array<string> }}
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+export function readAnswers(explainText) {
+  const located = locateSections(explainText);
+  if (located.missing.includes(HUMAN_SECTION_ID) || located.duplicates.includes(HUMAN_SECTION_ID)) {
+    throw new ExplainSeedError(
+      `the questions cannot be read: ${HUMAN_SECTION_ID} is not a section this document holds once`,
+      { field: EXPLAIN_FILE_NAME },
+    );
+  }
+
+  const items = splitItems(located.bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
+  const unanswered = items.filter((item) => decisionUnderPlaceholder(item.body) === null).map((item) => item.id);
+  return { asked: items.length, answered: items.length - unanswered.length, unanswered };
+}
+
+/** What the round of questions has left to do, as the operator reads it. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+export function renderAnswerVerdict({ asked, answered, unanswered }) {
+  if (asked === 0) {
+    return 'answers OK: there was nothing to ask — no question stands in the human\'s section.\n';
+  }
+  if (unanswered.length === 0) {
+    return `answers OK: ${answered} of ${asked} answered, none still open.\n`;
+  }
+  return [
+    `answers FAILED: ${answered} of ${asked} answered, ${unanswered.length} still open.`,
+    ...unanswered.map((id) => `- ${id}`),
+    '',
+  ].join('\n');
+}
+
+/** Report how many questions the human has answered, and name the ones they have not. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function runAnswers(seedPath) {
+  const reading = readAnswers(readExplanationOrFail(seedPath));
+  process.stdout.write(renderAnswerVerdict(reading));
+  return reading.unanswered.length === 0 ? EXIT_OK : EXIT_FAILURE;
+}
+
+// [::TICKET::] PX-221, PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
     const { operation, seedPath } = parseArguments(argv);
-    return operation === OPERATIONS.CHECK ? runCheck(seedPath) : runInfo(seedPath);
+    if (operation === OPERATIONS.CHECK) return runCheck(seedPath);
+    if (operation === OPERATIONS.ANSWERS) return runAnswers(seedPath);
+    return runInfo(seedPath);
   } catch (error) {
     if (error instanceof ExplainSeedError) {
       process.stderr.write(`${ERROR_PREFIX} ${error.message}\n`);

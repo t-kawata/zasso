@@ -14,6 +14,20 @@ import {
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { COUNT_LABEL, HUMAN_ITEM_HEADING } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 
+/**
+ * The wording that identifies each of the new instructions, quoted from the instruction itself.
+ *
+ * The first entry whose wording a line contains decides the prose, so the longer headings are
+ * listed before the shorter ones they begin with. `推奨 —` happens not to be a substring of
+ * `推奨の理由 —`, but the order states that independence rather than leaving it to accident:
+ * a reason line read as a recommendation line would author a document the gate refuses.
+ */
+const OPTION_A_INSTRUCTION = '案A —';
+const OPTION_B_INSTRUCTION = '案B —';
+const RECOMMENDATION_INSTRUCTION = '推奨 —';
+const RECOMMENDATION_REASON_INSTRUCTION = '推奨の理由 —';
+const RECOMMENDATION_OVERRIDE_INSTRUCTION = '推奨が覆る条件 —';
+
 /** The prose an AI writes, chosen by the label or the standard the instruction carries. */
 const PROSE_BY_LABEL = [
   { label: '誰の体験が変わるか', prose: 'この境界を実装する後続のエンジニア' },
@@ -22,6 +36,11 @@ const PROSE_BY_LABEL = [
   { label: '覆す条件', prose: '仕様が改訂され、この条項自体が変わったとき。' },
   { label: '用語', prose: 'この語が何を指すかを、設計を知らない人に先に説明する必要がある。' },
   { label: '越えると', prose: '越えると、層の向きが逆転し、下流の判断がすべて無効になる。' },
+  { label: RECOMMENDATION_REASON_INSTRUCTION, prose: '理由を読み飛ばせないほうが、後から原因を追う人の体験を変えないため。' },
+  { label: RECOMMENDATION_OVERRIDE_INSTRUCTION, prose: 'エラーコードの語彙が仕様から消え、真偽値だけが残ると決まったとき。' },
+  { label: OPTION_A_INSTRUCTION, prose: 'A: 却下は理由を伴うエラーコードで返す。呼び出し側は理由を読み飛ばせない。' },
+  { label: OPTION_B_INSTRUCTION, prose: 'B: 却下は真偽値で返す。呼び出し側は理由を知らないまま先へ進める。' },
+  { label: RECOMMENDATION_INSTRUCTION, prose: 'A' },
 ];
 
 /** The prose used when no label matches — still prose, never the marker. */
@@ -29,6 +48,7 @@ const FALLBACK_PROSE = 'この点は記録された事実だけでは決まら�
 
 /** The prose this line's label asks for, with the count marker resolved to the real count. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function proseForLine(line, humanDecisionCount) {
   const matched = PROSE_BY_LABEL.find((entry) => line.includes(entry.label));
   if (matched === undefined) return FALLBACK_PROSE;

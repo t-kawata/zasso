@@ -2,25 +2,37 @@
 // PX-222 @verifies C006
 // PX-222 @verifies C007
 // PX-225 @verifies C003
+// PX-226 @verifies C002
+// PX-226 @verifies C005
 //
 // The gate is the only thing standing between an unfinished explanation and the human who
 // would act on it, so every rule it enforces is asserted twice: once as a document it must
 // accept, and once as a document it must refuse while naming the section at fault.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import {
   COUNT_LABEL,
   FRAME_SECTIONS,
   GROUND_LABEL,
   HUMAN_ITEM_HEADING,
+  HUMAN_SECTION_ID,
+  MIN_OPTION_COUNT,
+  OPTIONS_LABEL,
   OVERRIDE_LABEL,
   PARTY_LABEL,
+  RECOMMENDATION_LABEL,
+  RECOMMENDATION_OVERRIDE_LABEL,
+  RECOMMENDATION_REASON_LABEL,
   DECISION_LABEL,
   buildFrame,
   countHumanDecisionItems,
+  locateSections,
   verifyExplanation,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import { splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
 import { MUST_FILL_MARKER, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { SETTLED_ELSEWHERE, syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
 import { fillEveryMarker } from '../helpers/fill-frame.mjs';
@@ -256,4 +268,252 @@ test('C003 invariant: an item the manifests no longer record as open is refused 
     verdict.faults.some((fault) => fault.kind === 'unrecorded-decision' && fault.id === 'boundary-001'),
     'the boundary is settled elsewhere, so asking it here is a question the manifests no longer record',
   );
+});
+
+/** The id of the first question the human is asked, read the way the gate reads it. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function firstAskedId(documentText) {
+  const located = locateSections(documentText);
+  const [item] = splitItems(located.bodies[HUMAN_SECTION_ID] ?? '', HUMAN_ITEM_HEADING);
+  assert.notEqual(item, undefined, 'the fixture asks at least one question');
+  return item.id;
+}
+
+/** One thing taken out of an authored document, and the fault taking it out must produce. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+const OMISSIONS = [
+  ['too-few-options', (text) => text.replace(/^ {2}B: .*$/m, '')],
+  ['missing-recommendation', (text) => text.replace(new RegExp(`- ${RECOMMENDATION_LABEL}:\\n[^\\n]*`), `- ${RECOMMENDATION_LABEL}:`)],
+  [
+    'missing-recommendation-reason',
+    (text) => text.replace(new RegExp(`- ${RECOMMENDATION_REASON_LABEL}:\\n[^\\n]*`), `- ${RECOMMENDATION_REASON_LABEL}:`),
+  ],
+  [
+    'missing-recommendation-override',
+    (text) => text.replace(new RegExp(`- ${RECOMMENDATION_OVERRIDE_LABEL}:\\n[^\\n]*`), `- ${RECOMMENDATION_OVERRIDE_LABEL}:`),
+  ],
+];
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 postcondition: each omission from a question is refused, naming the section and the question', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const itemId = firstAskedId(complete);
+
+  assert.equal(verifyExplanation({ facts, explainText: complete }).ok, true, 'the document without surgery is accepted');
+  for (const [kind, omit] of OMISSIONS) {
+    const verdict = verifyExplanation({ facts, explainText: omit(complete) });
+    assert.equal(verdict.ok, false, `${kind} must be refused`);
+    assert.ok(
+      verdict.faults.some((fault) => fault.kind === kind && fault.section === HUMAN_SECTION_ID && fault.id === itemId),
+      `${kind} names the section and the question it is about`,
+    );
+  }
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 invariant: the directions a document offers are its own, so a third is judged against itself', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+
+  const threeDirections = complete
+    .replace(/^ {2}B: .*$/m, (line) => `${line}\n  C: 却下は記録だけして呼び出し側へ返す。`)
+    .replace(new RegExp(`(- ${RECOMMENDATION_LABEL}:\\n)[^\\n]*`), '$1C');
+  assert.equal(
+    verifyExplanation({ facts, explainText: threeDirections }).ok,
+    true,
+    'a recommendation naming the third direction is a recommendation, so the letters are read rather than assumed',
+  );
+
+  const unknownLetter = complete.replace(new RegExp(`(- ${RECOMMENDATION_LABEL}:\\n)[^\\n]*`), '$1D');
+  assert.deepEqual(
+    faultKinds(verifyExplanation({ facts, explainText: unknownLetter })),
+    ['missing-recommendation'],
+    'a letter no direction uses points at nothing the human can choose',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 boundary: either colon opens a direction, so a full-width one is not a silent omission', () => {
+  const facts = syntheticFacts();
+  const withFullWidthColon = authored(facts).replace(/^ {2}A: /m, '  A： ');
+
+  assert.equal(verifyExplanation({ facts, explainText: withFullWidthColon }).ok, true);
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 invariant: the four omissions are reported independently', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const missingAllFour = OMISSIONS.reduce((text, [, omit]) => omit(text), complete);
+
+  assert.deepEqual(
+    [...new Set(faultKinds(verifyExplanation({ facts, explainText: missingAllFour })))].sort(),
+    ['missing-recommendation', 'missing-recommendation-override', 'missing-recommendation-reason', 'too-few-options'],
+    'a document missing all four reports all four',
+  );
+  assert.deepEqual(
+    faultKinds(verifyExplanation({ facts, explainText: OMISSIONS[0][1](complete) })),
+    ['too-few-options'],
+    'and repairing the other three leaves this one alone',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 invariant: a package that asks the human nothing carries none of the four omissions', () => {
+  const facts = syntheticFacts({ projection: syntheticProjection({ grill: { questions: [], risky_boundaries: [] } }) });
+  const verdict = verifyExplanation({ facts, explainText: authored(facts) });
+
+  assert.equal(verdict.askedOfHuman, 0, 'the fixture asks nothing, so an empty section is what is being judged');
+  assert.deepEqual(verdict.faults, [], 'the four rules are per question, and no question is not an omission');
+});
+
+/** The command document, which is where the standard the gate cannot measure is stated. */
+const COMMAND_FILE = fileURLToPath(new URL('../../../.claude/commands/explain-seed.md', import.meta.url));
+
+/** One numbered item of the command file's flow, up to the next item. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function flowItem(commandFile, number) {
+  const flowStart = commandFile.indexOf('\n## Flow');
+  assert.notEqual(flowStart, -1, 'the command file has a flow to read');
+  const flow = commandFile.slice(flowStart);
+  const itemStart = flow.search(new RegExp(`^${number}\\. \\*\\*`, 'm'));
+  assert.notEqual(itemStart, -1, `the flow has an item ${number}`);
+  const item = flow.slice(itemStart);
+  const end = item.search(new RegExp(`\\n${number + 1}\\. \\*\\*`));
+  return end < 0 ? item : item.slice(0, end);
+}
+
+/** The `## ` section carrying a given block — found by the block, not by the section's own name. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function sectionAround(commandFile, token) {
+  const at = commandFile.indexOf(token);
+  assert.notEqual(at, -1, `the command file carries ${token}`);
+  const section = commandFile.slice(commandFile.lastIndexOf('\n## ', at) + 1);
+  const end = section.search(/\n## /);
+  return end < 0 ? section : section.slice(0, end);
+}
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 postcondition: the command document carries the asking step and the gate that ends it', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+  const askingStep = flowItem(commandFile, 4);
+
+  assert.match(askingStep, /answers/, 'the asking step ends at the operation that decides it');
+  assert.match(askingStep, /判断内容を人間が書き込む/, 'and says where the answer is written');
+  assert.match(sectionAround(commandFile, 'G5'), /answers/, 'the gate the step ends at is the third operation');
+  assert.match(sectionAround(commandFile, 'G5'), /G4/, 'and only an explanation the earlier gate accepted may be put to the human');
+  assert.match(sectionAround(commandFile, '### Kind'), /K7/, 'the Kind table states the standard the new prose is held to');
+  assert.match(sectionAround(commandFile, '### Unfit'), /U9/, 'and so does the Unfit table');
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 invariant: the questions are put before anything is reported, not after', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+  const askingStep = flowItem(commandFile, 4);
+  const reportStep = flowItem(commandFile, 5);
+
+  assert.match(askingStep, /answers/, 'the step before the report is the one that ends at G5');
+  assert.match(reportStep, /report/i, 'and the report follows it');
+  assert.doesNotMatch(
+    askingStep,
+    /grill points/,
+    'the report is not the step that asks: a report written before the questions are put describes a document nobody has answered yet',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 postcondition: the rules a question must satisfy are stated, and reach the instruction that builds it', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+  const rules = sectionAround(commandFile, '### The question');
+
+  assert.match(rules, /high-school/i, 'the plainness criterion is a rule, not a matter of taste');
+  assert.match(rules, /implementation/i, 'and says what the person answering does not know');
+  assert.match(rules, /direction/i, 'and what the question must be about instead of a technical choice');
+  assert.match(rules, /script/i, 'and names the parts that are the script\'s job rather than the AI\'s');
+
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const [question] = splitItems(locateSections(frame.text).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
+
+  assert.match(question.body, /高校生/, 'the plainness criterion arrives with the instruction that writes the question');
+  assert.match(question.body, /結果の重さ/, 'and states the test the answer has to pass: the weight of the result, not whether the words can be read');
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 invariant: adding the asking step leaves the criterion where the AI meets it', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+
+  assert.match(flowItem(commandFile, 2), /could I write/i, 'the writing step still classifies the question as it writes it');
+  assert.match(flowItem(commandFile, 3), /Kind\/Unfit/, 'and the gate step still names the criterion');
+  assert.doesNotMatch(commandFile, /\b(you|your|yours|yourself)\b/i, 'the two agents are named, never addressed');
+  assert.doesNotMatch(commandFile, /\b(?:the|a) reader\b/i, 'and neither is called the reader');
+});
+
+/** An authored document whose first question offers exactly `count` directions, lettered from A. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function withDirections(documentText, count) {
+  const letters = 'ABCDEFGH'.slice(0, count).split('');
+  const block = letters.map((letter) => `  ${letter}: 却下は${letter}の形で返す。`).join('\n');
+  return documentText.replace(new RegExp(`(- ${OPTIONS_LABEL}:\\n)(?: {2}[A-Z]: [^\\n]*\\n?)+`), `$1${block}\n`);
+}
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 invariant: two directions written under one letter are one choice, not two', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const itemId = firstAskedId(complete);
+  const oneLetterTwice = complete.replace(/^ {2}B: /m, '  A: ');
+  const verdict = verifyExplanation({ facts, explainText: oneLetterTwice });
+
+  assert.equal(verdict.ok, false, 'a question whose two lines carry one letter offers one direction, not two');
+  assert.ok(
+    verdict.faults.some((fault) => fault.kind === 'too-few-options' && fault.id === itemId),
+    'and the fault says the question is short of directions',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 boundary: the declared minimum is the number of directions a question must offer', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+
+  assert.equal(
+    verifyExplanation({ facts, explainText: withDirections(complete, MIN_OPTION_COUNT) }).ok,
+    true,
+    'a question offering exactly the declared minimum is a question a person can answer',
+  );
+  assert.equal(
+    verifyExplanation({ facts, explainText: withDirections(complete, MIN_OPTION_COUNT - 1) }).ok,
+    false,
+    'and one short of it is not',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C005 invariant: every table in the criteria section has as many cells per row as its header', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+  const lines = sectionAround(commandFile, '### The question').split('\n');
+  const tables = [];
+  let current = [];
+  for (const line of lines) {
+    if (line.startsWith('|')) {
+      current.push(line);
+      continue;
+    }
+    if (current.length > 0) tables.push(current);
+    current = [];
+  }
+  if (current.length > 0) tables.push(current);
+
+  assert.ok(tables.length >= 3, 'the criteria section carries a table per rule family');
+  for (const table of tables) {
+    const headerWidth = table[0].split('|').length;
+    for (const row of table) {
+      assert.equal(
+        row.split('|').length,
+        headerWidth,
+        `a row carries as many cells as its header, or the row states a rule in a column the table does not have: ${row}`,
+      );
+    }
+  }
 });

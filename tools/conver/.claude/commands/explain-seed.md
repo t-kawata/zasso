@@ -8,7 +8,8 @@ disable-model-invocation: true
 
 In: one `RFC-SEED.md` path. Nothing else.
 Out: `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md` beside it; facts of the first on stdout.
-Does not: grill, decide, publish a manifest, start a workflow. Explains; human grills.
+Does: explains, then asks each recorded question once — with directions, one of them recommended, the reason, and what would overturn it — and writes the human's answer down, until `run.mjs answers` says every question carries one.
+Does not: grill, decide for the human, publish a manifest, start a workflow. The grill stays the open-ended conversation this asking round is not.
 
 ## Language Protocol
 
@@ -37,7 +38,9 @@ no second arg, dialogue, env var, hook, fetch → refuse; exit non-zero.
 
 `EXPLAIN-RFC-SEED.md` — explanation, Japanese, dual-authored.
 - script writes the frame: 7 sections, `[::MUST-FILL::]` markers (AI fills), `<!-- 判断内容を人間が書き込む -->` placeholders (human fills), pre-decided items carrying ground + override condition
+- every question in 「人間が決めること（ここだけ）」 carries the directions it may be answered with, the one recommended, the reason, and the fact that would overturn it
 - human's writing under the placeholders is what `/grill-me-for-rfc` reads next
+- the document is complete only when every question carries an answer under its placeholder; that is what `answers` decides, and a question with no answer is not a document this command has finished with
 
 no mixed languages inside either document.
 Command's own reports (kept/reopened, gate verdict) → stderr, English.
@@ -50,6 +53,8 @@ Command's own reports (kept/reopened, gate verdict) → stderr, English.
 - a question a neighbour has clearly settled is never asked of this human: the boundary leaves the human's section and is recorded in 「先に決めておいたこと」 with the neighbour's document as its ground. "Clearly settled" means every neighbour document that could be read holds the same answer — one distinct decision, however many documents carry it — under that boundary's placeholder; a neighbour that has not been explained yet is ordinary and the question stands
 - a neighbour document that exists but cannot be read settles nothing and is named on stderr. It is never read for whatever can be salvaged, and a run never fails because another package's document is malformed — the direction is always to ask again, never to settle on a guess
 - the order facts are never optional: a workspace whose order cannot be read, or whose published order disagrees with its own edges, fails at G1 rather than producing a section 2 without relations
+- every question in 「人間が決めること（ここだけ）」 offers at least two directions a person can tell apart — two lines written under one letter are one direction — exactly one of them recommended, a reason the records can be checked against, and the fact that would overturn the recommendation; the placeholder stays one whole line, below the directions and above the answer
+- the asking round is over only when every question carries an answer: `run.mjs answers` decides that, and the AI never writes the answer on the human's behalf, and never leaves a question unanswered to make the round pass
 - `check` is the gate; AI may report only a gate-accepted explanation
 
 ## Scripts
@@ -59,15 +64,34 @@ Base: `.claude/scripts/explain-seed/`.
 | Script | Contract |
 |---|---|
 | `run.mjs info <path-to-RFC-SEED.md>` | resolves, verifies, reads the implementation order from `workspacify-order`, reads the neighbours' explanations for boundaries already settled, writes the facts + prints those bytes, maintains the explanation beside the seed. exit 0 = published; non-zero = names the offending artefact. stderr reports what was kept / reopened, and names any neighbour document it could not read |
-| `run.mjs check <path-to-RFC-SEED.md>` | gate: exit 0 only if every instruction answered, every human question names whose experience changes, no recorded open item vanished, every section rests on current facts. else names sections at fault, exit non-zero |
+| `run.mjs check <path-to-RFC-SEED.md>` | gate: exit 0 only if every instruction answered, every human question offers directions and a recommendation and names whose experience changes, no recorded open item vanished, every section rests on current facts. else names sections at fault, exit non-zero |
+| `run.mjs answers <path-to-RFC-SEED.md>` | the asking round's verdict: exit 0 only if every question in 「人間が決めること（ここだけ）」 carries an answer under its placeholder; else names the questions still open, exit non-zero. reads, writes nothing |
 
-## Criteria — Kind, and Unfit to report
+## Criteria — the question, Kind, and Unfit to report
 
 Kindness is a judgement about prose, not a script; a test that claimed to measure it would measure the taste of whoever wrote the test. The tables below are not a line-by-line mechanical pass — they guide one integrated judgement the AI makes over the whole of its own prose, before reporting. On an unlisted or borderline case, judge by this standard, not by whichever row looks closest.
 
-This section is the standard, not the place the AI meets it — it governs both tables below. Each `[::MUST-FILL::]` instruction is where the standard is actually applied. If an instruction and this section ever disagree, this section is wrong and should be fixed.
+This section is the standard, not the place the AI meets it — it governs all three tables below. Each `[::MUST-FILL::]` instruction is where the standard is actually applied. If an instruction and this section ever disagree, this section is wrong and should be fixed.
 
-Neither table is caught by the gate. judge: apply both, to the AI's own prose, item by item, before Step 3's gate call.
+None of the three tables is caught by the gate. judge: apply all of them, to the AI's own prose and to its own questions, item by item, before Step 3's gate call.
+
+### The question
+
+Rules for the question itself — the one put to the human. judge: apply per question, when writing it (Step 2) and when asking it (Step 4).
+
+| id | rule |
+|---|---|
+| W1 | plain Japanese a high-school student can answer: no unglossed term of art, no sentence that needs the implementation to parse |
+| W2 | about direction, the state things should be in, whose experience changes how — never which API, which type, which algorithm, which field |
+| W3 | the test is not whether the words can be read but whether a choice can be made: someone who does not know the implementation must be able to pick a direction from the weight of the result alone |
+| W4 | each direction states what happens and who it happens to; a mechanism with no consequence is not a direction |
+| W5 | exactly one direction recommended, the reason checkable against the records, the fact that would overturn it stated |
+| W6 | asked once. a boundary a neighbour has settled is recorded in 「先に決めておいたこと」 and never asked here (§Invariants, Q0') |
+
+Mechanised — the script's job, never the AI's: the block skeleton and its markers; the four structural rules at G4; the completion verdict at G5; the count the introduction declares; the neighbours' settled answers and the refusal to ask a settled boundary again; the placeholder's position and its one-per-question count.
+Judged — the AI's job: the sentences of the question; the asking; the writing down of what comes back. A judgement about prose is not mechanised here because a check for it would measure the taste of whoever wrote the check, which is the reason this whole section is a standard rather than a script.
+
+judge: W1–W5 fail → fix the prose (G2, G3). never lower the question to fit the answer, and never move it to 「先に決めておいたこと」 to silence it.
 
 ### Kind
 
@@ -79,6 +103,9 @@ Neither table is caught by the gate. judge: apply both, to the AI's own prose, i
 | K4 | ids / clause names / line numbers present, checkable against facts doc | unverifiable claim |
 | K5 | omissions declared (count trimmed, boundary uncovered) | silent gap |
 | K6 | explanation length ≤ facts length | explanation longer than the facts it explains |
+| K7 | each direction says what happens and whose experience it changes | a direction that names only a mechanism |
+| K8 | the recommendation says what fact would overturn it | a recommendation nothing could change |
+| K9 | a person who does not know the implementation can choose from what the result costs | a question answerable only by reading the implementation |
 
 judge: evaluate against source, not cached summaries.
 
@@ -94,17 +121,21 @@ judge: evaluate against source, not cached summaries.
 | U6 | check/change stated concretely | empty politeness (「ご確認ください」「重要です」) | — |
 | U7 | override condition real and specific | decision beyond question, formulaic override that never fires | — |
 | U8 | answer proportionate to the question | thinness passed off as brevity | — |
+| U9 | the question carries a proposed direction | a question handed over with no direction proposed is work given back, not a question | could the human answer this by choosing? if no → the directions are missing, not the answer |
+| U10 | the recommendation's overturning condition can fire | a formulaic condition that never fires is not a reason | — |
 
-fail → AI fixes before Step 3, or names the item as thin in Step 4's report.
+fail → AI fixes before Step 3, or names the item as thin in Step 5's report.
 
 ## Gates
 
 G0 arg     : one resolvable path                          → fail: stop
 G1 info    : `run.mjs info "$ARGUMENTS"` exit 0            → fail: stop (report as-is; no repair; no retry with other args; no hand-authored doc)
 G2 fill    : every `[::MUST-FILL::]` replaced per its own instruction → fail: back to G2
-G3 kind    : self-judged, one integrated judgement, against Kind/Unfit standard → fail: fix, re-judge; if unfixable → proceed, but Step 4 must name the item thin
+G3 kind    : self-judged, one integrated judgement, against Kind/Unfit standard → fail: fix, re-judge; if unfixable → proceed, but Step 5 must name the item thin
 G4 check   : `run.mjs check "$ARGUMENTS"` exit 0            → fail: back to G3
+G5 answers : `run.mjs answers "$ARGUMENTS"` exit 0          → fail: back to Step 4 with the questions it named, never by answering one on the human's behalf
 Rule: G0–G2 — parent not PASS ⇒ child never PASS.
+Rule: G5 may ask only an explanation G4 accepted, and G4 may accept only an explanation G2 filled — a question put to the human on a document the gate refused is a question about a document that does not exist yet.
 Exception: G4 PASS does **not** imply G3 PASS. G4 is structural only.
 Prohibition: never resolve a G4 failure by moving a question into the pre-decided section to silence the gate — that is exactly the delegation this command exists to remove, even when the gate would then accept it.
 
@@ -134,11 +165,19 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
      fail → judge: fix per stderr's named sections; re-run check
    G4 pass ≠ G3 satisfied (see Gates exception). Never report a gate-refused explanation. Never weaken an item to pass G4.
 
-4. **Report** — Japanese, ordered:
+4. **Ask, and write down what comes back** — the questions go to the human before anything is reported about the document.
+   Put each question in 「人間が決めること（ここだけ）」 as the frame wrote it: the directions, the one recommended, the reason, and the fact that would overturn the recommendation. judge: apply the W rules of §Criteria to the question being asked — plain Japanese a high-school student can answer, about direction and whose experience changes how, choosable from the weight of the result alone. state each direction as what happens and who it happens to; the recommendation as a choice, never as a decision already taken.
+   The human answers by naming a direction, or by writing prose of the human's own. Either way the answer goes under that question's `<!-- 判断内容を人間が書き込む -->`, on the lines below it, leaving the placeholder line itself untouched — that line is the record of where the human writes, and `answers` reads what stands under it.
+   Then `node .claude/scripts/explain-seed/run.mjs answers "$ARGUMENTS"` (G5). It names every question still open. Ask those again, one round at a time, until it exits 0.
+   Prohibition: never answer a question on the human's behalf, and never write a placeholder full to make G5 pass — a filled placeholder is the record that the question was put, and one answered by the AI is a decision the human never made.
+   judge: a question the human cannot answer from what is written there is a question whose directions are missing, not one whose answer is missing. Fix the directions (G2), re-run G4, and ask again.
+
+5. **Report** — Japanese, ordered. Written after the questions are answered, so it reports what was decided and not what is still open:
    package location + contents (human is about to hold a design conversation)
-   → grill points: each human-decided question; each frame-decided item with its reason (state plainly if nothing needs deciding)
+   → each question asked, and what was written under it
+   → each frame-decided item with its reason (state plainly if nothing needed deciding)
    → thin items named explicitly, per Unfit table, if any
-   → one line: human's judgement goes under each `<!-- 判断内容を人間が書き込む -->`; that is what the grill reads
+   → one line: human's judgement stands under each `<!-- 判断内容を人間が書き込む -->`; that is what the grill reads
    no hand-editing either document; if wrong, its inputs are wrong — regenerate.
 
-Done: both documents exist, published; facts printed once; G4 passed; every G3-caught-but-unfixed item named in the report.
+Done: both documents exist, published; facts printed once; G4 passed; every question answered and G5 passed; the report written after the answers, naming every G3-caught-but-unfixed item.

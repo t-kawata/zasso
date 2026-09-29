@@ -10,6 +10,11 @@
 // PX-225 @verifies C003
 // PX-225 @verifies C004
 // PX-225 @verifies C006
+// PX-226 @verifies C001
+// PX-226 @verifies C002
+// PX-226 @verifies C003
+// PX-226 @verifies C004
+// PX-226 @verifies C006
 //
 // `/explain-seed` is given one seed path and does everything else itself. It resolves the
 // workspace, verifies every hash the artefacts record, writes the facts to
@@ -47,9 +52,14 @@ import {
   COUNT_LABEL,
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
+  OPTIONS_LABEL,
   PARTY_LABEL,
   PREDECIDED_ITEM_HEADING,
+  RECOMMENDATION_LABEL,
+  RECOMMENDATION_OVERRIDE_LABEL,
+  RECOMMENDATION_REASON_LABEL,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import { OPERATIONS } from '../../../.claude/scripts/explain-seed/run.mjs';
 import { findHumanPlaceholders, findOpenMarkers, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/run.mjs', import.meta.url));
@@ -579,4 +589,152 @@ test('C006 postcondition: a workspace whose neighbours have decided nothing gain
     'the document carries every declared section, in the declared order',
   );
   assert.ok(info.includes(ABSENT_SETTLEMENTS_STATEMENT), 'the tenth section states its absence rather than being left out');
+});
+
+/** Put a person's own note under every placeholder that does not already carry one. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function withHumanNotesEverywhere(documentText) {
+  const source = documentText.split('\n');
+  const lines = [];
+  let written = 0;
+  for (const [index, line] of source.entries()) {
+    lines.push(line);
+    if (!isPlaceholderLine(line)) continue;
+    if ((source[index + 1] ?? '').trim() !== '') continue;
+    written += 1;
+    lines.push(`${HUMAN_NOTE}（${written}件目）`);
+  }
+  return lines.join('\n');
+}
+
+/** The same document with the directions taken out of every question. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function withoutDirectionBlocks(documentText) {
+  const labels = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+  const kept = [];
+  let skipping = false;
+  for (const line of documentText.split('\n')) {
+    if (labels.some((label) => line.startsWith(`- ${label}:`))) {
+      skipping = true;
+      continue;
+    }
+    if (skipping && /^\s+\S/.test(line)) continue;
+    skipping = false;
+    kept.push(line);
+  }
+  return kept.join('\n');
+}
+
+/** The questions a verdict still reports as unanswered, which it prints one per line. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function unansweredIdsIn(output) {
+  return output
+    .split('\n')
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2).trim());
+}
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C003 postcondition: answers names every question until each carries an answer, and then stops', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const authored = authorFrame(workspace);
+  const asked = itemHeadings(authored, HUMAN_ITEM_HEADING).length;
+
+  const unanswered = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(unanswered.status, 0, 'a round nobody has answered is not finished');
+  assert.equal(unansweredIdsIn(unanswered.stdout.toString('utf8')).length, asked, 'every question is named');
+
+  writeFileSync(workspace.explainPath, withHumanNote(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
+  const partly = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(partly.status, 0);
+  assert.equal(unansweredIdsIn(partly.stdout.toString('utf8')).length, asked - 1, 'one answer retires one question');
+
+  writeFileSync(workspace.explainPath, withHumanNotesEverywhere(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
+  const finished = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.equal(finished.status, 0, finished.stdout.toString('utf8'));
+  assert.equal(
+    runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status,
+    0,
+    'answering the questions does not disturb the gate',
+  );
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C003 invariant: the asking round reads the explanation and changes nothing in it', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  authorFrame(workspace);
+  const before = readFileSync(workspace.explainPath, 'utf8');
+
+  runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+
+  assert.equal(readFileSync(workspace.explainPath, 'utf8'), before, 'the document is read, never rewritten');
+  assert.equal(existsSync(workspace.infoPath), true, 'and the facts the round did not need are left where they were');
+
+  rmSync(workspace.explainPath);
+  const absent = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(absent.status, 0, 'a round over a document that does not exist is not a finished round');
+  assert.match(absent.stderr.toString('utf8'), new RegExp(EXPLAIN_FILE_NAME), 'and it names the path it looked for');
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C002 postcondition: a question that lost its second direction is refused, naming the section and the question', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const authored = authorFrame(workspace);
+  const [firstHeading] = itemHeadings(authored, HUMAN_ITEM_HEADING);
+  const reference = firstHeading.split(' — ')[1];
+  writeFileSync(workspace.explainPath, authored.replace(/^ {2}B: .*$/m, ''), 'utf8');
+
+  const verdict = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
+
+  assert.notEqual(verdict.status, 0, 'a question with one direction is not a question the human can answer');
+  assert.match(verdict.stdout.toString('utf8'), new RegExp(FRAME_SECTIONS[4].title), 'the section at fault is named');
+  assert.match(verdict.stdout.toString('utf8'), new RegExp(reference), 'and so is the question, by the record it is about');
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C004 invariant: the third operation is accepted, and every other argv is refused with all three named', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  authorFrame(workspace);
+  writeFileSync(workspace.explainPath, withHumanNotesEverywhere(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
+
+  assert.equal(runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root }).status, 0);
+
+  const refused = [
+    [],
+    ['info'],
+    ['info', workspace.seedPath, 'extra'],
+    ['verify', workspace.seedPath],
+    [`--seed=${workspace.seedPath}`, workspace.seedPath],
+  ];
+  for (const argv of refused) {
+    const run = runExplainSeed(argv, { cwd: workspace.root });
+    assert.notEqual(run.status, 0, `${JSON.stringify(argv)} is refused`);
+    for (const name of Object.values(OPERATIONS)) {
+      assert.match(run.stderr.toString('utf8'), new RegExp(name), `the refusal names ${name}`);
+    }
+  }
+});
+
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+test('C001 invariant: info repairs a human section written before this command asked for directions', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  writeFileSync(workspace.explainPath, withoutDirectionBlocks(authorFrame(workspace)), 'utf8');
+
+  const repaired = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const { explain } = documentsOf(workspace);
+
+  assert.equal(repaired.status, 0, repaired.stderr.toString('utf8'));
+  assert.match(
+    repaired.stderr.toString('utf8'),
+    new RegExp(FRAME_SECTIONS[4].title),
+    'the report names the section it reopened, rather than keeping a question it can no longer report',
+  );
+  assert.ok(explain.includes(`- ${OPTIONS_LABEL}:`), 'and the frame asks for directions again');
+  authorFrame(workspace);
+  assert.equal(runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status, 0, 'so the document can be completed again');
 });

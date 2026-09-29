@@ -92,8 +92,30 @@ export const FRAME_SECTIONS = Object.freeze([
   Object.freeze({ id: 'E7', title: '踏むと壊れる線と用語ミニ辞典' }),
 ]);
 
+/**
+ * The section the human decides in, as `FRAME_SECTIONS` declares it.
+ *
+ * Named rather than indexed at each use because three readers need it — the gate that judges a
+ * question, the merge that decides whether an earlier section was written by this frame, and
+ * the asking round that reports how far it has got — and three copies of the index would be
+ * three chances to move the section without moving one of its readers.
+ */
+export const HUMAN_SECTION_ID = FRAME_SECTIONS[4].id;
+
 /** The line that declares how many things the human is being asked to decide. */
 export const COUNT_LABEL = '人間が決めること';
+
+/** The line that opens the directions a person may choose between. */
+export const OPTIONS_LABEL = '選択肢';
+
+/** The line that names the one direction being recommended. */
+export const RECOMMENDATION_LABEL = '推奨';
+
+/** The line that says why that direction is recommended, in terms the records can be checked against. */
+export const RECOMMENDATION_REASON_LABEL = '推奨の理由';
+
+/** The line that states the fact which would overturn the recommendation. */
+export const RECOMMENDATION_OVERRIDE_LABEL = '推奨が覆る条件';
 
 /** The line that names whose experience changes if the human decides one way or the other. */
 export const PARTY_LABEL = '誰の体験が変わるか';
@@ -109,6 +131,9 @@ export const GROUND_LABEL = '根拠';
 
 /** The line that states what would overturn the decision. */
 export const OVERRIDE_LABEL = '覆す条件';
+
+/** How many directions a question must offer before a person can answer it by choosing. */
+export const MIN_OPTION_COUNT = 2;
 
 /** The bound on the glossary, which is a help rather than a dictionary of everything. */
 export const MAX_GLOSSARY_TERMS = 12;
@@ -147,15 +172,20 @@ export function mentionsId(text, id) {
 }
 
 /**
- * The value of a labelled line inside an item, or nothing when it is absent or unfilled.
+ * The lines belonging to a labelled line: whatever stands beside the label, then the indented
+ * lines under it, up to the first line that ends the label's reach.
  *
- * The answer sits on the line below its label rather than beside it. A label and an
- * instruction cannot share a line: the marker is only a marker when it is a line's first
- * token, so an instruction behind a label would read as a sentence that mentions one, and
- * the gate would neither see it nor be able to trust what it saw.
+ * One reader for the boundary, because two would be two answers to "where does this label
+ * stop". A list read to a different boundary than the value beside it would let the gate count
+ * a line the item does not own, and the count is what decides whether a question offers enough
+ * directions to be answerable.
+ *
+ * @param {string} itemBody
+ * @param {string} label
+ * @returns {Array<string>|null} the lines, or nothing when the item carries no such label
  */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function labelledValue(itemBody, label) {
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+function labelledLines(itemBody, label) {
   const lines = itemBody.split('\n');
   const prefix = `- ${label}:`;
   const index = lines.findIndex((line) => line.trimStart().startsWith(prefix));
@@ -168,10 +198,71 @@ function labelledValue(itemBody, label) {
     if (markerOffsetOf(line) >= 0) break;
     collected.push(line.trim());
   }
+  return collected;
+}
+
+/**
+ * The value of a labelled line inside an item, or nothing when it is absent or unfilled.
+ *
+ * The answer sits on the line below its label rather than beside it. A label and an
+ * instruction cannot share a line: the marker is only a marker when it is a line's first
+ * token, so an instruction behind a label would read as a sentence that mentions one, and
+ * the gate would neither see it nor be able to trust what it saw.
+ */
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+function labelledValue(itemBody, label) {
+  const collected = labelledLines(itemBody, label);
+  if (collected === null) return null;
 
   const value = collected.join(' ').trim();
   if (value === '' || value.includes(MUST_FILL_MARKER) || value.includes(HUMAN_PLACEHOLDER)) return null;
   return value;
+}
+
+/** The letter a direction opens with, or nothing when the line opens with none. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function letterOf(line) {
+  const matched = String(line).match(/^([^\s:：]+)\s*[:：]/);
+  return matched === null ? null : matched[1];
+}
+
+/**
+ * The letters the directions of a question are written under.
+ *
+ * The letters are read from the document rather than from an alphabet fixed here: how many
+ * readings a boundary has is a property of its records, so a question offering three
+ * directions is judged against the three it wrote, not against a list this module would have
+ * had to guess at.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function readOptionLetters(itemBody) {
+  return (labelledLines(itemBody, OPTIONS_LABEL) ?? []).map(letterOf).filter((letter) => letter !== null);
+}
+
+/**
+ * The directions a question actually offers: two lines written under one letter are one
+ * choice, however many lines the question wrote. A question offering "A" twice offers one
+ * direction, and a person cannot answer it by choosing — which is what the count is for.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function directionsOffered(itemBody) {
+  return [...new Set(readOptionLetters(itemBody))];
+}
+
+/**
+ * The direction a question recommends, or nothing.
+ *
+ * A recommendation naming a letter no direction uses points at something the human cannot
+ * choose, so it is not a recommendation; and a recommendation carrying prose is not the one
+ * letter the instruction asks for, so the gate sends it back rather than guessing which
+ * direction was meant.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function readRecommendation(itemBody, optionLetters) {
+  const value = labelledValue(itemBody, RECOMMENDATION_LABEL);
+  if (value === null) return null;
+  const written = value.replace(/[:：。、\s]+$/u, '').trim();
+  return optionLetters.includes(written) ? written : null;
 }
 
 /** What a person wrote under an item's placeholder, or nothing. */
@@ -412,15 +503,52 @@ function renderRecordedContracts(item) {
   return lines;
 }
 
+/**
+ * The directions a person may choose between, as instructions to be answered.
+ *
+ * Each instruction opens its own line, because a marker is only a marker when it is a line's
+ * first token: written behind the label it would be a sentence that mentions one, invisible to
+ * the counter and left unfilled without the gate noticing.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function renderOptionBlock() {
+  return [
+    `- ${OPTIONS_LABEL}:`,
+    `  ${MUST_FILL_MARKER} 案A — その案を選ぶと何が起きるかを、実装を知らない高校生が読める言葉で1〜2文。誰の体験をどう変えるかまで書く。行は「A: 」で始める。記録に無い理由を並べない。`,
+    `  ${MUST_FILL_MARKER} 案B — 同上。行は「B: 」で始める。A と同じ内容の言い換えにしない。記録が3つの読みを残すなら「C: 」の行を足す。`,
+  ];
+}
+
+/**
+ * The one direction being recommended, why, and what would overturn it.
+ *
+ * The recommendation is a single letter rather than a sentence, so what is being recommended
+ * is a thing the document offers rather than a paragraph the gate would have to read.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function renderRecommendationBlock() {
+  return [
+    `- ${RECOMMENDATION_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${RECOMMENDATION_LABEL} — 選んだ案の記号を1つだけ書く（A / B、3つあるなら C）。理由をここに書かない。`,
+    `- ${RECOMMENDATION_REASON_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${RECOMMENDATION_REASON_LABEL} — なぜそれを推すのか。記録のどこを見れば確かめられるかまで、実装を知らない高校生が読める言葉で書く。好みを根拠にしない。`,
+    `- ${RECOMMENDATION_OVERRIDE_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${RECOMMENDATION_OVERRIDE_LABEL} — どんな事実が現れたら推奨が変わるか。絶対に発火しない定型文をそのまま書かない。`,
+  ];
+}
+
 /** One question for the human, with the recorded material behind it and a place to answer. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
 function renderHumanItem({ item, index, note, movedFacts }) {
   const lines = [`${HUMAN_ITEM_HEADING} H${index + 1}${REFERENCE_SEPARATOR}${item.id}`, ''];
   if (item.topic !== null) lines.push(`- 記録された論点: ${truncate(item.topic)}`);
   if (item.whyUnresolved !== null) lines.push(`- 未解決とされた理由: ${truncate(item.whyUnresolved)}`);
   lines.push(...renderRecordedContracts(item));
   lines.push(
-    `${MUST_FILL_MARKER} 何を決めるのか — 専門用語をできるだけ使わず2〜3文。事実に書いてあることをもう一度書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
+    `${MUST_FILL_MARKER} 何を決めるのか — 実装を知らない高校生が読める言葉で2〜3文。専門用語を使うならその場で言い換える。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
+    '',
+    ...renderOptionBlock(),
+    ...renderRecommendationBlock(),
     '',
     `- ${PARTY_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${PARTY_LABEL} — 後続のエンジニア / AI / 利用者のどれの体験が、どう変わるか。「影響があります」で終わらせない。`,
@@ -618,6 +746,27 @@ function collectHumanNotes({ located, faults }) {
   return notes;
 }
 
+/**
+ * Whether a section holds the shape this frame writes.
+ *
+ * A digest says the facts have not moved; it says nothing about the shape of the document. A
+ * question written before this command proposed directions carries none, so the gate refuses it
+ * — and a merge that kept such a section would leave the document refused with no way back:
+ * `check` would name the fault and every later `info` would keep the same body again. Reopening
+ * it costs the prose for that section, which has to be rewritten to add the directions anyway,
+ * and keeps what the person wrote, because notes are collected by the record they were written
+ * against.
+ *
+ * Only the human's section changed shape, so every other section answers yes: this frame writes
+ * them the way the frame before it did, and a section it kept keeps the AI's prose, which no
+ * frame writes.
+ */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+function carriesTheShapeThisFrameWrites(sectionId, body) {
+  if (sectionId !== HUMAN_SECTION_ID) return true;
+  return splitItems(body, HUMAN_ITEM_HEADING).every((item) => labelledLines(item.body, OPTIONS_LABEL) !== null);
+}
+
 /** The faults an earlier document shows before anything is merged into it. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function faultsOfPrevious(located) {
@@ -654,7 +803,11 @@ export function buildFrame({ facts, previous }) {
 
   const chunks = FRAME_SECTIONS.map((section) => {
     const previousBody = located?.bodies[section.id];
-    const kept = recorded !== null && previousBody !== undefined && recorded[section.id]?.digest === digests[section.id].digest;
+    const kept =
+      recorded !== null &&
+      previousBody !== undefined &&
+      recorded[section.id]?.digest === digests[section.id].digest &&
+      carriesTheShapeThisFrameWrites(section.id, previousBody);
     if (kept) {
       keptSections.push(section.id);
       return `## ${section.title}\n\n${previousBody}`;
@@ -691,7 +844,7 @@ export function buildFrame({ facts, previous }) {
 /** How many things the document asks the human to decide. */
 export function countHumanDecisionItems(documentText) {
   const located = locateSections(documentText);
-  const body = located.bodies.E5 ?? '';
+  const body = located.bodies[HUMAN_SECTION_ID] ?? '';
   return splitItems(body, HUMAN_ITEM_HEADING).length;
 }
 
@@ -715,8 +868,15 @@ function sectionOfLine(documentText, lineNumber) {
   return current;
 }
 
-/** The faults in the human-decision section. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+/**
+ * The faults in the human-decision section.
+ *
+ * The four rules about directions are per question and independent of each other: a question
+ * that offers none, recommends nothing, or gives no reason and no overturning condition is
+ * missing four different things, and reporting one would hide the rest from whoever has to fix
+ * the document.
+ */
+// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
 function faultsOfDecisions({ body, openItems, section }) {
   const faults = [];
   const openIds = new Set(openItems.map((item) => item.id));
@@ -729,6 +889,16 @@ function faultsOfDecisions({ body, openItems, section }) {
     if (placeholders === 0) faults.push({ kind: 'missing-placeholder', section, id: item.id });
     if (placeholders > 1) faults.push({ kind: 'duplicate-placeholder', section, id: item.id });
     if (labelledValue(item.body, PARTY_LABEL) === null) faults.push({ kind: 'unnamed-party', section, id: item.id });
+
+    const directions = directionsOffered(item.body);
+    if (directions.length < MIN_OPTION_COUNT) faults.push({ kind: 'too-few-options', section, id: item.id });
+    if (readRecommendation(item.body, directions) === null) faults.push({ kind: 'missing-recommendation', section, id: item.id });
+    if (labelledValue(item.body, RECOMMENDATION_REASON_LABEL) === null) {
+      faults.push({ kind: 'missing-recommendation-reason', section, id: item.id });
+    }
+    if (labelledValue(item.body, RECOMMENDATION_OVERRIDE_LABEL) === null) {
+      faults.push({ kind: 'missing-recommendation-override', section, id: item.id });
+    }
   }
   return faults;
 }
@@ -807,9 +977,9 @@ export function verifyExplanation({ facts, explainText }) {
     })),
   ];
 
-  const decisions = located.bodies.E5 ?? '';
+  const decisions = located.bodies[HUMAN_SECTION_ID] ?? '';
   const preDecisions = located.bodies.E6 ?? '';
-  faults.push(...faultsOfDecisions({ body: decisions, openItems, section: 'E5' }));
+  faults.push(...faultsOfDecisions({ body: decisions, openItems, section: HUMAN_SECTION_ID }));
   faults.push(...faultsOfPreDecisions({ body: preDecisions, openIds, section: 'E6' }));
   faults.push(...faultsOfCoverage({ decisions, preDecisions, openItems }));
 
