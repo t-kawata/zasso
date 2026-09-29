@@ -1,4 +1,7 @@
 // PX-223 @verifies C004
+// PX-228 @verifies C001
+// PX-228 @verifies C002
+// PX-228 @verifies C004
 //
 // The rendered text is the deliverable, so the expected strings below are written out in
 // full rather than rebuilt from the renderer's own constants. Two fixtures are used: a
@@ -6,10 +9,15 @@
 // job is to prove that a long provider list grows downward instead of sideways.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
-import { materializeChainWorkspace, materializeOrderWorkspace, materializeWideProviderWorkspace } from '../helpers/order-workspace.mjs';
+import {
+  EXPLAIN_FILE_NAME,
+  materializeChainWorkspace,
+  materializeOrderWorkspace,
+  materializeWideProviderWorkspace,
+} from '../helpers/order-workspace.mjs';
 import { buildModel } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
 import {
   CRITICAL_MARKER,
@@ -51,7 +59,10 @@ test('C004 postcondition: the plan renders the level blocks, the width row and t
   assert.equal(
     text,
     [
-      `${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      // The heading is a Markdown H1: renderPlan opens the plan with a blank line and the
+      // hash marker, and both are asserted here so a heading that loses either is caught.
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
       `  ${CRITICAL_MARKER} crates/protocol/package-1`,
@@ -223,4 +234,212 @@ test('C004 postcondition: render with no focus equals the plan and render with a
 
   assert.equal(render(model, null), renderPlan(model));
   assert.equal(render(model, 'pkg-0003'), `${renderPlan(model)}${renderFocus({ model, packageId: 'pkg-0003' })}`);
+});
+
+// PX-228 — the explained mark.
+//
+// The mark answers one question: does EXPLAIN-RFC-SEED.md exist in this package directory.
+// The glyph is spelled as a literal in the assertions below rather than read from
+// EXPLAINED_LABEL, so a typo inside that constant cannot satisfy the test meant to catch it.
+
+/** The two-level fixture with pkg-0001 and pkg-0003 explained: one on the chain, one beside it. */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+function explainedFixture(t) {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [
+      ['pkg-0002', 'pkg-0001'],
+      ['pkg-0003', 'pkg-0001'],
+    ],
+    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    explained: ['pkg-0001', 'pkg-0003'],
+  });
+  t.after(() => workspace.remove());
+  return workspace;
+}
+
+/** The plan of that fixture, line by line, written out rather than rebuilt from the renderer. */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+function explainedPlanLines(workspace) {
+  return [
+    '',
+    `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+    '',
+    'level  0    alone     1 dir',
+    '  * crates/protocol/package-1 ✅ EXPLAINED',
+    '',
+    'level  1    parallel  2 dirs',
+    '  * crates/protocol/package-2',
+    '    crates/protocol/package-3 ✅ EXPLAINED',
+    '',
+    'parallel width   level   0  1',
+    '                 dirs    1  2',
+    '',
+    'critical chain   package-1 → package-2',
+    '',
+  ];
+}
+
+test('C001 precondition: the model names exactly the packages whose directory holds the document', (t) => {
+  const workspace = explainedFixture(t);
+  const model = twoLevelModel(workspace);
+
+  assert.ok(model.explainedIds instanceof Set);
+  assert.deepEqual([...model.explainedIds].sort(), ['pkg-0001', 'pkg-0003']);
+  assert.ok([...model.explainedIds].every((id) => model.pathOf.has(id)));
+});
+
+test('C001 postcondition: an explained package carries the label after its path, an unexplained one carries nothing', (t) => {
+  const workspace = explainedFixture(t);
+
+  assert.equal(renderPlan(twoLevelModel(workspace)), explainedPlanLines(workspace).join('\n'));
+});
+
+test('C001 invariant: the label is appended and never padded, so no line carries trailing whitespace', (t) => {
+  const workspace = explainedFixture(t);
+  const text = renderPlan(twoLevelModel(workspace));
+
+  // Asserted before the whitespace rule so the case is red while the label is absent: a
+  // whitespace check alone holds in a plan that carries no label at all, and would pass
+  // whatever the renderer did with the mark.
+  assert.ok(text.includes('  * crates/protocol/package-1 ✅ EXPLAINED'));
+  for (const line of text.split('\n')) {
+    assert.equal(line, line.trimEnd(), `trailing whitespace: ${JSON.stringify(line)}`);
+  }
+  // The unexplained line ends at its path: nothing follows it, not even a space, which is
+  // what keeps the path column from widening when a workspace explains nothing.
+  assert.ok(text.includes('\n  * crates/protocol/package-2\n'));
+});
+
+test('C002 postcondition: explainedIds equals the set of packages whose directory holds the document', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [
+      ['pkg-0002', 'pkg-0001'],
+      ['pkg-0003', 'pkg-0001'],
+    ],
+    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    explained: ['pkg-0002'],
+  });
+  t.after(() => workspace.remove());
+
+  // The manifests say nothing about explanations, so the answer can only have come from the
+  // directory. A manifest field would allow this to pass while the probe was never made.
+  assert.equal(
+    workspace.treeManifest.workspace.packages.some((pkg) => Object.hasOwn(pkg, 'explained')),
+    false,
+  );
+  assert.deepEqual(twoLevelModel(workspace).explainedIds, new Set(['pkg-0002']));
+});
+
+test('C002 precondition: a package with no path fails before the probe, naming the missing field', (t) => {
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']] });
+  t.after(() => workspace.remove());
+
+  assert.throws(
+    () =>
+      buildModel({
+        root: workspace.root,
+        treeManifest: { ...workspace.treeManifest, workspace: { packages: [{ id: 'pkg-0001', name: 'package-1' }] } },
+        allocateManifest: workspace.allocateManifest,
+      }),
+    (error) => error instanceof Error && /no path/.test(error.message),
+  );
+});
+
+test('C002 invariant: a zero-byte document marks its package, and a directory without one is never marked', (t) => {
+  const zeroByte = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], explained: ['pkg-0001'] });
+  t.after(() => zeroByte.remove());
+  const plain = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']] });
+  t.after(() => plain.remove());
+
+  // Existence is the whole rule, so an empty document is never opened, parsed or weighed.
+  assert.equal(statSync(zeroByte.explainPathOf('pkg-0001')).size, 0);
+  assert.deepEqual(twoLevelModel(zeroByte).explainedIds, new Set(['pkg-0001']));
+  assert.deepEqual(twoLevelModel(plain).explainedIds, new Set());
+});
+
+test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed document marks nothing', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+  });
+  t.after(() => workspace.remove());
+  const directory = join(workspace.root, workspace.pathOf.get('pkg-0001'));
+  writeFileSync(join(directory, `${EXPLAIN_FILE_NAME}.bak`), '');
+  writeFileSync(join(directory, 'INFO-RFC-SEED.md'), '');
+
+  assert.equal(existsSync(join(directory, EXPLAIN_FILE_NAME)), false);
+  assert.deepEqual(twoLevelModel(workspace).explainedIds, new Set());
+});
+
+test('C002 boundary: the document is found in the package directory and in no directory around it', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    explained: ['pkg-0002'],
+  });
+  t.after(() => workspace.remove());
+  const parent = join(workspace.root, 'crates', 'protocol');
+  mkdirSync(parent, { recursive: true });
+  // A sibling package, its parent directory, and the workspace root all carry a document
+  // that belongs to none of them. The literal name is asserted rather than the imported
+  // constant, so a constant that drifted from the name explain-seed writes fails here.
+  writeFileSync(join(workspace.root, 'EXPLAIN-RFC-SEED.md'), '');
+  writeFileSync(join(parent, 'EXPLAIN-RFC-SEED.md'), '');
+  assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0002'), 'EXPLAIN-RFC-SEED.md')), true);
+
+  assert.deepEqual(twoLevelModel(workspace).explainedIds, new Set(['pkg-0002']));
+});
+
+test('C002 boundary: a package whose directory is absent stays unexplained instead of failing the plan', (t) => {
+  const workspace = explainedFixture(t);
+  rmSync(join(workspace.root, workspace.pathOf.get('pkg-0003')), { recursive: true, force: true });
+  const model = twoLevelModel(workspace);
+
+  assert.deepEqual([...model.explainedIds], ['pkg-0001']);
+  assert.equal(renderPlan(model).includes('package-3 ✅ EXPLAINED'), false);
+});
+
+test('C001 boundary: a workspace that explains everything marks every line, and one that explains nothing marks none', (t) => {
+  const all = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    explained: ['pkg-0001', 'pkg-0002'],
+  });
+  t.after(() => all.remove());
+  const allText = renderPlan(twoLevelModel(all));
+
+  assert.equal(allText.match(/✅ EXPLAINED/g).length, 2);
+  assert.ok(allText.includes('  * crates/protocol/package-1 ✅ EXPLAINED'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 ✅ EXPLAINED'));
+  assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /EXPLAINED/);
+});
+
+test('C001 invariant: the focused block is unchanged by the explained state', (t) => {
+  const explained = explainedFixture(t);
+  const plain = fixture(t);
+  const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
+
+  // The plan of the very fixture whose block is compared carries the mark, so this case is
+  // red while the label is absent and green only once the mark exists and is confined to it.
+  assert.equal(renderPlan(twoLevelModel(explained)).match(/✅ EXPLAINED/g).length, 2);
+  // The mark belongs to the level listing. The focused block answers a different question,
+  // and this pins that boundary so a later change cannot widen the printed surface by accident.
+  assert.equal(focus(explained), focus(plain));
+  assert.doesNotMatch(focus(explained), /EXPLAINED/);
+});
+
+test('C004 boundary: the heading is a blank line followed by the hash-marked H1', (t) => {
+  const workspace = fixture(t);
+  const lines = renderPlan(twoLevelModel(workspace)).split('\n');
+  const name = basename(workspace.root);
+
+  assert.deepEqual(lines.slice(0, 3), ['', `# ${name} implementation order — 3 dirs / 2 levels / 2 dependencies`, '']);
+  // The stale expectation this file carried started at the name, with neither the blank line
+  // nor the marker, so the two expectations cannot be confused for one another.
+  assert.notEqual(lines[1], `${name} implementation order — 3 dirs / 2 levels / 2 dependencies`);
 });

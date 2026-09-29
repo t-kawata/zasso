@@ -15,6 +15,8 @@ export const ALONE_LABEL = 'alone';
 export const PARALLEL_LABEL = 'parallel';
 export const FOCUS_MARKER = '▶';
 export const CRITICAL_MARKER = '*';
+/** Written after a path whose package directory already carries its explanation document. */
+export const EXPLAINED_LABEL = '✅ EXPLAINED';
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
@@ -65,11 +67,14 @@ function renderLevelHeader(index, memberCount) {
   return `${LEVEL_LABEL} ${number}    ${word}${count}`;
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228) --for-spec --no-implementation-order`.
 function renderPackageLine(model, id) {
   const marker = model.criticalChain.includes(id) ? CRITICAL_MARKER : ' ';
-  // Nothing follows the path on this line, so padding it would only leave trailing blanks.
-  return `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}`;
+  // The path is never padded: a line whose package is not explained ends there, so padding
+  // would only leave trailing blanks. The label is appended rather than aligned to a column,
+  // because it qualifies the path it follows instead of opening a second field.
+  const explanation = model.explainedIds.has(id) ? ` ${EXPLAINED_LABEL}` : '';
+  return `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}${explanation}`;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.

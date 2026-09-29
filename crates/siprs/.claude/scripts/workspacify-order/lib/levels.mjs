@@ -11,7 +11,7 @@
  */
 import { basename, dirname, resolve, sep } from 'node:path';
 
-import { SEED_FILE_NAME } from './workspace.mjs';
+import { holdsExplanation, SEED_FILE_NAME } from './workspace.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
 
 /** Provider-first levels: the rule computeImplementationOrder in stage one applies. */
@@ -201,6 +201,7 @@ function assertEdgesReferencePackages(packages, edges) {
  * @param {{ root: string, treeManifest: object, allocateManifest: object }} input
  * @returns {object} the model the renderer draws from
  */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function buildModel({ root, treeManifest, allocateManifest }) {
   const packageRecords = requirePackageList(treeManifest);
   assertEveryPackageIsComplete(packageRecords);
@@ -226,9 +227,17 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   for (const list of providersOf.values()) list.sort();
   for (const list of consumersOf.values()) list.sort();
 
+  // Probed once per package, and only after the manifest is proven complete, so a package
+  // with no path fails with the message that names the field rather than reaching the
+  // filesystem with an undefined segment.
+  const explainedIds = new Set(
+    packages.filter((pkg) => holdsExplanation({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
+  );
+
   return {
     workspaceName: basename(resolve(root)),
     packages,
+    explainedIds,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),

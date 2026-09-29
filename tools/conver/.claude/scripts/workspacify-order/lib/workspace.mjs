@@ -16,6 +16,16 @@ export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 export const SEED_FILE_NAME = 'RFC-SEED.md';
 
+/**
+ * The explanation document `explain-seed` writes beside a package's seed.
+ *
+ * Declared here rather than imported from explain-seed/lib/frame.mjs: that module pulls in
+ * the digest, marker, item and render machinery for the sake of one string, and this tool
+ * family already declares its own file names rather than reaching across scripts.
+ */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
+
 /** Every ancestor of `startDirectory`, nearest first, ending at the filesystem root. */
 export function ancestorsOf(startDirectory) {
   const ancestors = [];
@@ -31,6 +41,18 @@ export function ancestorsOf(startDirectory) {
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function holds(candidate, fileName) {
   return existsSync(join(candidate, fileName));
+}
+
+/**
+ * Whether a package directory already carries its explanation document.
+ *
+ * Existence is the whole rule: the document is never opened, so a zero-byte or half-written
+ * explanation counts as present, and a directory that cannot be read answers false rather
+ * than failing a plan that is only meant to describe the workspace.
+ */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+export function holdsExplanation({ root, packagePath }) {
+  return holds(join(root, packagePath), EXPLAIN_FILE_NAME);
 }
 
 /** The one ancestor directory holding both manifests. */

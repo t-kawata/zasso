@@ -16,6 +16,8 @@ import { dirname, join } from 'node:path';
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 export const SEED_FILE_NAME = 'RFC-SEED.md';
+/** The explanation document explain-seed writes beside a seed; its presence is the mark. */
+export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 
 const DEFAULT_LAYER = 'protocol';
 const DEFAULT_TOP_LEVEL = 'crates';
@@ -55,14 +57,18 @@ function levelsFromEdges(packageIds, edges) {
  * Write a workspace whose manifests agree with each other.
  *
  * @param {{ packages?: string[], edges?: Array<[string, string]>, levels?: string[][],
- *   paths?: Record<string, string>, layers?: Record<string, string> }} input
+ *   paths?: Record<string, string>, explained?: string[] }} input
  *   `edges` are consumer-provider pairs, the orientation the manifest itself uses.
  *   `levels` is the published order; it is computed from the edges when omitted.
+ *   `explained` names the packages whose directory receives an EXPLAIN-RFC-SEED.md; the
+ *   document is written empty, because existence is the whole rule and a fixture that
+ *   carried content would suggest otherwise.
  * @returns {{ root: string, treeManifestPath: string, allocateManifestPath: string,
- *   seedPathOf: (id: string) => string, writeTreeManifest: (value: object) => void,
- *   remove: () => void }}
+ *   seedPathOf: (id: string) => string, explainPathOf: (id: string) => string,
+ *   writeTreeManifest: (value: object) => void, remove: () => void }}
  */
-export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, layers = {} } = {}) {
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, explained = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workspacify-order-'));
   const publishedLevels = levels ?? levelsFromEdges(packages, edges);
   const pathOf = new Map(
@@ -70,14 +76,16 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
       id,
       // A path deeper than three segments exercises the padded column the same way the
       // real workspace does, where storage adapters sit one directory lower.
-      paths[id] ?? join(DEFAULT_TOP_LEVEL, layers[id] ?? DEFAULT_LAYER, `package-${index + 1}`),
+      paths[id] ?? join(DEFAULT_TOP_LEVEL, DEFAULT_LAYER, `package-${index + 1}`),
     ]),
   );
 
+  const explainedPackages = new Set(explained);
   for (const id of packages) {
     const directory = join(root, pathOf.get(id));
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, SEED_FILE_NAME), `# RFC Seed: ${id}\n`);
+    if (explainedPackages.has(id)) writeFileSync(join(directory, EXPLAIN_FILE_NAME), '');
   }
 
   const treeManifest = {
@@ -87,7 +95,7 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
         // A real manifest names a package after its directory, so the fixture does too.
         name: `package-${index + 1}`,
         path: pathOf.get(id),
-        layer: layers[id] ?? DEFAULT_LAYER,
+        layer: DEFAULT_LAYER,
         kind: 'production-library',
       })),
     },
@@ -116,6 +124,7 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
     allocateManifest,
     pathOf,
     seedPathOf: (id) => join(root, pathOf.get(id), SEED_FILE_NAME),
+    explainPathOf: (id) => join(root, pathOf.get(id), EXPLAIN_FILE_NAME),
     writeTreeManifest: (value) => writeFileSync(treeManifestPath, JSON.stringify(value, null, 2)),
     writeAllocateManifest: (value) => writeFileSync(allocateManifestPath, JSON.stringify(value, null, 2)),
     remove: () => rmSync(root, { recursive: true, force: true }),

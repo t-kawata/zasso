@@ -1,6 +1,8 @@
 // PX-223 @verifies C001
 // PX-223 @verifies C003
 // PX-223 @verifies C004
+// PX-228 @verifies C001
+// PX-228 @verifies C003
 //
 // The command is exercised as a process, in a workspace built for the case. The expected
 // stdout is written out in full rather than produced by the renderer, so a passing
@@ -8,12 +10,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
+import { EXPLAIN_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-order/run.mjs', import.meta.url));
 
@@ -40,10 +42,13 @@ function threePackageWorkspace(t) {
   return workspace;
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228) --for-spec --no-implementation-order`.
 function expectedPlan(workspace) {
   return [
-    `${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+    // The command opens the plan with a blank line and a Markdown H1, so the expected bytes
+    // start there too; without them this helper describes a plan the command stopped printing.
+    '',
+    `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
     '',
     'level  0    alone     1 dir',
     '  * crates/protocol/package-1',
@@ -158,4 +163,116 @@ test('IT: tests/check-conventions.mjs names this directory with the module syste
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\*\*workspacify-order\*\* — esm \(decided by extension\), \d+ file\(s\), conforms/);
+});
+
+// PX-228 — the explained mark, exercised through the process.
+
+/** The three-package fixture, with the explanation document in the named directories. */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+function explainedWorkspace(t, explained) {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [
+      ['pkg-0002', 'pkg-0001'],
+      ['pkg-0003', 'pkg-0001'],
+    ],
+    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    explained,
+  });
+  t.after(() => workspace.remove());
+  return workspace;
+}
+
+/** Every entry below a directory with its size, so two digests prove a run wrote nothing. */
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+function digestTree(root) {
+  const entries = [];
+// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+  (function walk(directory) {
+    const children = readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name));
+    for (const child of children) {
+      const absolute = join(directory, child.name);
+      entries.push(`${relative(root, absolute)}:${child.isDirectory() ? 'dir' : readFileSync(absolute, 'utf8').length}`);
+      if (child.isDirectory()) walk(absolute);
+    }
+  })(root);
+  return entries.join('\n');
+}
+
+test('IT: an explained workspace prints the label after the path and exits 0', (t) => {
+  const workspace = explainedWorkspace(t, ['pkg-0001', 'pkg-0003']);
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.stderr, '');
+  assert.equal(result.status, 0);
+  assert.equal(
+    result.stdout,
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1 ✅ EXPLAINED',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2',
+      '    crates/protocol/package-3 ✅ EXPLAINED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('IT: an unexplained workspace prints byte for byte the plan it printed before this ticket', (t) => {
+  const workspace = explainedWorkspace(t, []);
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.stdout, expectedPlan(workspace));
+  assert.doesNotMatch(result.stdout, /EXPLAINED/);
+  assert.equal(result.status, 0);
+});
+
+test('IT: the mark follows the directory and not the manifest, so writing the document alone changes the plan', (t) => {
+  const workspace = explainedWorkspace(t, []);
+  const readManifests = () => [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];
+  const manifestsBefore = readManifests();
+
+  const before = runOrder([], { cwd: workspace.root });
+  writeFileSync(join(workspace.root, workspace.pathOf.get('pkg-0003'), EXPLAIN_FILE_NAME), '');
+  const after = runOrder([], { cwd: workspace.root });
+
+  assert.notEqual(after.stdout, before.stdout);
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 ✅ EXPLAINED\n'));
+  assert.deepEqual(readManifests(), manifestsBefore);
+});
+
+test('IT: a seed run prints the mark in the plan and no mark in the focused block', (t) => {
+  const workspace = explainedWorkspace(t, ['pkg-0003']);
+
+  const result = runOrder([workspace.seedPathOf('pkg-0003')], { cwd: workspace.root });
+
+  assert.equal(result.status, 0);
+  // The rule of dashes opens the focused block, so everything before it is the plan.
+  const [plan, block] = result.stdout.split('─'.repeat(66));
+  assert.ok(plan.includes('    crates/protocol/package-3 ✅ EXPLAINED\n'));
+  assert.ok(plan.includes('\n  * crates/protocol/package-2\n'));
+  assert.match(block, /▶ crates\/protocol\/package-3 +level 1 · 3rd\n/);
+  assert.doesNotMatch(block, /EXPLAINED/);
+});
+
+test('IT: the command writes nothing, so an unexplained workspace stays unexplained', (t) => {
+  const workspace = explainedWorkspace(t, []);
+  const before = digestTree(workspace.root);
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.status, 0);
+  assert.equal(digestTree(workspace.root), before);
+  assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0001'), EXPLAIN_FILE_NAME)), false);
 });
