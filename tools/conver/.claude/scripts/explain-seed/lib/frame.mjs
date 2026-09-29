@@ -472,14 +472,20 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-224) --for-spec --no-implementation-order`.
   E2(material) {
     const { facts, movedFacts } = material;
+    const { order } = facts.projection.position;
+    // The two axes are printed as two counts rather than as one list of neighbours, because
+    // they are not the same claim: one is a declared edge, the other is the level rule.
     return [
       `- 全体は ${facts.projection.totals.packages} パッケージ・${facts.projection.totals.layers} 層・${facts.projection.totals.boundaries} 境界。`,
+      `- この位置: レベル ${order.level}（0始まり）・${order.ordinal}番目${order.onCriticalPath ? '・臨界経路上' : ''}`,
+      `- 直列で待つ相手（宣言された辺のみ）: ${order.waitsFor.length} 件 / 並列で進めてよい相手（同じ段）: ${order.parallelInLevel.length} 件 / この完了を待つ相手: ${order.usedBy.length} 件`,
+      `- 全体は ${order.plan.levels} 段。この鎖は短縮できないので、段の下限は ${order.plan.criticalChainLength}。`,
       '',
       ...renderMovedFacts(movedFacts),
-      `${MUST_FILL_MARKER} なぜこの位置なのか — 何の前に来る必要があり、何がこの後に来るのかを、順番が決まっている理由として書く。並行可否を並べるだけにしない。`,
+      `${MUST_FILL_MARKER} なぜこの位置なのか — 直列と並列を分けて書く。直列は「待つ相手」＝宣言された辺だけで、辺が無ければ段が違っても直列ではないと明記する。並列は同じ段の相手で、依存が無いことは段の規則から保証されていると根拠を添える。段の差を順番の理由として書かない。level 番号を言い換えただけの文章は答えになっていない。`,
       '',
     ];
   },

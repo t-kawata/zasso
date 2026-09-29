@@ -19,9 +19,14 @@
  *
  * A list longer than `MAX_LISTED_ITEMS` is trimmed with an explicit count of what was left
  * out. Trimming silently would make a short document and a complete one look the same,
- * which is the one thing a document like this must never do.
+ * which is the one thing a document like this must never do. The serial, parallel and consumer
+ * relations of the implementation order are the one exception, and they are printed in full:
+ * those lists are the constraints themselves, and a trimmed one would state that a package is
+ * unconstrained when the manifest says otherwise — the failure this record exists to prevent.
  */
 import { relative } from 'node:path';
+
+import { ExplainSeedError } from './errors.mjs';
 
 /** The facts document, which is the one whose bytes stdout carries. */
 export const INFO_DOCUMENT_FILE_NAME = 'INFO-RFC-SEED.md';
@@ -128,10 +133,74 @@ function renderVerification({ workspace, seedPath, verified }) {
   ]);
 }
 
-/** Where the package sits in the whole, and what must come before and after it. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
-function renderPosition(projection) {
+/**
+ * The two axes of the order, each said as the thing it is.
+ *
+ * The serial axis is the declared edges and nothing else. The parallel axis is the published
+ * level, and the ground is the rule that produced it: levels are derived so that no two
+ * packages in one level depend on each other, so sharing a level is a guarantee rather than an
+ * absence of evidence. A difference in level is stated to be no ordering at all, because most
+ * pairs at different levels hold no edge and reading the difference as an order would invent
+ * constraints the manifests never declared.
+ */
+export const SERIAL_LABEL = 'serial - must be finished before this starts, declared edges only';
+export const PARALLEL_LABEL = 'parallel - same level; the level rule guarantees no declared dependency between them';
+export const CONSUMER_LABEL = 'used by - must wait for this one, declared edges only';
+export const ALONE_NOTE = 'this level is alone, so this step is serial';
+export const ORDERING_DENIAL = 'a different level is not an ordering';
+
+/** A count with its noun, so the document reads as prose rather than as a template. */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+function formatCount(count, singular, pluralForm = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+/**
+ * One axis: what it is, how many packages it holds, and which ones.
+ *
+ * These lists are printed in full rather than trimmed to `MAX_LISTED_ITEMS`. A trimmed relation
+ * list would report a package as unconstrained when the manifest says it is not, and an omitted
+ * provider is exactly the defect this section was rewritten to remove. The list is bounded by the
+ * workspace, and the whole document keeps its own bound.
+ */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+function renderOrderAxis({ ids, label, pathOf, note = '' }) {
+  if (ids.length === 0) {
+    return note === '' ? [`- ${label}: none`] : [`- ${label}: none`, `  (${note})`];
+  }
+  return [`- ${label}: ${ids.length}`, ...ids.map((id) => `  - ${pathOf[id]}`)];
+}
+
+/** The order facts of this package, or the failure that says which manifest could not supply them. */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+function requireOrderFacts(position) {
+  if (position.order === undefined || position.order === null) {
+    throw new ExplainSeedError(
+      'the implementation order was not read, so the serial and parallel relations cannot be stated',
+      { field: 'implementation_order' },
+    );
+  }
+  return position.order;
+}
+
+/** The id-to-path map the order relations are printed from, or the failure that says so. */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+function requirePathOf(projection) {
+  if (projection.pathOf === undefined || projection.pathOf === null) {
+    throw new ExplainSeedError(
+      'the stage-one manifest was not indexed by path, so the related directories cannot be named',
+      { field: 'workspace.packages' },
+    );
+  }
+  return projection.pathOf;
+}
+
+/** Where the package sits in the whole, and the two axes that place it there. */
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+export function renderPosition(projection) {
   const { position, totals } = projection;
+  const order = requireOrderFacts(position);
+  const pathOf = requirePathOf(projection);
   const placement = [
     position.wave === null ? null : `wave ${position.wave}`,
     position.level === null ? null : `implementation level ${position.level}`,
@@ -139,13 +208,18 @@ function renderPosition(projection) {
   ]
     .filter((part) => part !== null)
     .join(' / ');
+
   return renderSection(INFO_SECTION_TITLES.I2, [
-    `The whole is ${totals.packages} package(s), ${totals.layers} layer(s) and ${totals.boundaries} boundary(ies).`,
+    `The whole is ${formatCount(totals.packages, 'package')}, ${formatCount(totals.layers, 'layer')} and ${formatCount(totals.boundaries, 'boundary', 'boundaries')}.`,
     '',
     ...(placement === '' ? [] : [`- placement of this package: ${placement}`]),
-    ...renderList(position.before, (id) => `implemented before it: ${id}`),
-    ...renderList(position.after, (id) => `implemented after it: ${id}`),
-    ...renderList(position.parallel_with, (id) => `may be implemented in parallel: ${id}`),
+    `- in the implementation order: level ${order.level} (zero-based, as that order prints it) / position ${order.ordinal}${order.onCriticalPath ? ' / on the critical path' : ''}`,
+    ...renderOrderAxis({ ids: order.waitsFor, label: SERIAL_LABEL, pathOf }),
+    ...renderOrderAxis({ ids: order.parallelInLevel, label: PARALLEL_LABEL, pathOf, note: ALONE_NOTE }),
+    ...renderOrderAxis({ ids: order.usedBy, label: CONSUMER_LABEL, pathOf }),
+    `- ${ORDERING_DENIAL}`,
+    `- the whole: ${formatCount(order.plan.directories, 'directory', 'directories')}, ${formatCount(order.plan.levels, 'level')}, ${formatCount(order.plan.dependencies, 'declared edge')}`,
+    `- the critical chain is ${order.plan.criticalChainLength} long, so ${formatCount(order.plan.criticalChainLength, 'stage')} is the floor`,
   ]);
 }
 

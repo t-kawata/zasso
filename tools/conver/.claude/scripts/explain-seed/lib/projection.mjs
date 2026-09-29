@@ -170,19 +170,26 @@ function collectObligations({ packageId, packageRecord, treeManifest }) {
   return { ports, conformance, database_policy: databasePolicy };
 }
 
-/** Where the package sits in the implementation order. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
-function collectPosition({ identity, packageId, allocateManifest }) {
-  const order = identity.implementation_order ?? {};
+/**
+ * Where the package sits in the implementation order.
+ *
+ * `level` is the one-based level the placement line prints, kept as it was so an existing
+ * reader of that line is not moved. `order` is the published order itself, as the ordering
+ * authority reports it, and it is where the serial and parallel relations come from: the seed's
+ * injected `before` and `after` are the neighbouring levels, not the edges, so they are not
+ * carried here at all. A level difference is not an ordering, and a fact that says otherwise
+ * under a name that sounds like dependency is the defect this projection stops repeating.
+ */
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+function collectPosition({ identity, packageId, allocateManifest, orderFacts }) {
+  const injected = identity.implementation_order ?? {};
   const levels = allocateManifest.implementation_order?.levels ?? [];
-  const level = levels.findIndex((levelPackages) => levelPackages.includes(packageId));
+  const publishedLevel = levels.findIndex((levelPackages) => levelPackages.includes(packageId));
   return {
-    wave: order.wave ?? null,
-    serial_index: order.serial_index ?? null,
-    level: level < 0 ? null : level + 1,
-    before: order.before ?? [],
-    after: order.after ?? [],
-    parallel_with: order.parallel_with ?? [],
+    wave: injected.wave ?? null,
+    serial_index: injected.serial_index ?? null,
+    level: publishedLevel < 0 ? null : publishedLevel + 1,
+    order: orderFacts,
   };
 }
 
@@ -202,7 +209,7 @@ function collectSeedEdges({ packageId, contractEdges }) {
 }
 
 /** The whole projection the renderer needs for one package. */
-export function projectPackage({ identity, workspace, contractEdges = [] }) {
+export function projectPackage({ identity, workspace, contractEdges = [], orderFacts }) {
   const packageId = requireField(identity, 'package.id');
   const treeManifest = workspace.treeManifest;
   const packages = treeManifest.workspace?.packages ?? [];
@@ -233,7 +240,8 @@ export function projectPackage({ identity, workspace, contractEdges = [] }) {
       boundaries: (treeManifest.dependencies?.boundaries ?? []).length,
       contracts: (workspace.allocateManifest.contract_registry ?? []).length,
     },
-    position: collectPosition({ identity, packageId, allocateManifest: workspace.allocateManifest }),
+    position: collectPosition({ identity, packageId, allocateManifest: workspace.allocateManifest, orderFacts }),
+    pathOf: Object.fromEntries(packages.map((candidate) => [candidate.id, candidate.path])),
     boundaries,
     forbidden_edges: collectForbiddenEdges({ packageId, treeManifest }),
     contracts: collectContracts({ packageId, allocateManifest: workspace.allocateManifest }),

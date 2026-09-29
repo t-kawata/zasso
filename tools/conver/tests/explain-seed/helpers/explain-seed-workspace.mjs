@@ -105,8 +105,8 @@ function syntheticObjects({ packageId, count }) {
 }
 
 /** The two-package workspace the command is pointed at. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
-function buildTreeManifest({ scale } = {}) {
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+function buildTreeManifest({ scale, extraPackages = [], edges = [{ from: 'pkg-0002', to: 'pkg-0001' }] } = {}) {
   const { extraObjects = 0, extraContracts = 0, clauseLength = 40 } = scale ?? {};
   const { headings, segments, bytes, sourceHash } = analyzeSpecification();
   const extra = syntheticObjects({ packageId: 'pkg-0001', count: extraObjects });
@@ -156,6 +156,7 @@ function buildTreeManifest({ scale } = {}) {
           children: [
             { kind: 'dir', name: 'alpha', path: 'crates/protocol/alpha', children: [] },
             { kind: 'dir', name: 'beta', path: 'crates/protocol/beta', children: [] },
+            ...extraPackages.map((pkg) => ({ kind: 'dir', name: pkg.name, path: pkg.path, children: [] })),
           ],
         },
       ],
@@ -185,6 +186,7 @@ function buildTreeManifest({ scale } = {}) {
           responsibilities: ['own the beta record and its consumer obligation'],
           owns: { objects: ['obj-000002'], claims: [], invariants: [], error_codes: [], required_tests: [], state_machines: [] },
         },
+        ...extraPackages,
       ],
       ownership: {
         entries: [
@@ -205,7 +207,7 @@ function buildTreeManifest({ scale } = {}) {
         },
         ...syntheticBoundaries,
       ],
-      normal_edges: [{ from: 'pkg-0002', to: 'pkg-0001' }],
+      normal_edges: edges,
       forbidden_edges: [
         {
           kind: 'forbidden',
@@ -217,7 +219,7 @@ function buildTreeManifest({ scale } = {}) {
         },
       ],
       forbidden_layer_rules: [{ from_layer: 'protocol', forbidden_to: ['adapters'] }],
-      dag: { canonical_edges: [{ from: 'pkg-0002', to: 'pkg-0001' }] },
+      dag: { canonical_edges: edges },
     },
     inventory: {
       objects,
@@ -271,9 +273,19 @@ function syntheticCoupling({ packageId, count, clauseLength }) {
   return { boundaries, contracts };
 }
 
+/** The order block stage two injects, which is level adjacency rather than edges. */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+export const INJECTED_ORDER = Object.freeze({
+  before: [],
+  after: ['pkg-0002'],
+  parallel_with: [],
+  serial_index: 1,
+  wave: 1,
+});
+
 /** The seed text, which records the paths and hashes the command must verify. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
-function renderSeed({ seedRelativePath, sourceHash }) {
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+function renderSeed({ seedRelativePath, sourceHash, implementationOrder = INJECTED_ORDER }) {
   const identity = {
     package: {
       id: 'pkg-0001',
@@ -286,7 +298,7 @@ function renderSeed({ seedRelativePath, sourceHash }) {
     source_spec: { path: SPEC_FILE_NAME, sha256: sourceHash },
     stage1_manifest: { path: TREE_MANIFEST_FILE_NAME, hash: TREE_MANIFEST_HASH },
     stage2_manifest: { path: ALLOCATE_MANIFEST_FILE_NAME },
-    implementation_order: { before: [], after: ['pkg-0002'], parallel_with: [], serial_index: 1, wave: 1 },
+    implementation_order: implementationOrder,
     contract_refs: ['contract-boundary-001'],
     source_segments: [],
   };
@@ -381,10 +393,10 @@ function renderSeed({ seedRelativePath, sourceHash }) {
 }
 
 /** The stage-two manifest, whose seed index must agree with the seed's bytes. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 function buildAllocateManifest({ provenance, options }) {
   const { seedRelativePath, seedHash, sourceHash } = provenance;
-  const { extraContracts = 0, clauseLength = 40, ownsResiduals = true, recordsRiskyBoundaries = true } = options ?? {};
+  const { extraContracts = 0, clauseLength = 40, ownsResiduals = true, recordsRiskyBoundaries = true, order } = options ?? {};
   const { segments } = analyzeSpecification();
   const { contracts: syntheticContracts } = syntheticCoupling({
     packageId: 'pkg-0001',
@@ -418,7 +430,7 @@ function buildAllocateManifest({ provenance, options }) {
       },
       ...syntheticContracts,
     ],
-    implementation_order: { serial: ['pkg-0001', 'pkg-0002'], levels: [['pkg-0001'], ['pkg-0002']] },
+    implementation_order: order ?? { serial: ['pkg-0001', 'pkg-0002'], levels: [['pkg-0001'], ['pkg-0002']] },
     wig: { summary: { node_count: 2, edge_count: 1 }, counts: {}, hash: 'fixture', violations: [] },
     source_coverage: {
       segments_total: segments.length,
@@ -457,48 +469,95 @@ function buildAllocateManifest({ provenance, options }) {
  */
 export function materializeExplainSeedWorkspace({
   seedRelativePath = DEFAULT_SEED_RELATIVE_PATH,
-  ownsResiduals = true,
-  recordsRiskyBoundaries = true,
-  scale = {},
+  handoff = {},
+  fixture = {},
 } = {}) {
+  const { ownsResiduals = true, recordsRiskyBoundaries = true } = handoff;
+  const { scale = {}, extraPackages = [], edges, order, seedImplementationOrder = INJECTED_ORDER } = fixture;
   const root = mkdtempSync(join(tmpdir(), 'explain-seed-'));
   const { sourceHash } = analyzeSpecification();
 
   writeFileSync(join(root, SPEC_FILE_NAME), SPEC_TEXT, 'utf8');
-  writeFileSync(
-    join(root, TREE_MANIFEST_FILE_NAME),
-    `${JSON.stringify(buildTreeManifest({ scale }), null, 2)}\n`,
-    'utf8',
-  );
+  const treeManifest = buildTreeManifest({ scale, extraPackages, edges });
+  const treeManifestPath = join(root, TREE_MANIFEST_FILE_NAME);
+  writeFileSync(treeManifestPath, `${JSON.stringify(treeManifest, null, 2)}\n`, 'utf8');
 
   const seedPath = join(root, seedRelativePath);
   mkdirSync(dirname(seedPath), { recursive: true });
-  writeFileSync(seedPath, renderSeed({ seedRelativePath, sourceHash }), 'utf8');
+  writeFileSync(seedPath, renderSeed({ seedRelativePath, sourceHash, implementationOrder: seedImplementationOrder }), 'utf8');
   const seedHash = sha256Hex(readFileSync(seedPath));
 
-  writeFileSync(
-    join(root, ALLOCATE_MANIFEST_FILE_NAME),
-    `${JSON.stringify(
-      buildAllocateManifest({
-        provenance: { seedRelativePath, seedHash, sourceHash },
-        options: { ownsResiduals, recordsRiskyBoundaries, ...scale },
-      }),
-      null,
-      2,
-    )}\n`,
-    'utf8',
-  );
+  const allocateManifest = buildAllocateManifest({
+    provenance: { seedRelativePath, seedHash, sourceHash },
+    options: { ownsResiduals, recordsRiskyBoundaries, order, ...scale },
+  });
+  const allocateManifestPath = join(root, ALLOCATE_MANIFEST_FILE_NAME);
+  writeFileSync(allocateManifestPath, `${JSON.stringify(allocateManifest, null, 2)}\n`, 'utf8');
 
   return {
     root,
     seedPath,
     infoPath: join(dirname(seedPath), INFO_DOCUMENT_FILE_NAME),
     explainPath: join(dirname(seedPath), EXPLAIN_FILE_NAME),
+    seedPathOf: (packageId) =>
+      join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === packageId).path, 'RFC-SEED.md'),
+    writeTreeManifest: (value) => writeFileSync(treeManifestPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8'),
+    writeAllocateManifest: (value) => writeFileSync(allocateManifestPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8'),
     manifests: {
-      tree: JSON.parse(readFileSync(join(root, TREE_MANIFEST_FILE_NAME), 'utf8')),
-      allocate: JSON.parse(readFileSync(join(root, ALLOCATE_MANIFEST_FILE_NAME), 'utf8')),
+      tree: JSON.parse(readFileSync(treeManifestPath, 'utf8')),
+      allocate: JSON.parse(readFileSync(allocateManifestPath, 'utf8')),
     },
   };
+}
+
+/**
+ * A workspace whose next level holds two packages while only one holds an edge to this one.
+ *
+ * The two-package fixture cannot tell a reader of the published edges from a renderer of the
+ * seed's injected adjacency: there, the next level and the consumer are the same single
+ * package. Here pkg-0001's next level holds pkg-0002 and pkg-0003, and only pkg-0002 holds an
+ * edge to pkg-0001, so a serial claim about pkg-0003 is false. The seed keeps the adjacency
+ * values stage two injects, so the old rendering makes exactly that false claim.
+ *
+ * Two level-zero roots are required, not one: a package sits at level one only by depending on
+ * something at level zero, so a level-mate that shares no edge with alpha must depend on a root
+ * of its own. That is why this fixture holds four packages rather than three.
+ */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+export function materializeAdjacentLevelWorkspace() {
+  const packageRecord = (id, name, responsibility) => ({
+    id,
+    name,
+    path: `crates/protocol/${name}`,
+    layer: 'protocol',
+    kind: 'production-library',
+    responsibilities: [responsibility],
+    owns: { objects: [], claims: [], invariants: [], error_codes: [], required_tests: [], state_machines: [] },
+  });
+
+  return materializeExplainSeedWorkspace({
+    fixture: {
+      extraPackages: [
+        packageRecord('pkg-0003', 'gamma', 'own the gamma record'),
+        packageRecord('pkg-0004', 'delta', 'own the delta record'),
+      ],
+      edges: [
+        { from: 'pkg-0002', to: 'pkg-0001' },
+        { from: 'pkg-0003', to: 'pkg-0004' },
+      ],
+      order: {
+        serial: ['pkg-0001', 'pkg-0004', 'pkg-0002', 'pkg-0003'],
+        levels: [['pkg-0001', 'pkg-0004'], ['pkg-0002', 'pkg-0003']],
+      },
+      seedImplementationOrder: {
+        before: [],
+        after: ['pkg-0002', 'pkg-0003'],
+        parallel_with: ['pkg-0004'],
+        serial_index: 1,
+        wave: 1,
+      },
+    },
+  });
 }
 
 /** Copy the workspace aside and return a function that puts it back. */

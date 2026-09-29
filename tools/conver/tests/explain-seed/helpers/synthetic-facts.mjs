@@ -36,6 +36,7 @@ const UNRELATED_TERM = {
 
 /** The projection the frame is given. */
 export function syntheticProjection(overrides = {}) {
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
   return {
     identity: {
       id: 'pkg-0001',
@@ -46,7 +47,23 @@ export function syntheticProjection(overrides = {}) {
       responsibilities: ['own the alpha record', 'own the alpha encoding rule'],
     },
     totals: { packages: 2, layers: 1, boundaries: 1, contracts: 1 },
-    position: { wave: 1, serial_index: 1, level: 1, before: [], after: ['pkg-0002'], parallel_with: [] },
+    // `level` is the one-based implementation level the placement line prints; `order` is the
+    // published order as the ordering authority reports it, whose `level` is zero-based.
+    position: {
+      wave: 1,
+      serial_index: 1,
+      level: 1,
+      order: {
+        level: 0,
+        ordinal: 1,
+        onCriticalPath: true,
+        waitsFor: [],
+        usedBy: ['pkg-0002'],
+        parallelInLevel: [],
+        plan: { directories: 2, levels: 2, dependencies: 1, criticalChainLength: 2 },
+      },
+    },
+    pathOf: { 'pkg-0001': 'crates/protocol/alpha', 'pkg-0002': 'crates/protocol/beta' },
     boundaries: {
       provided: [
         { id: 'boundary-001', reason_code: 'canonical-object', contract_scope: ['input'], counterpart: 'pkg-0002' },

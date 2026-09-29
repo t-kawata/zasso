@@ -1,6 +1,7 @@
 // PX-222 @verifies C003
 // PX-222 @verifies C005
 // PX-222 @verifies C006
+// PX-224 @verifies C002
 //
 // The frame is the script's half of the explanation: the structure, the instructions, the
 // placeholders and the count. The AI's half is the prose that replaces the markers, so the
@@ -193,6 +194,44 @@ test('C006 postcondition: a package that owns no open item says so in full rathe
   assert.equal(frame.humanDecisionItems.length, 0);
   assert.ok(decisions.trim().length > 0, 'the section is not empty');
   assert.match(decisions, /登録されていません/, 'and it states the absence in full');
+});
+
+test('C002 postcondition: the position section asks for the serial and parallel axes separately', () => {
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const position = sectionBody(frame.text, FRAME_SECTIONS[1].title);
+
+  assert.match(position, /直列/, 'the instruction names the serial axis');
+  assert.match(position, /並列/, 'and the parallel axis');
+  assert.match(position, /宣言された辺/, 'and says the declared edge is what binds');
+  assert.match(position, /段が違っても直列ではない/, 'and forbids reading a level difference as an order');
+  assert.match(position, /段の規則/, 'and gives the level rule as the ground for parallel');
+});
+
+test('C002 postcondition: the position section carries the shape of the whole, not only this package', () => {
+  const facts = syntheticFacts({
+    projection: syntheticProjection({
+      position: {
+        wave: 1,
+        serial_index: 1,
+        level: 2,
+        order: {
+          level: 1,
+          ordinal: 2,
+          onCriticalPath: true,
+          waitsFor: ['pkg-0002'],
+          usedBy: [],
+          parallelInLevel: [],
+          plan: { directories: 28, levels: 11, dependencies: 82, criticalChainLength: 11 },
+        },
+      },
+    }),
+  });
+
+  const position = sectionBody(buildFrame({ facts, previous: null }).text, FRAME_SECTIONS[1].title);
+
+  assert.match(position, /直列[^\n]*1/, 'the serial count is stated');
+  assert.match(position, /段の下限|critical chain/, 'and how many stages the whole cannot go below');
 });
 
 test('C003 postcondition: the glossary glosses the terms the package meets and leaves the rest out', () => {

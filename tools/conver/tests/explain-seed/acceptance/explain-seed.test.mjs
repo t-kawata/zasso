@@ -5,6 +5,7 @@
 // PX-222 @verifies C008
 // PX-222 @verifies C009
 // PX-222 @verifies C010
+// PX-224 @verifies C004
 //
 // `/explain-seed` is given one seed path and does everything else itself. It resolves the
 // workspace, verifies every hash the artefacts record, writes the facts to
@@ -239,7 +240,7 @@ test('C002 invariant: the facts are English and the explanation is Japanese, in 
 });
 
 test('C002 postcondition: a package that owns nothing to report is told so, rather than left with an empty section', () => {
-  const workspace = materializeExplainSeedWorkspace({ ownsResiduals: false, recordsRiskyBoundaries: false });
+  const workspace = materializeExplainSeedWorkspace({ handoff: { ownsResiduals: false, recordsRiskyBoundaries: false } });
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const { explain } = documentsOf(workspace);
 
@@ -247,7 +248,7 @@ test('C002 postcondition: a package that owns nothing to report is told so, rath
 });
 
 test('C002 postcondition: the facts stay readable however much the package carries, and say what they trimmed', () => {
-  const workspace = materializeExplainSeedWorkspace({ scale: { extraObjects: 300, extraContracts: 40, clauseLength: 2000 } });
+  const workspace = materializeExplainSeedWorkspace({ fixture: { scale: { extraObjects: 300, extraContracts: 40, clauseLength: 2000 } } });
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const { info } = documentsOf(workspace);
 
@@ -313,7 +314,7 @@ test('C007 postcondition: one marker left open fails, naming the section that ho
 });
 
 test('C007 postcondition: a recorded open item that disappeared fails, naming the id', () => {
-  const workspace = materializeExplainSeedWorkspace({ ownsResiduals: true });
+  const workspace = materializeExplainSeedWorkspace({ handoff: { ownsResiduals: true } });
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   writeFileSync(workspace.explainPath, authorFrame(workspace).split('residual-000001').join('（記録なし）'), 'utf8');
 
@@ -361,14 +362,19 @@ test('C008 postcondition: an unchanged re-run keeps every filled explanation and
 });
 
 test('C008 postcondition: a re-run after one fact moved reopens only the sections that rest on it', () => {
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   writeFileSync(workspace.explainPath, withHumanNote(authorFrame(workspace)), 'utf8');
 
-  const manifestPath = join(workspace.root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  manifest.implementation_order.levels = [['pkg-0002'], ['pkg-0001']];
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  // One fact INFO 2 states moves: the second package sits in another layer, so the whole is now
+  // two layers rather than one. Only INFO 2 states the layer count, so only the sections resting
+  // on INFO 2 reopen. The published order is deliberately left alone here: an order that
+  // disagreed with its own edges is refused outright rather than drawn, which is asserted below.
+  const treePath = join(workspace.root, 'WORKSPACIFY-TREE-MANIFEST.json');
+  const tree = JSON.parse(readFileSync(treePath, 'utf8'));
+  tree.workspace.packages.find((entry) => entry.id === 'pkg-0002').layer = 'adapters';
+  writeFileSync(treePath, `${JSON.stringify(tree, null, 2)}\n`, 'utf8');
 
   const third = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const { explain } = documentsOf(workspace);
@@ -377,6 +383,28 @@ test('C008 postcondition: a re-run after one fact moved reopens only the section
   assert.ok(explain.includes(HUMAN_NOTE), 'the human note is kept even where the facts moved');
   assert.match(third.stderr.toString('utf8'), /reopened 2/, 'the run reports how many sections it reopened');
   assert.match(third.stderr.toString('utf8'), new RegExp(FRAME_SECTIONS[1].title), 'and names the reopened section');
+});
+
+test('C004 invariant: an order that disagrees with its own edges is refused, and no document is written', () => {
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+  const workspace = materializeExplainSeedWorkspace();
+
+  // The published order is reversed, so it no longer follows from the canonical edges. The
+  // command reads its order from the tool that owns the rule, and that tool refuses to draw an
+  // order it cannot derive — so this is a broken manifest, not a position to explain.
+  const manifestPath = join(workspace.root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.implementation_order.levels = [['pkg-0002'], ['pkg-0001']];
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+  const refused = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+
+  assert.equal(refused.status, 1);
+  assert.equal(refused.stdout.toString('utf8'), '', 'no facts are printed');
+  assert.equal(refused.stderr.toString('utf8').trim().split('\n').length, 1, 'one line names the artefact');
+  assert.match(refused.stderr.toString('utf8'), /^\[explain-seed\] .*implementation_order/);
+  assert.equal(existsSync(workspace.infoPath), false);
+  assert.equal(existsSync(workspace.explainPath), false);
 });
 
 test('C009 postcondition: a mismatch in any recorded hash is named and fails before anything is written', () => {
