@@ -49,6 +49,7 @@ import {
 } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
 import {
   ABSENT_RESIDUALS_STATEMENT,
+  CONTEXT_LABEL,
   COUNT_LABEL,
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
@@ -607,10 +608,13 @@ function withHumanNotesEverywhere(documentText) {
   return lines.join('\n');
 }
 
-/** The same document with the directions taken out of every question. */
+/** The labels whose blocks the frame that asked for directions added, in one list for the surgery below. */
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function withoutDirectionBlocks(documentText) {
-  const labels = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+
+/** The same document with the blocks under the given labels taken out of every question. */
+// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+function withoutLabelBlocks(documentText, labels) {
   const kept = [];
   let skipping = false;
   for (const line of documentText.split('\n')) {
@@ -723,7 +727,7 @@ test('C004 invariant: the third operation is accepted, and every other argv is r
 test('C001 invariant: info repairs a human section written before this command asked for directions', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
-  writeFileSync(workspace.explainPath, withoutDirectionBlocks(authorFrame(workspace)), 'utf8');
+  writeFileSync(workspace.explainPath, withoutLabelBlocks(authorFrame(workspace), DIRECTION_LABELS), 'utf8');
 
   const repaired = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const { explain } = documentsOf(workspace);
@@ -737,4 +741,49 @@ test('C001 invariant: info repairs a human section written before this command a
   assert.ok(explain.includes(`- ${OPTIONS_LABEL}:`), 'and the frame asks for directions again');
   authorFrame(workspace);
   assert.equal(runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status, 0, 'so the document can be completed again');
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: info repairs a human section written before this command carried the context element', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  writeFileSync(workspace.explainPath, withoutLabelBlocks(authorFrame(workspace), [CONTEXT_LABEL]), 'utf8');
+
+  const repaired = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const { explain } = documentsOf(workspace);
+
+  assert.equal(repaired.status, 0, repaired.stderr.toString('utf8'));
+  assert.match(
+    repaired.stderr.toString('utf8'),
+    new RegExp(FRAME_SECTIONS[4].title),
+    'the report names the section it reopened, so a question written for a reader who knew the design is not kept',
+  );
+  assert.ok(explain.includes(`- ${CONTEXT_LABEL}:`), 'and the frame asks for the context that question was missing');
+  authorFrame(workspace);
+  assert.equal(
+    runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status,
+    0,
+    'so the document can be completed again rather than left refused with no way back',
+  );
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C002 postcondition: a question whose context was never written is refused, naming the section and the question', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const authored = authorFrame(workspace);
+  const [firstHeading] = itemHeadings(authored, HUMAN_ITEM_HEADING);
+  const reference = firstHeading.split(' — ')[1];
+  writeFileSync(workspace.explainPath, authored.replace(new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`), `- ${CONTEXT_LABEL}:`), 'utf8');
+
+  const verdict = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
+
+  assert.notEqual(verdict.status, 0, 'the gate does not report a question nobody could answer');
+  assert.match(verdict.stdout.toString('utf8'), new RegExp(FRAME_SECTIONS[4].title), 'the section at fault is named');
+  assert.match(verdict.stdout.toString('utf8'), new RegExp(reference), 'and so is the question, by the record it is about');
+  assert.match(
+    verdict.stdout.toString('utf8'),
+    /who knows neither the implementation nor the design/,
+    'and the report says what is missing, rather than printing the fault kind at whoever has to fix it',
+  );
 });

@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
+  CONTEXT_LABEL,
   COUNT_LABEL,
   FRAME_SECTIONS,
   GROUND_LABEL,
@@ -156,6 +157,63 @@ test('C005 invariant: an item that names no affected party is refused by section
 
   assert.equal(verdict.ok, false);
   assert.ok(verdict.faults.some((fault) => fault.kind === 'unnamed-party' && fault.section === 'E5'));
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C002 invariant: a question carrying no context of its own is refused, naming the section and the question', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const itemId = firstAskedId(complete);
+  const contextless = complete.replace(new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`), `- ${CONTEXT_LABEL}:`);
+  const verdict = verifyExplanation({ facts, explainText: contextless });
+
+  assert.equal(verdict.ok, false, 'a question nothing above it explains is not one a person who knows nothing can answer');
+  assert.ok(
+    verdict.faults.some((fault) => fault.kind === 'missing-context' && fault.section === HUMAN_SECTION_ID && fault.id === itemId),
+    'and the refusal names the section and the question it is about',
+  );
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C002 boundary: an empty context and one still carrying its instruction are both no context', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const gutted = [
+    complete.replace(new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`), `- ${CONTEXT_LABEL}:`),
+    complete.replace(
+      new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`),
+      `- ${CONTEXT_LABEL}:\n  ${MUST_FILL_MARKER} ${CONTEXT_LABEL} — まだ書いていない`,
+    ),
+  ];
+
+  for (const text of gutted) {
+    assert.ok(
+      verifyExplanation({ facts, explainText: text }).faults.some((fault) => fault.kind === 'missing-context'),
+      'the rule reads a value that exists, not a label that exists',
+    );
+  }
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C002 invariant: the context omission is reported alongside the four direction omissions', () => {
+  const facts = syntheticFacts();
+  const complete = authored(facts);
+  const missingEverything = OMISSIONS.reduce((text, [, omit]) => omit(text), complete).replace(
+    new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`),
+    `- ${CONTEXT_LABEL}:`,
+  );
+
+  assert.deepEqual(
+    [...new Set(faultKinds(verifyExplanation({ facts, explainText: missingEverything })))].sort(),
+    [
+      'missing-context',
+      'missing-recommendation',
+      'missing-recommendation-override',
+      'missing-recommendation-reason',
+      'too-few-options',
+    ],
+    'a document missing all five reports all five, so fixing one does not hide the rest',
+  );
 });
 
 test('C005 invariant: an item citing nothing the manifests recorded is refused as a delegation', () => {
@@ -429,13 +487,14 @@ test('C005 postcondition: the rules a question must satisfy are stated, and reac
 
   assert.match(rules, /high-school/i, 'the plainness criterion is a rule, not a matter of taste');
   assert.match(rules, /implementation/i, 'and says what the person answering does not know');
+  assert.match(rules, /design/i, 'including the design: a question that needs the whole picture recalled is not one a person can answer');
   assert.match(rules, /direction/i, 'and what the question must be about instead of a technical choice');
   assert.match(rules, /script/i, 'and names the parts that are the script\'s job rather than the AI\'s');
 
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
   const [question] = splitItems(locateSections(frame.text).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
 
-  assert.match(question.body, /高校生/, 'the plainness criterion arrives with the instruction that writes the question');
+  assert.match(question.body, /実装も設計も知らない/, 'the criterion arrives with the instruction that writes the question, naming the reader it is written for');
   assert.match(question.body, /結果の重さ/, 'and states the test the answer has to pass: the weight of the result, not whether the words can be read');
 });
 

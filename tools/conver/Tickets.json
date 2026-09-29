@@ -31725,6 +31725,116 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-09-29"
+        },
+        {
+          "id": 227,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "explain-seed: put each question to a person who knows neither the implementation nor the design",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/specs/PX-227.md",
+          "background": "The questions in the human section were written to a reader who does not know the implementation, and the item opened with the record language (contract ids, direction/kind, counterpart ids, raw English clause text). A question in plain Japanese can still be unanswerable without the design in mind, and a reader who has read nothing must be able to answer. The question now opens with its own context, written for a person who knows neither the implementation nor the design, the recorded material below it is marked as a copy the person need not read, and the presence of that context is a structural gate.",
+          "scope": [
+            "CONTEXT_LABEL = 判断の前提 as a labelled pair rendered first in renderHumanItem, before the record lines; a frame-authored RECORD_REFERENCE_NOTICE bullet between the context block and the first record line, stating that the lines below are a copy the person need not read and who the question is for; missing-context in faultsOfDecisions, registered with the item-level faults beside unnamed-party, with its FAULT_MESSAGES entry in run.mjs; SHAPE_LABELS_THIS_FRAME_WRITES = [OPTIONS_LABEL, CONTEXT_LABEL] carrying the merge predicate so a section written before this shape is reopened and human notes survive; one reader formula 実装も設計も知らない高校生 across W1, W3, K9, Flow 158/174/180, and the frame instructions for 案A, 案B, 推奨の理由, 何を決めるのか and 用語; new W9, K10 and U11 rows and the Mechanised list in the command file"
+          ],
+          "testUnit": [
+            "tests/explain-seed/unit/frame.test.mjs: the context is present per item and stands before the first record line; the notice appears once per item between the context and the records; the filled value is the prose and not the line below it; a context-stripped section is reopened and its human note survives; every label in the exported shape list is one the frame writes; the reader formula is one and the old one appears nowhere",
+            "tests/explain-seed/unit/gate.test.mjs: missing-context is named with the section and the question id, and is reported alongside the four direction omissions rather than instead of them",
+            "tests/explain-seed/unit/kindness-criterion.test.mjs: the context instruction names the reader and forbids presupposing the records, and the command file and Flow step 4 state the standard"
+          ],
+          "testIntegration": [
+            "tests/explain-seed/acceptance/explain-seed.test.mjs: info repairs a context-stripped document, check then exits 0, and a document authored by this frame is accepted end to end"
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/explain-seed/lib/frame.mjs",
+            ".claude/scripts/explain-seed/run.mjs",
+            ".claude/commands/explain-seed.md"
+          ],
+          "acceptanceCriteria": [
+            "A question in the human section opens with 判断の前提, glossing every design term its directions and reason use, written for a person who knows neither the implementation nor the design",
+            "The recorded material stands verbatim below the context and is marked by a frame-authored line as a copy the person need not read",
+            "check refuses an item whose context is absent, empty or still carrying a marker, naming the section and the question id",
+            "A document written before this change is reopened by info rather than kept, and every note the human wrote survives the reopen",
+            "One reader formula is stated in the command file and in the frame instructions, and the old formula 実装を知らない高校生 appears nowhere"
+          ],
+          "notes": "Lands directly at the owner's instruction. The gate stays structural: the presence of the context is mechanised, the sufficiency of its prose remains the AI judgement at G3 against W1, W3, W9 and U4.\nReview report:\n- Static quality check: passed (run-quality-checks over frame.mjs, run.mjs and the command file)\n- Translatability: no issues; the contexts are named functions and the frame's own line is a named constant\n- Step 6: node --test over tests/explain-seed (unit + acceptance) — 205 passed, 0 failed\n- Pre-existing reds, not this ticket's: tests/conventions/removed-tool-residue.test.mjs names tools/conver/tests/workspacify-reverse/integration/command.test.mjs, which is unmodified at HEAD and already carries the zg lines; tests/conventions/derived-artefacts.test.mjs fails because tools/conver/tmp/ is empty in this working tree. No test outside tests/explain-seed/ references explain-seed at all.\n- Crime sweep: Malfeasance.json does not exist in this repository, so the repo-wide sweep would initialize a ledger over another session's uncommitted work. The sweep was run where the command's own rule points it — find-all-stubs.js over .claude/scripts/explain-seed and the command file — and returned zero stubs; the Step 5 criteria found no todo/unimplemented/commented-out code and no suppression in the changed files.\n- Installed copies: the source of record, the repository-root copy and the crates/siprs copy were byte-identical at HEAD and were advanced together, file-wise, for the reason specs/PX-216 records.\n- Boundary of the change: the gate decides the presence of the context; its sufficiency stays the AI's judgement at G3 (W1, W3, W9, U4), because a check for sufficiency would measure the taste of whoever wrote the check.",
+          "startedAt": "2026-09-29",
+          "changes": [
+            {
+              "before": "`renderHumanItem` opened each item with the record's own lines — the topic, the reason it was left open, and the contract governing the boundary, in the manifest's language",
+              "after": "each item opens with `- 判断の前提:` and a whole-line instruction for a context written for a person who knows neither the implementation nor the design, standing above every record line",
+              "description": "frame.mjs: `CONTEXT_LABEL` and `renderContextBlock` added; the item's order is now the context, the frame's notice, the record, then the question, so nothing written for the record is met before the part written for the person"
+            },
+            {
+              "before": "nothing in the document said whether the record standing above a question had to be read",
+              "after": "`RECORD_REFERENCE_NOTICE` is emitted as a bullet between the context block and the first record line, saying in the frame's own voice that the lines below are a copy the person need not read and who the question is for",
+              "description": "frame.mjs: the frame writes this line rather than the AI, because the instruction beside it disappears once it is answered and the finished document still has to state who the question is for; the records themselves stay verbatim"
+            },
+            {
+              "before": "`faultsOfDecisions` enforced the party, the placeholder, the directions and the recommendation",
+              "after": "it also enforces the context, as `missing-context`, registered with the item-level faults beside `unnamed-party`",
+              "description": "frame.mjs: kept out of the four direction rules, whose doc comment and exact-set assertions are about the choice a question offers — this rule is about whether the question can be read at all by the person it is put to"
+            },
+            {
+              "before": "`carriesTheShapeThisFrameWrites` kept an earlier human section when every item carried `OPTIONS_LABEL`",
+              "after": "`SHAPE_LABELS_THIS_FRAME_WRITES` (the options and the context) is exported and the predicate is conjunctive over it",
+              "description": "frame.mjs: a document written before this frame carries no context, so it is reopened rather than kept, and the person's notes survive because they are collected by the record they were written against"
+            },
+            {
+              "before": "the instructions for 案A, 案B, 推奨の理由, 何を決めるのか and 用語 asked for 「実装を知らない高校生」, and 案B delegated with 「同上」",
+              "after": "all five ask for 「実装も設計も知らない高校生」, 案B states its own instruction, and 何を決めるのか adds 「上の記録や他の節を読んだ前提で書かない」",
+              "description": "frame.mjs: one standard, stated in the words of each instruction that has to meet it"
+            },
+            {
+              "before": "`FAULT_MESSAGES` had no entry for the context rule",
+              "after": "`'missing-context'` maps to 'the question carries no context a person who knows neither the implementation nor the design could judge it from'",
+              "description": "run.mjs: the verdict falls back to the fault kind when a message is absent, so a missing entry would have printed `missing-context` at whoever has to fix the document"
+            },
+            {
+              "before": "W1, W3, K9 and Flow 174 asked for a person who does not know the implementation, and nothing regulated how the record above a question appears",
+              "after": "W1, W3, K9, W9 (self-contained), K10, U4, U11, §Artifacts, §Invariants and Flow 158/174/180 state one standard — a person who knows neither the implementation nor the design — and record that the material under a question is a copy the person need not read",
+              "description": "explain-seed.md: the Mechanised list names the fifth structural rule, and every table still carries as many cells per row as its header"
+            },
+            {
+              "before": "the frame, gate and kindness suites pinned the option and recommendation block, and `fill-frame.mjs` authored documents for the gate",
+              "after": "they pin the context element, the notice, the fault and the reopen; `PROSE_BY_LABEL` carries the new instruction; `withoutDirectionBlocks` became `withoutLabelBlocks(documentText, labels)` in both files that held a copy",
+              "description": "tests/explain-seed: 205 tests in the impact set, all green, with the acceptance suite driving info, check and answers through the real CLI"
+            }
+          ],
+          "invariants": "- 【Normal establishment】Every question in 「人間が決めること（ここだけ）」 opens with `- 判断の前提:` carrying a context written for a person who knows neither the implementation nor the design, glossing every design term its directions and its reason use; under that context stands the frame's own line saying the material below is a copy the person need not read; the recorded material keeps the record's own words.\n- 【Invariant on error】A question whose context is absent, empty, or still carrying its instruction is refused by `check` as `missing-context`, naming the section and the question; a human section written before this shape is reopened by `info` rather than kept, and the refusal never becomes a silence.\n- 【Internal state invariant】The shape the merge demands and the shape the render writes are one exported list, `SHAPE_LABELS_THIS_FRAME_WRITES`; the notice is written by the frame and never stands over nothing, because the frame vouches for what follows it and nothing later corrects a frame line.\n- 【Read-only invariant】The record lines are never translated and never deleted; the only thing this ticket adds between them and the person is the notice.\n- 【Boundary of the mechanised】The gate decides presence only; the plainness and the completeness of the context remain the AI's judgement at G3 against W1, W3, W9 and U4 — a check for sufficiency would measure the taste of whoever wrote the check.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "none, defined from investigation of `.claude/scripts/explain-seed/lib/frame.mjs` renderHumanItem and renderContextBlock, and `.claude/scripts/explain-seed/lib/items.mjs` splitItems",
+              "precondition": "`buildFrame` over the fixture facts, producing at least one item under 「人間が決めること（ここだけ）」, and a document in which every instruction has been answered as prose",
+              "postcondition": "Every item body carries `- 判断の前提:` with a whole-line `[::MUST-FILL::]` under it, standing above the first record line; `- ${RECORD_REFERENCE_NOTICE}` stands between them, once per item, with a record line under it; the placeholder remains exactly one whole line per item and remains the last labelled thing before the person's space",
+              "invariant": "The notice is a flush-left bullet, because `labelledLines` stops only on a blank line, a `- ` line, a heading, a placeholder or a marker: a notice written without one would be read as the context's own prose and the context would appear present while saying nothing"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "none, defined from investigation of `.claude/scripts/explain-seed/lib/frame.mjs` faultsOfDecisions and labelledValue, and `.claude/scripts/explain-seed/run.mjs` FAULT_MESSAGES",
+              "precondition": "An authored document that `verifyExplanation` accepts, and the same document with the context value removed, emptied, or left carrying its instruction",
+              "postcondition": "Each of the three is refused with a fault of kind `missing-context` carrying the section and the question's id; a document missing the context and the four direction rules reports all five kinds; the CLI's report names the section, the question and what is missing in words",
+              "invariant": "The context rule is item-level beside `unnamed-party` and not one of the four direction rules, whose exact-set assertions are about the choice a question offers; repairing one fault never hides another"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "none, defined from investigation of the instruction text of `renderHumanItem`, `renderOptionBlock`, `renderRecommendationBlock` and `renderGlossaryEntry`, and of `.claude/commands/explain-seed.md` §Criteria and §Flow",
+              "precondition": "The frame as it renders today and the command file as it stands",
+              "postcondition": "The instructions for 何を決めるのか, 案A, 案B, 推奨の理由 and 用語 each carry 実装も設計も知らない; the command file states `knows neither the implementation nor the design` in §The question and in Flow step 4",
+              "invariant": "`実装を知らない` appears nowhere in the frame, so one standard is stated rather than two"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "none, defined from investigation of `.claude/scripts/explain-seed/lib/frame.mjs` renderRecordedContracts and renderHumanItem, against the artifact invariant that quoted specification text stays verbatim",
+              "precondition": "An item whose records include a contract with settled clauses",
+              "postcondition": "The contract id, its direction and kind, its counterpart and its clause text are unchanged by this ticket, and the notice is the only line added between them and the person",
+              "invariant": "A record translated or removed would no longer be a record of it; the reopen carries the person's own notes by the record they were written against, so re-authoring a section costs the AI's prose and never the human's"
+            }
+          ],
+          "instrumentation": "Static quality check: passed (0 issues)\nTranslatability: no generic names or hardcoded prose introduced; the notice is a named constant\nTests: 205 of 205 passed in the explain-seed impact set (unit + acceptance); conventions 50 of 53, the three reds pre-existing and named in the review notes\nProvenance: every changed source file annotated, no [::AMBIGUOUS::] and no unmarked stub in the changed files",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-29"
         }
       ]
     },

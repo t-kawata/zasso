@@ -12,7 +12,7 @@ import {
   countPlaceholdersIn,
   markerOffsetInLine,
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
-import { COUNT_LABEL, HUMAN_ITEM_HEADING } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import { CONTEXT_LABEL, COUNT_LABEL, HUMAN_ITEM_HEADING } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 
 /**
  * The wording that identifies each of the new instructions, quoted from the instruction itself.
@@ -30,6 +30,10 @@ const RECOMMENDATION_OVERRIDE_INSTRUCTION = '推奨が覆る条件 —';
 
 /** The prose an AI writes, chosen by the label or the standard the instruction carries. */
 const PROSE_BY_LABEL = [
+  // The context carries no record id: a test erases one open item's id from an authored
+  // document to ask the gate about the item that vanished, and prose naming an id would
+  // change what that surgery removes.
+  { label: CONTEXT_LABEL, prose: 'この判断は、決められた範囲を越えた記録が届いたときに、それを受け取るか断るかの話である。' },
   { label: '誰の体験が変わるか', prose: 'この境界を実装する後続のエンジニア' },
   { label: '決めないと何が困るか', prose: '実装が止まり、grill で同じ議論をやり直すことになる。' },
   { label: `${COUNT_LABEL}:`, prose: `${COUNT_LABEL}: 0 件` },

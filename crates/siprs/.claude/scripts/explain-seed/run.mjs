@@ -71,6 +71,8 @@ const FAULT_MESSAGES = Object.freeze({
   'missing-placeholder': 'there is no place for the human to write',
   'duplicate-placeholder': 'there is more than one place for the human to write',
   'unnamed-party': 'the item does not say whose experience changes',
+  'missing-context':
+    'the question carries no context a person who knows neither the implementation nor the design could judge it from',
   'too-few-options': 'the item offers fewer than two directions to choose between, or two that carry the same letter',
   'missing-recommendation': 'the item does not recommend one of the directions it offers',
   'missing-recommendation-reason': 'the reason for the recommendation is not stated',

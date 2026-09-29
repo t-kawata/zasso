@@ -105,6 +105,17 @@ export const HUMAN_SECTION_ID = FRAME_SECTIONS[4].id;
 /** The line that declares how many things the human is being asked to decide. */
 export const COUNT_LABEL = '人間が決めること';
 
+/**
+ * The line that says what the question is about, in words a person who knows nothing can read.
+ *
+ * The question is put to someone who knows neither the implementation nor the design, so the
+ * context it needs is carried by the question itself rather than left in the document around
+ * it. Without this the reader's entry point is the record — contract ids, boundary ids, clause
+ * text in the manifest's own words — and a question whose answer needs the design recalled is
+ * not a question but a confirmation asked of someone who already holds it.
+ */
+export const CONTEXT_LABEL = '判断の前提';
+
 /** The line that opens the directions a person may choose between. */
 export const OPTIONS_LABEL = '選択肢';
 
@@ -131,6 +142,18 @@ export const GROUND_LABEL = '根拠';
 
 /** The line that states what would overturn the decision. */
 export const OVERRIDE_LABEL = '覆す条件';
+
+/**
+ * The line that tells the person the material under it is a copy of the record, not required reading.
+ *
+ * The records stay verbatim — a translated quote is no longer a record of it — so the only
+ * honest way to keep them from being a precondition is to say in the frame's own voice what
+ * they are. The frame writes this line rather than the AI, because the `[::MUST-FILL::]`
+ * instruction above it disappears once it is answered, and the finished document has to say
+ * who the question was written for.
+ */
+export const RECORD_REFERENCE_NOTICE =
+  'この判断は、実装も設計も知らない人がこの節だけで決められるように書いています。ここから下は記録の言葉のままの写しで、読まなくても判断できます。';
 
 /** How many directions a question must offer before a person can answer it by choosing. */
 export const MIN_OPTION_COUNT = 2;
@@ -504,18 +527,35 @@ function renderRecordedContracts(item) {
 }
 
 /**
+ * The context the question carries for a person who knows nothing of the implementation or the design.
+ *
+ * It stands first in the item, above the record, because a reader who starts at the top would
+ * otherwise meet the record's own language — contract ids, boundary ids, clause text — before
+ * anything addressed to them. What it must close is the question in that reader's own world,
+ * glossing every design term the directions and the reason below it will use, so that reading
+ * nothing else is enough.
+ */
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+function renderContextBlock() {
+  return [
+    `- ${CONTEXT_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${CONTEXT_LABEL} — 実装も設計も知らない高校生が、選択肢と推奨の理由だけを読んで選べるように、そこに出てくる設計の言葉をすべて日常語に言い換え、何の話かを2〜3文で閉じる。上の記録や他の節を読んだ前提で書かない。事実や論点の写しにしない。`,
+  ];
+}
+
+/**
  * The directions a person may choose between, as instructions to be answered.
  *
  * Each instruction opens its own line, because a marker is only a marker when it is a line's
  * first token: written behind the label it would be a sentence that mentions one, invisible to
  * the counter and left unfilled without the gate noticing.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function renderOptionBlock() {
   return [
     `- ${OPTIONS_LABEL}:`,
-    `  ${MUST_FILL_MARKER} 案A — その案を選ぶと何が起きるかを、実装を知らない高校生が読める言葉で1〜2文。誰の体験をどう変えるかまで書く。行は「A: 」で始める。記録に無い理由を並べない。`,
-    `  ${MUST_FILL_MARKER} 案B — 同上。行は「B: 」で始める。A と同じ内容の言い換えにしない。記録が3つの読みを残すなら「C: 」の行を足す。`,
+    `  ${MUST_FILL_MARKER} 案A — その案を選ぶと何が起きるかを、実装も設計も知らない高校生が読める言葉で1〜2文。誰の体験をどう変えるかまで書く。行は「A: 」で始める。記録に無い理由を並べない。`,
+    `  ${MUST_FILL_MARKER} 案B — その案を選ぶと何が起きるかを、実装も設計も知らない高校生が読める言葉で1〜2文。誰の体験をどう変えるかまで書く。行は「B: 」で始める。A と同じ内容の言い換えにしない。記録が3つの読みを残すなら「C: 」の行を足す。`,
   ];
 }
 
@@ -525,13 +565,13 @@ function renderOptionBlock() {
  * The recommendation is a single letter rather than a sentence, so what is being recommended
  * is a thing the document offers rather than a paragraph the gate would have to read.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function renderRecommendationBlock() {
   return [
     `- ${RECOMMENDATION_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${RECOMMENDATION_LABEL} — 選んだ案の記号を1つだけ書く（A / B、3つあるなら C）。理由をここに書かない。`,
     `- ${RECOMMENDATION_REASON_LABEL}:`,
-    `  ${MUST_FILL_MARKER} ${RECOMMENDATION_REASON_LABEL} — なぜそれを推すのか。記録のどこを見れば確かめられるかまで、実装を知らない高校生が読める言葉で書く。好みを根拠にしない。`,
+    `  ${MUST_FILL_MARKER} ${RECOMMENDATION_REASON_LABEL} — なぜそれを推すのか。記録のどこを見れば確かめられるかまで、実装も設計も知らない高校生が読める言葉で書く。好みを根拠にしない。`,
     `- ${RECOMMENDATION_OVERRIDE_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${RECOMMENDATION_OVERRIDE_LABEL} — どんな事実が現れたら推奨が変わるか。絶対に発火しない定型文をそのまま書かない。`,
   ];
@@ -544,14 +584,16 @@ function renderRecommendationBlock() {
  * The number is the frame's, not the AI's: a count the AI kept would drift between rounds, and
  * an answer that named Q3 would then name a different question than the one it was given.
  */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227) --for-spec --no-implementation-order`.
 function renderHumanItem({ item, index, note, movedFacts }) {
   const lines = [`${HUMAN_ITEM_HEADING} Q${index + 1}${REFERENCE_SEPARATOR}${item.id}`, ''];
+  lines.push(...renderContextBlock());
+  lines.push(`- ${RECORD_REFERENCE_NOTICE}`);
   if (item.topic !== null) lines.push(`- 記録された論点: ${truncate(item.topic)}`);
   if (item.whyUnresolved !== null) lines.push(`- 未解決とされた理由: ${truncate(item.whyUnresolved)}`);
   lines.push(...renderRecordedContracts(item));
   lines.push(
-    `${MUST_FILL_MARKER} 何を決めるのか — 実装を知らない高校生が読める言葉で2〜3文。専門用語を使うならその場で言い換える。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
+    `${MUST_FILL_MARKER} 何を決めるのか — 実装も設計も知らない高校生が読める言葉で2〜3文。専門用語を使うならその場で言い換える。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。上の記録や他の節を読んだ前提で書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
     '',
     ...renderOptionBlock(),
     ...renderRecommendationBlock(),
@@ -593,14 +635,14 @@ function renderCappedList(items, limit, renderItem, note = '') {
 }
 
 /** One glossary term, with the specification's own words and a place to gloss it. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-227) --for-spec --no-implementation-order`.
 function renderGlossaryEntry(term) {
   const at = term.line_start === null || term.line_start === undefined ? '' : `（仕様 ${term.line_start} 行目）`;
   const context = String(term.context ?? '').trim();
   return [
     `- \`${term.canonical_name}\`（${term.classification ?? '分類未記載'}）${at}`,
     ...(context === '' ? [] : [`  > ${truncate(context)}`]),
-    `  ${MUST_FILL_MARKER} 用語 — この語を、この設計を知らない人に1〜2文で。仕様の言い換えではなく、なぜその語が必要なのかを書く。`,
+    `  ${MUST_FILL_MARKER} 用語 — この語を、実装も設計も知らない高校生が読める言葉で1〜2文に。仕様の言い換えではなく、なぜその語が必要なのかを書く。`,
     '',
   ];
 }
@@ -753,24 +795,35 @@ function collectHumanNotes({ located, faults }) {
 }
 
 /**
+ * The parts of a question this frame writes and an earlier frame did not.
+ *
+ * Exported because the shape the merge test demands and the shape the render produces have to
+ * be the same list: a label added to one and not the other either reopens every document on
+ * every run, or keeps a body the gate refuses with no way back.
+ */
+export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([OPTIONS_LABEL, CONTEXT_LABEL]);
+
+/**
  * Whether a section holds the shape this frame writes.
  *
  * A digest says the facts have not moved; it says nothing about the shape of the document. A
- * question written before this command proposed directions carries none, so the gate refuses it
- * — and a merge that kept such a section would leave the document refused with no way back:
- * `check` would name the fault and every later `info` would keep the same body again. Reopening
- * it costs the prose for that section, which has to be rewritten to add the directions anyway,
- * and keeps what the person wrote, because notes are collected by the record they were written
- * against.
+ * question written before this command proposed directions carries none, and one written before
+ * it carried its own context carries none either, so the gate refuses both — and a merge that
+ * kept such a section would leave the document refused with no way back: `check` would name the
+ * fault and every later `info` would keep the same body again. Reopening it costs the prose for
+ * that section, which has to be rewritten to add what is missing anyway, and keeps what the
+ * person wrote, because notes are collected by the record they were written against.
  *
  * Only the human's section changed shape, so every other section answers yes: this frame writes
  * them the way the frame before it did, and a section it kept keeps the AI's prose, which no
  * frame writes.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function carriesTheShapeThisFrameWrites(sectionId, body) {
   if (sectionId !== HUMAN_SECTION_ID) return true;
-  return splitItems(body, HUMAN_ITEM_HEADING).every((item) => labelledLines(item.body, OPTIONS_LABEL) !== null);
+  return splitItems(body, HUMAN_ITEM_HEADING).every((item) =>
+    SHAPE_LABELS_THIS_FRAME_WRITES.every((label) => labelledLines(item.body, label) !== null),
+  );
 }
 
 /** The faults an earlier document shows before anything is merged into it. */
@@ -881,8 +934,12 @@ function sectionOfLine(documentText, lineNumber) {
  * that offers none, recommends nothing, or gives no reason and no overturning condition is
  * missing four different things, and reporting one would hide the rest from whoever has to fix
  * the document.
+ *
+ * The rule about the context is item-level, like the party rule and deliberately not one of
+ * those four: those four are about the choice the question offers, and this one is about
+ * whether the question can be read at all by the person it is put to.
  */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227) --for-spec --no-implementation-order`.
 function faultsOfDecisions({ body, openItems, section }) {
   const faults = [];
   const openIds = new Set(openItems.map((item) => item.id));
@@ -895,6 +952,7 @@ function faultsOfDecisions({ body, openItems, section }) {
     if (placeholders === 0) faults.push({ kind: 'missing-placeholder', section, id: item.id });
     if (placeholders > 1) faults.push({ kind: 'duplicate-placeholder', section, id: item.id });
     if (labelledValue(item.body, PARTY_LABEL) === null) faults.push({ kind: 'unnamed-party', section, id: item.id });
+    if (labelledValue(item.body, CONTEXT_LABEL) === null) faults.push({ kind: 'missing-context', section, id: item.id });
 
     const directions = directionsOffered(item.body);
     if (directions.length < MIN_OPTION_COUNT) faults.push({ kind: 'too-few-options', section, id: item.id });

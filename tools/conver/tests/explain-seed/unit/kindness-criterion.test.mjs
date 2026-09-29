@@ -14,8 +14,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
+  CONTEXT_LABEL,
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
+  RECORD_REFERENCE_NOTICE,
   buildFrame,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { findOpenMarkers } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
@@ -101,6 +103,42 @@ test('C003 invariant: every instruction says what an unacceptable answer looks l
 
   assert.ok(markers.length > 0, 'a fresh frame asks to be written');
   assert.equal(markers.length, withStandard.length, 'every instruction carries a standard, not just a topic');
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C003 invariant: the context instruction names the reader and forbids presupposing the records', () => {
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const item = firstHumanItem(frame.text);
+  const [instruction] = findOpenMarkers(item).filter((marker) => marker.text.includes(CONTEXT_LABEL));
+
+  assert.notEqual(instruction, undefined, 'the question asks to be given its own context');
+  assert.match(instruction.text, /実装も設計も知らない/, 'and says who that context is written for');
+  assert.match(instruction.text, /読んだ前提で書かない/, 'and that nothing standing above the question may be presupposed');
+  assert.ok(
+    item.includes(RECORD_REFERENCE_NOTICE),
+    'the frame itself, not the AI, tells the person that the material below is a copy',
+  );
+  assert.match(
+    RECORD_REFERENCE_NOTICE,
+    /実装も設計も知らない/,
+    'because the instruction disappears when it is written, and the finished document has to say who the question is for',
+  );
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C003 invariant: the command file states the reader where the question is written and where it is asked', () => {
+  const commandFile = readFileSync(COMMAND_FILE, 'utf8');
+
+  assert.match(
+    sectionAround(commandFile, '### The question'),
+    /knows neither the implementation nor the design/i,
+    'the standard for the person answering is stated among the rules for the question',
+  );
+  assert.match(
+    flowItem(commandFile, 4),
+    /knows neither the implementation nor the design/i,
+    'and again in the step that puts the question, which is where the AI meets it',
+  );
 });
 
 test('C005 invariant: the command file states the classification where the writing happens', () => {

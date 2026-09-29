@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 
 import {
   ABSENT_SECTION_STATEMENT,
+  CONTEXT_LABEL,
   FRAME_SECTIONS,
   GROUND_LABEL,
   HUMAN_ITEM_HEADING,
@@ -26,9 +27,13 @@ import {
   RECOMMENDATION_LABEL,
   RECOMMENDATION_OVERRIDE_LABEL,
   RECOMMENDATION_REASON_LABEL,
+  RECORD_REFERENCE_NOTICE,
+  SHAPE_LABELS_THIS_FRAME_WRITES,
   COUNT_LABEL,
   buildFrame,
+  locateSections,
   mentionsId,
+  verifyExplanation,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import {
   HUMAN_PLACEHOLDER,
@@ -38,7 +43,7 @@ import {
   isPlaceholderLine,
   markerOffsetInLine,
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
-import { REFERENCE_SEPARATOR } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
+import { REFERENCE_SEPARATOR, splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
 import { fillEveryMarker } from '../helpers/fill-frame.mjs';
 import {
   ABSENT_SETTLEMENTS_STATEMENT,
@@ -423,10 +428,19 @@ function withNoteUnderFirstPlaceholder(documentText, note) {
   return lines.join('\n');
 }
 
-/** The same document with the option and recommendation blocks taken out of every item. */
+/** The labels whose blocks the frame that asked for directions added, in one list for both surgeries below. */
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function withoutDirectionBlocks(documentText) {
-  const labels = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+
+/**
+ * The same document with the blocks under the given labels taken out of every item.
+ *
+ * A block is the label's own line and the indented lines under it — the same extent
+ * `labelledLines` reads — so a document stripped here is one where the gate finds the label
+ * absent rather than emptied, which is what a document written by an earlier frame looks like.
+ */
+// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+function withoutLabelBlocks(documentText, labels) {
   const kept = [];
   let skipping = false;
   for (const line of documentText.split('\n')) {
@@ -465,7 +479,12 @@ test('C001 postcondition: every human item offers directions and a recommendatio
 test('C001 postcondition: the new instructions are whole-line markers the counter can see', () => {
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
   const item = firstHumanItem(frame.text);
-  const added = findOpenMarkers(item).filter((marker) => /案[AB] —|推奨/.test(marker.text));
+  // Keyed on the instructions' own openings rather than on any mention of 推奨: the context
+  // instruction names the reason it has to make readable, and a filter that counted that
+  // mention would report six instructions where the block writes five.
+  const added = findOpenMarkers(item).filter((marker) =>
+    ['案A — ', '案B — ', '推奨 — ', '推奨の理由 — ', '推奨が覆る条件 — '].some((opening) => marker.text.includes(opening)),
+  );
 
   assert.equal(added.length, 5, 'two directions, one recommendation, its reason and the condition that would overturn it');
   for (const marker of added) {
@@ -502,7 +521,7 @@ test('C001 invariant: the directions add no second place for the human to write'
 test('C001 invariant: a human section written before this command asked for directions is reopened rather than kept', () => {
   const facts = syntheticFacts();
   const authored = fillEveryMarker(buildFrame({ facts, previous: null }).text);
-  const merged = buildFrame({ facts, previous: withoutDirectionBlocks(authored) });
+  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authored, DIRECTION_LABELS) });
 
   assert.ok(
     merged.reopenedSections.includes(HUMAN_SECTION_ID),
@@ -521,10 +540,120 @@ test('C001 invariant: reopening a question for its shape keeps what the person w
   const facts = syntheticFacts();
   const note = '人間の判断: 現場では拒否のほうが自然だと考える。';
   const authored = withNoteUnderFirstPlaceholder(fillEveryMarker(buildFrame({ facts, previous: null }).text), note);
-  const merged = buildFrame({ facts, previous: withoutDirectionBlocks(authored) });
+  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authored, DIRECTION_LABELS) });
 
   assert.ok(merged.text.includes(note), 'the note is carried into the reopened item by the record it was written against');
   assert.deepEqual(merged.faults, [], 'and the earlier document is read without complaint');
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 postcondition: every question opens with its own context, above every line of the record', () => {
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const item = firstHumanItem(frame.text);
+  const contextAt = item.indexOf(`- ${CONTEXT_LABEL}:`);
+  const noticeAt = item.indexOf(RECORD_REFERENCE_NOTICE);
+  const recordAt = ['- 記録された論点:', '- 未解決とされた理由:', '- この境界を定めている契約:']
+    .map((line) => item.indexOf(line))
+    .filter((at) => at >= 0)
+    .sort((left, right) => left - right)[0];
+
+  assert.ok(contextAt >= 0, 'the question says what it is about before it says what is being decided');
+  assert.ok(noticeAt > contextAt, 'the notice stands below the context it closes');
+  assert.notEqual(recordAt, undefined, 'the fixture hands the question a record to stand apart from');
+  assert.ok(noticeAt < recordAt, 'and above the material it marks as a copy');
+  assert.ok(noticeAt < item.indexOf('何を決めるのか'), 'so nothing written for the record stands above the part written for the person');
+  assert.equal(item.split(`- ${CONTEXT_LABEL}:`).length - 1, 1, 'one context per question');
+  assert.equal(item.split(RECORD_REFERENCE_NOTICE).length - 1, 1, 'and one notice per question');
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: the notice never stands over nothing', () => {
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const items = splitItems(locateSections(frame.text).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
+
+  assert.ok(items.length > 0, 'the fixture asks at least one question');
+  for (const item of items) {
+    const lines = item.body.split('\n');
+    const noticeAt = lines.findIndex((line) => line.trim() === `- ${RECORD_REFERENCE_NOTICE}`);
+    const under = (lines[noticeAt + 1] ?? '').trim();
+
+    assert.ok(noticeAt >= 0, `the frame speaks its own line in every question: ${item.id}`);
+    assert.ok(under.startsWith('- '), `and the line under it is the record it describes: ${item.id}`);
+    assert.ok(
+      !under.includes(MUST_FILL_MARKER),
+      `never the question itself, which the frame did not write and does not vouch for: ${item.id}`,
+    );
+  }
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: the notice closes the context, so the context value is the prose and not the line below it', () => {
+  const facts = syntheticFacts();
+  const authoredText = fillEveryMarker(buildFrame({ facts, previous: null }).text);
+  const lines = firstHumanItem(authoredText).split('\n');
+  const labelAt = lines.findIndex((line) => line.startsWith(`- ${CONTEXT_LABEL}:`));
+  const noticeAt = lines.findIndex((line) => line.trim() === `- ${RECORD_REFERENCE_NOTICE}`);
+
+  assert.ok(labelAt >= 0 && noticeAt >= 0, 'the authored frame carries both lines');
+  assert.equal(noticeAt, labelAt + 2, 'the label, the prose written for it, then the notice that ends it');
+  assert.notEqual(lines[labelAt + 1].trim(), '', 'so what the label reads is the prose, never the notice');
+  assert.equal(
+    verifyExplanation({ facts, explainText: authoredText }).ok,
+    true,
+    'and the document this frame authors is one the gate accepts',
+  );
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: a human section written before this command carried the context is reopened rather than kept', () => {
+  const facts = syntheticFacts();
+  const note = '人間の判断: 断るほうが現場では自然だと考える。';
+  const authoredText = withNoteUnderFirstPlaceholder(fillEveryMarker(buildFrame({ facts, previous: null }).text), note);
+  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authoredText, [CONTEXT_LABEL]) });
+
+  assert.ok(
+    merged.reopenedSections.includes(HUMAN_SECTION_ID),
+    'a question that says nothing about what it is about is not the shape this frame writes',
+  );
+  assert.deepEqual(
+    merged.keptSections,
+    FRAME_SECTIONS.map((section) => section.id).filter((id) => id !== HUMAN_SECTION_ID),
+    'and no other section is disturbed by it',
+  );
+  assert.ok(merged.text.includes(`- ${CONTEXT_LABEL}:`), 'the question asks for its context again');
+  assert.ok(merged.text.includes(note), 'while what the person wrote is carried by the record it was written against');
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: every label the merge requires is one this frame writes', () => {
+  const facts = syntheticFacts();
+  const authoredText = fillEveryMarker(buildFrame({ facts, previous: null }).text);
+
+  assert.ok(SHAPE_LABELS_THIS_FRAME_WRITES.length >= 2, 'the human section carries more than one part the frame must find');
+  for (const label of SHAPE_LABELS_THIS_FRAME_WRITES) {
+    const merged = buildFrame({ facts, previous: withoutLabelBlocks(authoredText, [label]) });
+    assert.ok(
+      merged.reopenedSections.includes(HUMAN_SECTION_ID),
+      `a section without ${label} is reopened, so the render and the merge cannot drift apart`,
+    );
+  }
+});
+
+// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+test('C001 invariant: the person the question is written for is one formula, and the earlier one is gone', () => {
+  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+  const item = firstHumanItem(frame.text);
+  const writtenForThem = findOpenMarkers(item).filter((marker) => /何を決めるのか|案[AB] —|推奨の理由 —/.test(marker.text));
+
+  assert.equal(writtenForThem.length, 4, 'the question, its two directions and the reason for the recommendation');
+  for (const marker of writtenForThem) {
+    assert.match(marker.text, /実装も設計も知らない/, `the instruction says who it is written for: ${marker.text}`);
+  }
+  assert.doesNotMatch(
+    frame.text,
+    /実装を知らない/,
+    'the earlier formula asked only that the implementation be unknown, which a person who does not know the design cannot answer under',
+  );
 });
 
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
