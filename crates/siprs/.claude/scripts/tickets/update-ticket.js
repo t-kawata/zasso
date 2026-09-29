@@ -2,11 +2,39 @@ const fs = require("fs"),
   path = require("path");
 const { validateTickets, parseTicketKey } = require("../lib/validate-tickets");
 const { normalizePath } = require("../lib/malfeasance-utils");
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// The reverse-only field vocabulary is declared once, in the reverse tree, so this
+// writer cannot drift from the artefacts whose schema it guards.
+const {
+  FORWARD_ARTIFACT_KINDS,
+  MODE,
+  detectReverseContamination,
+  reverseModeOf,
+} = require("../workspacify-allocate/lib/forward-extensions.mjs");
 // [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-91: Fields that must never use --append (idempotent overwrite only).
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-91 --for-spec --no-implementation-order`
 const IDEMPOTENT_FIELDS = new Set(['targetStubs', 'targetCrimes']);
+
+/**
+ * The reverse-only ticket fields an update would put on a ticket that has not
+ * declared a reverse origin, or null when the update is legitimate.
+ *
+ * A forward ticket gaining `driving_claim_ids` is the failure this guards: silence
+ * would allow a forward output to drift into a reverse shape unnoticed.
+ */
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
+function firstReverseFieldOnForwardTicket(ticket, updates) {
+  const leaked = detectReverseContamination(updates, FORWARD_ARTIFACT_KINDS.TICKET);
+  if (leaked.length === 0) {
+    return null;
+  }
+  return reverseModeOf({ ...ticket, ...updates }) === MODE.REVERSE ? null : leaked;
+}
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function main() {
+  const pendingWarnings = [];
   const args = process.argv.slice(2);
   const jp = args[0],
     key = args[1],
@@ -59,6 +87,14 @@ function main() {
         p.tickets[i].id === k.ticketId
       ) {
         const { id, phaseId, ...safe } = updates;
+        const reverseLeak = firstReverseFieldOnForwardTicket(p.tickets[i], safe);
+        if (reverseLeak !== null) {
+          console.log(JSON.stringify({
+            success: false,
+            error: 'reverse-only ticket field(s) on a forward ticket: ' + reverseLeak.join(', '),
+          }));
+          process.exit(1);
+        }
         if (appendFlag) {
           // PX-91: Reject --append for idempotent fields (targetStubs, targetCrimes).
           // These must always be replaced (not appended) to prevent unbounded accumulation.
@@ -88,7 +124,9 @@ function main() {
           for (const f of Object.keys(safe)) {
             const existing = p.tickets[i][f];
             if (typeof existing === 'string' && existing.length > 0 && typeof safe[f] === 'string') {
-              console.error('[WARNING] Field "' + f + '" already has content (' + existing.length + ' chars). Use --append to concatenate.');
+              // Buffered: a warning about content that was never written would mislead
+              // the caller when the update is rejected by validation below.
+              pendingWarnings.push('[WARNING] Field "' + f + '" already has content (' + existing.length + ' chars). Use --append to concatenate.');
             }
           }
           p.tickets[i] = { ...p.tickets[i], ...safe };
@@ -105,6 +143,8 @@ function main() {
   }
   const vr = validateTickets(data);
   if (!vr.valid) {
+    // The machine-readable result stays on stdout; the human-readable reason also
+    // goes to stderr so a caller that separates the streams still sees the cause.
     console.log(
       JSON.stringify({
         success: false,
@@ -112,7 +152,15 @@ function main() {
         errors: vr.errors,
       }),
     );
+    console.error('[ERROR] Update rejected: validation failed (nothing was written)');
+    for (const detail of vr.errors) {
+      console.error('[ERROR]   ' + detail);
+    }
+    console.error('[Action] Fix the field type or shape named above: array fields require arrays, string fields require strings, then re-run the update.');
     process.exit(1);
+  }
+  for (const warning of pendingWarnings) {
+    console.error(warning);
   }
   fs.writeFileSync(rp, JSON.stringify(data, null, 2) + "\n", "utf8");
   console.log(
@@ -120,4 +168,8 @@ function main() {
   );
 }
 if (require.main === module) main();
-module.exports = { main };
+// Exported so the regression gate can freeze this guard's decision table. A
+// guard whose four outcomes are asserted only by its own unit test is asserted by
+// whoever wrote it; a frozen table asserts it against a known-good record.
+// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+module.exports = { main, firstReverseFieldOnForwardTicket };

@@ -124,29 +124,34 @@ function digestFile(filePath) {
  * toward safety rather than toward overwriting.
  *
  * @param {string} targetDir
- * @returns {{version: number, files: Record<string, string>}}
+ * @returns {{version: number, files: Record<string, string>, observed: Record<string, string>}}
  */
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 function loadInstallState(targetDir) {
   const statePath = path.join(targetDir, installDeps.INSTALL_STATE_FILE_NAME);
   if (!fs.existsSync(statePath)) {
-    return { version: 1, files: {} };
+    return { version: 1, files: {}, observed: {} };
   }
   try {
     const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    return { version: 1, files: state.files ?? {} };
+    return { version: 1, files: state.files ?? {}, observed: state.observed ?? {} };
   } catch {
-    return { version: 1, files: {} };
+    return { version: 1, files: {}, observed: {} };
   }
 }
 
 /**
  * Install one file, deciding from the target, the source and the record.
  *
- * @returns {{ action: 'install'|'unchanged'|'update'|'preserve', sourceDigest: string }}
+ * `observedDigest` is what the target holds now, whoever put it there. The caller records it
+ * when it declines to write, which is what turns the next run's identical read into evidence
+ * that nothing has changed the file — the only thing a foreign tree can offer in place of a
+ * history.
+ *
+ * @returns {{ action: 'install'|'unchanged'|'update'|'preserve', sourceDigest: string, observedDigest: string|null }}
  */
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function installFile({ sourcePath, targetPath, previousSourceDigest }) {
+function installFile({ sourcePath, targetPath, previousSourceDigest, previouslyObservedDigest, isLocalFile }) {
   const sourceDigest = digestFile(sourcePath);
   const targetDigest = digestFile(targetPath);
   const action = installDeps.decideFileAction({
@@ -154,6 +159,8 @@ function installFile({ sourcePath, targetPath, previousSourceDigest }) {
     targetDigest,
     sourceDigest,
     previousSourceDigest: previousSourceDigest ?? null,
+    previouslyObservedDigest: previouslyObservedDigest ?? null,
+    isLocalFile,
   });
 
   if (action === 'install' || action === 'update') {
@@ -161,7 +168,7 @@ function installFile({ sourcePath, targetPath, previousSourceDigest }) {
     fs.cpSync(sourcePath, targetPath);
   }
 
-  return { action, sourceDigest };
+  return { action, sourceDigest, observedDigest: targetDigest };
 }
 
 /** Report what happened, naming every file that was preserved. */
@@ -300,25 +307,40 @@ async function main() {
   const previousState = loadInstallState(targetDir);
   const counts = { install: 0, update: 0, unchanged: 0, preserve: 0 };
   const preservedNames = [];
-  const nextState = { version: 1, files: {} };
+  const nextState = { version: 1, files: {}, observed: {} };
 
   print(`installing ${sourceClaudeDir} -> ${targetDir} (${files.length} files)`);
 
   for (const relativePath of files) {
     const sourcePath = path.join(sourceClaudeDir, relativePath);
     const targetPath = path.join(targetDir, relativePath);
+    const isLocalFile = installDeps.isLocalFilePath(relativePath);
 
-    const { action, sourceDigest } = installFile({
+    const { action, sourceDigest, observedDigest } = installFile({
       sourcePath,
       targetPath,
       previousSourceDigest: previousState.files[relativePath],
+      previouslyObservedDigest: previousState.observed[relativePath],
+      isLocalFile,
     });
 
     counts[action]++;
-    if (action === 'preserve') {
-      preservedNames.push(relativePath);
-    } else {
+    if (action !== 'preserve') {
       nextState.files[relativePath] = sourceDigest;
+      continue;
+    }
+
+    preservedNames.push(relativePath);
+    if (previousState.files[relativePath] !== undefined) {
+      // We installed this path once and the project has changed it since. Keeping the record of
+      // what we installed is what keeps that reading true on every later run; dropping it would
+      // make the file look like one we never wrote, and the run after that would overwrite it.
+      nextState.files[relativePath] = previousState.files[relativePath];
+    } else if (!isLocalFile) {
+      // A path we have never written. Recording what we found is what lets the next run tell a
+      // revision of conver's own file from an edit. A local file is excluded because it is never
+      // advanced, so the observation would be a claim this installer never acts on.
+      nextState.observed[relativePath] = observedDigest;
     }
   }
 

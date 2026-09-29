@@ -16,6 +16,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const INSTALL_SCRIPT = path.resolve(__dirname, '../install.js');
+const SOURCE_TREE = path.resolve(__dirname, '../.claude');
 
 describe('install.js --no-install-deps', () => {
   it('copies the .claude tree (manifest + lockfile) and skips dependency resolution', () => {
@@ -63,6 +64,30 @@ describe('decideFileAction — updating and preserving, decided rather than aske
       decideFileAction({ targetExists: true, targetDigest: USER_EDIT, sourceDigest: NEWER, previousSourceDigest: null }),
       'preserve',
       'with no record of what was installed, an existing file is never overwritten',
+    );
+  });
+
+  it('installs a local file into a target that has none, and never replaces one already there', () => {
+    // `settings.local.json` accumulates the permissions of the project holding it, so conver's
+    // copy is a starting point rather than an authority: replacing a project's own file would
+    // delete approvals that project's work depends on. The case below is the one that decides
+    // it — the project still holds exactly what conver last installed, and conver has moved on,
+    // which is an update for every other file and still not one for this.
+    assert.equal(
+      decideFileAction({ targetExists: false, isLocalFile: true }),
+      'install',
+      'a project with no local file gets the one conver ships',
+    );
+    assert.equal(
+      decideFileAction({
+        targetExists: true,
+        targetDigest: SOURCE,
+        sourceDigest: NEWER,
+        previousSourceDigest: SOURCE,
+        isLocalFile: true,
+      }),
+      'preserve',
+      'a local file belongs to the project that holds it, however far conver moves on',
     );
   });
 });
@@ -133,6 +158,50 @@ describe('install.js without -t resolves the target from the current directory',
     assert.equal(second.status, 0, second.stderr);
     assert.deepEqual(snapshot(path.join(root, '.claude')), before, 'the second run must change nothing');
     assert.match(second.stdout, /0 (new|updated)|nothing changed|no changes/i, 'the second run must say that nothing changed');
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe('install.js advances a file it has already observed', () => {
+  it('takes a stale copy to the source on the next run, and still leaves a later edit alone', () => {
+    // A tree installed before the record existed — or installed by hand — holds files the
+    // installer has never written. It cannot tell such a file from an edit, so it preserves it;
+    // what it must also do is write down what it saw, or the file stays at its old revision
+    // forever, however far conver moves on. That is how a whole tool once rotted in place.
+    //
+    // The observation is a baseline rather than a licence, and the second half is what makes it
+    // one: an edit made after the installer looked is the one thing the record can prove, so it
+    // survives every run that follows.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-observe-'));
+    const target = path.join(root, '.claude');
+    const relativePath = path.join('scripts', 'crystalize-readme', 'loop-drive-readme.js');
+    const staleText = '// an older revision, placed before the installer ever ran\n';
+    const observed = path.join(target, relativePath);
+    fs.mkdirSync(path.dirname(observed), { recursive: true });
+    fs.writeFileSync(observed, staleText);
+
+    const install = () => spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps', '-t', target], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
+
+    const first = install();
+    assert.equal(first.status, 0, first.stderr);
+    assert.equal(fs.readFileSync(observed, 'utf8'), staleText, 'the first run preserves a file it never installed, and records what it saw');
+
+    const second = install();
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(
+      fs.readFileSync(observed, 'utf8'),
+      fs.readFileSync(path.join(SOURCE_TREE, relativePath), 'utf8'),
+      'nothing changed it since the installer looked, so the only thing that moved is conver',
+    );
+
+    const editedText = '// the user edits it after the installer recorded what it saw\n';
+    fs.writeFileSync(observed, editedText);
+    for (const attempt of ['the run after the edit', 'and the one after that']) {
+      const result = install();
+      assert.equal(result.status, 0, `${attempt}: ${result.stderr}`);
+      assert.equal(fs.readFileSync(observed, 'utf8'), editedText, `${attempt} must leave the edit alone`);
+    }
 
     fs.rmSync(root, { recursive: true, force: true });
   });

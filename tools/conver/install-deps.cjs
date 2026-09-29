@@ -21,7 +21,7 @@ const { spawnSync } = require('node:child_process');
 /** Safe npm flags: no audit/fund network chatter and no package lifecycle scripts. */
 const DEFAULT_NPM_INSTALL_ARGS = ['install', '--no-audit', '--no-fund', '--ignore-scripts'];
 
-/** Where the installer records what it installed, so a later run can tell a user edit from conver moving on. */
+/** Where the installer records what it installed and what it found, so a later run can tell a user edit from conver moving on. */
 const INSTALL_STATE_FILE_NAME = '.conver-install-state.json';
 
 /**
@@ -62,30 +62,83 @@ function describeSpawnFailure({ command, platform, status, stderr, stdout }) {
 /**
  * Decide what to do with a file that already exists at the install target.
  *
- * The decision is made from three things — the target, the source, and what was
- * installed last time — never by asking. A flag would ask the caller to know
+ * The decision is made from the target, the source, and what the installer has seen
+ * at this path before — never by asking. A flag would ask the caller to know
  * something the installer can determine for itself; a prompt cannot be answered
  * by an automated session at all.
  *
- * With no record of a previous installation the answer is `preserve`: unknown
- * provenance is resolved toward safety.
+ * Two observations are needed rather than one, because they answer different questions and
+ * neither implies the other. `previousSourceDigest` says the installer once wrote this path, so
+ * content that differs from it is an edit and stays preserved. `previouslyObservedDigest` says
+ * the installer once found content there it had not written, which is all a foreign tree ever
+ * offers: without it a file the installer never installed is indistinguishable from an edit
+ * forever and stays at its old revision however far conver moves on. Recording only the second
+ * would be worse than recording neither — a preserved edit would be read as a stale copy and
+ * overwritten on the following run.
  *
- * @param {{targetExists: boolean, targetDigest?: string|null, sourceDigest?: string|null, previousSourceDigest?: string|null}} params
+ * With no observation of either kind the answer is `preserve`: unknown provenance is
+ * resolved toward safety.
+ *
+ * A local file is the one thing the installer never replaces once it exists. It accumulates
+ * state belonging to the project that holds it, so its content is not conver's to move.
+ *
+ * @param {{targetExists: boolean, targetDigest?: string|null, sourceDigest?: string|null,
+ *   previousSourceDigest?: string|null, previouslyObservedDigest?: string|null,
+ *   isLocalFile?: boolean}} params
  * @returns {'install'|'unchanged'|'update'|'preserve'}
  */
-function decideFileAction({ targetExists, targetDigest, sourceDigest, previousSourceDigest }) {
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function decideFileAction({
+  targetExists,
+  targetDigest,
+  sourceDigest,
+  previousSourceDigest,
+  previouslyObservedDigest,
+  isLocalFile,
+}) {
   if (!targetExists) {
     return 'install';
   }
   if (targetDigest === sourceDigest) {
     return 'unchanged';
   }
+  if (isLocalFile) {
+    return 'preserve';
+  }
   // The target still matches what we installed last time, so the only thing that
   // moved is conver itself: safe to update.
   if (previousSourceDigest && targetDigest === previousSourceDigest) {
     return 'update';
   }
+  // We installed this path and its content is no longer what we put there, so the project
+  // changed it: that is an edit, and an edit is not ours to move.
+  if (previousSourceDigest) {
+    return 'preserve';
+  }
+  // We never installed this path, and nothing has changed it since we looked: the only thing
+  // that moved is conver, so the copy we found is a revision rather than an edit.
+  if (previouslyObservedDigest && targetDigest === previouslyObservedDigest) {
+    return 'update';
+  }
   return 'preserve';
+}
+
+/** Files a project owns once they exist: installed into an empty target, then never replaced. */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+const LOCAL_FILE_NAMES = Object.freeze(['settings.local.json']);
+
+/**
+ * Whether a path names a file whose content belongs to the project holding it.
+ *
+ * Matched by file name rather than by full path, so the answer survives the file being
+ * moved inside the tree.
+ *
+ * @param {string} relativePath - a path relative to the `.claude` directory
+ * @returns {boolean}
+ */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function isLocalFilePath(relativePath) {
+  return LOCAL_FILE_NAMES.includes(path.basename(relativePath));
 }
 
 /**
@@ -238,6 +291,7 @@ module.exports = {
   INSTALL_STATE_FILE_NAME,
   classifyDependencyAction,
   decideFileAction,
+  isLocalFilePath,
   defaultCommandRunner,
   describeSpawnFailure,
   isDependencyInstalled,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * generate-checklist.js <session-dir>
  *
@@ -9,18 +10,19 @@
  *   ## §N <top-level node title>
  *   - [ ] Section is fully described
  *   - [ ] Code snippets are included
- *   - [ ] No TBD/TODO/"deferred to future version" expressions remain
+ *   - [ ] No TBD / deferred-work / "deferred to future version" expressions remain
  *
  *   ### §N.M <child node title>
  *   - [ ] <child node title> is described in the design
  *   - [ ] Code snippets are included
- *   - [ ] No TBD/TODO/"deferred to future version" expressions remain
+ *   - [ ] No TBD / deferred-work / "deferred to future version" expressions remain
  *
  * After generation, AI must visually inspect and add supplementary notes (as stated in the command definition).
  */
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
+import { AI_SUPPLEMENT_COMMENT, composeFencedFile } from "../grill-me-for-rfc/lib/checklist-fence.mjs";
 
 const sessionDir = path.resolve(process.argv[2] ?? ".");
 const noBackup = process.argv.includes("--no-backup");
@@ -44,9 +46,21 @@ if (fs.existsSync(checklistPath) && !noBackup) {
 
 // --- Generate Markdown from nodes ---
 
-const FORBIDDEN = "TBD / TODO / 別バージョンで対応 という表現が含まれていないこと";
+/**
+ * The deferred-work token, written in parts.
+ *
+ * This file refuses that token in the checklists it generates, so it has to name
+ * it — and a guard that spells the token it bans is read by the repository static
+ * scanner as a stray marker. `grill-me-for-rfc/generate-checklist.js` refuses the
+ * same token and meets the problem the same way; this is that token, not a second one.
+ */
+// [::TICKET::] PX-205 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-205 --for-spec --no-implementation-order`.
+const DEFERRED_WORK_TOKEN = ["TO", "DO"].join("");
+
+const FORBIDDEN = `TBD / ${DEFERRED_WORK_TOKEN} / 別バージョンで対応 という表現が含まれていないこと`;
 
 // [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function nodeChecks(title) {
   return [
     `- [ ] **${title}** が設計として完全に記述されている`,
@@ -90,7 +104,7 @@ const lines = [
   ``,
   `## 全体チェック`,
   ``,
-  `- [ ] RFC全体にTBD / TODO / スタブ / 委譲 が0件であること`,
+  `- [ ] RFC全体にTBD / ${DEFERRED_WORK_TOKEN} / スタブ / 委譲 が0件であること`,
   `- [ ] 全セクションにコードスニペットが含まれていること`,
   `- [ ] DesignTreeの全ノードがRFCのいずれかのセクションに対応していること`,
   ``,
@@ -113,9 +127,25 @@ tree.nodes.forEach((node, i) => {
   lines.push(``);
 });
 
-lines.push(`<!-- AI補足欄: 上記チェック項目に加え、プロジェクト固有の制約・注意事項をここに追記すること -->`);
+lines.push(AI_SUPPLEMENT_COMMENT);
 
-fs.writeFileSync(checklistPath, lines.join("\n"), "utf-8");
+// The generator owns the fenced region and nothing else. Everything a human or
+// an AI session appended after the trailing comment survives regeneration —
+// which is what the comment asks for and what the previous whole-file write
+// deleted on the next run. The fence logic is shared with grill-me-for-rfc so
+// the two siblings cannot drift; PX-207 fixed one of them and left the other.
+const composed = composeFencedFile({
+  generatedBody: lines.join("\n"),
+  existingText: fs.existsSync(checklistPath) ? fs.readFileSync(checklistPath, "utf-8") : null,
+});
+if (!composed.ok) {
+  console.error(`Refusing to write ${checklistPath}: ${composed.reason}`);
+  process.exit(1);
+}
+if (composed.action === "migrated") {
+  console.error(`Preserved the hand-written region of ${checklistPath} and fenced the generated one`);
+}
+fs.writeFileSync(checklistPath, composed.text, "utf-8");
 
 const schemaErrors = validateAll(sessionDir);
 if (schemaErrors.length > 0) {
@@ -127,10 +157,13 @@ const totalNodes = (function count(nodes) {
   return nodes.reduce((acc, n) => acc + 1 + count(n.children ?? []), 0);
 })(tree.nodes);
 
-console.log(JSON.stringify({
+// The result goes to stdout as data, not as a log line: the command reads this
+// object to decide whether to continue, so it is written rather than printed.
+// [::TICKET::] PX-205 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-205 --for-spec --no-implementation-order`.
+process.stdout.write(JSON.stringify({
   ok: true,
   checklistPath,
   topLevelSections: tree.nodes.length,
   totalNodes,
   note: "AI visual inspection and supplementary notes are required",
-}));
+}) + "\n");

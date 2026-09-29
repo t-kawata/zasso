@@ -147,7 +147,7 @@ function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
 }
 
 /** Regenerate the provenance header for one file at fullPath, using the graph's current node metadata. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172, P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15) --for-spec --no-implementation-order`.
 function regenerateHeader(fullPath, node, designContext) {
   const { graphNodeMap, crossReferences, context, lang } = designContext;
   const headerPaths = resolveHeaderPaths(fullPath, context.graphDirAbs, context.graphBasename, context.dirsTreeBasename, context.sourceBasename);
@@ -160,7 +160,7 @@ function regenerateHeader(fullPath, node, designContext) {
   const mappedSet = new Set(mappedIdStrings);
   const fileCrossRefs = (crossReferences || []).filter((cr) =>
     cr.connections && cr.connections.some((conn) => mappedSet.has(conn.toNodeId)));
-  return generateHeaderComment(headerPaths, mappedNodeIds, mappedIdStrings, fileCrossRefs, context.graphBasename, context.sourceBasename, lang);
+  return generateHeaderComment(headerPaths, mappedNodeIds, fileCrossRefs, context.sourceBasename, lang);
 }
 
 /** Insert the current kind/language declaration stub before a template-state body's stub markers. */

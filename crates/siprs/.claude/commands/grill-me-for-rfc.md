@@ -8,17 +8,17 @@ disable-model-invocation: true
 
 ## Overview
 
-An interactive grill session command for writing an RFC design document under strict constraints: complete coverage of the design tree, no scope delegation, and no stub implementations.
+Interactive grill session for writing an RFC design document under strict constraints: complete design-tree coverage, no scope delegation, no stub implementations.
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Usage
 
@@ -26,42 +26,35 @@ An interactive grill session command for writing an RFC design document under st
 /grill-me-for-rfc <research-path> <rfc-output-file-path>
 (Optional free-form notes on a new line below the arguments)
 ```
-
-- `<research-path>`: Path to a researched file or directory
-- `<rfc-output-file-path>`: Output path for the RFC design document (`.md`)
-- Free-form notes: Supplementary information or constraints (optional)
+- `<research-path>`: researched file or directory
+- `<rfc-output-file-path>`: RFC design document output path (`.md`)
+- free-form notes: optional supplementary info/constraints
 
 ---
 
 ## Mechanical Variable Binding from Arguments
 
-The two arguments passed to the command are referenced as the following variables throughout all steps:
-
 | Variable | Derivation | Value |
 |----------|------------|-------|
-| `$RESEARCH_PATH` | 1st argument | Path to research file or directory |
-| `$RFC_OUTPUT_PATH` | 2nd argument | Output path for the RFC document (`.md`) |
-| `$RFC_DIR` | Mechanically derived from `dirname "$RFC_OUTPUT_PATH"` | Directory holding RFC artifacts (Status.json, DesignTree.json, CheckList.md, etc.) |
+| `$RESEARCH_PATH` | 1st argument | research file/directory path |
+| `$RFC_OUTPUT_PATH` | 2nd argument | RFC document output path (`.md`) |
+| `$RFC_DIR` | `dirname "$RFC_OUTPUT_PATH"` | dir holding RFC artifacts (Status.json, DesignTree.json, CheckList.md, etc.) |
 
-**Once `init.js` is executed, both `$RESEARCH_PATH` and `$RFC_OUTPUT_PATH` are persisted in `Status.json`. From that point on, only `$RFC_DIR` needs to be tracked.**
+invariant: once `init.js` runs, `$RESEARCH_PATH`/`$RFC_OUTPUT_PATH` persist in `Status.json` — only `$RFC_DIR` needs tracking thereafter.
 
 ### Schema Validation Gate
 
-All file-modifying scripts (`init.js` / `update-tree.js` / `update-status.js` / `generate-checklist.js`) automatically call `check-all-schema.js` internally after a successful operation to validate the schema integrity of Status.json, DesignTree.json, and CheckList.md.
-
-- **If validation fails, the script exits with `exit(1)`.** The AI must read the error, fix the affected file, and re-run the script.
-- **Do not proceed to the next step until validation passes.** Skipping schema errors is forbidden.
-- `check-all-schema.js` also runs standalone: `node .claude/scripts/grill-me-for-rfc/check-all-schema.js "$RFC_DIR"` can be invoked at any time.
+gate: every file-modifying script (`init.js`/`update-tree.js`/`update-status.js`/`generate-checklist.js`) auto-calls `check-all-schema.js` post-op to validate Status.json/DesignTree.json/CheckList.md schema integrity.
+fail (exit1) → read error, fix affected file, re-run. do not proceed until pass — skipping forbidden.
+standalone: `node .claude/scripts/grill-me-for-rfc/check-all-schema.js "$RFC_DIR"` (any time).
 
 ### Session Status
 
-`session-status.js` reads Status.json and DesignTree.json to mechanically determine the current step and next action. Run this first whenever unsure where you are:
-
+`session-status.js` mechanically determines current step + next action from Status.json+DesignTree.json. run first whenever unsure where you are:
 ```bash
 node .claude/scripts/grill-me-for-rfc/session-status.js "$RFC_DIR"
 ```
-
-Sample output:
+out:
 ```
 📋 Session Status
   State: GRILLING
@@ -80,29 +73,21 @@ Sample output:
 ```bash
 node .claude/scripts/grill-me-for-rfc/init.js "$RESEARCH_PATH" "$RFC_OUTPUT_PATH"
 ```
+generates in the RFC output dir: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING).
 
-Generate the following scaffolding files in the same directory as the RFC output file:
-
-- `CheckList.md` — RFC requirements checklist (populated in STEP 4)
-- `DesignTree.json` — Design tree (empty nodes)
-- `Status.json` — Progress state (initial state: GRILLING)
-
-- **Resume mode**: If `Status.json` exists, ask the user: "Resume from where we left off?" (The RFC output file may or may not exist — it is first written in STEP 5.)
-- **Overwrite mode**: If the RFC output file exists but `Status.json` does not, ask the user to confirm overwrite. Once approved, delete the old RFC file before re-running `init.js`.
+ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (RFC output file may or may not exist yet — first written at STEP 5).
+ask; stop — Overwrite mode: RFC output file exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete old RFC file, re-run `init.js`.
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
 ```
-
-- If the research path is a file, output its path. If it is a directory, output a flat JSON array of all file paths recursively.
-- Read all files in the output list and internalize them as research material.
+file → its path. directory → flat JSON array of all file paths recursively. read all, internalize as research material.
 
 ---
 
 ### STEP 1: DesignTree — Initial Node Generation
 
-After reading all research material and before asking the first grill question, generate initial design tree nodes from the research content and write them:
-
+after reading all research material, before the first grill question: generate initial design-tree nodes from research content, write them.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
 ```
@@ -113,76 +98,51 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"..."
 
 ## ★ First-Class Rules (MUST be followed without exception)
 
-1. **Every question MUST contain the following parts in order. The length of each part should be proportional to the complexity of the design decision — do not try to be concise.**
+1. every question MUST contain, in order (length proportional to design-decision complexity — do not aim for concise):
+   0. Question ID: `Q<number>`, unique within a turn
+   1. Background and rationale: why this decision is needed, what options exist, trade-offs — enough for an informed choice
+   2. Choices as a line-broken list: one choice per line, markdown list — never two choices on one line
+   3. AI's recommendation with rationale: state the one recommended choice, explain specifically why over alternatives — recommending without reasoning forbidden
 
-   0. **Question ID**: Prefix the question with `Q<number>` (e.g., `Q1`, `Q2`...). IDs must be unique within a turn.
-   1. **Background and rationale**: Explain why this design decision is needed, what options exist, and their trade-offs. Provide enough detail for the user to make an informed choice.
-   2. **Choices as a line-broken list**: Each choice on its own line in markdown list format. Never put two or more choices on the same line.
-   3. **AI's recommendation with rationale**: State which one choice you recommend and explain specifically why over the alternatives. Recommending without reasoning is forbidden.
+   closed answer vocabulary (absolute, on the AI's asking behavior): user answers ONLY Yes/No or A/B/C. AI must NEVER ask for free-form answers (if the user volunteers one anyway, AI may accept it).
 
-**The user answers ONLY with Yes/No or an A/B/C choice. The AI must NEVER ask for free-form answers (if the user voluntarily provides one, the AI may accept it).**
-
-2. **Bundle questions at a coarse granularity. Do NOT treat each design decision as a single question — each question should cover 3–5 nodes, and each turn should present 5–10 questions.**
-
-   - One question covers a sub-domain (e.g., "choice of authentication method") bundling 3–5 related decisions together
-   - One turn covers a larger design domain (e.g., the entire auth system) composed of 5–10 questions
-   - Use a two-pass approach: decide the big-picture architecture first, then drill into details
-   - At the end of each turn, summarize what was decided before moving to the next turn
-3. **Do not write any RFC content during the grill session. Focus solely on questions and answers.**
-4. **After receiving a user's answer, immediately update the corresponding DesignTree nodes.**
+2. bundle questions at coarse granularity — never one question per design decision:
+   - one question = a sub-domain (e.g. "choice of authentication method") bundling 3–5 related decisions
+   - one turn = a larger design domain (e.g. the entire auth system), 5–10 questions
+   - two-pass: big-picture architecture first, then details
+   - end of each turn: summarize what was decided before the next turn
+3. no RFC content during the grill session — questions and answers only.
+4. after every user answer: immediately update the corresponding DesignTree nodes.
 
 ### Question Format Validation Gate (MANDATORY)
 
-**Before presenting any question to the user, you MUST pass it through `validate-question-format.js`. Presenting an unvalidated question is forbidden.**
-
+gate: every question passes through `validate-question-format.js` **before** presenting to the user. presenting unvalidated = forbidden.
 ```bash
 node .claude/scripts/grill-me-for-rfc/validate-question-format.js "question text here"
 ```
+`valid:false` → reformulate per the error message, re-validate. skipping this gate = first-class rule violation.
 
-- Do NOT present a question until validation returns `valid: true`
-- If validation returns `valid: false`, reformulate the question according to the error message and re-validate
-- Skipping this validation is a first-class rule violation and is not permitted
+ask; stop — the grill loop itself: present each validated question, wait for the user's closed-vocabulary answer.
 
 ## DesignTree Updates (run after every user answer)
 
 ```bash
-# Resolve a single node
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" resolve "<node_id>" "<answer_summary>"
-
-# Batch-resolve multiple nodes (when the user answered several questions in one turn)
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" batch-resolve '["id1","id2","id3"]' "<answer_summary>"
-
-# Add a new node (expand the design tree)
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '<node_json>'
-
-# Add a child node (refine the design tree)
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add-child "<parent_id>" '<node_json>'
-
-# Refine a node title
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" refine "<node_id>" "<new_title>"
-
-# Delete a node and all its descendants
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" delete "<node_id>"
-
-# Check number of open nodes
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
 ```
 
 ## DesignTree Visualization & Search
 
-Use `tree-query.js` for visual overview and search (read-only, no schema validation needed):
-
+`tree-query.js` (read-only, no schema validation needed):
 ```bash
-# Display full tree hierarchy (🔲 = open, ✅ = resolved)
 node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" tree
-
-# Search nodes by keyword (partial match on id / title)
 node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" search "<keyword>"
-
-# Show path from root to a specific node
 node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" path "<node_id>"
-
-# Show statistics (total / open / resolved / max depth / progress)
 node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" stats
 ```
 
@@ -196,9 +156,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRIL
 
 ### STEP 3: Grill Session End Condition
 
-When `open-count` reaches 0, propose ending the grill session to the user.
-At the same time, ask the user: "Shall I start generating the RFC requirements checklist?"
-
+`open-count`==0 → propose ending the grill session; ask; stop — ask the user: "Shall I start generating the RFC requirements checklist?"
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
@@ -208,14 +166,11 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 
 ### STEP 4: CheckList.md Generation
 
-Once the user approves, machine-generate `CheckList.md` via script, then **the AI must manually review the output and append any supplementary notes**.
-
+user approves → generate mechanically:
 ```bash
 node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR"
 ```
-
-Generated checklist structure (two-level hierarchy):
-
+structure (two-level):
 ```
 ## §N Section Name  ← top-level node
 - [ ] Section is fully described
@@ -227,13 +182,8 @@ Generated checklist structure (two-level hierarchy):
   - [ ] Code snippets are included
   - [ ] No occurrences of TBD / TODO / "handle in a future version"
 ```
-
-**★ After script generation, the AI must:**
-
-- Review all checklist items and add clarifying notes for any nodes that are resolved in the DesignTree but whose descriptions may be ambiguous
-- Append project-specific constraints (language, framework, performance requirements, etc.) as additional checklist items
-- Present the completed `CheckList.md` to the user for review and approval
-
+judge: review all items, add clarifying notes for resolved-but-ambiguous nodes; append project-specific constraint items (language/framework/perf/etc).
+ask; stop — present the completed `CheckList.md` to the user for review and approval.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_APPROVED
 ```
@@ -242,19 +192,14 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 
 ### STEP 5: RFC Writing
 
-Begin writing the RFC once the user approves the checklist.
+begin once the user approves the checklist.
 
 ## RFC Hard Constraints (MUST be followed without exception)
 
-- **The RFC MUST NOT contain any occurrences of TBD, TODO, "handle in a later version", stub, or scope delegation — in any form.**
-- **A single RFC document must stand alone as a complete design that fully covers the entire Design Tree.**
-- **Every design decision MUST be accompanied by a code example (code snippet).**
-- RFC section structure follows IETF style:
-  - Abstract
-  - Motivation
-  - Design
-  - Implementation
-  - Appendix
+- zero occurrences of TBD, TODO, "handle in a later version", stub, or scope delegation — in any form
+- a single RFC document stands alone as a complete design fully covering the entire Design Tree
+- every design decision accompanied by a code example
+- IETF-style structure: Abstract / Motivation / Design / Implementation / Appendix
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state WRITING
@@ -264,47 +209,38 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state WRIT
 
 ### STEP 6: CheckList Verification and Revision
 
-After writing the RFC, mechanically verify every item in `CheckList.md`.
-
+mechanically verify every `CheckList.md` item.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state REVIEWING
 ```
-
-- Fix any unmet items and repeat until all items are ✅.
-- **If TBD / TODO / "handle in a future version" is detected anywhere, issue an immediate warning and do not declare RFC completion until the relevant section is fully written.**
-- Report to the user once all items pass.
+heal-loop: fix unmet items, repeat until all ✅.
+invariant: TBD/TODO/"handle in a future version" detected anywhere → immediate warning; do not declare completion until that section is fully written.
+out: report to the user once all items pass.
 
 ---
 
 ### STEP 7: Re-grill Decision
 
-If RFC writing reveals newly discovered unresolved nodes or required expansions of the design tree, return to STEP 2 and re-grill.
-
+new unresolved nodes / required design-tree expansion discovered while writing → back to STEP 2, re-grill.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
 ```
-
-- **If the loop count exceeds 3, report to the user the reason for the extended cycle and current status before continuing.**
-- Declare RFC completion only when re-grilling is no longer needed.
+loop-count > 3 → report the reason for the extended cycle + current status to the user before continuing *(ambiguous in the source between a pure status report and an implicit pause for acknowledgment — preserved as found, not resolved either way)*.
+declare RFC completion only when re-grilling is no longer needed.
 
 ---
 
 ### STEP 7a: I/O Boundary Reference Information
 
-Add I/O boundary reference information to the RFC so that future `/graphify-rfc` (graphing) and `/boundify-graph` (directory boundary generation) can safely split the document along natural seams.
+Downstream (role): future graph-splitting commands (`/graphify-rfc`, `/boundify-graph`).
+- consumes: I/O boundary reference info in the RFC
+- contract: lets them split the document along natural seams safely
 
 ```bash
-# Insert template
 node "$SCRIPT_DIR/insert-io-boundary-template.js" "$TARGET_RFC"
-
-# AI fills in content (reads [::IO-INFO-STUB::] markers, generates content from existing RFC descriptions)
 ```
-
-**The AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker in the template, follows its instruction to generate appropriate content from the existing RFC, and replaces the marker. This process repeats until no markers remain.**
-
-Verify no markers remain:
-
+heal-loop: AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker, follows its instruction, generates content from the existing RFC, replaces the marker. repeat until none remain.
 ```bash
 node "$SCRIPT_DIR/check-io-stubs.js" "$TARGET_RFC"
 if [ $? -ne 0 ]; then
@@ -317,12 +253,47 @@ fi
 
 ### STEP 8: RFC Completion Declaration
 
-Declare completion only when ALL of the following conditions are met:
-
-- All DesignTree nodes are `resolved` (`open-count` = 0)
-- All CheckList items are ✅
-- The RFC body contains zero occurrences of TBD / TODO / stub / delegation
-
+gate (all 3 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```
+
+---
+
+## Reverse mode (G1 to G5)
+
+Mode: forward | reverse
+  detect: `reverse-seed-index` in the seed's section 1. a forward seed carries none — this section cannot fire on one.
+
+reverse overlays the **same command, same Steps 0–8** — it does not replace them.
+
+Upstream (role): `/workspacify-allocate` (reverse mode).
+- produces: RFC-SEED with a `reverse-seed-index` injected into its machine-written section 1
+- guarantee: a forward seed carries no such index — mode-detection by presence/absence is sound; a seed without it is refused by name (a forward seed is not this grill's input in reverse mode)
+
+rationale: when the material is an existing implementation rather than a design, "what should this do?" invites "what it currently does" — a *ratification RFC* that restates code as spec, satisfying surface consistency while proving nothing (implementation/tests/comments all descend from one design and corroborate each other, not the design itself). reverse mode makes this failure structurally unavailable.
+
+| Change | What it does |
+|---|---|
+| **G1 mechanical question generation** | `reverse-questions.js` reads the seed's reverse index + the residual record section 12 renders from, generates initial question candidates; AI confirms. generation separated from rendering — testable without producing a document |
+| **G2 ratification prevention** | for **every** unresolved claim, machine inserts the intent-or-accident question (3 answers + default). unconditional — the insertion itself is the whole defence |
+| **G3 residual carry-over** | upstream unresolved travels to the grill verbatim — same candidate id, topic, question. rewording any loses the observation; when stage-one hand-off is supplied, carry is proven **before any question is built**; divergence stops the run, naming the differing field |
+| **G4 record of a normative choice** | `normative-decision.js` records every choice as a **selection event** in `normative_decision`, never a wait-state. no answer → `chosen_default` adopted, `selection_source` says so. high-risk proposition is not promoted to a norm — keeps `unresolved-contract-candidate` + question + `requires_human_approval` |
+| **G5 the authority** | `normative_authority` = a stable role/team/council identifier (e.g. `security-domain-steward`). a personal name is refused — people change, the authority and re-review duty do not |
+
+Scripts (reverse mode only; forward steps run their same scripts unchanged):
+
+| Script | Invocation | What it does |
+|---|---|---|
+| `reverse-questions.js` | `reverse-questions.js <RFC-SEED.md> [--claims=<json>] [--residuals=<json>] [--stage-one=<json>]` | generates question candidates from the seed's reverse index+residuals, inserts the intent-or-accident question per unresolved claim, prints in this command's standard question format. `--stage-one` proves G3's verbatim carry before any question is built. a claim/residual no question can be built for is **reported, never skipped** |
+| `normative-decision.js` | `normative-decision.js decide --input=<json>` / `normative-decision.js authority --ref=<id> --kind=<kind>` | records choices as selection events; validates both the authority's reference and kind; refuses a normative clause with a broken provenance chain. no approval-waiting state in its vocabulary |
+
+invariant: every reverse-mode question still passes through `validate-question-format.js` exactly as a forward question does; the closed answer vocabulary (Yes/No or A/B/C, no solicited free-form) applies unchanged.
+
+Prohibitions:
+- never omit the intent-or-accident question for an unresolved claim — mandatory, not optional
+- never write RFC prose during the grill — reverse mode adds questions, not content
+- never record a choice as an approval state — a record names what was selected, by whom, on what basis
+- never record a person as the authority; never leave `normative_authority` empty
+- never promote a default to a norm because no answer arrived — the default keeps analysis moving, it does not decide the design
+- never drop a question for a claim/residual the machine couldn't ask about — report it and say why

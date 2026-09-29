@@ -22,12 +22,10 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
-import { EXPLAIN_FILE_NAME, locateSections } from './frame.mjs';
+// [::TICKET::] PX-225, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
+import { EXPLAIN_FILE_NAME, HUMAN_SECTION_ID, locateSections } from './frame.mjs';
 import { HUMAN_ITEM_HEADING, decisionUnderPlaceholder, splitItems } from './items.mjs';
 import { countPlaceholdersIn } from './markers.mjs';
-
-/** The explanation section a person writes into. */
-const HUMAN_SECTION_ID = 'E5';
 
 /**
  * The decision written for each boundary in one explanation document.

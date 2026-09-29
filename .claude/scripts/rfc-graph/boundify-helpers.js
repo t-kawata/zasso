@@ -476,6 +476,15 @@ const HEADER_SEPARATOR =
   '============================================================================';
 
 /**
+ * The provenance header's identifying line.
+ *
+ * Named once because the generator and every reader of a header must agree on what one
+ * looks like: the reverse branch (`reverse-boundify.js`) attaches this header and must
+ * never re-type the marker, and supreme law 4 forbids altering it once written.
+ */
+const HEADER_MARKER_TEXT = 'Initial Design Artifact — RFC-driven Implementation';
+
+/**
  * Header deletion prohibition warning (common to all files, English)
  * Strictly expresses in one line: "this comment is the heart of design traceability
  * and the bloodstream of provenance information — never delete or edit it."
@@ -551,23 +560,26 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
 /**
  * Generates the header comment placed at the top of all generated files.
  *
+ * `headerPaths` already carries the graph and source paths, so the basenames the query
+ * commands need are derived from it rather than passed alongside; a caller that had to keep
+ * the two in step would be one edit away from a header naming the wrong graph.
+ *
  * @param {object} headerPaths - Return value of resolveHeaderPaths
  * @param {Array<{nodeId: string, title: string}>} mappedNodeIds - Node info array mapped to this file
- * @param {Array<{nodeId:string, kind:string, title:string, headingRef?:string}>} nodeMetaList - Mapped node metadata
  * @param {Array} crossRefs - Cross-reference array filtered for this file (from root-level crossReferences)
- * @param {string} graphBasename - Basename of the graph JSON
  * @param {string} sourceBasename - Basename of the original Markdown
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRefs, graphBasename, sourceBasename, lang) {
+// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBasename, lang) {
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
   const L = syntax.line;
   const lines = [];
 
   // Opening separator line
   lines.push(L + ' ' + HEADER_SEPARATOR);
-  lines.push(L + ' Initial Design Artifact — RFC-driven Implementation');
+  lines.push(L + ' ' + HEADER_MARKER_TEXT);
 
   // Deletion prohibition warning (heart of design traceability)
   for (let wi = 0; wi < HEADER_WARNING_EN_TEXT.length; wi++) {
@@ -645,6 +657,7 @@ module.exports = {
   COMMENT_SYNTAX,
   NODE_DEFINITION_EN_TEXT,
   HEADER_SEPARATOR,
+  HEADER_MARKER_TEXT,
   HEADER_WARNING_EN_TEXT,
   DECLARATION_STUB_TABLE,
   DIRECTIONAL_EDGE_TYPES,

@@ -9,6 +9,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 let passed = 0;
 let failed = 0;
@@ -30,6 +31,13 @@ console.log('\n━━━ PX-91 idempotent-fields.test.js — TESTS ━━━\n')
 // ======================================================================
 
 console.log('## C001 — append guard on idempotent fields\n');
+
+// Every --append probe below runs against a throwaway copy of Tickets.json. Aimed at the
+// tracked file, a probe that is not rejected would append to real ticket data on each run.
+const projectRoot = path.resolve(__dirname, '../../../../');
+const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px91-idempotent-'));
+const scratchTicketsPath = path.join(scratchDir, 'Tickets.json');
+fs.copyFileSync(path.join(projectRoot, 'Tickets.json'), scratchTicketsPath);
 
 (function testAppendGuard() {
   // Verify the IDEMPOTENT_FIELDS constant exists in update-ticket.js
@@ -54,7 +62,7 @@ console.log('## C001 — append guard on idempotent fields\n');
   const { spawnSync } = require('child_process');
   const proc = spawnSync('node', [
     '.claude/scripts/tickets/update-ticket.js',
-    'Tickets.json',
+    scratchTicketsPath,
     'PX-91',
     '--append'
   ], {
@@ -81,7 +89,7 @@ console.log('## C001 — append guard on idempotent fields\n');
   const { spawnSync } = require('child_process');
   const proc = spawnSync('node', [
     '.claude/scripts/tickets/update-ticket.js',
-    'Tickets.json',
+    scratchTicketsPath,
     'PX-91',
     '--append'
   ], {
@@ -108,7 +116,7 @@ console.log('## C001 — append guard on idempotent fields\n');
   const { spawnSync } = require('child_process');
   const proc = spawnSync('node', [
     '.claude/scripts/tickets/update-ticket.js',
-    'Tickets.json',
+    scratchTicketsPath,
     'PX-91',
     '--append'
   ], {
@@ -127,6 +135,8 @@ console.log('## C001 — append guard on idempotent fields\n');
   } else {
     assert(false, '--append with notes produces stdout');
   }
+
+  fs.rmSync(scratchDir, { recursive: true, force: true });
 })();
 
 // ======================================================================
