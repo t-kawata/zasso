@@ -2,9 +2,15 @@
  * Project one package's position, obligations and owned semantics out of the manifests.
  *
  * Everything the renderer prints comes from here, and everything here comes from the two
- * manifests and the seed. Nothing is inferred: a reference that does not resolve is raised
- * rather than dropped, because a document that silently omits a record the package claims
- * to own is worse than no document — the AI would take the omission for an absence.
+ * manifests, the seed, and the answers a neighbour has already written down. Nothing is
+ * inferred: a reference that does not resolve is raised rather than dropped, because a
+ * document that silently omits a record the package claims to own is worse than no document
+ * — the AI would take the omission for an absence.
+ *
+ * `settledElsewhere` is the one field that does not come from the manifests. It is handed in
+ * rather than read here so this module keeps doing no I/O of its own, and it is carried
+ * unexamined: deciding whether a neighbour's answer is readable is `neighbour-decisions.mjs`'s
+ * question, and this module only says where the answer lands.
  */
 import { ExplainSeedError } from './errors.mjs';
 import { requireField } from './seed-document.mjs';
@@ -79,19 +85,46 @@ function collectOwnedRecords({ packageRecord, inventory, specText }) {
   return owned;
 }
 
+/** Every boundary record this package is a party to, whichever end it is. */
+export function boundariesTouching({ packageId, treeManifest }) {
+  return (treeManifest.dependencies?.boundaries ?? []).filter(
+    (boundary) => boundary.provider_package === packageId || boundary.consumer_package === packageId,
+  );
+}
+
+/** The package at the other end of one boundary, from this package's side. */
+export function counterpartPackageOf({ boundary, packageId }) {
+  return boundary.provider_package === packageId ? boundary.consumer_package : boundary.provider_package;
+}
+
+/** Every boundary this package is a party to, each naming the package at its other end. */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export function boundaryPairs({ packageId, treeManifest }) {
+  return boundariesTouching({ packageId, treeManifest }).map((boundary) => ({
+    id: boundary.id,
+    counterpart: counterpartPackageOf({ boundary, packageId }),
+  }));
+}
+
+/** Where every package in the workspace lives, keyed by id. */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export function packagePaths(treeManifest) {
+  return Object.fromEntries((treeManifest.workspace?.packages ?? []).map((entry) => [entry.id, entry.path]));
+}
+
 /** The boundaries that touch this package, split by direction. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-225) --for-spec --no-implementation-order`.
 function collectBoundaries({ packageId, treeManifest }) {
-  const boundaries = treeManifest.dependencies?.boundaries ?? [];
   const described = (boundary) => ({
     id: boundary.id,
     reason_code: boundary.dependency_reason_code ?? null,
     contract_scope: boundary.stage2_contract_scope ?? [],
-    counterpart: boundary.provider_package === packageId ? boundary.consumer_package : boundary.provider_package,
+    counterpart: counterpartPackageOf({ boundary, packageId }),
   });
+  const touching = boundariesTouching({ packageId, treeManifest });
   return {
-    provided: boundaries.filter((boundary) => boundary.provider_package === packageId).map(described),
-    consumed: boundaries.filter((boundary) => boundary.consumer_package === packageId).map(described),
+    provided: touching.filter((boundary) => boundary.provider_package === packageId).map(described),
+    consumed: touching.filter((boundary) => boundary.consumer_package === packageId).map(described),
   };
 }
 
@@ -209,7 +242,7 @@ function collectSeedEdges({ packageId, contractEdges }) {
 }
 
 /** The whole projection the renderer needs for one package. */
-export function projectPackage({ identity, workspace, contractEdges = [], orderFacts }) {
+export function projectPackage({ identity, workspace, contractEdges = [], orderFacts, settledElsewhere = [] }) {
   const packageId = requireField(identity, 'package.id');
   const treeManifest = workspace.treeManifest;
   const packages = treeManifest.workspace?.packages ?? [];
@@ -241,13 +274,14 @@ export function projectPackage({ identity, workspace, contractEdges = [], orderF
       contracts: (workspace.allocateManifest.contract_registry ?? []).length,
     },
     position: collectPosition({ identity, packageId, allocateManifest: workspace.allocateManifest, orderFacts }),
-    pathOf: Object.fromEntries(packages.map((candidate) => [candidate.id, candidate.path])),
+    pathOf: packagePaths(treeManifest),
     boundaries,
     forbidden_edges: collectForbiddenEdges({ packageId, treeManifest }),
     contracts: collectContracts({ packageId, allocateManifest: workspace.allocateManifest }),
     owned,
     obligations: collectObligations({ packageId, packageRecord, treeManifest }),
     grill: collectGrillMaterial({ packageId, allocateManifest: workspace.allocateManifest, boundaries }),
+    settledElsewhere,
     seed_edges: collectSeedEdges({ packageId, contractEdges }),
   };
 }

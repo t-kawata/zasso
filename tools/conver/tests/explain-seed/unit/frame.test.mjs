@@ -2,6 +2,9 @@
 // PX-222 @verifies C005
 // PX-222 @verifies C006
 // PX-224 @verifies C002
+// PX-225 @verifies C003
+// PX-225 @verifies C004
+// PX-225 @verifies C006
 //
 // The frame is the script's half of the explanation: the structure, the instructions, the
 // placeholders and the count. The AI's half is the prose that replaces the markers, so the
@@ -22,7 +25,15 @@ import {
   mentionsId,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { MUST_FILL_MARKER, findHumanPlaceholders, findOpenMarkers } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
-import { syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
+import {
+  ABSENT_SETTLEMENTS_STATEMENT,
+  INFO_SECTION_TITLES,
+  MAX_DOCUMENT_CHARS,
+  MAX_LISTED_ITEMS,
+  MAX_QUOTED_DECISION_CHARS,
+  renderInfo,
+} from '../../../.claude/scripts/explain-seed/lib/render.mjs';
+import { SETTLED_ELSEWHERE, syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
 
 /** The body under one section heading, up to the next heading of the same level. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
@@ -256,4 +267,114 @@ test('C003 postcondition: a long glossary is trimmed with an explicit remainder'
   const frame = buildFrame({ facts: syntheticFacts({ terms }), previous: null });
 
   assert.match(sectionBody(frame.text, FRAME_SECTIONS[6].title), /…ほか \d+ 件/, 'the remainder is counted');
+});
+
+/** The facts document for one projection, rendered the way `run.mjs` renders it. */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+function renderFactsFor(projection) {
+  const facts = syntheticFacts({ projection });
+  return renderInfo({
+    projection,
+    workspace: facts.workspace,
+    seedPath: facts.seedPath,
+    verified: { specification: 'a'.repeat(64), stageOneManifest: 'b'.repeat(64), seed: 'c'.repeat(64) },
+  });
+}
+
+test('C003 postcondition: a boundary a neighbour has decided is not asked of this human', () => {
+  const frame = buildFrame({
+    facts: syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) }),
+    previous: null,
+  });
+  const decisions = sectionBody(frame.text, FRAME_SECTIONS[4].title);
+
+  assert.equal(frame.humanDecisionItems.length, 1);
+  assert.equal(frame.humanDecisionItems[0].id, 'residual-000001', 'the boundary has left the human section');
+  assert.equal(mentionsId(decisions, 'boundary-001'), false, 'and it is not mentioned there at all');
+});
+
+test('C003 invariant: the items that remain keep their order and are not renumbered', () => {
+  const settledProjection = syntheticProjection({
+    grill: {
+      questions: [{ residual_id: 'residual-000001', question: 'Q', topic: null, why_unresolved: null }],
+      risky_boundaries: [{ id: 'boundary-001', topic: null }, { id: 'boundary-007', topic: null }, { id: 'boundary-009', topic: null }],
+    },
+    settledElsewhere: SETTLED_ELSEWHERE,
+  });
+  const frame = buildFrame({ facts: syntheticFacts({ projection: settledProjection }), previous: null });
+
+  assert.deepEqual(
+    frame.humanDecisionItems.map((item) => item.id),
+    ['residual-000001', 'boundary-007', 'boundary-009'],
+    'removal is by id, so what is left keeps the order the manifests recorded',
+  );
+});
+
+test('C004 postcondition: the settled question is pre-decided, first, carrying its neighbour as the ground', () => {
+  const frame = buildFrame({
+    facts: syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) }),
+    previous: null,
+  });
+  const preDecided = sectionBody(frame.text, FRAME_SECTIONS[5].title);
+  const items = preDecided.split(`\n${PREDECIDED_ITEM_HEADING} `).slice(1);
+
+  assert.match(items[0], /boundary-001/, 'it opens the list, so a capped list cannot drop it');
+  assert.ok(items[0].includes(SETTLED_ELSEWHERE[0].decision), 'the decision is quoted from the neighbour');
+  assert.match(items[0], /crates\/protocol\/beta\/EXPLAIN-RFC-SEED\.md/, 'and the ground names the document it came from');
+});
+
+test('C006 postcondition: the nine sections that existed before are not a function of the settlement', () => {
+  const before = renderFactsFor(syntheticProjection({ settledElsewhere: [] }));
+  const after = renderFactsFor(syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }));
+
+  for (const id of ['I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8', 'I9']) {
+    assert.equal(before.sections[id], after.sections[id], `${id} does not depend on what a neighbour decided`);
+  }
+  assert.notEqual(before.sections.I10, after.sections.I10, 'only the tenth section moves');
+});
+
+test('C004 postcondition: the tenth section states the boundary, the counterpart and the decision verbatim', () => {
+  const { text, sections } = renderFactsFor(syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }));
+
+  assert.equal(sections.I10.startsWith(`## ${INFO_SECTION_TITLES.I10}`), true);
+  assert.match(sections.I10, /boundary-001/);
+  assert.match(sections.I10, /pkg-0002/);
+  assert.match(sections.I10, /crates\/protocol\/beta\/EXPLAIN-RFC-SEED\.md/);
+  assert.ok(sections.I10.includes(SETTLED_ELSEWHERE[0].decision), 'quoted, as the specification is quoted');
+  assert.equal(text.trimEnd().endsWith(sections.I10.trimEnd()), true, 'and it is the last thing in the document');
+});
+
+test('C004 invariant: an empty settlement is stated in the facts document\'s own language, not omitted', () => {
+  const { sections } = renderFactsFor(syntheticProjection({ settledElsewhere: [] }));
+
+  assert.equal(sections.I10.includes(ABSENT_SETTLEMENTS_STATEMENT), true);
+  assert.equal(/[぀-ヿ一-鿿]/.test(ABSENT_SETTLEMENTS_STATEMENT), false, 'the facts state an absence in English');
+});
+
+test('C004 invariant: a decision past the bound is quoted short, and what was dropped is stated', () => {
+  const overlongDecision = 'A'.repeat(MAX_QUOTED_DECISION_CHARS + 250);
+  const { sections } = renderFactsFor(
+    syntheticProjection({ settledElsewhere: [{ ...SETTLED_ELSEWHERE[0], decision: overlongDecision }] }),
+  );
+
+  assert.equal(sections.I10.includes(overlongDecision), false, 'the document does not carry a decision past its bound whole');
+  assert.match(sections.I10, /…\(\d+ more characters omitted\)/, 'and the omission is stated in full, as every other quotation states it');
+  assert.ok(
+    MAX_QUOTED_DECISION_CHARS * MAX_LISTED_ITEMS < MAX_DOCUMENT_CHARS / 4,
+    'the bound on one decision keeps the whole section within a quarter of the document bound',
+  );
+});
+
+test('C004 invariant: with facts that are entirely ASCII, the tenth section carries no Japanese', () => {
+  const asciiProjection = JSON.parse(JSON.stringify(syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE })));
+  asciiProjection.settledElsewhere.forEach((record) => {
+    record.decision = 'refuse with a coded error';
+  });
+  const { sections } = renderFactsFor(asciiProjection);
+
+  assert.deepEqual(
+    sections.I10.split('\n').filter((line) => /[぀-ヿ一-鿿]/.test(line)),
+    [],
+    'every Japanese line would be Japanese the tool wrote itself',
+  );
 });

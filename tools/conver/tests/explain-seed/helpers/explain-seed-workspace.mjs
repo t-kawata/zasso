@@ -570,3 +570,21 @@ export function snapshotWorkspace(root) {
     cpSync(backup, root, { recursive: true });
   };
 }
+
+/**
+ * Put an explanation beside one package's seed, the way an earlier run of the command would have.
+ *
+ * Shared by the unit and acceptance suites because both need a neighbour that has answered a
+ * shared question, and two copies of this would be two fixtures that could drift apart while
+ * both claiming to be the same situation. The directory is created because a workspace fixture
+ * writes only the seed it was asked for, so a neighbour's directory does not exist yet.
+ *
+ * @returns {string} the absolute path written, so a test can assert what the facts name it as
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export function writeNeighbourExplanation({ workspace, packageId, documentText }) {
+  const documentPath = join(dirname(workspace.seedPathOf(packageId)), EXPLAIN_FILE_NAME);
+  mkdirSync(dirname(documentPath), { recursive: true });
+  writeFileSync(documentPath, documentText, 'utf8');
+  return documentPath;
+}

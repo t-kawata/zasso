@@ -37,10 +37,19 @@ import {
   markerOffsetInLine as markerOffsetOf,
 } from './markers.mjs';
 import {
+  HUMAN_ITEM_HEADING,
+  PREDECIDED_ITEM_HEADING,
+  REFERENCE_SEPARATOR,
+  referenceOf,
+  splitItems,
+} from './items.mjs';
+import {
   INFO_SECTION_TITLES,
   MAX_LISTED_CLAUSES,
   truncateExcerpt,
 } from './render.mjs';
+
+export { HUMAN_ITEM_HEADING, PREDECIDED_ITEM_HEADING };
 
 /** The explanation document, which the AI fills and a person writes into. */
 export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
@@ -83,12 +92,6 @@ export const FRAME_SECTIONS = Object.freeze([
   Object.freeze({ id: 'E7', title: '踏むと壊れる線と用語ミニ辞典' }),
 ]);
 
-/** The heading that opens one question for the human. */
-export const HUMAN_ITEM_HEADING = '### 判断';
-
-/** The heading that opens one thing already decided for the human. */
-export const PREDECIDED_ITEM_HEADING = '### 先に決めた';
-
 /** The line that declares how many things the human is being asked to decide. */
 export const COUNT_LABEL = '人間が決めること';
 
@@ -106,9 +109,6 @@ export const GROUND_LABEL = '根拠';
 
 /** The line that states what would overturn the decision. */
 export const OVERRIDE_LABEL = '覆す条件';
-
-/** Separates an item's ordinal from the record it is about. */
-const REFERENCE_SEPARATOR = ' — ';
 
 /** The bound on the glossary, which is a help rather than a dictionary of everything. */
 export const MAX_GLOSSARY_TERMS = 12;
@@ -144,30 +144,6 @@ function sectionIdOf(line) {
 export function mentionsId(text, id) {
   const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(text);
-}
-
-/** The record an item's heading is about. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function referenceOf(heading) {
-  const parts = heading.split(REFERENCE_SEPARATOR);
-  return parts.length < 2 ? null : parts[parts.length - 1].trim();
-}
-
-/** One item's body, split from its heading. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function splitItems(sectionBodyText, heading) {
-  const items = [];
-  let current = null;
-  for (const line of sectionBodyText.split('\n')) {
-    if (line.startsWith(heading)) {
-      if (current !== null) items.push(current);
-      current = { heading: line, lines: [] };
-      continue;
-    }
-    if (current !== null) current.lines.push(line);
-  }
-  if (current !== null) items.push(current);
-  return items.map((item) => ({ id: referenceOf(item.heading), heading: item.heading, body: item.lines.join('\n') }));
 }
 
 /**
@@ -212,9 +188,15 @@ function readHumanNote(itemBody) {
   return note.join('\n').trim();
 }
 
-/** The sections of a document that was written by an earlier run. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function locateSections(documentText) {
+/**
+ * The sections of a document that was written by an earlier run.
+ *
+ * Exported because the reader that looks into a neighbour's explanation must find the human
+ * section exactly as the gate did: two locators would be two answers to "where does a person
+ * write", and a document the gate accepted could then be read as one it had not.
+ */
+// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
+export function locateSections(documentText) {
   const bodies = {};
   const duplicates = [];
   let current = null;
@@ -264,6 +246,7 @@ function locateSections(documentText) {
  * @returns {Array<{ id: string, kind: string, topic: string|null, whyUnresolved: string|null, contracts: Array<object> }>}
  */
 export function collectOpenItems(projection) {
+  const answered = settledBoundaryIds(projection);
   const questions = projection.grill.questions.map((entry) => ({
     id: entry.residual_id,
     kind: 'residual',
@@ -271,14 +254,28 @@ export function collectOpenItems(projection) {
     whyUnresolved: entry.why_unresolved,
     contracts: [],
   }));
-  const boundaries = projection.grill.risky_boundaries.map((entry) => ({
-    id: entry.id,
-    kind: 'boundary',
-    topic: entry.topic,
-    whyUnresolved: null,
-    contracts: projection.contracts.filter((contract) => contract.boundary_id === entry.id),
-  }));
+  const boundaries = projection.grill.risky_boundaries
+    .filter((entry) => !answered.has(entry.id))
+    .map((entry) => ({
+      id: entry.id,
+      kind: 'boundary',
+      topic: entry.topic,
+      whyUnresolved: null,
+      contracts: projection.contracts.filter((contract) => contract.boundary_id === entry.id),
+    }));
   return [...questions, ...boundaries];
+}
+
+/**
+ * The boundaries a neighbour has already answered.
+ *
+ * Kept out of `collectOpenItems` by id rather than by moving the item afterwards: while a
+ * boundary is an open item, `faultsOfPreDecisions` refuses any pre-decision grounded on it and
+ * `faultsOfCoverage` refuses it in both sections, so "moved" is not a state this gate has.
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export function settledBoundaryIds(projection) {
+  return new Set((projection.settledElsewhere ?? []).map((record) => record.boundary_id));
 }
 
 /**
@@ -317,7 +314,25 @@ export function collectPreDecidedItems(facts) {
     decision: `ポート ${port.id} を実装し、${port.provides.join(', ')} を提供する`,
     ground: `adapters.ports の ${port.id}`,
   }));
-  return [...clauses, ...forbidden, ...obligations, ...ports];
+  return [...collectSettledItems(projection), ...clauses, ...forbidden, ...obligations, ...ports];
+}
+
+/**
+ * The questions a neighbour has already answered, as things decided rather than things asked.
+ *
+ * They open the list because the list is capped: a decision a person has already made is not
+ * something a clause the facts document already carries may push out of sight.
+ *
+ * @param {object} projection
+ * @returns {Array<{ reference: string, decision: string, ground: string }>}
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export function collectSettledItems(projection) {
+  return (projection.settledElsewhere ?? []).map((record) => ({
+    reference: `${record.boundary_id}（${record.counterpart_name} が確定）`,
+    decision: record.decision,
+    ground: `${record.document} の ${record.boundary_id}`,
+  }));
 }
 
 /** The terms this package's own quotations use, in the order the human meets them. */

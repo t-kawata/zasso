@@ -2,9 +2,10 @@
  * Render one package's facts as the document a machine and an AI read.
  *
  * This is the record, not the explanation, and it is written in English because the AI reads
- * it. Every sentence here is a fact taken from the two manifests, the
- * seed or the specification, and every fact is printed with the identifier it came from, so
- * the AI can check any line against the artefacts rather than having to trust the prose.
+ * it. Every sentence here is a fact taken from the two manifests, the seed, the specification,
+ * or the explanation of a package at the other end of one of this package's boundaries, and
+ * every fact is printed with the identifier it came from, so the AI can check any line against
+ * the artefacts rather than having to trust the prose.
  * Nothing in this module explains, evaluates or advises: the explanation is a different
  * document, in the human's own language, written by the AI against these facts, and it
  * lives in `frame.mjs`.
@@ -44,6 +45,17 @@ export const MAX_LISTED_CLAUSES = 4;
 export const MAX_EXCERPT_CHARS = 160;
 
 /**
+ * The bound on a neighbour's recorded decision, which is a paragraph rather than a line.
+ *
+ * Larger than a line because the decision is the whole point of the record, and bounded at all
+ * because the document has a bound: twelve settled boundaries (MAX_LISTED_ITEMS) at this
+ * length keep the section near a quarter of MAX_DOCUMENT_CHARS however long a person writes.
+ * The omission is stated in full, as it is for every other quotation here — a record that
+ * silently dropped its own tail would be worse than a short one.
+ */
+export const MAX_QUOTED_DECISION_CHARS = 400;
+
+/**
  * The whole document's bound, asserted by the test that gives one package far more than any
  * real one carries. A document past this is not read, so the human would grill while believing
  * the preparation was done.
@@ -53,15 +65,24 @@ export const MAX_DOCUMENT_CHARS = 20000;
 /** Said in full when a package owns no unresolved design question. */
 export const ABSENT_RESIDUALS_STATEMENT = 'No unresolved design question is registered for this package.';
 
+/**
+ * How the facts state that no neighbour has settled anything.
+ *
+ * Stated rather than omitted, so a reader can tell "nothing was settled" from "this section was
+ * never written" — the same reason every other section states its own absence.
+ */
+export const ABSENT_SETTLEMENTS_STATEMENT = 'No neighbouring package has settled a question this package shares.';
+
 /** Said in full when a section has nothing to report. */
 export const ABSENT_SECTION_STATEMENT = 'No record of this kind.';
 
 /**
- * The nine section titles, named once.
+ * The section titles, named once.
  *
  * They are named here rather than inline because the explanation document refers to them
  * when it says which fact moved, and two copies of a title would be two names for one
- * section the moment either was edited.
+ * section the moment either was edited. The digest module derives the section id list from
+ * these keys, so a section added here is digested without a second edit.
  */
 export const INFO_SECTION_TITLES = Object.freeze({
   I1: '1. What this document verified',
@@ -73,6 +94,7 @@ export const INFO_SECTION_TITLES = Object.freeze({
   I7: '7. Forbidden dependencies and non-interference',
   I8: '8. Implementation obligations',
   I9: '9. What the grill must settle',
+  I10: '10. What a neighbour has already settled',
 });
 
 /** How this document says that a trimmed list left entries out. */
@@ -359,7 +381,32 @@ function renderGrillPoints(projection) {
 }
 
 /**
- * The whole facts document, as text and as its nine sections.
+ * The questions a neighbour has already answered, with the document that answered them.
+ *
+ * The decision is quoted verbatim, in the language the neighbour wrote it in, exactly as the
+ * specification's own text is quoted: a translation of an answer would no longer be a record
+ * of the answer, and this section is what the explanation and the digest both rest on.
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+function renderSettledElsewhere(projection) {
+  const settled = projection.settledElsewhere ?? [];
+  if (settled.length === 0) {
+    return renderSection(INFO_SECTION_TITLES.I10, [`- ${ABSENT_SETTLEMENTS_STATEMENT}`]);
+  }
+
+  const lines = [];
+  for (const record of settled.slice(0, MAX_LISTED_ITEMS)) {
+    lines.push(`- ${record.boundary_id} — settled by ${record.counterpart_name} (${record.counterpart}) in \`${record.document}\``);
+    lines.push(`  > ${truncateExcerpt(record.decision, { limit: MAX_QUOTED_DECISION_CHARS })}`);
+  }
+  const remainder = settled.length - Math.min(settled.length, MAX_LISTED_ITEMS);
+  if (remainder > 0) lines.push(renderRemainder(remainder));
+
+  return renderSection(INFO_SECTION_TITLES.I10, lines);
+}
+
+/**
+ * The whole facts document, as text and as its ten sections.
  *
  * The header is not a section: it is the one paragraph that says what the AI is
  * holding, and digesting it would reopen every explanation section whenever the wording
@@ -373,7 +420,7 @@ export function renderInfo({ projection, workspace, seedPath, verified }) {
   const header = [
     `# RFC-SEED record: ${identity.name} (${identity.id})`,
     '',
-    'This document is the record. It is built from the two manifests, the specification and the seed alone, and it contains no explanation.',
+    'This document is the record. It is built from the two manifests, the specification, the seed, and the explanations of the packages at the other end of this package\'s boundaries, and it contains no explanation of its own.',
     'The explanation is `EXPLAIN-RFC-SEED.md` beside it. The source of every fact is named in the section that states it.',
     'Text quoted from the specification is reproduced verbatim, in the language the specification is written in.',
     '',
@@ -389,6 +436,7 @@ export function renderInfo({ projection, workspace, seedPath, verified }) {
     ['I7', renderForbidden(projection)],
     ['I8', renderObligations(projection)],
     ['I9', renderGrillPoints(projection)],
+    ['I10', renderSettledElsewhere(projection)],
   ];
 
   return {

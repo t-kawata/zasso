@@ -257,7 +257,12 @@ test('C003 invariant: the fact-to-section wiring still names INFO 2 alone for E2
   const wiring = Object.fromEntries(EXPLAIN_SECTION_FACTS.map((entry) => [entry.id, entry.restsOn]));
 
   assert.deepEqual(wiring.E2, ['I2']);
-  assert.deepEqual(wiring.E1, ['I2', 'I3']);
+  // E1 also rests on INFO 10, which records what a neighbour has settled: the introduction
+  // declares how many things the human is asked to decide, so a boundary joining or leaving
+  // the human's section moves the number E1 states. PX-224's guarantee is untouched — only the
+  // sections resting on INFO 2 reopen when the order moves, which the test above asserts.
+  // [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+  assert.deepEqual(wiring.E1, ['I2', 'I3', 'I10']);
 });
 
 test('C004 precondition: the focus block of a recorded run parses to the facts it states', () => {

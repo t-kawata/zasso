@@ -30,10 +30,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './lib/errors.mjs';
-import { readSeed } from './lib/seed-document.mjs';
+import { readSeed, requireField } from './lib/seed-document.mjs';
 import { loadWorkspace } from './lib/workspace.mjs';
 import { verifyRecordedHashes } from './lib/verify.mjs';
-import { projectPackage } from './lib/projection.mjs';
+import { boundaryPairs, packagePaths, projectPackage } from './lib/projection.mjs';
+import { collectSettledDecisions } from './lib/neighbour-decisions.mjs';
 import { loadOrderFacts } from './lib/order.mjs';
 import { INFO_DOCUMENT_FILE_NAME, INFO_SECTION_TITLES, renderInfo } from './lib/render.mjs';
 import { EXPLAIN_FILE_NAME, FRAME_SECTIONS, buildFrame, verifyExplanation } from './lib/frame.mjs';
@@ -103,9 +104,25 @@ export function produceInfo(seedPath) {
     seedPath,
     packages: workspace.treeManifest.workspace?.packages,
   });
-  const projection = projectPackage({ identity, workspace, contractEdges, orderFacts });
+  const packageId = requireField(identity, 'package.id');
+  const settlements = collectSettledDecisions({
+    root: workspace.root,
+    packageId,
+    boundaries: boundaryPairs({ packageId, treeManifest: workspace.treeManifest }),
+    pathOf: packagePaths(workspace.treeManifest),
+  });
+  const projection = projectPackage({
+    identity,
+    workspace,
+    contractEdges,
+    orderFacts,
+    settledElsewhere: settlements.settled,
+  });
   const info = renderInfo({ projection, workspace, seedPath, verified });
-  return { info, facts: { projection, workspace, seedPath, infoSections: info.sections } };
+  return {
+    info,
+    facts: { projection, workspace, seedPath, infoSections: info.sections, unreadableNeighbours: settlements.unreadable },
+  };
 }
 
 /** Where the two documents live, given the seed they describe. */
@@ -126,9 +143,12 @@ function sectionName(sectionId) {
 }
 
 /** What the run did to the explanation, and what it found wrong with the earlier one. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function renderRunReport(frame) {
+// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
+function renderRunReport({ frame, unreadableNeighbours }) {
   const lines = [`explanation: kept ${frame.keptSections.length}, reopened ${frame.reopenedSections.length}`];
+  for (const neighbour of unreadableNeighbours) {
+    lines.push(`neighbour explanation not read: ${neighbour.document} — ${neighbour.reason}`);
+  }
   if (frame.reopenedSections.length > 0) {
     lines.push(`reopened: ${frame.reopenedSections.map(sectionName).join(', ')}`);
   }
@@ -165,7 +185,7 @@ function renderVerdict(verdict) {
 }
 
 /** Write the facts, maintain the explanation, and print the facts. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
 function runInfo(seedPath) {
   const { info, facts } = produceInfo(seedPath);
   const { infoPath, explainPath } = documentPaths(seedPath);
@@ -175,7 +195,7 @@ function runInfo(seedPath) {
   writeFileSync(infoPath, info.text, 'utf8');
   writeFileSync(explainPath, frame.text, 'utf8');
   process.stdout.write(info.text);
-  process.stderr.write(renderRunReport(frame));
+  process.stderr.write(renderRunReport({ frame, unreadableNeighbours: facts.unreadableNeighbours }));
   return EXIT_OK;
 }
 

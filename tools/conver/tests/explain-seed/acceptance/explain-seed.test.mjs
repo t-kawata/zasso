@@ -6,6 +6,10 @@
 // PX-222 @verifies C009
 // PX-222 @verifies C010
 // PX-224 @verifies C004
+// PX-225 @verifies C002
+// PX-225 @verifies C003
+// PX-225 @verifies C004
+// PX-225 @verifies C006
 //
 // `/explain-seed` is given one seed path and does everything else itself. It resolves the
 // workspace, verifies every hash the artefacts record, writes the facts to
@@ -18,7 +22,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,9 +34,12 @@ import {
   TREE_MANIFEST_FILE_NAME,
   materializeExplainSeedWorkspace,
   snapshotWorkspace,
+  writeNeighbourExplanation,
 } from '../helpers/explain-seed-workspace.mjs';
 import { fillAllButOneMarker, fillEveryMarker } from '../helpers/fill-frame.mjs';
 import {
+  ABSENT_SETTLEMENTS_STATEMENT,
+  INFO_SECTION_TITLES,
   MAX_DOCUMENT_CHARS,
 } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
 import {
@@ -41,11 +48,39 @@ import {
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
   PARTY_LABEL,
+  PREDECIDED_ITEM_HEADING,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { findHumanPlaceholders, findOpenMarkers, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/run.mjs', import.meta.url));
 const HUMAN_NOTE = '人間の判断: 現場では拒否のほうが自然だと考える。';
+
+/** The neighbour package at the other end of the boundary the fixture records. */
+const NEIGHBOUR_PACKAGE = 'pkg-0002';
+const NEIGHBOUR_DECISION = '却下はエラーコードで返す。真偽値で読み飛ばせないようにする。';
+
+/** A neighbour explanation in which the shared question has already been answered. */
+const NEIGHBOUR_EXPLANATION = [
+  '## 人間が決めること（ここだけ）',
+  '',
+  '### 判断 H1 — boundary-001',
+  `- ${PARTY_LABEL}:`,
+  '  却下の形は面を作る開発者の体験を変える。',
+  '<!-- 判断内容を人間が書き込む -->',
+  NEIGHBOUR_DECISION,
+].join('\n');
+
+/** Put the neighbour's answer beside its seed, the way an earlier run of this command would have. */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+function writeNeighbourAnswer(workspace) {
+  return writeNeighbourExplanation({ workspace, packageId: NEIGHBOUR_PACKAGE, documentText: NEIGHBOUR_EXPLANATION });
+}
+
+/** The item headings one section of an explanation opens. */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+function itemHeadings(documentText, heading) {
+  return documentText.split('\n').filter((line) => line.startsWith(`${heading} `));
+}
 
 /** Run the command and keep both sinks as bytes. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
@@ -477,4 +512,71 @@ test('C010 invariant: an earlier document changes what is preserved and never wh
   assert.equal(withPrevious.status, bare.status, 'the same tampering fails the same way');
   assert.deepEqual(withPrevious.stderr, bare.stderr, 'an earlier document changes nothing about verification');
   assert.equal(existsSync(workspace.infoPath), false);
+});
+
+test('C004 postcondition: a boundary a neighbour has decided is recorded here rather than asked again', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  writeNeighbourAnswer(workspace);
+
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const { info, explain } = documentsOf(workspace);
+
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+  assert.ok(info.includes(NEIGHBOUR_DECISION), 'the neighbour wording is quoted into the facts document');
+  assert.match(info, new RegExp(`## ${INFO_SECTION_TITLES.I10}`), 'and it is stated in a section of its own');
+  assert.equal(
+    itemHeadings(explain, HUMAN_ITEM_HEADING).some((line) => line.includes('boundary-001')),
+    false,
+    'the human section no longer asks the question',
+  );
+  assert.equal(
+    itemHeadings(explain, PREDECIDED_ITEM_HEADING).some((line) => line.includes('boundary-001')),
+    true,
+    'the pre-decided section records the answer instead',
+  );
+});
+
+test('C003 postcondition: the gate accepts the explanation this produces', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  writeNeighbourAnswer(workspace);
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  writeFileSync(workspace.explainPath, withHumanNote(authorFrame(workspace)), 'utf8');
+
+  const check = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
+
+  assert.equal(check.status, 0, check.stdout.toString('utf8'));
+  assert.match(check.stdout.toString('utf8'), /check OK/);
+});
+
+test('C002 postcondition: an unreadable neighbour document leaves the question standing and is named', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  mkdirSync(join(workspace.root, 'crates/protocol/beta', EXPLAIN_FILE_NAME), { recursive: true });
+
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const { info, explain } = documentsOf(workspace);
+
+  assert.equal(run.status, 0, 'another package\'s document never fails this run');
+  assert.match(run.stderr.toString('utf8'), new RegExp(EXPLAIN_FILE_NAME), 'the document that could not be read is named');
+  assert.equal(
+    itemHeadings(explain, HUMAN_ITEM_HEADING).some((line) => line.includes('boundary-001')),
+    true,
+    'the question is asked here, because nothing settled it',
+  );
+  assert.equal(info.includes('## 10.'), true, 'and the facts still carry the section, stating that nothing was settled');
+});
+
+test('C006 postcondition: a workspace whose neighbours have decided nothing gains one empty section and no more', () => {
+  const workspace = materializeExplainSeedWorkspace();
+
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const { info } = documentsOf(workspace);
+  const headings = info.split('\n').filter((line) => line.startsWith('## '));
+
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+  assert.deepEqual(
+    headings,
+    Object.values(INFO_SECTION_TITLES).map((title) => `## ${title}`),
+    'the document carries every declared section, in the declared order',
+  );
+  assert.ok(info.includes(ABSENT_SETTLEMENTS_STATEMENT), 'the tenth section states its absence rather than being left out');
 });

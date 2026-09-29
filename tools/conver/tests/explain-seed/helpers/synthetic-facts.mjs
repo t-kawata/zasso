@@ -10,6 +10,25 @@
 // branch the frame has is reachable without a fixture the size of a real workspace.
 export const SYNTHETIC_SEED_PATH = '/tmp/explain-seed-fixture/crates/protocol/alpha/RFC-SEED.md';
 
+/**
+ * One boundary a neighbour has already decided, in the shape the projection carries.
+ *
+ * A boundary has exactly two ends, so the only way this record exists is that the package at
+ * the other end wrote its answer down. It is a fixture constant rather than an inline literal
+ * because several tests need the same record and a difference between two copies of it would
+ * be a difference the code under test could not tell from a real one.
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+export const SETTLED_ELSEWHERE = Object.freeze([
+  Object.freeze({
+    boundary_id: 'boundary-001',
+    counterpart: 'pkg-0002',
+    counterpart_name: 'beta',
+    document: 'crates/protocol/beta/EXPLAIN-RFC-SEED.md',
+    decision: '却下はエラーコードで返す。真偽値で読み飛ばせないようにする。',
+  }),
+]);
+
 /** One inventory term, overlapping the owned record's line range so the glossary is not empty. */
 const OVERLAPPING_TERM = {
   id: 'req-000001',
@@ -116,6 +135,9 @@ export function syntheticProjection(overrides = {}) {
       ],
       risky_boundaries: [{ id: 'boundary-001', topic: null }],
     },
+    // Empty by default: a workspace whose neighbours have decided nothing is the ordinary
+    // case, and it is what every assertion written before this field existed assumes.
+    settledElsewhere: [],
     seed_edges: [],
     ...overrides,
   };
@@ -133,6 +155,7 @@ export function syntheticInfoSections(overrides = {}) {
     I7: '## 7. 禁じられた依存と非干渉\n\n- pkg-0001 → pkg-0002 は禁止\n',
     I8: '## 8. 実装の義務\n\n- pkg-0001 is the conformance sink for its layer\n',
     I9: '## 9. grill で詰めるべき点\n\n- residual-000001: Does alpha refuse an over-bound record or clamp it?\n',
+    I10: '## 10. What a neighbour has already settled\n\n- No record of this kind.\n',
     ...overrides,
   };
 }
@@ -156,10 +179,17 @@ export function syntheticFacts(overrides = {}) {
   };
 }
 
-/** The recorded open set the frame is required to carry, derived from the projection alone. */
+/**
+ * The recorded open set the frame is required to carry, derived from the projection alone.
+ *
+ * A boundary a neighbour has already decided is not open here, so it is not in this set: the
+ * frame is required to carry what the manifests recorded *and nothing has answered yet*.
+ */
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function syntheticOpenIds(projection = syntheticProjection()) {
+  const settled = new Set((projection.settledElsewhere ?? []).map((record) => record.boundary_id));
   return [
     ...projection.grill.questions.map((entry) => entry.residual_id),
-    ...projection.grill.risky_boundaries.map((entry) => entry.id),
+    ...projection.grill.risky_boundaries.map((entry) => entry.id).filter((id) => !settled.has(id)),
   ];
 }

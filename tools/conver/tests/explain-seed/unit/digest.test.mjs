@@ -1,6 +1,7 @@
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
 // PX-222 @verifies C003
 // PX-222 @verifies C008
+// PX-225 @verifies C005
 //
 // The digest is what lets a re-run keep a section or reopen it. It has to depend on the
 // facts a section rests on and on nothing else: a digest that moved when an unrelated
@@ -20,7 +21,8 @@ import {
   renderDigestBlock,
 } from '../../../.claude/scripts/explain-seed/lib/digest.mjs';
 import { FRAME_SECTIONS } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
-import { syntheticInfoSections } from '../helpers/synthetic-facts.mjs';
+import { INFO_SECTION_TITLES, renderInfo } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
+import { syntheticFacts, syntheticInfoSections, syntheticProjection } from '../helpers/synthetic-facts.mjs';
 
 test('C003 invariant: every EXPLAIN section declares which INFO sections feed it, and only known ids', () => {
   assert.deepEqual(
@@ -87,4 +89,33 @@ test('C008 postcondition: the moved facts are named, so a reopened section can s
 
   assert.deepEqual(movedFactNames({ recorded, computed }), { E1: ['I2'], E2: ['I2'], E6: ['I7'], E7: ['I7'] });
   assert.deepEqual(movedFactNames({ recorded, computed: recorded }), {});
+});
+
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+test('C005 postcondition: a moved neighbour decision reopens exactly the three sections that rest on it', () => {
+  const recorded = computeFrameDigests(syntheticInfoSections({ I10: '## 10.\n\n- boundary-001: refuse with a coded error\n' }));
+  const computed = computeFrameDigests(syntheticInfoSections({ I10: '## 10.\n\n- boundary-001: clamp and accept\n' }));
+
+  const moved = Object.keys(computed).filter((id) => computed[id].digest !== recorded[id].digest);
+  assert.deepEqual(moved, ['E1', 'E5', 'E6'], 'the introduction counts the items, the human section holds them, the pre-decisions record them');
+  assert.deepEqual(movedFactNames({ recorded, computed }), { E1: ['I10'], E5: ['I10'], E6: ['I10'] });
+});
+
+test('C005 invariant: the tenth section feeds E1, E5 and E6 and nothing else', () => {
+  const restingOnSettlements = EXPLAIN_SECTION_FACTS.filter((entry) => entry.restsOn.includes('I10')).map((entry) => entry.id);
+
+  assert.deepEqual([...restingOnSettlements].sort(), ['E1', 'E5', 'E6']);
+});
+
+test('C005 invariant: the ids the digest knows are the ids the renderer emits', () => {
+  const facts = syntheticFacts();
+  const { sections } = renderInfo({
+    projection: syntheticProjection(),
+    workspace: facts.workspace,
+    seedPath: facts.seedPath,
+    verified: { specification: 'a'.repeat(64), stageOneManifest: 'b'.repeat(64), seed: 'c'.repeat(64) },
+  });
+
+  assert.deepEqual([...INFO_SECTION_IDS], Object.keys(INFO_SECTION_TITLES), 'the titles and the ids name one set');
+  assert.deepEqual([...INFO_SECTION_IDS], Object.keys(sections), 'and the renderer emits exactly that set');
 });

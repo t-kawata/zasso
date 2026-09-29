@@ -23,16 +23,17 @@ Does not: grill, decide, publish a manifest, start a workflow. Explains; human g
 ## Arguments
 
 In: arg: `<path-to-RFC-SEED.md>`, required, only.
-Resolve: package + three reference paths from seed's identity block; workspace root = nearest ancestor dir holding both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` — the order is read from the tool that owns the ordering rule, and that tool resolves the same pair.
+Resolve: package + three reference paths from seed's identity block; workspace root = nearest ancestor dir holding both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` — the order is read from the tool that owns the ordering rule, and that tool resolves the same pair. The neighbours are the packages at the other end of every boundary this package is a party to, found by the paths the stage-one manifest records for those package ids.
 no second arg, dialogue, env var, hook, fetch → refuse; exit non-zero.
 
 ## Artifacts
 
-`INFO-RFC-SEED.md` — record, English, script-authored from the two manifests + seed + specification, same bytes also on stdout.
+`INFO-RFC-SEED.md` — record, English, script-authored from the two manifests + seed + specification + the neighbours' explanations, same bytes also on stdout.
 - every fact names its source identifier; empty section says so
 - no explaining/evaluating/advising sentence — this is what the AI works from
 - section 2's implementation order is read from `.claude/scripts/workspacify-order/run.mjs`, which derives the levels and refuses to draw an order that disagrees with the published one; section 2 states the serial relations (declared edges only) and the parallel relations (the same level) as two separate axes, and says that a different level is not an ordering
-- exception: quoted specification text and manifest-carried names stay verbatim (Japanese), untranslated — a translated quote would no longer be a record of it
+- section 10 lists every boundary a neighbour has already settled, naming the neighbour, its document, and the decision verbatim. It is the section the explanation's 「先に決めておいたこと」 rests on, so a decision moving there reopens the introduction, the human's section and the pre-decided section
+- exception: quoted specification text, manifest-carried names, and a neighbour's recorded decision stay verbatim (Japanese), untranslated — a translated quote would no longer be a record of it
 
 `EXPLAIN-RFC-SEED.md` — explanation, Japanese, dual-authored.
 - script writes the frame: 7 sections, `[::MUST-FILL::]` markers (AI fills), `<!-- 判断内容を人間が書き込む -->` placeholders (human fills), pre-decided items carrying ground + override condition
@@ -45,7 +46,9 @@ Command's own reports (kept/reopened, gate verdict) → stderr, English.
 
 - verify-before-write: every recorded hash recomputed and agreed before first byte exists; mismatch → exit non-zero, neither document written; an earlier document changes what is preserved, never what is verified
 - no recorded open item may disappear: each is asked of the human, or decided in the pre-decided section; an open item is never the ground of a decision
-- read-only toward the workspace; the only files created are the two documents
+- read-only toward the workspace; the only files created are the two documents; a neighbour's explanation is read and never written
+- a question a neighbour has clearly settled is never asked of this human: the boundary leaves the human's section and is recorded in 「先に決めておいたこと」 with the neighbour's document as its ground. "Clearly settled" means every neighbour document that could be read holds the same answer — one distinct decision, however many documents carry it — under that boundary's placeholder; a neighbour that has not been explained yet is ordinary and the question stands
+- a neighbour document that exists but cannot be read settles nothing and is named on stderr. It is never read for whatever can be salvaged, and a run never fails because another package's document is malformed — the direction is always to ask again, never to settle on a guess
 - the order facts are never optional: a workspace whose order cannot be read, or whose published order disagrees with its own edges, fails at G1 rather than producing a section 2 without relations
 - `check` is the gate; AI may report only a gate-accepted explanation
 
@@ -55,7 +58,7 @@ Base: `.claude/scripts/explain-seed/`.
 
 | Script | Contract |
 |---|---|
-| `run.mjs info <path-to-RFC-SEED.md>` | resolves, verifies, reads the implementation order from `workspacify-order`, writes the facts + prints those bytes, maintains the explanation beside the seed. exit 0 = published; non-zero = names the offending artefact. stderr reports what was kept / reopened |
+| `run.mjs info <path-to-RFC-SEED.md>` | resolves, verifies, reads the implementation order from `workspacify-order`, reads the neighbours' explanations for boundaries already settled, writes the facts + prints those bytes, maintains the explanation beside the seed. exit 0 = published; non-zero = names the offending artefact. stderr reports what was kept / reopened, and names any neighbour document it could not read |
 | `run.mjs check <path-to-RFC-SEED.md>` | gate: exit 0 only if every instruction answered, every human question names whose experience changes, no recorded open item vanished, every section rests on current facts. else names sections at fault, exit non-zero |
 
 ## Criteria — Kind, and Unfit to report
@@ -115,6 +118,7 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    Read facts on stdout. Replace every `[::MUST-FILL::]` with Japanese prose per the instruction it carries.
    judge, per item, in this order:
    - Q0 (already published?): does the published implementation order already answer it? → the order, the levels, the edges and the parallel set are records, not questions. Never ask the human to re-decide the order, the levels, the edges or the parallel set, and never write any of those into 「先に決めておいたこと」 as a decision just taken. An order that disagrees with its own edges is a broken manifest, not a question: name `WORKSPACIFY-ALLOCATE-MANIFEST.json`'s `implementation_order`.
+   - Q0' (already settled next door?): a boundary is a party-record of exactly two packages, so the same question is asked at both ends. The script has already read the neighbours' explanations: a boundary a neighbour has clearly settled is absent from 「人間が決めること（ここだけ）」 and stands in 「先に決めておいたこと」 with the neighbour's words as 決定 and its document as 根拠. Do not re-ask it, do not re-open it, and do not move it back. The boundary is not an open item of this document, so the gate refuses an item asking it (`unrecorded-decision`) — and it accepts, indeed requires, a 根拠 naming it, because the script has already written that ground and a decision whose ground is missing is refused too. What the neighbour decided is a record, exactly like a published order; the AI supplies only 覆す条件, and that condition must be a fact about *this* package, not a reason to have asked the question again. A boundary that is still a question here was not settled next door, which usually means no neighbour has been explained yet: ask it normally.
    - Q1 (engineering?): could I write ground + decision + override condition for this right now, pointing at the manifests? → yes: write it in 「先に決めておいたこと」, not the human's section.
    - Q2 (human's?): would a reasonable engineer downstream disagree over how it feels, not over the facts? → yes: write it in 「人間が決めること（ここだけ）」.
    Batch-write, per item, order: directory purpose in human's words → what is decided → whose experience changes → consequence if undecided → (human item: leave `<!-- 判断内容を人間が書き込む -->` blank) / (pre-decided item: override condition, do not re-open).

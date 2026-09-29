@@ -1,6 +1,7 @@
 // PX-222 @verifies C005
 // PX-222 @verifies C006
 // PX-222 @verifies C007
+// PX-225 @verifies C003
 //
 // The gate is the only thing standing between an unfinished explanation and the human who
 // would act on it, so every rule it enforces is asserted twice: once as a document it must
@@ -21,7 +22,7 @@ import {
   verifyExplanation,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { MUST_FILL_MARKER, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
-import { syntheticFacts, syntheticOpenIds } from '../helpers/synthetic-facts.mjs';
+import { SETTLED_ELSEWHERE, syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
 import { fillEveryMarker } from '../helpers/fill-frame.mjs';
 
 const E5_TITLE = FRAME_SECTIONS[4].title;
@@ -227,4 +228,32 @@ test('C007 invariant: the gate accepts exactly the documents the counter calls c
 
   assert.equal(verifyExplanation({ facts, explainText: complete }).ok, true);
   assert.equal(verifyExplanation({ facts, explainText: withMarker }).ok, false);
+});
+
+// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+test('C003 postcondition: a neighbour\'s decision satisfies the gate, and the human is asked one question fewer', () => {
+  const facts = syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) });
+  const verdict = verifyExplanation({ facts, explainText: authored(facts) });
+
+  assert.deepEqual(verdict.faults, []);
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.askedOfHuman, syntheticOpenIds(facts.projection).length, 'the settled boundary is not asked');
+  assert.equal(verdict.decidedForHuman > 0, true, 'and the neighbour\'s decision is recorded among the pre-decisions');
+});
+
+test('C003 invariant: an item the manifests no longer record as open is refused as a delegation', () => {
+  const facts = syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) });
+  const bothAskedAndRecorded = rewriteSection(
+    authored(facts),
+    E5_TITLE,
+    (body) =>
+      `### ${HUMAN_ITEM_HEADING.slice(4)} H9 — boundary-001\n\n- ${PARTY_LABEL}:\n  面を作る開発者。\n<!-- 判断内容を人間が書き込む -->\n\n${body}`,
+  );
+  const verdict = verifyExplanation({ facts, explainText: bothAskedAndRecorded });
+
+  assert.equal(verdict.ok, false);
+  assert.ok(
+    verdict.faults.some((fault) => fault.kind === 'unrecorded-decision' && fault.id === 'boundary-001'),
+    'the boundary is settled elsewhere, so asking it here is a question the manifests no longer record',
+  );
 });
