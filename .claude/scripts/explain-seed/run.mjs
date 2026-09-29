@@ -27,12 +27,14 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './lib/errors.mjs';
 import { readSeed } from './lib/seed-document.mjs';
 import { loadWorkspace } from './lib/workspace.mjs';
 import { verifyRecordedHashes } from './lib/verify.mjs';
 import { projectPackage } from './lib/projection.mjs';
+import { loadOrderFacts } from './lib/order.mjs';
 import { INFO_DOCUMENT_FILE_NAME, INFO_SECTION_TITLES, renderInfo } from './lib/render.mjs';
 import { EXPLAIN_FILE_NAME, FRAME_SECTIONS, buildFrame, verifyExplanation } from './lib/frame.mjs';
 
@@ -84,6 +86,11 @@ function parseArguments(argv) {
 /**
  * Resolve, verify, project and render one seed, without writing anything. Reading only.
  *
+ * The implementation order is read here rather than inside the projection, so the projection
+ * stays what its module says it is — a reading of facts already in hand, with no I/O of its
+ * own. `check` comes through this function too, so the order is re-derived on every gate run and
+ * a moved order reopens the sections that rest on it.
+ *
  * @param {string} seedPath
  * @returns {{ info: { text: string, sections: object }, facts: object }}
  */
@@ -91,7 +98,12 @@ export function produceInfo(seedPath) {
   const { seedText, identity, contractEdges } = readSeed(seedPath);
   const workspace = loadWorkspace({ seedPath, identity });
   const verified = verifyRecordedHashes({ identity, workspace, seedText });
-  const projection = projectPackage({ identity, workspace, contractEdges });
+  const orderFacts = loadOrderFacts({
+    root: workspace.root,
+    seedPath,
+    packages: workspace.treeManifest.workspace?.packages,
+  });
+  const projection = projectPackage({ identity, workspace, contractEdges, orderFacts });
   const info = renderInfo({ projection, workspace, seedPath, verified });
   return { info, facts: { projection, workspace, seedPath, infoSections: info.sections } };
 }
@@ -195,4 +207,12 @@ function main(argv) {
   }
 }
 
-process.exitCode = main(process.argv.slice(2));
+/** Whether this file is the program being run, rather than a module another file imported. */
+// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+function isProgramRun() {
+  return process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+}
+
+if (isProgramRun()) {
+  process.exitCode = main(process.argv.slice(2));
+}
