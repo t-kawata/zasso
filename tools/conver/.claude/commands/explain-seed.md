@@ -46,11 +46,11 @@ Downstream (role, not name): design interview
 
 In: arg: `<path-to-RFC-SEED.md>`, required, only.
 Resolve: package + three reference paths from seed's identity block; workspace root = nearest ancestor dir holding both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` — the order is read from the tool that owns the ordering rule, and that tool resolves the same pair. Neighbours = packages at the other end of every boundary this package is a party to, found by the paths the stage-one manifest records for those package ids.
-no second arg, dialogue, env var, hook, fetch → refuse; exit non-zero.
+second arg: `next` alone takes one — the round size — and `info`, `check` and `answers` take none. A second arg given to those three, dialogue, env var, hook, fetch → refuse; exit non-zero.
 
 ## Artifacts
 
-Ledger: every point is `open` | `bound(Qn)` | `settled(ground)`. open set = points not carried in 「先に決めておいたこと」 with ground. Script-derived.
+Ledger: every point is exactly one of `open` (nothing names it) | `bound(Qn)` (a question's bound-points line names it) | `settled(ground)` (a pre-decided item carrying a ground names it). No two of the three overlap, and the recorded open set is exactly the three together. unsettled = `open` ∪ `bound` — every point not carried in 「先に決めておいたこと」 with a ground. Script-derived, never written to a file.
 
 `INFO-RFC-SEED.md` — record, English, script-authored from the two manifests + seed + specification + neighbours' explanations; same bytes on stdout.
 - every fact names its source identifier; empty section says so
@@ -62,7 +62,7 @@ Ledger: every point is `open` | `bound(Qn)` | `settled(ground)`. open set = poin
 `EXPLAIN-RFC-SEED.md` — explanation, Japanese, dual-authored.
 - script writes frame: 7 sections, ledger of points, `[::MUST-FILL::]` markers (AI fills), `<!-- 人間の判断 -->` placeholders (human fills)
 - frame holds no per-point question; `run.mjs next` appends numbered empty question blocks
-- question block: number (frame), context, directions `A` `B` (`C` allowed), one recommended, reason, overturning fact, scope line; bound point ids + record copy under it as AI-only, frame-marked not for the person, never echoed in chat
+- question block: number (written by `next`, never by the AI, and never renumbered), context, directions `A` `B` (`C` allowed), one recommended, reason, overturning fact, scope line; bound point ids + record copy under it as AI-only, frame-marked not for the person, never echoed in chat
 - settled item: decision, ground, override condition
 - numbers continue across rounds; no renumbering
 - human's writing under placeholders is what the downstream design interview reads
@@ -95,7 +95,7 @@ Base: `.claude/scripts/explain-seed/`.
 | `run.mjs info <path>` | resolves, verifies, reads implementation order from `workspacify-order`, reads neighbours' explanations for settled boundaries, writes facts + prints those bytes, writes frame + ledger beside seed. exit 0 = published; non-zero = names offending artefact. stderr: kept / reopened; unreadable neighbour documents |
 | `run.mjs next <path> <n>` | appends n empty numbered question blocks; numbers continue; n ≤ 3; refuses past round 5, or when no point is open; rewrites nothing existing. non-zero = names reason |
 | `run.mjs check <path>` | gate: exit 0 only if every instruction answered; every question has context, ≥2 directions, one recommendation, overturning fact, scope line, ≥2 bound points; every settled item has ground + override condition; no point vanished; every section rests on current facts. else names sections at fault, exit non-zero |
-| `run.mjs answers <path>` | verdict: exit 0 only if every question carries an answer under its placeholder AND ledger open = 0; else names unanswered questions and open points, exit non-zero. reads, writes nothing |
+| `run.mjs answers <path>` | verdict: exit 0 only if every question carries an answer under its placeholder AND ledger unsettled = 0 (no point left `open` or `bound`); else names unanswered questions and unsettled points, exit non-zero. reads, writes nothing |
 
 ## Criteria
 
@@ -256,4 +256,4 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    → one line: human's judgement stands under each `<!-- 人間の判断 -->`; the downstream design interview reads it
    no hand-editing either document; wrong → inputs wrong → regenerate.
 
-Done: both documents exist, published; facts printed once; G4 passed; G5 passed (every question answered, ledger open = 0); report written after loop exit, naming every G3-caught-but-unfixed item.
+Done: both documents exist, published; facts printed once; G4 passed; G5 passed (every question answered, ledger unsettled = 0 — no point left `open` or `bound`); report written after loop exit, naming every G3-caught-but-unfixed item.
