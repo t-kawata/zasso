@@ -1,5 +1,6 @@
 // PX-226 @verifies C003
 // PX-226 @verifies C004
+// PX-230 @verifies C004
 //
 // The asking round is the step the command now ends on, so its verdict is asserted against
 // documents rather than against the process: `readAnswers` is the reader, `renderAnswerVerdict`
@@ -214,6 +215,26 @@ test('C002 boundary: the round size next takes is an integer from one to the dec
       `${JSON.stringify(size)} is refused as a round size, naming what went wrong`,
     );
   }
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 normal: a document whose questions are all answered still fails while one added point is unsettled', () => {
+  const complete = withNoteUnderEveryPlaceholder(authored(), HUMAN_NOTE);
+  const reading = readAnswers(complete);
+  const verdict = renderAnswerVerdict({ ...reading, unsettled: ['added-001'] });
+
+  assert.deepEqual(reading.unanswered, [], 'every question carries an answer');
+  assert.doesNotMatch(verdict, /answers OK/, 'an answered document is not finished while a point is unsettled');
+  assert.match(verdict, /added-001/, 'and the verdict names the point that keeps it open');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 error: the verdict names the added point that is still unsettled', () => {
+  const reading = readAnswers(authored());
+  const verdict = renderAnswerVerdict({ ...reading, unsettled: ['added-001'] });
+
+  assert.match(verdict, /^answers FAILED: /, 'the answered questions do not hide the unsettled point');
+  assert.match(verdict, /- added-001\b/, 'the point is listed by id, so the operator can settle it');
 });
 
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.

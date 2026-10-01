@@ -6,6 +6,10 @@
 // PX-226 @verifies C005
 // PX-229 @verifies C004
 // PX-229 @verifies C006
+// PX-230 @verifies C002
+// PX-230 @verifies C003
+// PX-230 @verifies C005
+// PX-230 @verifies C006
 //
 // The gate is the only thing standing between an unfinished explanation and the human who
 // would act on it, so every rule it enforces is asserted twice: once as a document it must
@@ -39,7 +43,7 @@ import {
 import { questionNumberOf, splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
 import { MUST_FILL_MARKER, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { SETTLED_ELSEWHERE, syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
-import { authorDocument, authorExplanation } from '../helpers/fill-frame.mjs';
+import { appendAddedPoint, authorDocument, authorExplanation, bindPoints } from '../helpers/fill-frame.mjs';
 
 const E5_TITLE = FRAME_SECTIONS[4].title;
 const E6_TITLE = FRAME_SECTIONS[5].title;
@@ -284,6 +288,24 @@ test('C004 boundary: the two-point rule is exempt when fewer than two points are
   });
 
   assert.equal(verdict.faults.some((fault) => fault.kind === 'too-few-bound-points'), false, 'the exemption is decided by the open count alone');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C006 boundary: a question binding one point is accepted when one point is unsettled, however many are recorded', () => {
+  const facts = syntheticFacts();
+  const explainText = authorDocument({
+    facts,
+    questions: [{ number: 1, bound: ['residual-000001'] }],
+    preDecided: [
+      { reference: 'boundary-001', ground: 'contract_registry の contract-boundary-001 の clauses.canonicalization' },
+    ],
+  });
+
+  assert.equal(
+    verifyExplanation({ facts, explainText }).faults.some((fault) => fault.kind === 'too-few-bound-points'),
+    false,
+    'two points are recorded but one is settled, so one is all a question can carry',
+  );
 });
 
 // [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
@@ -719,4 +741,166 @@ test('C005 postcondition: the asking step states what may be asked and how it is
   assert.match(rules, /never technical/, 'the standard says a technical question is not put to the human, and where the technical part is settled instead');
   assert.match(rules, /W7/, 'the number is a rule, not a habit');
   assert.match(rules, /W8/, 'and so is the letter the answer names');
+});
+
+/** The added point the human's answer raised, in the shape every case here uses. */
+const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
+
+/** An authored EXPLAIN carrying one added-point block, ready for a surgery. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function withAddedPoint(facts = syntheticFacts()) {
+  return appendAddedPoint(authored(facts), ADDED_POINT);
+}
+
+/** The fault kinds a verdict reports for one document. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function faultKindsOf(facts, explainText) {
+  return verifyExplanation({ facts, explainText }).faults.map((fault) => fault.kind);
+}
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 error: an added-point id without the reserved prefix is refused as unreserved-added-point', () => {
+  const facts = syntheticFacts();
+  const unreserved = withAddedPoint(facts).replace('added-001', 'extra-001');
+
+  assert.ok(faultKindsOf(facts, unreserved).includes('unreserved-added-point'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 error: an added-point id used twice is refused as duplicate-added-point', () => {
+  const facts = syntheticFacts();
+  const withBlock = withAddedPoint(facts);
+
+  assert.ok(faultKindsOf(facts, `${withBlock}${withBlock}`).includes('duplicate-added-point'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 error: an added-point id a recorded point already uses is refused as duplicate-added-point', () => {
+  const facts = syntheticFacts();
+  const collision = appendAddedPoint(authored(facts), {
+    id: 'residual-000001',
+    origin: '「監査ログは残せない」',
+    statement: '監査ログを残すかどうか',
+  });
+
+  assert.ok(faultKindsOf(facts, collision).includes('duplicate-added-point'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 error: an added-point block carrying no origin is refused as uncited-added-point', () => {
+  const facts = syntheticFacts();
+  const uncited = withAddedPoint(facts).replace(/^- 出どころ:.*$/mu, '- 出どころ:');
+
+  assert.ok(faultKindsOf(facts, uncited).includes('uncited-added-point'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 error: an added-point block carrying no statement is refused as unstated-added-point', () => {
+  const facts = syntheticFacts();
+  const unstated = withAddedPoint(facts).replace(/^- 論点:.*$/mu, '- 論点:');
+
+  assert.ok(faultKindsOf(facts, unstated).includes('unstated-added-point'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C003 normal: a question binding one recorded point and one added point is accepted', () => {
+  const facts = syntheticFacts();
+  const bound = bindPoints(withAddedPoint(facts), 'residual-000001, added-001');
+  const kinds = faultKindsOf(facts, bound);
+
+  assert.equal(kinds.includes('unrecorded-decision'), false, 'an added point is a point a question may bind');
+  assert.equal(kinds.includes('too-few-bound-points'), false, 'two points are bound');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C003 error: an id that is neither recorded nor added still trips unrecorded-decision', () => {
+  const facts = syntheticFacts();
+  const stray = bindPoints(withAddedPoint(facts), 'residual-000001, ghost-001');
+
+  assert.ok(
+    verifyExplanation({ facts, explainText: stray }).faults.some(
+      (fault) => fault.kind === 'unrecorded-decision' && fault.id === 'ghost-001',
+    ),
+  );
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C006 error: a question binding one added point alone is refused as too-few-bound-points', () => {
+  const facts = syntheticFacts();
+  const alone = bindPoints(withAddedPoint(facts), 'added-001');
+
+  assert.ok(
+    faultKindsOf(facts, alone).includes('too-few-bound-points'),
+    'two recorded points are recorded, so one bound point is not enough',
+  );
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C006 boundary: the two-point exemption applies when fewer than two points are unsettled', () => {
+  const onlyAdded = syntheticProjection({
+    grill: { questions: [], risky_boundaries: [{ id: 'boundary-001', topic: null }] },
+  });
+  const facts = syntheticFacts({ projection: onlyAdded });
+  const single = appendAddedPoint(
+    authorDocument({
+      facts,
+      questions: [{ number: 1, bound: ['added-001'] }],
+      preDecided: [
+        { reference: 'boundary-001', ground: 'contract_registry の contract-boundary-001 の clauses.canonicalization' },
+      ],
+    }),
+    ADDED_POINT,
+  );
+
+  assert.equal(
+    faultKindsOf(facts, single).includes('too-few-bound-points'),
+    false,
+    'the recorded point is settled, so the added point is the only one left to ask about',
+  );
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C006 invariant: no added point reaches the human as a question binding fewer than two points while two are open', () => {
+  const facts = syntheticFacts();
+  const verdict = verifyExplanation({ facts, explainText: bindPoints(withAddedPoint(facts), 'added-001') });
+
+  assert.ok(
+    verdict.faults.some((fault) => fault.kind === 'too-few-bound-points' && fault.id === 'Q1' && fault.section === 'E5'),
+    'the loose path to the human is refused by the gate',
+  );
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C005 normal: an added point recorded but not yet bound is not a coverage fault, because its own block carries it', () => {
+  const facts = syntheticFacts();
+  const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');
+
+  assert.equal(faultKindsOf(facts, openAdded).includes('missing-open-item'), false, 'the added block carries itself');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C005 error: a recorded point the document carries nowhere is still reported as missing-open-item', () => {
+  const facts = syntheticFacts();
+  const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');
+  const droppedRecorded = openAdded.replaceAll('boundary-001', 'residual-000002');
+
+  assert.ok(
+    verifyExplanation({ facts, explainText: droppedRecorded }).faults.some(
+      (fault) => fault.kind === 'missing-open-item' && fault.id === 'boundary-001',
+    ),
+    'a recorded point cannot hide behind the widened universe',
+  );
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C005 invariant: coverage is read over the recorded points only, so widening the universe cannot hide a recorded point', () => {
+  const facts = syntheticFacts();
+  const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');
+  const faults = verifyExplanation({ facts, explainText: openAdded }).faults;
+
+  assert.equal(
+    faults.some((fault) => fault.kind === 'missing-open-item' && fault.id === 'added-001'),
+    false,
+    'the added point is never read as a recorded point that vanished',
+  );
 });

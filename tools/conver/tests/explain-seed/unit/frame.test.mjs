@@ -7,6 +7,7 @@
 // PX-225 @verifies C006
 // PX-226 @verifies C001
 // PX-229 @verifies C007
+// PX-230 @verifies C002
 //
 // The frame is the script's half of the explanation: the structure, the instructions, the
 // placeholders and the count. The AI's half is the prose that replaces the markers, so the
@@ -45,6 +46,16 @@ import {
   verifyExplanation,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import {
+  ADDED_POINT_CLOSE,
+  ADDED_POINT_ID_PREFIX,
+  ADDED_POINT_OPEN,
+  ADDED_POINT_ORIGIN_LABEL,
+  ADDED_POINT_STATEMENT_LABEL,
+  RESERVED_POINT_ID,
+  readAddedPoints,
+  renderAddedPointBlock,
+} from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import {
   HUMAN_PLACEHOLDER,
   MUST_FILL_MARKER,
   findHumanPlaceholders,
@@ -53,7 +64,7 @@ import {
   markerOffsetInLine,
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
-import { authorExplanation } from '../helpers/fill-frame.mjs';
+import { appendAddedPoint, authorExplanation } from '../helpers/fill-frame.mjs';
 import {
   ABSENT_SETTLEMENTS_STATEMENT,
   INFO_SECTION_TITLES,
@@ -687,4 +698,80 @@ test('C007 boundary: a human section whose headings carry a record reference is 
 
   assert.ok(locateSections(rebuilt.text).bodies[HUMAN_SECTION_ID].includes(ABSENT_RESIDUALS_STATEMENT));
   assert.deepEqual(readQuestionNumbers(rebuilt.text), []);
+});
+
+/** The added point the human's answer raised, in the shape every case here uses. */
+const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
+
+/** A published frame with one empty question round, before any block is appended. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function framedWithOneRound() {
+  return appendQuestionRound({ documentText: buildFrame({ facts: syntheticFacts(), previous: null }).text, size: 1 });
+}
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 normal: an added-point block is read with its id, its origin and its one-line statement', () => {
+  const plain = framedWithOneRound();
+  const documentText = appendAddedPoint(plain, ADDED_POINT);
+
+  assert.deepEqual(readAddedPoints({ documentText }), [ADDED_POINT]);
+  assert.deepEqual(readAddedPoints({ documentText: plain }), [], 'a document with no block reads as no added points');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 normal: the writer and the reader are one format, so a written block round-trips', () => {
+  const rendered = renderAddedPointBlock(ADDED_POINT);
+
+  assert.equal(
+    rendered,
+    [
+      `${ADDED_POINT_OPEN} id="added-001" -->`,
+      `- ${ADDED_POINT_ORIGIN_LABEL}: 「監査ログは残せない」`,
+      `- ${ADDED_POINT_STATEMENT_LABEL}: 監査ログを残すかどうか`,
+      ADDED_POINT_CLOSE,
+    ].join('\n'),
+  );
+  assert.deepEqual(readAddedPoints({ documentText: rendered }), [ADDED_POINT]);
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 boundary: the reserved id is the prefix followed by three digits and nothing else', () => {
+  assert.equal(ADDED_POINT_ID_PREFIX, 'added-');
+  assert.equal(RESERVED_POINT_ID.test('added-001'), true);
+  assert.equal(RESERVED_POINT_ID.test('added-1'), false, 'one digit is not the shape');
+  assert.equal(RESERVED_POINT_ID.test('added-0001'), false, 'four digits is not the shape');
+  assert.equal(RESERVED_POINT_ID.test('residual-000001'), false, 'a recorded id is not reserved');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 boundary: a line that mentions the added-point marker inside prose is not a block', () => {
+  const plain = framedWithOneRound();
+  const prose = plain.replace(
+    '## ',
+    'この節は <!-- explain-seed:added-point id="added-001" --> という形のブロックを持ちます。\n\n## ',
+  );
+
+  assert.deepEqual(readAddedPoints({ documentText: prose }), []);
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 normal: the blocks are read in document order, so a later round reads the round before it', () => {
+  const first = appendAddedPoint(framedWithOneRound(), { id: 'added-002', origin: '「その2」', statement: '論点2' });
+  const later = appendAddedPoint(first, { id: 'added-001', origin: '「その1」', statement: '論点1' });
+
+  assert.deepEqual(readAddedPoints({ documentText: later }).map((point) => point.id), ['added-002', 'added-001']);
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 boundary: a shape-carrying human section with an added-point block still reopens when its facts moved, carrying the block', () => {
+  const facts = syntheticFacts();
+  const previous = appendAddedPoint(authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) }), ADDED_POINT);
+  const movedFacts = syntheticFacts({
+    projection: facts.projection,
+    infoSections: { ...facts.infoSections, I9: '## 9. grill で詰めるべき点\n\n- residual-000001: 記録が更新された\n' },
+  });
+  const second = buildFrame({ facts: movedFacts, previous });
+
+  assert.ok(second.reopenedSections.includes(HUMAN_SECTION_ID), 'a moved fact reopens the human section');
+  assert.deepEqual(readAddedPoints({ documentText: second.text }), [ADDED_POINT], 'the added point is carried through');
 });

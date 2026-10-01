@@ -1,5 +1,7 @@
 // PX-229 @verifies C003
 // PX-229 @verifies C001
+// PX-230 @verifies C001
+// PX-230 @verifies C004
 //
 // The ledger is what the command document derives on every read instead of storing: each
 // recorded open point is exactly one of open, bound to a question, or settled with a ground.
@@ -14,9 +16,17 @@ import {
   readBoundPointIds,
   readQuestions,
   readRounds,
+  universeOf,
 } from '../../../.claude/scripts/explain-seed/lib/ledger.mjs';
 import { buildFrame, readQuestionNumbers } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
-import { authorDocument, authorExplanation, fillEveryMarker } from '../helpers/fill-frame.mjs';
+import {
+  appendAddedPoint,
+  appendPreDecision,
+  authorDocument,
+  authorExplanation,
+  bindPoints,
+  fillEveryMarker,
+} from '../helpers/fill-frame.mjs';
 import {
   SETTLED_ELSEWHERE,
   syntheticFacts,
@@ -168,4 +178,126 @@ test('C003 boundary: a question with no bound-points line binds nothing, and a l
     [],
     'a line that mentions the label without opening with it is prose, not a bound-points line',
   );
+});
+
+/** The added point the human's answer raised, in the shape every case here uses. */
+const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
+
+/** An authored document with one added-point block and the recorded points the caller bound. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function withAddedPoint(facts, { bound = syntheticOpenIds(facts.projection) } = {}) {
+  return appendAddedPoint(authorExplanation({ facts, boundIds: bound }), ADDED_POINT);
+}
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 normal: a point the document adds joins the ledger universe as an open point', () => {
+  const facts = syntheticFacts();
+  const withBlock = withAddedPoint(facts);
+  const ledger = deriveLedger({ documentText: withBlock, projection: facts.projection });
+
+  assert.deepEqual(
+    [...universeOf({ projection: facts.projection, documentText: withBlock })].sort(),
+    [...syntheticOpenIds(facts.projection), 'added-001'].sort(),
+  );
+  assert.ok(ledger.open.has('added-001'), 'the recorded points are bound, the added point is still open');
+  assert.deepEqual([...ledger.added], ['added-001'], 'the ledger says which ids came from the document');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 normal: an added point a question\'s bound-points line names is bound, and records that question number', () => {
+  const facts = syntheticFacts();
+  const bound = bindPoints(withAddedPoint(facts), 'added-001');
+  const ledger = deriveLedger({ documentText: bound, projection: facts.projection });
+
+  assert.ok(ledger.bound.has('added-001'), 'a question that names the added point binds it');
+  assert.equal(ledger.open.has('added-001'), false);
+  assert.deepEqual(ledger.unsettled.has('added-001'), true, 'bound is unsettled until an answer settles it');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 normal: an added point a pre-decided item carrying a ground names is settled, and records that ground', () => {
+  const facts = syntheticFacts();
+  const settled = appendPreDecision(withAddedPoint(facts), { reference: 'added-001', ground: 'Q1 A' });
+  const ledger = deriveLedger({ documentText: settled, projection: facts.projection });
+
+  assert.deepEqual([...ledger.settled], ['added-001']);
+  assert.equal(ledger.open.has('added-001'), false);
+  assert.equal(ledger.bound.has('added-001'), false);
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 invariant: settled wins over bound for an added point, so the three sets stay disjoint', () => {
+  const facts = syntheticFacts();
+  const both = appendPreDecision(bindPoints(withAddedPoint(facts), 'added-001'), { reference: 'added-001', ground: 'Q1 A' });
+  const ledger = deriveLedger({ documentText: both, projection: facts.projection });
+
+  assert.deepEqual([...ledger.settled], ['added-001']);
+  assert.equal(ledger.bound.has('added-001'), false, 'a settled point is not also reported as bound');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 invariant: the union of open, bound and settled is exactly the recorded points together with the added ones, for every fixture', () => {
+  for (const overrides of [{}, { settledElsewhere: SETTLED_ELSEWHERE }]) {
+    const projection = syntheticProjection(overrides);
+    const facts = syntheticFacts({ projection });
+    const withBlock = withAddedPoint(facts);
+    const ledger = deriveLedger({ documentText: withBlock, projection });
+    const union = new Set([...ledger.open, ...ledger.bound, ...ledger.settled]);
+
+    assert.deepEqual([...union].sort(), [...universeOf({ projection, documentText: withBlock })].sort());
+    assert.equal(ledger.open.size + ledger.bound.size + ledger.settled.size, union.size, 'the three sets are pairwise disjoint');
+  }
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 boundary: a document that adds no point has exactly the recorded open set as its universe', () => {
+  const facts = syntheticFacts();
+  const plain = authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
+
+  assert.deepEqual(
+    [...universeOf({ projection: facts.projection, documentText: plain })].sort(),
+    [...syntheticOpenIds(facts.projection)].sort(),
+  );
+  assert.deepEqual([...deriveLedger({ documentText: plain, projection: facts.projection }).added], []);
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C001 normal: an added point carries the origin it was refined from, so it can be told from a recorded one', () => {
+  const facts = syntheticFacts();
+  const ledger = deriveLedger({ documentText: withAddedPoint(facts), projection: facts.projection });
+
+  assert.deepEqual([...ledger.added], ['added-001'], 'only the id the document contributed is an added id');
+  for (const id of syntheticOpenIds(facts.projection)) {
+    assert.equal(ledger.added.has(id), false, 'a recorded id is never reported as added');
+  }
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 invariant: adding a point can never shorten the loop, only lengthen it', () => {
+  const facts = syntheticFacts();
+  const plain = authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
+  const withBlock = appendAddedPoint(plain, ADDED_POINT);
+  const before = [...deriveLedger({ documentText: plain, projection: facts.projection }).unsettled].sort();
+  const after = [...deriveLedger({ documentText: withBlock, projection: facts.projection }).unsettled].sort();
+
+  assert.deepEqual(after, [...before, 'added-001'].sort(), 'the added point is one more thing to settle, never one fewer');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 normal: answers refuses while an added point is unsettled and accepts once it is settled with a ground', () => {
+  const facts = syntheticFacts();
+  const recorded = syntheticOpenIds(facts.projection);
+  const basis = appendAddedPoint(
+    authorDocument({
+      facts,
+      questions: [{ number: 1, bound: ['added-001'] }],
+      preDecided: recorded.map((id) => ({ reference: id, ground: 'Q1 A' })),
+    }),
+    ADDED_POINT,
+  );
+
+  assert.deepEqual([...deriveLedger({ documentText: basis, projection: facts.projection }).unsettled], ['added-001']);
+
+  const settled = appendPreDecision(basis, { reference: 'added-001', ground: 'Q1 A' });
+  assert.deepEqual([...deriveLedger({ documentText: settled, projection: facts.projection }).unsettled], []);
 });

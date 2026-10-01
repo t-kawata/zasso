@@ -15,6 +15,8 @@
 // PX-226 @verifies C003
 // PX-226 @verifies C004
 // PX-226 @verifies C006
+// PX-230 @verifies C002
+// PX-230 @verifies C004
 //
 // `/explain-seed` is given one seed path and does everything else itself. It resolves the
 // workspace, verifies every hash the artefacts record, writes the facts to
@@ -40,7 +42,7 @@ import {
   snapshotWorkspace,
   writeNeighbourExplanation,
 } from '../helpers/explain-seed-workspace.mjs';
-import { fillAllButOneMarker, fillEveryMarker } from '../helpers/fill-frame.mjs';
+import { appendAddedPoint, appendPreDecision, fillAllButOneMarker, fillEveryMarker } from '../helpers/fill-frame.mjs';
 import {
   ABSENT_SETTLEMENTS_STATEMENT,
   INFO_SECTION_TITLES,
@@ -814,4 +816,52 @@ test('C002 postcondition: a question whose context was never written is refused,
     /who knows neither the implementation nor the design/,
     'and the report says what is missing, rather than printing the fault kind at whoever has to fix it',
   );
+});
+
+/** The added point the human's answer raised, in the shape these cases use. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 postcondition: an info run over a document holding an added-point block keeps it and exits zero', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  writeFileSync(workspace.explainPath, appendAddedPoint(readFileSync(workspace.explainPath, 'utf8'), ADDED_POINT), 'utf8');
+
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+  assert.match(readFileSync(workspace.explainPath, 'utf8'), /added-001/, 'the block survives the run that would otherwise lose it');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 postcondition and invariant: answers stays non-zero while an added point is unsettled, and turns zero once it is settled', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  let text = withHumanNote(authorFrame(workspace, { boundIds: ['added-001'] }));
+  text = appendAddedPoint(text, ADDED_POINT);
+  for (const id of openIdsOf(workspace)) text = appendPreDecision(text, { reference: id, ground: 'Q1 A' });
+  writeFileSync(workspace.explainPath, text, 'utf8');
+
+  const refused = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(refused.status, 0, 'an added point left unsettled keeps the loop open past a fully answered round');
+  assert.match(refused.stdout.toString('utf8'), /added-001/, 'and the verdict names the point that keeps it open');
+
+  writeFileSync(workspace.explainPath, appendPreDecision(text, { reference: 'added-001', ground: 'Q1 A' }), 'utf8');
+  const settled = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.equal(settled.status, 0, settled.stdout.toString('utf8') + settled.stderr.toString('utf8'));
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C004 postcondition: next refuses when nothing is unattached, and opens a round once an added point is there', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+  const authored = authorFrame(workspace, { boundIds: openIdsOf(workspace) });
+
+  const refused = runExplainSeed(['next', workspace.seedPath, '1'], { cwd: workspace.root });
+  assert.notEqual(refused.status, 0, 'every recorded point is already bound, so there is nothing to ask');
+
+  writeFileSync(workspace.explainPath, appendAddedPoint(authored, ADDED_POINT), 'utf8');
+  const opened = runExplainSeed(['next', workspace.seedPath, '1'], { cwd: workspace.root });
+  assert.equal(opened.status, 0, opened.stderr.toString('utf8'));
 });

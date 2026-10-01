@@ -89,7 +89,7 @@ const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
 const ARITY = Object.freeze({ [OPERATIONS.INFO]: 1, [OPERATIONS.NEXT]: 2, [OPERATIONS.CHECK]: 1, [OPERATIONS.ANSWERS]: 1 });
 
 /** What each fault means, said in the terms the operator reading the report is holding. */
-// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229|PX-230) --for-spec --no-implementation-order`.
 const FAULT_MESSAGES = Object.freeze({
   'open-marker': 'an explanation point has not been written yet',
   'missing-placeholder': 'there is no place for the human to write',
@@ -119,6 +119,10 @@ const FAULT_MESSAGES = Object.freeze({
   'duplicate-section': 'the section appears more than once',
   'unreadable-section': 'the place the human wrote cannot be found',
   'missing-digest-block': 'the document does not record which facts it was built from',
+  'unreserved-added-point': 'a point the document adds does not carry the reserved id shape',
+  'duplicate-added-point': 'a point the document adds uses an id a recorded point or another block already uses',
+  'uncited-added-point': 'a point the document adds does not say where it came from',
+  'unstated-added-point': 'a point the document adds does not state what it is',
 });
 
 /** The operation, the seed path it acts on, and the round size only `next` takes. */
@@ -207,11 +211,11 @@ function sectionName(sectionId) {
 }
 
 /** What the run did to the explanation, and what it found wrong with the earlier one. */
-// [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229|PX-230) --for-spec --no-implementation-order`.
 function renderRunReport({ frame, unreadableNeighbours, ledger, rounds }) {
   const lines = [
     `explanation: kept ${frame.keptSections.length}, reopened ${frame.reopenedSections.length}`,
-    `ledger: ${ledger.open.size} open, ${ledger.bound.size} bound, ${ledger.settled.size} settled — ${rounds} of ${MAX_ROUNDS} rounds used`,
+    `ledger: ${ledger.open.size} open, ${ledger.bound.size} bound, ${ledger.settled.size} settled, ${ledger.added.size} added — ${rounds} of ${MAX_ROUNDS} rounds used`,
   ];
   for (const neighbour of unreadableNeighbours) {
     lines.push(`neighbour explanation not read: ${neighbour.document} — ${neighbour.reason}`);

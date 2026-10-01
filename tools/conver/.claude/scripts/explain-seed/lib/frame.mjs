@@ -163,6 +163,34 @@ export const BOUND_POINTS_LABEL = '束ねた論点';
 /** The line that states, in one line, what an answer lets the AI settle. */
 export const SCOPE_LABEL = 'この質問で決まること';
 
+/**
+ * The id a point the document adds carries, and the shape that reserves it.
+ *
+ * A reserved id can never collide with a recorded id, so the two origins can never be
+ * confused: an id under this prefix came from the document, and one that is not did not.
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export const ADDED_POINT_ID_PREFIX = 'added-';
+
+export const RESERVED_POINT_ID = /^added-\d{3}$/;
+
+/**
+ * The line that opens an added-point block, and the line that closes it.
+ *
+ * The block is written as an HTML comment so the readers that stop at a comment — the label
+ * reader and the note reader — skip it, and the block is invisible to every rule but its own.
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export const ADDED_POINT_OPEN = '<!-- explain-seed:added-point';
+
+export const ADDED_POINT_CLOSE = '<!-- /explain-seed:added-point -->';
+
+/** The two lines inside an added-point block: where it came from, and what it is. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export const ADDED_POINT_ORIGIN_LABEL = '出どころ';
+
+export const ADDED_POINT_STATEMENT_LABEL = '論点';
+
 /** How many recorded points one direction question must settle before it is worth asking. */
 export const MIN_BOUND_POINTS = 2;
 
@@ -302,6 +330,116 @@ export function boundPointIds(itemBody) {
     .split(/[,、]/)
     .map((token) => token.trim())
     .filter((token) => token !== '' && !token.includes(MUST_FILL_MARKER));
+}
+
+/**
+ * A whole line that is an added-point opening marker, with the id it carries.
+ *
+ * The marker has to be the line's whole content: a sentence that only mentions the marker is
+ * prose, and reading it as a block would turn a question about the format into one.
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+const ADDED_POINT_OPENING = new RegExp(`^${ADDED_POINT_OPEN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} id="([^"]+)" -->$`, 'u');
+
+/** The id an added-point opening line carries, or nothing when the line is not one. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function addedPointIdIn(line) {
+  const matched = String(line).trim().match(ADDED_POINT_OPENING);
+  return matched === null ? null : matched[1];
+}
+
+/** The value of a labelled line inside an added-point block, or the empty string when absent. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function addedPointValue(blockBody, label) {
+  const matched = blockBody.match(new RegExp(`^- ${label}:[ \\t]*(.*)$`, 'mu'));
+  return matched === null ? '' : matched[1].trim();
+}
+
+/**
+ * The points the document adds, read in document order.
+ *
+ * A block runs from its opening marker to its closing marker; a marker with no close is not a
+ * block, because a point admitted halfway is a point whose statement was never written. The
+ * origin and the statement are empty when their line is missing or blank, so the gate can tell
+ * an absent origin from a present one and refuse the block.
+ *
+ * @param {{ documentText: string }} input
+ * @returns {Array<{ id: string, origin: string, statement: string }>}
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function readAddedPoints({ documentText }) {
+  const lines = String(documentText).split('\n');
+  const points = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const id = addedPointIdIn(lines[index]);
+    if (id === null) continue;
+
+    const body = [];
+    let cursor = index + 1;
+    for (; cursor < lines.length && lines[cursor].trim() !== ADDED_POINT_CLOSE; cursor += 1) {
+      body.push(lines[cursor]);
+    }
+    if (cursor >= lines.length) continue;
+
+    const blockBody = body.join('\n');
+    points.push({
+      id,
+      origin: addedPointValue(blockBody, ADDED_POINT_ORIGIN_LABEL),
+      statement: addedPointValue(blockBody, ADDED_POINT_STATEMENT_LABEL),
+    });
+    index = cursor;
+  }
+  return points;
+}
+
+/**
+ * One added-point block, written the way the reader reads it.
+ *
+ * The writer lives beside the reader and the opening constant, so the format is defined once:
+ * a block written here can always be read back, and a reader changed without the writer would
+ * be caught by the round-trip a test performs rather than in a finished document.
+ *
+ * @param {{ id: string, origin: string, statement: string }} point
+ * @returns {string}
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function renderAddedPointBlock({ id, origin, statement }) {
+  return [
+    `${ADDED_POINT_OPEN} id="${id}" -->`,
+    `- ${ADDED_POINT_ORIGIN_LABEL}: ${origin}`,
+    `- ${ADDED_POINT_STATEMENT_LABEL}: ${statement}`,
+    ADDED_POINT_CLOSE,
+  ].join('\n');
+}
+
+/**
+ * The faults in the points the document adds.
+ *
+ * A block is refused unless its id is reserved and unused and it carries both an origin and a
+ * statement. The origin is required because it is the only mechanical guard against the AI
+ * inventing a point to look responsive: a point admitted without one is a point nobody raised.
+ *
+ * @param {{ documentText: string, recordedIds: Set<string> }} input
+ * @returns {Array<{ kind: string, section: string, id: string }>}
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function faultsOfAddedPoints({ documentText, recordedIds }) {
+  const faults = [];
+  const used = new Set();
+
+  for (const point of readAddedPoints({ documentText })) {
+    if (!RESERVED_POINT_ID.test(point.id)) {
+      faults.push({ kind: 'unreserved-added-point', section: HUMAN_SECTION_ID, id: point.id });
+    }
+    if (used.has(point.id) || recordedIds.has(point.id)) {
+      faults.push({ kind: 'duplicate-added-point', section: HUMAN_SECTION_ID, id: point.id });
+    }
+    used.add(point.id);
+    if (point.origin === '') faults.push({ kind: 'uncited-added-point', section: HUMAN_SECTION_ID, id: point.id });
+    if (point.statement === '') faults.push({ kind: 'unstated-added-point', section: HUMAN_SECTION_ID, id: point.id });
+  }
+  return faults;
 }
 
 /** The letter a direction opens with, or nothing when the line opens with none. */
@@ -1091,23 +1229,26 @@ function sectionOfLine(documentText, lineNumber) {
  * those four: those four are about the choice the question offers, and this one is about
  * whether the question can be read at all by the person it is put to.
  */
-// [::TICKET::] PX-222, PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
-function faultsOfDecisions({ body, openItems, section }) {
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229|PX-230) --for-spec --no-implementation-order`.
+function faultsOfDecisions({ body, universe, unsettledCount, section }) {
   const faults = [];
-  const openIds = new Set(openItems.map((item) => item.id));
 
   for (const item of splitItems(body, HUMAN_ITEM_HEADING)) {
     const number = questionNumberOf(item.heading);
     const question = number === null ? item.heading : `Q${number}`;
 
     // The points a question settles, not the record its heading named: a question binds the
-    // recorded points it is a direction about, and an id the manifests never recorded is a
-    // question the manifests never recorded.
+    // points it is a direction about — a recorded point or one the document added — and an id
+    // that exists in neither set is a point that exists nowhere.
     const bound = boundPointIds(item.body);
     for (const id of bound) {
-      if (!openIds.has(id)) faults.push({ kind: 'unrecorded-decision', section, id });
+      if (!universe.has(id)) faults.push({ kind: 'unrecorded-decision', section, id });
     }
-    if (bound.length < MIN_BOUND_POINTS && openItems.length >= MIN_BOUND_POINTS) {
+    // The exemption is decided by the points no answer has settled yet, not by how many the
+    // manifests recorded: a package whose recorded points are mostly settled has one point
+    // left to ask about, and refusing that question would demand a bundle the documents
+    // cannot supply.
+    if (bound.length < MIN_BOUND_POINTS && unsettledCount >= MIN_BOUND_POINTS) {
       faults.push({ kind: 'too-few-bound-points', section, id: question });
     }
 
@@ -1188,12 +1329,17 @@ function faultsOfPreDecisions({ body, openIds, questions, section }) {
 }
 
 /** The faults in the coverage of the recorded open items. */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
-function faultsOfCoverage({ ledger, openItems }) {
+// [::TICKET::] PX-222, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229|PX-230) --for-spec --no-implementation-order`.
+function faultsOfCoverage({ ledger, recordedPoints }) {
   // Coverage is read from the ledger and not from the text: a point that a question binds and
   // an answer later settles is named in both sections, and that is the end state the loop
   // exists to reach, not a fault. What the rule refuses is a point left in no state at all.
-  return openItems
+  //
+  // This rule ranges over the recorded points alone, never the widened universe. A point the
+  // document adds is carried by its own block until a question binds it, so reading it here
+  // would report it as a vanished point; and reading the widened universe would allow an added
+  // point to hide a recorded point the document dropped.
+  return recordedPoints
     .filter((item) => ledger.open.has(item.id))
     .map((item) => ({ kind: 'missing-open-item', section: null, id: item.id }));
 }
@@ -1225,8 +1371,11 @@ export function verifyExplanation({ facts, explainText }) {
   const digests = computeFrameDigests(facts.infoSections);
   const recorded = readDigestBlock(explainText);
   const located = locateSections(explainText);
-  const openItems = collectOpenItems(facts.projection);
-  const openIds = new Set(openItems.map((item) => item.id));
+  const recordedPoints = collectOpenItems(facts.projection);
+  const recordedIds = new Set(recordedPoints.map((item) => item.id));
+  // The universe is the recorded open set together with the points the document adds, so a
+  // question may bind a point the human raised, and an id in neither set is still refused.
+  const universe = new Set([...recordedIds, ...readAddedPoints({ documentText: explainText }).map((point) => point.id)]);
 
   const faults = [
     ...faultsOfPrevious(located),
@@ -1245,9 +1394,10 @@ export function verifyExplanation({ facts, explainText }) {
     number: questionNumberOf(item.heading),
   }));
   const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
-  faults.push(...faultsOfDecisions({ body: decisions, openItems, section: HUMAN_SECTION_ID }));
-  faults.push(...faultsOfPreDecisions({ body: preDecisions, openIds, questions, section: PREDECIDED_SECTION_ID }));
-  faults.push(...faultsOfCoverage({ ledger, openItems }));
+  faults.push(...faultsOfDecisions({ body: decisions, universe, unsettledCount: ledger.unsettled.size, section: HUMAN_SECTION_ID }));
+  faults.push(...faultsOfPreDecisions({ body: preDecisions, openIds: recordedIds, questions, section: PREDECIDED_SECTION_ID }));
+  faults.push(...faultsOfCoverage({ ledger, recordedPoints }));
+  faults.push(...faultsOfAddedPoints({ documentText: explainText, recordedIds }));
 
   const declared = declaredDecisionCount(explainText);
   if (declared !== countHumanDecisionItems(explainText)) {

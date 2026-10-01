@@ -1,5 +1,6 @@
 // PX-222 @verifies C008
 // PX-229 @verifies C007
+// PX-230 @verifies C002
 //
 // Re-running is the step that can quietly destroy a person's work, in one of two
 // directions. A section kept when its facts moved presents a stale judgement as current;
@@ -19,9 +20,10 @@ import {
   locateSections,
   readQuestionNumbers,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
+import { readAddedPoints } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { countOpenMarkers, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { syntheticFacts, syntheticInfoSections, syntheticOpenIds } from '../helpers/synthetic-facts.mjs';
-import { authorExplanation } from '../helpers/fill-frame.mjs';
+import { appendAddedPoint, authorExplanation } from '../helpers/fill-frame.mjs';
 
 const HUMAN_NOTE = '人間の判断: ここは現場の感覚では拒否のほうが自然だと考える。';
 
@@ -134,4 +136,19 @@ test('C008 invariant: no previous document reopens everything and raises no faul
   assert.deepEqual(frame.reopenedSections, FRAME_SECTIONS.map((section) => section.id));
   assert.deepEqual(frame.keptSections, []);
   assert.deepEqual(frame.faults, [], 'a first run is not a damaged document');
+});
+
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+test('C002 normal: an info run keeps the human section, carrying the added-point blocks with it', () => {
+  const facts = syntheticFacts();
+  const previous = appendAddedPoint(authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) }), {
+    id: 'added-001',
+    origin: '「監査ログは残せない」',
+    statement: '監査ログを残すかどうか',
+  });
+  const frame = buildFrame({ facts, previous });
+
+  assert.ok(frame.keptSections.includes(HUMAN_SECTION_ID), 'nothing moved, so the human section is kept');
+  assert.ok(locateSections(frame.text).bodies[HUMAN_SECTION_ID].includes('added-001'), 'the block lives in the body that was kept');
+  assert.deepEqual(readAddedPoints({ documentText: frame.text }), readAddedPoints({ documentText: previous }), 'and it is read the same after the run');
 });

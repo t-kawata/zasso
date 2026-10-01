@@ -15,7 +15,7 @@ Does not: decide for the human, publish a manifest, start a workflow, invoke ano
 
 Never put a point to the human. Put only direction questions.
 
-- point: one recorded open item.
+- point: one recorded open item. The set is not closed: a viewpoint the human brings is refined into an orderly point before it is recorded, and is then a point like any other, put through the same settle-and-bundle filter.
 - direction question: one question on a priority, a desired state, or whose experience comes first. One answer lets the AI settle many points itself.
 - order: AI settles first; only what it cannot settle is bundled; only the bundle is asked.
 - direction ≠ vague. Wide in span, concrete in words: each direction names who, in what situation, gains what, loses what. No implementation term.
@@ -50,7 +50,8 @@ second arg: `next` alone takes one — the round size — and `info`, `check` an
 
 ## Artifacts
 
-Ledger: every point is exactly one of `open` (nothing names it) | `bound(Qn)` (a question's bound-points line names it) | `settled(ground)` (a pre-decided item carrying a ground names it). No two of the three overlap, and the recorded open set is exactly the three together. unsettled = `open` ∪ `bound` — every point not carried in 「先に決めておいたこと」 with a ground. Script-derived, never written to a file.
+Ledger: every point is exactly one of `open` (nothing names it) | `bound(Qn)` (a question's bound-points line names it) | `settled(ground)` (a pre-decided item carrying a ground names it). No two of the three overlap, and the universe — the recorded open set together with the points this document adds — is exactly the three together. unsettled = `open` ∪ `bound` — every point not carried in 「先に決めておいたこと」 with a ground. Script-derived, never written to a file.
+Added point: a viewpoint the human brought, refined into one point and written into the human's section as a frame-marked block — `<!-- explain-seed:added-point id="added-NNN" -->` … `<!-- /explain-seed:added-point -->`, carrying 出どころ (the human's own words it was refined from) and 論点 (one line). It lives in the maintained section, so an `info` run carries it across. Refused without a reserved id (`added-NNN`), an origin, or a statement.
 
 `INFO-RFC-SEED.md` — record, English, script-authored from the two manifests + seed + specification + neighbours' explanations; same bytes on stdout.
 - every fact names its source identifier; empty section says so
@@ -77,6 +78,7 @@ Command's own reports (kept/reopened, gate verdict, round count) → stderr, Eng
 - no point vanishes: each is open, bound, or settled with ground; an open point is never the ground of a decision
 - settlement needs ground: manifest id, neighbour document, or `Qn` + letter; an answer-grounded decision must be entailed by that answer; else refused
 - AI-first: a point whose result is light and reversible → AI settles it, with override condition. Weighty or hard to reverse, and no ground → bound to a direction question
+- a point the document adds is a point: judged by the same filter, never silently dropped, and reaching the human only through the same ≥2-point bundle
 - no direction question binds fewer than 2 points, unless fewer than 2 points are open
 - read-only toward workspace; only files created = the two documents; a neighbour's explanation is read, never written
 - a boundary a neighbour clearly settled is never asked: it stands in 「先に決めておいたこと」 with the neighbour's document as ground. Clearly settled = every readable neighbour document holds the same answer — one distinct decision, however many documents carry it — under that boundary's placeholder; an unexplained neighbour is ordinary and the question stands
@@ -114,16 +116,16 @@ judge: apply per question when writing (Step 2, Step 4e) and asking (Step 4a).
 | W3 | choosable from the weight of the result alone, from the question's own context alone |
 | W4 | each direction states what happens and to whom; mechanism without consequence ≠ direction |
 | W5 | exactly one recommended, stated as a choice, never a decision taken; reason checkable against records; overturning fact stated |
-| W6 | asked once. neighbour-settled boundary never asked. answered axis never re-asked; a later round asks a new axis built from residual points only |
+| W6 | asked once. neighbour-settled boundary never asked. answered axis never re-asked; a later round asks a new axis built from the still-open residual and added points only |
 | W7 | numbered `Q1: ` `Q2: ` … by frame; answer names its question |
-| W8 | answered by letter; prose is added to the letter, never replaces it |
+| W8 | answered by letter; prose is added to the letter, never replaces it. A free answer with no letter means the question was not answered — never a reason to discard what it raised |
 | W9 | self-contained: context glosses every design term the directions and reason use |
 | W10 | direction-level: asks priority / desired state / whose experience first; never a single point; scope line states in one line what the answer lets the AI settle |
 | W11 | minimal: ≤ 3 sentences context; ≤ 2 per direction; 1 reason; 1 overturning fact; no ids, clause names, point lists, record text, deliberation. test: remove it — still choosable? → remove |
 | W12 | concrete: each direction names who, in what situation, gains what, loses what |
 
 judge: W1–W5, W9–W12 fail → fix prose (G2, G3). Never lower the question to fit the answer; never move it to 「先に決めておいたこと」 to silence it.
-W7: AI reads the number, never counts it. W8: AI records letter and prose, never supplies the letter.
+W7: AI reads the number, never counts it. W8: AI records letter and prose, never supplies the letter; a letterless free answer is unanswered, and what it raised is refined into a point rather than dropped.
 
 ### Examples
 
@@ -210,12 +212,12 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 
 2. **Settle and bundle** — auto; never ask.
    Read facts on stdout. Replace every `[::MUST-FILL::]` with Japanese prose per its instruction.
-   judge, per point, in order; first match wins:
+   judge, per point — recorded or added from what the human brought — in order; first match wins:
    - Q0 published? Order, levels, edges, parallel set = records. Never ask; never write as a decision just taken. Order disagreeing with its own edges = broken manifest: name `WORKSPACIFY-ALLOCATE-MANIFEST.json`'s `implementation_order`.
    - Q0' neighbour-settled? Boundary = party-record of exactly two packages. Clearly settled → 「先に決めておいたこと」: neighbour's words as 決定, its document as 根拠. no re-ask, no reopen, no move back. AI supplies only 覆す条件, a fact about *this* package. Gate refuses an item asking it (`unrecorded-decision`) and requires the 根拠 naming it. Not settled next door → continue.
    - Q1 engineering? Can ground + decision + override condition be written now from manifests? yes → 「先に決めておいたこと」.
    - Q2 light and reversible? Result small for any person, cheap to undo → settle with ground + override condition → 「先に決めておいたこと」.
-   - Q3 remaining = weighty or hard to reverse, no ground → cluster by direction: fewest axes such that one answer each lets the AI settle every bound point. ≥ 2 points per axis; ≤ 3 axes per round; overflow stays open for later rounds.
+   - Q3 remaining = weighty or hard to reverse, no ground → cluster by direction: fewest axes such that one answer each lets the AI settle every bound point. ≥ 2 points per axis; ≤ 3 axes per round; overflow stays open for later rounds. An added point steps through Q1 and Q2 first and, if it survives, is clustered here with the rest — no looser path.
    Then `run.mjs next "$ARGUMENTS" <axes>`; fill each block per Criteria; bind points under it as AI-only record; leave `<!-- 人間の判断 -->` blank.
    Batch-write, per item: directory purpose in human's words → context for a person knowing neither implementation nor design → what is decided → whose experience changes → consequence if undecided → (question: placeholder blank) / (settled item: override condition; do not reopen).
    Position section only: serial axis = declared edges and nothing else; parallel axis = same level, level rule as ground. Restating level numbers is not an answer.
@@ -237,14 +239,14 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
       not shown: point list, ids, clause names, record text, deliberation.
       judge: W1–W12 per question; unanswerable from what is written → context or directions missing, not the answer; fix (G2), re-run G4, ask again. The one who asks carries the context.
    b. record: under the question's `<!-- 人間の判断 -->`, lines below: letter + human's prose. placeholder line untouched. never answer for the human; never fill a placeholder to pass G5.
-   c. settle: per point bound to an answered question, judge: does letter + prose entail a decision?
+   c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it in the human's section as an added-point block (reserved id `added-NNN`, 出どころ = the human's own words it came from, 論点 = one line). It is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
       yes → 「先に決めておいたこと」: 決定, 根拠 (`Qn` + letter, + manifest ids), 覆す条件.
-      no → point stays open; note what the answer failed to entail. Never guess.
+      no → point stays open; note what the answer failed to entail. Never guess. An added point takes the same ladder: settled here if the answer entails it, bound next round if it does not.
    d. gate: `run.mjs check` (G4); fail → fix per stderr; re-run.
    e. verdict: `node .claude/scripts/explain-seed/run.mjs answers "$ARGUMENTS"` (G5)
       exit 0 → leave loop
       unanswered question remains → a, those questions only
-      open points remain → re-run Step 2's Q0–Q3 on residual points; `run.mjs next "$ARGUMENTS" <axes>`; new axis per U14; → a
+      open points remain → re-run Step 2's Q0–Q3 on residual points and added points alike; `run.mjs next "$ARGUMENTS" <axes>`; new axis per U14; → a
       `next` refuses (round cap, or nothing open) → stop; report residual points; settle none.
 
 5. **Report** — Japanese, ordered; written after loop exit; reports what was decided:

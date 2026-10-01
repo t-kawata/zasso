@@ -18,12 +18,16 @@ import {
   BOUND_POINTS_LABEL,
   CONTEXT_LABEL,
   COUNT_LABEL,
+  DECISION_LABEL,
   FRAME_SECTIONS,
+  GROUND_LABEL,
   HUMAN_ITEM_HEADING,
+  OVERRIDE_LABEL,
   PREDECIDED_ITEM_HEADING,
   SCOPE_LABEL,
   appendQuestionRound,
   buildFrame,
+  renderAddedPointBlock,
   renderQuestionBlock,
   roundSeparator,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
@@ -219,6 +223,76 @@ export function authorDocument({ facts, questions = [], preDecided = [] }) {
     text = spliceSectionBody(text, FRAME_SECTIONS[5].title, authorPreDecidedSection(preDecided));
   }
   return fillEveryMarker(text, { boundIds: [] });
+}
+
+/** One section's body replaced, keeping every other section exactly as it was. */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+function appendToSection(documentText, sectionIndex, blockText) {
+  const title = FRAME_SECTIONS[sectionIndex].title;
+  const heading = `## ${title}`;
+  const start = documentText.indexOf(heading);
+  if (start < 0) throw new Error(`the frame carries no section headed ${title}`);
+
+  const bodyStart = start + heading.length;
+  const rest = documentText.slice(bodyStart);
+  const end = rest.search(/\n## /);
+  const body = end < 0 ? rest : rest.slice(0, end);
+  const tail = end < 0 ? '' : rest.slice(end);
+  return `${documentText.slice(0, bodyStart)}${body.trimEnd()}\n\n${blockText}${tail}`;
+}
+
+/**
+ * Append one added-point block at the end of the human's section.
+ *
+ * The block lives where the person's writing lives, so it is carried by the same maintained
+ * section an info run keeps. The text is written by the frame's own writer, because a helper
+ * that spelled the block itself would author a document the reader might not recognise.
+ *
+ * @param {string} documentText - an authored EXPLAIN document
+ * @param {{ id: string, origin: string, statement: string }} point
+ * @returns {string} the same document with the block appended to the human's section
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function appendAddedPoint(documentText, { id, origin, statement }) {
+  return appendToSection(documentText, 4, renderAddedPointBlock({ id, origin, statement }));
+}
+
+/**
+ * Replace the ids on the first question's bound-points line.
+ *
+ * A test that wants a question to bind a different set than the frame wrote needs the line
+ * replaced without disturbing the rest of the item, so the document goes through one surgery
+ * rather than being re-authored from a template that might not be the one under test.
+ *
+ * @param {string} documentText - an authored EXPLAIN document
+ * @param {string} ids - the bound-points line the test wants, already comma-separated
+ * @returns {string} the same document with the first question's bound points replaced
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function bindPoints(documentText, ids) {
+  return documentText.replace(new RegExp(`(- ${BOUND_POINTS_LABEL}:\\n)[^\\n]*`), `$1${ids}`);
+}
+
+/**
+ * Append one grounded pre-decision to the pre-decided section.
+ *
+ * A settled point is one a pre-decided item carrying a ground names, so a test that wants an
+ * added point settled writes an item that names it and rests on an answer.
+ *
+ * @param {string} documentText - an authored EXPLAIN document
+ * @param {{ reference: string, ground: string }} item
+ * @returns {string} the same document with the item appended to the pre-decided section
+ */
+// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+export function appendPreDecision(documentText, { reference, ground }) {
+  const item = [
+    `${PREDECIDED_ITEM_HEADING} — ${reference}`,
+    '',
+    `- ${DECISION_LABEL}: ${reference} は答えからこう決まる。`,
+    `- ${GROUND_LABEL}: ${ground}`,
+    `- ${OVERRIDE_LABEL}: この答えが覆ったとき。`,
+  ].join('\n');
+  return appendToSection(documentText, 5, item);
 }
 
 /**
