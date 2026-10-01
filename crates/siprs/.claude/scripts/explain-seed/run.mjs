@@ -44,6 +44,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './lib/errors.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 import { readSeed, requireField } from './lib/seed-document.mjs';
 import { loadWorkspace } from './lib/workspace.mjs';
 import { verifyRecordedHashes } from './lib/verify.mjs';
@@ -311,11 +313,11 @@ function runNext(seedPath, size) {
 }
 
 /** The explanation this run reads, or a failure naming the path it looked for. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-231) --for-spec --no-implementation-order`.
 function readExplanationOrFail(seedPath) {
   const { explainPath } = documentPaths(seedPath);
   if (!existsSync(explainPath)) {
-    throw new ExplainSeedError(`the explanation cannot be read: ${explainPath}`, { field: EXPLAIN_FILE_NAME });
+    throw new ExplainSeedError(`the explanation cannot be read: ${toHomeRelative(explainPath)}`, { field: EXPLAIN_FILE_NAME });
   }
   return readFileSync(explainPath, 'utf8');
 }

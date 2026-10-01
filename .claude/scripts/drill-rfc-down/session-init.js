@@ -20,6 +20,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateAll } from './check-all-schema.js';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -83,7 +85,7 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
 `, 'utf8');
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const rfcPath = process.argv[2];
   if (!rfcPath) {
@@ -92,7 +94,7 @@ function main() {
   }
   const resolvedRfcPath = path.resolve(rfcPath);
   if (!fs.existsSync(resolvedRfcPath)) {
-    console.error(`[ERROR] session-init: RFC not found: ${resolvedRfcPath}`);
+    console.error(`[ERROR] session-init: RFC not found: ${toHomeRelative(resolvedRfcPath)}`);
     process.exit(EXIT_FAILURE);
   }
 

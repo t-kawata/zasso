@@ -23,6 +23,8 @@ import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 import { AI_SUPPLEMENT_COMMENT, composeFencedFile } from "../grill-me-for-rfc/lib/checklist-fence.mjs";
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const sessionDir = path.resolve(process.argv[2] ?? ".");
 const noBackup = process.argv.includes("--no-backup");
@@ -30,7 +32,7 @@ const treePath = path.join(sessionDir, "DesignTree.json");
 const checklistPath = path.join(sessionDir, "CheckList.md");
 
 if (!fs.existsSync(treePath)) {
-  console.error(`DesignTree.json not found: ${treePath}`);
+  console.error(`DesignTree.json not found: ${toHomeRelative(treePath)}`);
   process.exit(1);
 }
 
@@ -139,11 +141,11 @@ const composed = composeFencedFile({
   existingText: fs.existsSync(checklistPath) ? fs.readFileSync(checklistPath, "utf-8") : null,
 });
 if (!composed.ok) {
-  console.error(`Refusing to write ${checklistPath}: ${composed.reason}`);
+  console.error(`Refusing to write ${toHomeRelative(checklistPath)}: ${composed.reason}`);
   process.exit(1);
 }
 if (composed.action === "migrated") {
-  console.error(`Preserved the hand-written region of ${checklistPath} and fenced the generated one`);
+  console.error(`Preserved the hand-written region of ${toHomeRelative(checklistPath)} and fenced the generated one`);
 }
 fs.writeFileSync(checklistPath, composed.text, "utf-8");
 

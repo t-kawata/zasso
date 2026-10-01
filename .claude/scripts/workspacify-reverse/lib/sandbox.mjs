@@ -44,6 +44,8 @@ import { listArtefacts } from './analysis-tech.mjs';
 import { EVIDENCE_MODES, buildDynamicSurface } from './dynamic-surface.mjs';
 import { SandboxError } from './sandbox-error.mjs';
 import { NEVER_WALKED_DIRECTORY_NAMES, compareText, digestTree } from './holdout-ledger.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 export { SandboxError };
 
@@ -553,14 +555,14 @@ function escapeRegExp(literal) {
  * — a production path. A transition writing through it would leave the sandbox
  * without leaving the filesystem, and nothing would report it.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|PX-231) --for-spec --no-implementation-order`.
 function assertLinkStaysInside(candidate, sourceBase) {
   if (!lstatSync(candidate).isSymbolicLink()) return;
   const target = resolve(dirname(candidate), readlinkSync(candidate));
   if (target === sourceBase || target.startsWith(sourceBase + sep)) return;
   throw new SandboxError(
     'symlink-escapes-target',
-    `the symlink ${candidate} points at ${target}, which is outside the target root ${sourceBase} — copying it would put a way out of the sandbox inside the sandbox`,
+    `the symlink ${toHomeRelative(candidate)} points at ${toHomeRelative(target)}, which is outside the target root ${toHomeRelative(sourceBase)} — copying it would put a way out of the sandbox inside the sandbox`,
   );
 }
 
@@ -581,7 +583,7 @@ function copyTree(source, destination, excludeDirectoryNames) {
 }
 
 /** The declared database, resolved inside the sandbox and nowhere else. */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5|PX-231) --for-spec --no-implementation-order`.
 function resolveDatabase(sandboxRoot, database) {
   const kind = database?.kind ?? 'none';
   if (!DECLARABLE_DATABASE_KINDS.includes(kind)) {
@@ -603,13 +605,13 @@ function resolveDatabase(sandboxRoot, database) {
   if (absolutePath !== sandboxBase && !absolutePath.startsWith(sandboxBase + sep)) {
     throw new SandboxError(
       'database-outside-sandbox',
-      `the declared database ${relativePath} would resolve to ${absolutePath}, which is outside the sandbox — a database the sandbox cannot contain is not an isolated one`,
+      `the declared database ${relativePath} would resolve to ${toHomeRelative(absolutePath)}, which is outside the sandbox — a database the sandbox cannot contain is not an isolated one`,
     );
   }
   if (!existsSync(absolutePath)) {
     throw new SandboxError(
       'database-missing',
-      `the declared database ${relativePath} is not present in the sandbox at ${absolutePath}`,
+      `the declared database ${relativePath} is not present in the sandbox at ${toHomeRelative(absolutePath)}`,
     );
   }
   return { kind, path: relativePath, absolutePath, initialDigest: { sha256: sha256File(absolutePath) } };
@@ -666,7 +668,7 @@ export function resolveGuardedPaths({ subjectRoot, declared = DEFAULT_GUARDED_PA
     if (!isAbsolute(name) && absolute !== subject && !absolute.startsWith(subject + sep)) {
       throw new SandboxError(
         GUARDED_PATH_OUTSIDE_SUBJECT_REASON,
-        `the guarded path "${name}" is declared relative to the subject and resolves to ${absolute}, which is outside the subject root ${subject} — a relative guard that escapes its subject is a mis-scoped guard, not a guard on another tree`,
+        `the guarded path "${name}" is declared relative to the subject and resolves to ${toHomeRelative(absolute)}, which is outside the subject root ${toHomeRelative(subject)} — a relative guard that escapes its subject is a mis-scoped guard, not a guard on another tree`,
       );
     }
     guarded.add(absolute);

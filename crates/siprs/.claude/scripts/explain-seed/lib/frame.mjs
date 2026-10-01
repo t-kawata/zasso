@@ -47,6 +47,8 @@ import {
 import { ExplainSeedError } from './errors.mjs';
 import { deriveLedger } from './ledger.mjs';
 import { INFO_SECTION_TITLES, truncateExcerpt } from './render.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 export { HUMAN_ITEM_HEADING, PREDECIDED_ITEM_HEADING };
 
@@ -1080,6 +1082,11 @@ export function buildFrame({ facts, previous }) {
     number: questionNumberOf(item.heading),
   }));
 
+  // The seed path stays absolute for the readers and the subprocess, because neither
+  // expands a tilde; only the copy that leaves the process is converted, so the document
+  // remains a function of the seed rather than of the machine that happened to run it.
+  const emittedSeedPath = toHomeRelative(facts.seedPath);
+
   const header = [
     `# RFC-SEED の解説: ${facts.projection.identity.name}（${facts.projection.identity.id}）`,
     '',
@@ -1087,7 +1094,7 @@ export function buildFrame({ facts, previous }) {
     '事実そのものは同じディレクトリの `INFO-RFC-SEED.md` にあり、この文書はそれを説明したものです。',
     '`[::MUST-FILL::]` はAIが説明を書く箇所、`<!-- 人間の判断 -->` は人間が判断を書き込む箇所です。',
     '',
-    `- 対象の seed: \`${facts.seedPath}\``,
+    `- 対象の seed: \`${emittedSeedPath}\``,
     '',
   ].join('\n');
 

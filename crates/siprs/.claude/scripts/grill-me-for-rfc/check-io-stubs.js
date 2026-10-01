@@ -13,6 +13,8 @@
 // [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
 import fs from "node:fs";
 import path from "node:path";
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const RFC_PATH = process.argv[2];
 if (!RFC_PATH) {
@@ -22,7 +24,7 @@ if (!RFC_PATH) {
 
 const resolvedPath = path.resolve(RFC_PATH);
 if (!fs.existsSync(resolvedPath)) {
-  console.error(`Error: RFC file not found: ${resolvedPath}`);
+  console.error(`Error: RFC file not found: ${toHomeRelative(resolvedPath)}`);
   process.exit(1);
 }
 

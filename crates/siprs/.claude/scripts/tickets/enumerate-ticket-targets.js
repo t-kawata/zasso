@@ -14,6 +14,8 @@ const path = require('path');
 const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
 const { syncMalfeasance } = require('../lib/malfeasance-utils');
 const { containsStubMarker, isStubInQuotes, FIXTURE_STORAGE_DIR } = require('../lib/stub-marker-scan');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 // [::TICKET::] PX-90: Extensions to scan for STUB markers
 // Only programming-language source file extensions.
@@ -153,7 +155,7 @@ function scanDirectory(dirPath, ticketsData, ownTicketKey) {
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-93: Added null guard for classifyStubs returning null.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-139|PX-231) --for-spec --no-implementation-order`.
 function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes) {
   let content;
   try {
@@ -185,7 +187,7 @@ function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes
     const entry = {
       id: generateStubId(),
       ticketRef: targetRef,
-      file: filePath,
+      file: toHomeRelative(filePath),
       line: i + 1,
       markerText: line.trim(),
       contracts: [],

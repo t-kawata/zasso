@@ -28,6 +28,8 @@
 import { relative } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The facts document, which is the one whose bytes stdout carries. */
 export const INFO_DOCUMENT_FILE_NAME = 'INFO-RFC-SEED.md';
@@ -141,13 +143,18 @@ function renderSection(title, bodyLines) {
 }
 
 /** The block that lets the AI check the document against the artefacts it came from. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
 function renderVerification({ workspace, seedPath, verified }) {
+  // The root line is what the four lines beneath it are read against, so it is the one
+  // line that has to survive a change of machine: they are relative to it, and a root that
+  // named this machine would make every one of them unreadable somewhere else.
+  const emittedRoot = toHomeRelative(workspace.root);
+
   return renderSection(INFO_SECTION_TITLES.I1, [
     'This document was generated from the seed, the two manifests and the specification alone, after every recorded hash was recomputed and agreed.',
     'A failed comparison ends the run with no document at all.',
     '',
-    `- workspace root: \`${workspace.root}\``,
+    `- workspace root: \`${emittedRoot}\``,
     `- specification: \`${relative(workspace.root, workspace.specPath)}\` (sha256 \`${verified.specification}\`)`,
     `- stage 1 manifest: \`${relative(workspace.root, workspace.treeManifestPath)}\` (manifest hash \`${verified.stageOneManifest}\`)`,
     `- stage 2 manifest: \`${relative(workspace.root, workspace.allocateManifestPath)}\``,

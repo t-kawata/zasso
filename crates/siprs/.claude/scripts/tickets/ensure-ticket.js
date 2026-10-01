@@ -27,6 +27,8 @@
 
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 const { execFileSync } = require('child_process');
 
 const EXIT_SUCCESS = 0;
@@ -109,7 +111,7 @@ function parseArgs(testArgs) {
   return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes };
 }
 
-// [::TICKET::] PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-73 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-73, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-73|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes } = parseArgs();
 
@@ -134,7 +136,9 @@ function main() {
   let addResult;
   try {
     const ticketData = { title };
-    if (specPath) ticketData.specPath = specPath;
+    // Stored home-relative: the record is read on machines that do not have this home,
+    // and the reader expands it against whichever home is reading.
+    if (specPath) ticketData.specPath = toHomeRelative(specPath);
     if (background) ticketData.background = background;
     if (scope) ticketData.scope = scope;
     if (testUnit) ticketData.testUnit = testUnit;

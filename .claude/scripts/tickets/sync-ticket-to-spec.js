@@ -13,6 +13,8 @@
 
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { resolveStoredPath, toHomeRelative } = require('../lib/path-utils');
 const { appendToSpec } = require('../rfc-graph/dump-node-context-to-spec');
 
 const EXIT_SUCCESS = 0;
@@ -113,6 +115,7 @@ function writeFieldsToSpec(specPath, ticket) {
   }
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey } = parseArgs();
 
@@ -141,10 +144,11 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
   const ticketsDir = path.dirname(ticketsPath);
-  const specPath = path.resolve(ticketsDir, ticket.specPath);
+  // Expanded before it is resolved, so a record written elsewhere still resolves.
+  const specPath = resolveStoredPath(ticket.specPath, ticketsDir);
 
   if (!fs.existsSync(specPath)) {
-    console.error(`spec file not found: ${specPath}`);
+    console.error(`spec file not found: ${toHomeRelative(specPath)}`);
     process.exit(EXIT_FAILURE);
   }
 

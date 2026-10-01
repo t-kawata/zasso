@@ -20,6 +20,8 @@ const { execFileSync } = require("child_process");
 
 // Reuse stub detection pattern from check-field-density.js
 const { STUB_PATTERN } = require("./check-field-density.js");
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_CLEAN = 0;
 const EXIT_STUBS_REMAIN = 1;
@@ -75,6 +77,7 @@ function fieldLabel(field) {
   return labels[field] || "";
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const ticketsPath = process.argv[2];
   const ticketKey = process.argv[3];
@@ -88,7 +91,7 @@ function main() {
 
   const resolvedPath = path.resolve(ticketsPath);
   if (!fs.existsSync(resolvedPath)) {
-    console.error(`Tickets.json not found: ${resolvedPath}`);
+    console.error(`Tickets.json not found: ${toHomeRelative(resolvedPath)}`);
     process.exit(EXIT_STUBS_REMAIN);
   }
 

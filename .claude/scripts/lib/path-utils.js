@@ -50,4 +50,26 @@ function fromHomeRelative(homeRelPath) {
   return homeRelPath;
 }
 
-module.exports = { toHomeRelative, fromHomeRelative };
+/**
+ * Turn a path a record stored back into a path this machine can open.
+ *
+ * The expansion happens before the resolution, and the order is the whole point: a record
+ * written on one machine stores `~/...`, which names no machine, and `path.resolve` given
+ * that string would produce a directory literally called `~` beneath the base. The reverse
+ * order is equally broken, which is how the defect this function removes worked — an
+ * absolute stored path makes `path.resolve` discard its base, so a record resolved to the
+ * writing machine on every other one.
+ *
+ * A record that still holds an absolute path, as every record written before the writer was
+ * changed does, is passed through and resolved as before.
+ *
+ * @param {string} storedPath — a path as the record holds it: `~/...`, absolute, or relative
+ * @param {string} baseDirectory — the directory a relative stored path is relative to
+ * @returns {string}
+ */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+function resolveStoredPath(storedPath, baseDirectory) {
+  return path.resolve(baseDirectory, fromHomeRelative(storedPath));
+}
+
+module.exports = { toHomeRelative, fromHomeRelative, resolveStoredPath };

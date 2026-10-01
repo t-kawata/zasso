@@ -20,6 +20,8 @@ import { loadSchema, validateAgainstSchema } from '../../workspacify-tree/lib/ma
 import { checkManifestFormat, MANIFEST_FORMAT_LEAD } from './manifest-format.mjs';
 import { isReadableRegularFile } from '../../workspacify-tree/lib/fs-safe.mjs';
 import { isPathContained } from './path-safety.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
@@ -214,7 +216,7 @@ export function readManifestSource(manifest, manifestDir) {
     throw new WorkSpacifyTreeError('input.spec_path escapes the manifest directory', { gateId: 'G0.3' });
   }
   if (!isReadableRegularFile(resolvedSpec)) {
-    throw new WorkSpacifyTreeError(`co-located spec is not a readable regular file: ${resolvedSpec}`, { gateId: 'G0.3' });
+    throw new WorkSpacifyTreeError(`co-located spec is not a readable regular file: ${toHomeRelative(resolvedSpec)}`, { gateId: 'G0.3' });
   }
   const normalized = normalizeTextBytes(readFileSync(resolvedSpec));
   const sourceHash = sha256Hex(normalized.bytes);

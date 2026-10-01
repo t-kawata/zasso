@@ -225,7 +225,14 @@ function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
  * @param {string} [projectRoot] — Project root directory (default: process.cwd())
  * @returns {string} — Normalized relative path
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function normalizePath(filePath, projectRoot) {
+  // A path already stored home-relative names no machine, which is the whole point of
+  // storing it that way. Resolving it here would manufacture a directory called tilde
+  // beneath the project root and bury the record inside it.
+  // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+  if (filePath === '~' || filePath.startsWith('~/')) return filePath;
+
   const root = projectRoot ? path.resolve(projectRoot) : process.cwd();
   const resolved = path.resolve(root, filePath);
   const relative = path.relative(root, resolved);

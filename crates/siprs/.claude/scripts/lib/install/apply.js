@@ -5,6 +5,8 @@ const path = require('path');
 
 const { writeInstallState } = require('../install-state');
 const { filterMcpConfig, parseDisabledMcpServers } = require('../mcp-config');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../path-utils');
 
 function readJsonObject(filePath, label) {
   let parsed;
@@ -115,6 +117,7 @@ function buildResolvedClaudeHooks(plan) {
   };
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function applyInstallPlan(plan) {
   const resolvedClaudeHooksPlan = buildResolvedClaudeHooks(plan);
   const disabledServers = parseDisabledMcpServers(process.env.ECC_DISABLED_MCPS);
@@ -125,7 +128,7 @@ function applyInstallPlan(plan) {
     if (operation.kind === 'merge-json') {
       const payload = cloneJsonValue(operation.mergePayload);
       if (payload === undefined) {
-        throw new Error(`Missing merge payload for ${operation.destinationPath}`);
+        throw new Error(`Missing merge payload for ${toHomeRelative(operation.destinationPath)}`);
       }
 
       const filteredPayload = (

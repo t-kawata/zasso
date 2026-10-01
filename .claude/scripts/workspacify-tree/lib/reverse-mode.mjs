@@ -25,6 +25,8 @@ import {
   assertStructureParity,
   measureImplementationOrder,
 } from './structure-parity.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The two rotations. */
 // [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
@@ -55,7 +57,7 @@ export function digestSidecarFiles(sidecarFiles) {
       try {
         bytes = readFileSync(file.path);
       } catch {
-        throw new WorkSpacifyTreeError(`the sidecar ${name} could not be read at ${file.path}`, { gateId: 'T6' });
+        throw new WorkSpacifyTreeError(`the sidecar ${name} could not be read at ${toHomeRelative(file.path)}`, { gateId: 'T6' });
       }
       return { name, hash: sha256Hex(bytes) };
     })

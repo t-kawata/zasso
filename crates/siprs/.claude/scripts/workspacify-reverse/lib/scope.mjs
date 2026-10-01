@@ -115,6 +115,8 @@ import { measureDependencies, renderDependencyReport } from './dependencies.mjs'
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
 import { measureDynamicCoupling, renderDynamicCoupling } from './dynamic-coupling.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /**
  * The walk the slice is resolved over. Dependencies are somebody else's source
@@ -598,7 +600,7 @@ function assertAnalysableRoot(root) {
  * the record states where the commit came from and where the project sits
  * beneath it.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|PX-231) --for-spec --no-implementation-order`.
 function readTargetCommit(root) {
   const owner = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
   if (owner.status !== 0) {
@@ -625,7 +627,7 @@ function readTargetCommit(root) {
     is_own_repository: isOwnRepository,
     reason: isOwnRepository
       ? `the tree is its own repository, so ${commit} is the commit the analysis is fixed to`
-      : `the tree sits inside the work tree at ${workTreeRoot} and is not a repository of its own, so its `
+      : `the tree sits inside the work tree at ${toHomeRelative(workTreeRoot)} and is not a repository of its own, so its `
         + `commit is that repository's HEAD and ${relativePath} records where it sits beneath it`,
   };
 }

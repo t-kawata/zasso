@@ -14,12 +14,14 @@
 import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
 import { ExplainSeedError } from './errors.mjs';
 import { requireField } from './seed-document.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** Report a recorded hash that the artefact on disk does not reproduce. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function reportMismatch({ field, artefact, path, recorded, computed }) {
   throw new ExplainSeedError(
-    `${field} does not match the ${artefact} at ${path}: recorded ${recorded}, computed ${computed}`,
+    `${field} does not match the ${artefact} at ${toHomeRelative(path)}: recorded ${recorded}, computed ${computed}`,
     { field },
   );
 }
@@ -42,13 +44,13 @@ function verifySpecification({ identity, workspace }) {
 }
 
 /** The stage-one hash the seed carries must be the self-hash of the manifest it names. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function verifyStageOneManifest({ identity, workspace }) {
   const recorded = requireField(identity, 'stage1_manifest.hash');
   const computed = workspace.treeManifest?.integrity?.manifest_hash;
   if (computed === undefined) {
     throw new ExplainSeedError(
-      `the stage-one manifest records no integrity.manifest_hash: ${workspace.treeManifestPath}`,
+      `the stage-one manifest records no integrity.manifest_hash: ${toHomeRelative(workspace.treeManifestPath)}`,
       { field: 'stage1_manifest.hash' },
     );
   }
@@ -65,14 +67,14 @@ function verifyStageOneManifest({ identity, workspace }) {
 }
 
 /** The seed's entry in the stage-two index must be the hash of the seed on disk. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function verifySeed({ identity, workspace, seedText }) {
   const packageId = requireField(identity, 'package.id');
   const entries = workspace.allocateManifest?.seed_index ?? [];
   const entry = entries.find((candidate) => candidate.package === packageId);
   if (entry === undefined) {
     throw new ExplainSeedError(
-      `seed_index does not list ${packageId} in the stage-two manifest at ${workspace.allocateManifestPath}`,
+      `seed_index does not list ${packageId} in the stage-two manifest at ${toHomeRelative(workspace.allocateManifestPath)}`,
       { field: 'seed_index' },
     );
   }

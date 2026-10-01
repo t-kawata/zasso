@@ -4,6 +4,8 @@ const path = require('path');
 
 const { resolveInstallPlan, loadInstallManifests } = require('./install-manifests');
 const { readInstallState, writeInstallState } = require('./install-state');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('./path-utils');
 const {
   createManifestInstallPlan,
 } = require('./install-executor');
@@ -309,11 +311,12 @@ function shouldRepairFromRecordedOperations(state) {
   return getManagedOperations(state).some(operation => operation.kind !== 'copy-file');
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function executeRepairOperation(repoRoot, operation) {
   if (operation.kind === 'copy-file') {
     const sourcePath = resolveOperationSourcePath(repoRoot, operation);
     if (!sourcePath || !fs.existsSync(sourcePath)) {
-      throw new Error(`Missing source file for repair: ${sourcePath || operation.sourceRelativePath}`);
+      throw new Error(`Missing source file for repair: ${sourcePath ? toHomeRelative(sourcePath) : operation.sourceRelativePath}`);
     }
 
     ensureParentDir(operation.destinationPath);
@@ -324,7 +327,7 @@ function executeRepairOperation(repoRoot, operation) {
   if (operation.kind === 'render-template') {
     const renderedContent = getOperationTextContent(operation);
     if (renderedContent === null) {
-      throw new Error(`Missing rendered content for repair: ${operation.destinationPath}`);
+      throw new Error(`Missing rendered content for repair: ${toHomeRelative(operation.destinationPath)}`);
     }
 
     ensureParentDir(operation.destinationPath);
@@ -335,7 +338,7 @@ function executeRepairOperation(repoRoot, operation) {
   if (operation.kind === 'merge-json') {
     const payload = getOperationJsonPayload(operation);
     if (payload === undefined) {
-      throw new Error(`Missing merge payload for repair: ${operation.destinationPath}`);
+      throw new Error(`Missing merge payload for repair: ${toHomeRelative(operation.destinationPath)}`);
     }
 
     const currentValue = fs.existsSync(operation.destinationPath)
@@ -360,6 +363,7 @@ function executeRepairOperation(repoRoot, operation) {
   throw new Error(`Unsupported repair operation kind: ${operation.kind}`);
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function executeUninstallOperation(operation) {
   if (operation.kind === 'copy-file') {
     if (!fs.existsSync(operation.destinationPath)) {
@@ -441,7 +445,7 @@ function executeUninstallOperation(operation) {
 
     const payload = getOperationJsonPayload(operation);
     if (payload === undefined) {
-      throw new Error(`Missing merge payload for uninstall: ${operation.destinationPath}`);
+      throw new Error(`Missing merge payload for uninstall: ${toHomeRelative(operation.destinationPath)}`);
     }
 
     const currentValue = readJsonFile(operation.destinationPath);

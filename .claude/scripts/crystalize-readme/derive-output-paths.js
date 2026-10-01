@@ -27,6 +27,8 @@ const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 /** CLI argument prefix specifying the graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
@@ -112,7 +114,7 @@ function deriveOutputPaths(graph) {
  * @returns {string} The resolved absolute sourceFile path
  * @throws {Error} If sourceFile is missing, not a non-empty string, or absent on disk
  */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-231) --for-spec --no-implementation-order`.
 function assertSourceFileExists(graph) {
   const sourceFile = graph && graph.sourceFile;
   if (typeof sourceFile !== 'string' || sourceFile.trim() === '') {
@@ -120,7 +122,7 @@ function assertSourceFileExists(graph) {
   }
   const resolved = path.resolve(fromHomeRelative(sourceFile));
   if (!fs.existsSync(resolved)) {
-    throw new Error(`sourceFile not found: ${resolved}`);
+    throw new Error(`sourceFile not found: ${toHomeRelative(resolved)}`);
   }
   return resolved;
 }

@@ -24,6 +24,8 @@
 
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 // ============================================================
 // Constants
@@ -348,16 +350,17 @@ function collectAllDirectoryPaths(dirsTree) {
  * @param {string} graphPath — File path of the source graph JSON
  * @returns {{ok: boolean, errors?: string[]}} Validation result
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function validateFiles(dirsTreePath, graphPath) {
   const errors = [];
 
   // Check file existence
   if (!fs.existsSync(dirsTreePath)) {
-    console.error(`[ERROR] Dirs-Tree.json not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${dirsTreePath}`);
+    console.error(`[ERROR] Dirs-Tree.json not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${toHomeRelative(dirsTreePath)}`);
     return { ok: false, errors: [`Dirs-Tree.json not found: ${dirsTreePath}`] };
   }
   if (!fs.existsSync(graphPath)) {
-    console.error(`[ERROR] Graph JSON not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${graphPath}`);
+    console.error(`[ERROR] Graph JSON not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${toHomeRelative(graphPath)}`);
     return { ok: false, errors: [`Graph JSON not found: ${graphPath}`] };
   }
 

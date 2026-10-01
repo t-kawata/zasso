@@ -23,6 +23,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateAll } from './check-all-schema.js';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const STATUS_FILE = 'Status.json';
 
@@ -62,11 +64,11 @@ const STEP_DEFINITIONS = {
 };
 
 /** Read Status.json from the session directory. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function readStatus(sessionDir) {
   const statusPath = path.join(path.resolve(sessionDir), STATUS_FILE);
   if (!fs.existsSync(statusPath)) {
-    console.error(`Status.json not found: ${statusPath}`);
+    console.error(`Status.json not found: ${toHomeRelative(statusPath)}`);
     process.exit(1);
   }
   return JSON.parse(fs.readFileSync(statusPath, 'utf8'));

@@ -34,6 +34,8 @@ const fs = require('fs');
 const path = require('path');
 
 const { buildNodeIdToPathMap } = require('./dump-node-context-to-spec.js');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 /**
  * The gate vocabulary.
@@ -278,7 +280,7 @@ function printUsage() {
   );
 }
 
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
   if (!options.graphPath || !options.root) {
@@ -328,7 +330,7 @@ function main() {
     const candidatePath = path.resolve(options.outPath);
     fs.mkdirSync(path.dirname(candidatePath), { recursive: true });
     fs.writeFileSync(candidatePath, `${JSON.stringify(buildGroundingCandidate({ graph, table }), null, 2)}\n`);
-    process.stdout.write(`Candidate written to \`${candidatePath}\`.\n\n`);
+    process.stdout.write(`Candidate written to \`${toHomeRelative(candidatePath)}\`.\n\n`);
   }
 
   process.exit(record.status === GATE_STATUS.PASS ? EXIT_CODES.OK : EXIT_CODES.FAIL);

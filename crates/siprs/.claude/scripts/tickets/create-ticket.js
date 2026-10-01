@@ -1,11 +1,14 @@
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 const {
   validateTicketId, findNextTicketId, generateSlug,
   makeUniqueSlug, resolveAllPaths, createSpecFile,
   addToQueue, collectSlugs, CFG,
 } = require('../lib/tickets');
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
   let ticketId = rawId ? validateTicketId(rawId) : null;
@@ -27,7 +30,7 @@ function main() {
   const finalSlug = makeUniqueSlug(slug, collectSlugs(specsDir));
   const paths = resolveAllPaths(ticketId, finalSlug);
   if (paths.specExists) {
-    console.log(JSON.stringify({ success: false, error: `Ticket #${ticketId} already exists at ${paths.specPath}` }));
+    console.log(JSON.stringify({ success: false, error: `Ticket #${ticketId} already exists at ${toHomeRelative(paths.specPath)}` }));
     process.exit(1);
   }
   createSpecFile(paths.specPath, ticketId, title, finalSlug, status);
@@ -35,7 +38,7 @@ function main() {
   const queuePath = path.resolve(CFG.queueFile);
   if (!fs.existsSync(path.dirname(queuePath))) fs.mkdirSync(path.dirname(queuePath), { recursive: true });
   addToQueue(queuePath, ticketId, title, paths.specPath);
-  console.log(JSON.stringify({ success: true, ticketId, title, slug: finalSlug, status, specPath: paths.specPath, contextDir: paths.contextDir }));
+  console.log(JSON.stringify({ success: true, ticketId, title, slug: finalSlug, status, specPath: toHomeRelative(paths.specPath), contextDir: toHomeRelative(paths.contextDir) }));
 }
 
 if (require.main === module) main();

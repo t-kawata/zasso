@@ -74,6 +74,8 @@ import { buildBoundaryContractScope } from './lib/contract-clauses.mjs';
 import { runDagChecks } from './lib/dag.mjs';
 import { atomicPublish } from './lib/atomic-publish.mjs';
 import { formatSuccess, formatFailure } from './lib/report.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const COMMAND_NAME = '/workspacify-tree';
@@ -791,14 +793,14 @@ function reportReverseFailure(records, summary) {
 }
 
 /** The regular files directly inside a sidecar directory, name-sorted. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-231) --for-spec --no-implementation-order`.
 function listSidecarFiles(dir) {
   if (!dir) {
     return [];
   }
   const absoluteDir = path.resolve(dir);
   if (!existsSync(absoluteDir)) {
-    throw new Error(`the sidecar directory ${absoluteDir} does not exist`);
+    throw new Error(`the sidecar directory ${toHomeRelative(absoluteDir)} does not exist`);
   }
   return readdirSync(absoluteDir)
     .sort()
@@ -814,7 +816,7 @@ function listSidecarFiles(dir) {
  * input error and says so here: "the JSON is malformed" and "the measurement
  * found no edges" are different problems with different repairs.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-231) --for-spec --no-implementation-order`.
 function readMeasuredEdges(measuredPath) {
   if (!measuredPath) {
     return undefined;
@@ -824,7 +826,7 @@ function readMeasuredEdges(measuredPath) {
   try {
     parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
   } catch (error) {
-    throw new Error(`the measured dependency report ${absolutePath} could not be read as JSON: ${error.message}`);
+    throw new Error(`the measured dependency report ${toHomeRelative(absolutePath)} could not be read as JSON: ${error.message}`);
   }
   return Array.isArray(parsed?.edges) ? parsed.edges : undefined;
 }
@@ -840,7 +842,7 @@ function readMeasuredEdges(measuredPath) {
  * omitted graph and an empty graph are different claims: T3 must fail on the
  * first and may pass on the second.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-231) --for-spec --no-implementation-order`.
 function readGraphNodes(graphPath) {
   if (!graphPath) {
     return undefined;
@@ -850,10 +852,10 @@ function readGraphNodes(graphPath) {
   try {
     parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
   } catch (error) {
-    throw new Error(`the graph ${absolutePath} could not be read as JSON: ${error.message}`);
+    throw new Error(`the graph ${toHomeRelative(absolutePath)} could not be read as JSON: ${error.message}`);
   }
   if (!Array.isArray(parsed?.nodes)) {
-    throw new Error(`the graph ${absolutePath} does not carry a "nodes" array`);
+    throw new Error(`the graph ${toHomeRelative(absolutePath)} does not carry a "nodes" array`);
   }
   return parsed.nodes.map((node) => ({ id: node.id, file: node.file ?? null }));
 }
