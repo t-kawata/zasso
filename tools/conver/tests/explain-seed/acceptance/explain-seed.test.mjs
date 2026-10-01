@@ -29,12 +29,11 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   EXPLAIN_FILE_NAME,
-  INFO_DOCUMENT_FILE_NAME,
   SPEC_FILE_NAME,
   TREE_MANIFEST_FILE_NAME,
   materializeExplainSeedWorkspace,
@@ -49,16 +48,19 @@ import {
 } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
 import {
   ABSENT_RESIDUALS_STATEMENT,
+  BOUND_POINTS_LABEL,
   CONTEXT_LABEL,
   COUNT_LABEL,
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
+  HUMAN_SECTION_ID,
   OPTIONS_LABEL,
   PARTY_LABEL,
   PREDECIDED_ITEM_HEADING,
   RECOMMENDATION_LABEL,
   RECOMMENDATION_OVERRIDE_LABEL,
   RECOMMENDATION_REASON_LABEL,
+  locateSections,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { OPERATIONS } from '../../../.claude/scripts/explain-seed/run.mjs';
 import { findHumanPlaceholders, findOpenMarkers, isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
@@ -71,12 +73,15 @@ const NEIGHBOUR_PACKAGE = 'pkg-0002';
 const NEIGHBOUR_DECISION = '却下はエラーコードで返す。真偽値で読み飛ばせないようにする。';
 
 /** A neighbour explanation in which the shared question has already been answered. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
 const NEIGHBOUR_EXPLANATION = [
   '## 人間が決めること（ここだけ）',
   '',
-  '### 判断 H1 — boundary-001',
+  '### 判断 Q1',
   `- ${PARTY_LABEL}:`,
   '  却下の形は面を作る開発者の体験を変える。',
+  `- ${BOUND_POINTS_LABEL}:`,
+  '  boundary-001',
   '<!-- 人間の判断 -->',
   NEIGHBOUR_DECISION,
 ].join('\n');
@@ -146,10 +151,30 @@ function withHumanNote(documentText) {
   return lines.join('\n');
 }
 
-/** Author the frame the way the AI does, and write it back. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function authorFrame(workspace) {
-  const authored = fillEveryMarker(readFileSync(workspace.explainPath, 'utf8'));
+/** The recorded points the fixture manifests leave open, which a round of questions must bind. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function openIdsOf(workspace) {
+  const { unresolved = [], risky_boundaries: risky = [] } = workspace.manifests.allocate.handoff_summary;
+  return [...unresolved.map((entry) => entry.residual_id), ...risky];
+}
+
+/** One section's body, read the way the gate reads it. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function sectionBody(documentText, sectionId) {
+  return locateSections(documentText).bodies[sectionId] ?? '';
+}
+
+/**
+ * Author the frame the way the AI does, and write it back.
+ *
+ * The frame holds no question of its own: a round is appended by `next` first, and the points
+ * that round binds are what the AI writes on each question's bound-points line.
+ */
+// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+function authorFrame(workspace, { size = 1, boundIds = openIdsOf(workspace) } = {}) {
+  const appended = runExplainSeed(['next', workspace.seedPath, String(size)], { cwd: workspace.root });
+  assert.equal(appended.status, 0, appended.stderr.toString('utf8'));
+  const authored = fillEveryMarker(readFileSync(workspace.explainPath, 'utf8'), { boundIds });
   writeFileSync(workspace.explainPath, authored, 'utf8');
   return authored;
 }
@@ -535,13 +560,15 @@ test('C004 postcondition: a boundary a neighbour has decided is recorded here ra
   assert.equal(run.status, 0, run.stderr.toString('utf8'));
   assert.ok(info.includes(NEIGHBOUR_DECISION), 'the neighbour wording is quoted into the facts document');
   assert.match(info, new RegExp(`## ${INFO_SECTION_TITLES.I10}`), 'and it is stated in a section of its own');
+
+  const authored = authorFrame(workspace, { boundIds: ['residual-000001'] });
   assert.equal(
-    itemHeadings(explain, HUMAN_ITEM_HEADING).some((line) => line.includes('boundary-001')),
+    sectionBody(authored, HUMAN_SECTION_ID).includes('boundary-001'),
     false,
-    'the human section no longer asks the question',
+    'the question the human is asked does not bind the boundary a neighbour settled',
   );
   assert.equal(
-    itemHeadings(explain, PREDECIDED_ITEM_HEADING).some((line) => line.includes('boundary-001')),
+    itemHeadings(authored, PREDECIDED_ITEM_HEADING).some((line) => line.includes('boundary-001')),
     true,
     'the pre-decided section records the answer instead',
   );
@@ -551,7 +578,7 @@ test('C003 postcondition: the gate accepts the explanation this produces', () =>
   const workspace = materializeExplainSeedWorkspace();
   writeNeighbourAnswer(workspace);
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
-  writeFileSync(workspace.explainPath, withHumanNote(authorFrame(workspace)), 'utf8');
+  writeFileSync(workspace.explainPath, withHumanNote(authorFrame(workspace, { boundIds: ['residual-000001'] })), 'utf8');
 
   const check = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
 
@@ -568,10 +595,11 @@ test('C002 postcondition: an unreadable neighbour document leaves the question s
 
   assert.equal(run.status, 0, 'another package\'s document never fails this run');
   assert.match(run.stderr.toString('utf8'), new RegExp(EXPLAIN_FILE_NAME), 'the document that could not be read is named');
-  assert.equal(
-    itemHeadings(explain, HUMAN_ITEM_HEADING).some((line) => line.includes('boundary-001')),
-    true,
-    'the question is asked here, because nothing settled it',
+
+  const authored = authorFrame(workspace);
+  assert.ok(
+    sectionBody(authored, HUMAN_SECTION_ID).includes('boundary-001'),
+    'the question binds the boundary here, because nothing settled it',
   );
   assert.equal(info.includes('## 10.'), true, 'and the facts still carry the section, stating that nothing was settled');
 });
@@ -591,22 +619,6 @@ test('C006 postcondition: a workspace whose neighbours have decided nothing gain
   );
   assert.ok(info.includes(ABSENT_SETTLEMENTS_STATEMENT), 'the tenth section states its absence rather than being left out');
 });
-
-/** Put a person's own note under every placeholder that does not already carry one. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function withHumanNotesEverywhere(documentText) {
-  const source = documentText.split('\n');
-  const lines = [];
-  let written = 0;
-  for (const [index, line] of source.entries()) {
-    lines.push(line);
-    if (!isPlaceholderLine(line)) continue;
-    if ((source[index + 1] ?? '').trim() !== '') continue;
-    written += 1;
-    lines.push(`${HUMAN_NOTE}（${written}件目）`);
-  }
-  return lines.join('\n');
-}
 
 /** The labels whose blocks the frame that asked for directions added, in one list for the surgery below. */
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
@@ -629,38 +641,58 @@ function withoutLabelBlocks(documentText, labels) {
   return kept.join('\n');
 }
 
-/** The questions a verdict still reports as unanswered, which it prints one per line. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function unansweredIdsIn(output) {
-  return output
-    .split('\n')
-    .filter((line) => line.startsWith('- '))
-    .map((line) => line.slice(2).trim());
+/** Append pre-decided items grounded on the answer, the way step 4c settles a bound point. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function withSettledPoints(documentText, points, ground) {
+  const heading = `## ${FRAME_SECTIONS[5].title}`;
+  const start = documentText.indexOf(heading);
+  const rest = documentText.slice(start + heading.length);
+  const end = rest.search(/\n## /);
+  const body = rest.slice(0, end);
+  const tail = rest.slice(end);
+  const block = points
+    .map((reference, index) =>
+      [
+        `${PREDECIDED_ITEM_HEADING} A${index + 1} — ${reference}`,
+        '',
+        '- 決定: この論点は、得られた答えからこう決まる。',
+        `- 根拠: ${ground}`,
+        '- 覆す条件:',
+        '  仕様が改訂され、この決定の前提が変わったとき。',
+        '',
+      ].join('\n'),
+    )
+    .join('\n');
+  return `${documentText.slice(0, start + heading.length)}${body}\n${block}${tail}`;
 }
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C003 postcondition: answers names every question until each carries an answer, and then stops', () => {
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+test('C003 postcondition: answers stays non-zero until every question is answered and every point is settled, then stops', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
-  const authored = authorFrame(workspace);
-  const asked = itemHeadings(authored, HUMAN_ITEM_HEADING).length;
+  authorFrame(workspace);
 
   const unanswered = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
   assert.notEqual(unanswered.status, 0, 'a round nobody has answered is not finished');
-  assert.equal(unansweredIdsIn(unanswered.stdout.toString('utf8')).length, asked, 'every question is named');
+  assert.match(unanswered.stdout.toString('utf8'), /Q1/, 'the unanswered question is named');
 
   writeFileSync(workspace.explainPath, withHumanNote(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
-  const partly = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
-  assert.notEqual(partly.status, 0);
-  assert.equal(unansweredIdsIn(partly.stdout.toString('utf8')).length, asked - 1, 'one answer retires one question');
+  const answered = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(answered.status, 0, 'an answered question whose points are unsettled is still unfinished');
+  assert.match(answered.stdout.toString('utf8'), /residual-000001/, 'the point left unsettled is named');
 
-  writeFileSync(workspace.explainPath, withHumanNotesEverywhere(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
+  const settledText = withSettledPoints(
+    readFileSync(workspace.explainPath, 'utf8'),
+    ['residual-000001', 'boundary-001'],
+    'Q1 A',
+  );
+  writeFileSync(workspace.explainPath, settledText, 'utf8');
   const finished = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
   assert.equal(finished.status, 0, finished.stdout.toString('utf8'));
   assert.equal(
     runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status,
     0,
-    'answering the questions does not disturb the gate',
+    'settling the points does not disturb the gate',
   );
 });
 
@@ -687,30 +719,28 @@ test('C002 postcondition: a question that lost its second direction is refused, 
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const authored = authorFrame(workspace);
-  const [firstHeading] = itemHeadings(authored, HUMAN_ITEM_HEADING);
-  const reference = firstHeading.split(' — ')[1];
   writeFileSync(workspace.explainPath, authored.replace(/^ {2}B: .*$/m, ''), 'utf8');
 
   const verdict = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
 
   assert.notEqual(verdict.status, 0, 'a question with one direction is not a question the human can answer');
   assert.match(verdict.stdout.toString('utf8'), new RegExp(FRAME_SECTIONS[4].title), 'the section at fault is named');
-  assert.match(verdict.stdout.toString('utf8'), new RegExp(reference), 'and so is the question, by the record it is about');
+  assert.match(verdict.stdout.toString('utf8'), /Q1/, 'and so is the question, by the number the frame gave it');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C004 invariant: the third operation is accepted, and every other argv is refused with all three named', () => {
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+test('C004 invariant: next is accepted with its size, and every other argv is refused with all four operations named', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
-  authorFrame(workspace);
-  writeFileSync(workspace.explainPath, withHumanNotesEverywhere(readFileSync(workspace.explainPath, 'utf8')), 'utf8');
 
-  assert.equal(runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root }).status, 0);
+  assert.equal(runExplainSeed(['next', workspace.seedPath, '2'], { cwd: workspace.root }).status, 0, 'next takes the seed and a size');
 
   const refused = [
     [],
     ['info'],
     ['info', workspace.seedPath, 'extra'],
+    ['next', workspace.seedPath],
+    ['next', workspace.seedPath, '2', 'extra'],
     ['verify', workspace.seedPath],
     [`--seed=${workspace.seedPath}`, workspace.seedPath],
   ];
@@ -723,7 +753,7 @@ test('C004 invariant: the third operation is accepted, and every other argv is r
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: info repairs a human section written before this command asked for directions', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -738,12 +768,12 @@ test('C001 invariant: info repairs a human section written before this command a
     new RegExp(FRAME_SECTIONS[4].title),
     'the report names the section it reopened, rather than keeping a question it can no longer report',
   );
-  assert.ok(explain.includes(`- ${OPTIONS_LABEL}:`), 'and the frame asks for directions again');
+  assert.ok(explain.includes(ABSENT_RESIDUALS_STATEMENT), 'and the section is reset, because a question that cannot be re-anchored is not kept half-read');
   authorFrame(workspace);
   assert.equal(runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status, 0, 'so the document can be completed again');
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: info repairs a human section written before this command carried the context element', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -758,7 +788,7 @@ test('C001 invariant: info repairs a human section written before this command c
     new RegExp(FRAME_SECTIONS[4].title),
     'the report names the section it reopened, so a question written for a reader who knew the design is not kept',
   );
-  assert.ok(explain.includes(`- ${CONTEXT_LABEL}:`), 'and the frame asks for the context that question was missing');
+  assert.ok(explain.includes(ABSENT_RESIDUALS_STATEMENT), 'and the section is reset, so the context can be asked for again');
   authorFrame(workspace);
   assert.equal(
     runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status,
@@ -772,15 +802,13 @@ test('C002 postcondition: a question whose context was never written is refused,
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   const authored = authorFrame(workspace);
-  const [firstHeading] = itemHeadings(authored, HUMAN_ITEM_HEADING);
-  const reference = firstHeading.split(' — ')[1];
   writeFileSync(workspace.explainPath, authored.replace(new RegExp(`- ${CONTEXT_LABEL}:\\n[^\\n]*`), `- ${CONTEXT_LABEL}:`), 'utf8');
 
   const verdict = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root });
 
   assert.notEqual(verdict.status, 0, 'the gate does not report a question nobody could answer');
   assert.match(verdict.stdout.toString('utf8'), new RegExp(FRAME_SECTIONS[4].title), 'the section at fault is named');
-  assert.match(verdict.stdout.toString('utf8'), new RegExp(reference), 'and so is the question, by the record it is about');
+  assert.match(verdict.stdout.toString('utf8'), /Q1/, 'and so is the question, by the number the frame gave it');
   assert.match(
     verdict.stdout.toString('utf8'),
     /who knows neither the implementation nor the design/,

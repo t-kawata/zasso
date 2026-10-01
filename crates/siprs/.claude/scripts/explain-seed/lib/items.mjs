@@ -31,6 +31,26 @@ export function referenceOf(heading) {
   return parts.length < 2 ? null : parts[parts.length - 1].trim();
 }
 
+/** The shape a question heading has when it carries only the number the frame gave it. */
+const QUESTION_HEADING = /^### 判断 Q(\d+)\s*$/u;
+
+/**
+ * The number a question's heading gives it, or nothing when the heading names no question.
+ *
+ * A question is identified by its number and not by the record it was about: the frame no
+ * longer writes one question per recorded point, so a heading carrying a record reference
+ * after a separator is the shape an earlier frame wrote, and reading it as a number would let
+ * a legacy document pass as one this frame wrote.
+ *
+ * @param {string} heading
+ * @returns {number|null}
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function questionNumberOf(heading) {
+  const matched = String(heading).match(QUESTION_HEADING);
+  return matched === null ? null : Number(matched[1]);
+}
+
 /**
  * One section's items, in document order.
  *

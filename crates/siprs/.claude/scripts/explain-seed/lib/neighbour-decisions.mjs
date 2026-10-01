@@ -23,7 +23,7 @@ import { join } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
 // [::TICKET::] PX-225, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
-import { EXPLAIN_FILE_NAME, HUMAN_SECTION_ID, locateSections } from './frame.mjs';
+import { EXPLAIN_FILE_NAME, HUMAN_SECTION_ID, boundPointIds, locateSections } from './frame.mjs';
 import { HUMAN_ITEM_HEADING, decisionUnderPlaceholder, splitItems } from './items.mjs';
 import { countPlaceholdersIn } from './markers.mjs';
 
@@ -50,14 +50,18 @@ export function readSettledDecisions({ documentText }) {
 
   const decisions = new Map();
   for (const item of splitItems(humanSection, HUMAN_ITEM_HEADING)) {
-    if (item.id === null) continue;
+    // An item names the records it answers for in one of two ways: the heading reference an
+    // earlier frame wrote, or the points a question of this frame binds. Both are read, so a
+    // neighbour document written before this command and one written after are both legible.
+    const ids = item.id === null ? boundPointIds(item.body) : [item.id];
+    if (ids.length === 0) continue;
     if (countPlaceholdersIn(item.body) > 1) {
-      throw new ExplainSeedError(`the explanation offers more than one place to write for ${item.id}`, {
+      throw new ExplainSeedError(`the explanation offers more than one place to write for ${ids.join(', ')}`, {
         field: EXPLAIN_FILE_NAME,
       });
     }
     const decision = decisionUnderPlaceholder(item.body);
-    if (decision !== null) decisions.set(item.id, decision);
+    if (decision !== null) for (const id of ids) decisions.set(id, decision);
   }
   return decisions;
 }
@@ -80,6 +84,7 @@ function counterpartDocumentPath({ counterpart, pathOf }) {
  * @returns {{ absent: boolean, decisions: Map<string, string>|null, reason: string|null }}
  */
 // [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function decisionsInDocument({ root, relativePath }) {
   const absolutePath = join(root, relativePath);
   let stats;

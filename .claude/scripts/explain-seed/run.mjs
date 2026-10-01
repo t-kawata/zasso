@@ -4,6 +4,7 @@
  *
  * Usage:
  *   node .claude/scripts/explain-seed/run.mjs info    <path-to-RFC-SEED.md>
+ *   node .claude/scripts/explain-seed/run.mjs next    <path-to-RFC-SEED.md> <axes>
  *   node .claude/scripts/explain-seed/run.mjs check   <path-to-RFC-SEED.md>
  *   node .claude/scripts/explain-seed/run.mjs answers <path-to-RFC-SEED.md>
  *
@@ -18,15 +19,21 @@
  * document and must be nothing else. Both reports are in English: they are read by whoever
  * runs the command, not by the person the explanation is written for.
  *
+ * `next` appends a round of empty numbered question blocks to the human's section. The numbers
+ * continue from the highest the document already holds, because a number a question was asked
+ * under never moves; it refuses past the round cap or when no recorded point is left unattached,
+ * and a refused call writes nothing, so it can never half-append a document.
+ *
  * `check` is the gate. It exits 0 only when every instruction has been answered, every
  * question for the human offers directions and a recommendation and names whose experience
- * changes, and every section rests on facts that are still the facts on disk. The AI may
- * report only what this gate accepts.
+ * changes, every question binds at least two recorded points, and every section rests on facts
+ * that are still the facts on disk. The AI may report only what this gate accepts.
  *
  * `answers` is the other half of the same question: `check` says the explanation may be put to
- * the human, and `answers` says the human has answered it. It exits 0 only when every question
- * in the human's section carries prose under its placeholder, and names the ones that do not,
- * so a round of questions ends at a verdict rather than at a hope.
+ * the human, and `answers` says the human has answered it and the AI has settled every point
+ * from the answers. It exits 0 only when every question carries prose under its placeholder and
+ * the ledger reports no recorded point unsettled, and it names the questions and the points
+ * that remain, so a round ends at a verdict rather than at a hope.
  *
  * Nothing is written until every recorded hash has been recomputed and agreed, with or
  * without a document from an earlier run: an earlier document changes what is preserved,
@@ -43,29 +50,46 @@ import { verifyRecordedHashes } from './lib/verify.mjs';
 import { boundaryPairs, packagePaths, projectPackage } from './lib/projection.mjs';
 import { collectSettledDecisions } from './lib/neighbour-decisions.mjs';
 import { loadOrderFacts } from './lib/order.mjs';
-import { splitItems, decisionUnderPlaceholder } from './lib/items.mjs';
+import { splitItems, decisionUnderPlaceholder, questionNumberOf } from './lib/items.mjs';
 import { INFO_DOCUMENT_FILE_NAME, INFO_SECTION_TITLES, renderInfo } from './lib/render.mjs';
 import {
   EXPLAIN_FILE_NAME,
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
   HUMAN_SECTION_ID,
+  MAX_AXES_PER_ROUND,
+  MAX_ROUNDS,
+  appendQuestionRound,
   buildFrame,
+  countRounds,
   locateSections,
   verifyExplanation,
 } from './lib/frame.mjs';
+import { deriveLedger } from './lib/ledger.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 const ERROR_PREFIX = '[explain-seed]';
 
 /** The things this command does, and nothing else. */
-export const OPERATIONS = Object.freeze({ INFO: 'info', CHECK: 'check', ANSWERS: 'answers' });
+// [::TICKET::] PX-221, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-229) --for-spec --no-implementation-order`.
+export const OPERATIONS = Object.freeze({ INFO: 'info', NEXT: 'next', CHECK: 'check', ANSWERS: 'answers' });
 
 /** What the refusal names, derived so the message cannot describe a parser that no longer exists. */
 const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
 
+/**
+ * How many positional arguments each operation takes, and what the second one is for.
+ *
+ * A table rather than a branch per operation, so the refusal for a wrong argument count is
+ * derived from the same declaration that accepts the right one: `next` alone takes the number
+ * of axes a round may put, and every other operation acts on the seed path alone.
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+const ARITY = Object.freeze({ [OPERATIONS.INFO]: 1, [OPERATIONS.NEXT]: 2, [OPERATIONS.CHECK]: 1, [OPERATIONS.ANSWERS]: 1 });
+
 /** What each fault means, said in the terms the operator reading the report is holding. */
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 const FAULT_MESSAGES = Object.freeze({
   'open-marker': 'an explanation point has not been written yet',
   'missing-placeholder': 'there is no place for the human to write',
@@ -83,9 +107,13 @@ const FAULT_MESSAGES = Object.freeze({
   'unresolvable-ground': 'the ground does not name a record in the manifests',
   'missing-override': 'the condition that would overturn it is not stated',
   'open-item-as-ground': 'an undecided question is being used as the ground of a decision',
+  'too-few-bound-points':
+    'the question binds fewer than two recorded points, so it is a point put to the human rather than a direction',
+  'missing-scope-line': 'the question does not state, in one line, what an answer lets the AI settle',
+  'unknown-question-as-ground': 'the ground names a question this document does not ask',
+  'unanswered-question-as-ground': 'the ground names a question that carries no answer yet',
   'missing-open-item': 'an unresolved question the manifests recorded has disappeared',
-  'open-item-in-both-sections': 'the same question appears in both sections',
-  'count-mismatch': 'the count the introduction declares is not the number of items',
+  'count-mismatch': 'the count the introduction declares is not the number of questions',
   'stale-digest': 'the facts this section rested on have moved',
   'missing-section': 'the section is missing',
   'duplicate-section': 'the section appears more than once',
@@ -93,20 +121,31 @@ const FAULT_MESSAGES = Object.freeze({
   'missing-digest-block': 'the document does not record which facts it was built from',
 });
 
-/** The operation and the one seed path it acts on. */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+/** The operation, the seed path it acts on, and the round size only `next` takes. */
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 export function parseArguments(argv) {
-  const [operation, seedArgument, ...rest] = argv;
+  const [operation, ...positionals] = argv;
   const refused = () =>
     new ExplainSeedError(
-      `explain-seed takes an operation (${OPERATION_NAMES.join(', ')}) and one seed path; received ${JSON.stringify(argv)}`,
+      `explain-seed takes an operation (${OPERATION_NAMES.join(', ')}), one seed path, and for next the number of axes (1 to ${MAX_AXES_PER_ROUND}); received ${JSON.stringify(argv)}`,
       { field: 'arguments' },
     );
 
-  if (operation === undefined || seedArgument === undefined || rest.length > 0) throw refused();
-  if (operation.startsWith('-') || seedArgument.startsWith('-')) throw refused();
-  if (!OPERATION_NAMES.includes(operation)) throw refused();
-  return { operation, seedPath: resolve(seedArgument) };
+  if (operation === undefined || operation.startsWith('-') || !OPERATION_NAMES.includes(operation)) throw refused();
+  if (positionals.length !== ARITY[operation]) throw refused();
+
+  const [seedArgument, sizeArgument] = positionals;
+  if (seedArgument === undefined || seedArgument.startsWith('-')) throw refused();
+  if (operation !== OPERATIONS.NEXT) return { operation, seedPath: resolve(seedArgument), size: null };
+
+  const size = Number(sizeArgument);
+  if (!Number.isInteger(size) || size < 1 || size > MAX_AXES_PER_ROUND) {
+    throw new ExplainSeedError(
+      `round size must be an integer between 1 and ${MAX_AXES_PER_ROUND}; received ${JSON.stringify(sizeArgument)}`,
+      { field: 'axes' },
+    );
+  }
+  return { operation, seedPath: resolve(seedArgument), size };
 }
 
 /**
@@ -168,9 +207,12 @@ function sectionName(sectionId) {
 }
 
 /** What the run did to the explanation, and what it found wrong with the earlier one. */
-// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
-function renderRunReport({ frame, unreadableNeighbours }) {
-  const lines = [`explanation: kept ${frame.keptSections.length}, reopened ${frame.reopenedSections.length}`];
+// [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
+function renderRunReport({ frame, unreadableNeighbours, ledger, rounds }) {
+  const lines = [
+    `explanation: kept ${frame.keptSections.length}, reopened ${frame.reopenedSections.length}`,
+    `ledger: ${ledger.open.size} open, ${ledger.bound.size} bound, ${ledger.settled.size} settled — ${rounds} of ${MAX_ROUNDS} rounds used`,
+  ];
   for (const neighbour of unreadableNeighbours) {
     lines.push(`neighbour explanation not read: ${neighbour.document} — ${neighbour.reason}`);
   }
@@ -210,17 +252,57 @@ function renderVerdict(verdict) {
 }
 
 /** Write the facts, maintain the explanation, and print the facts. */
-// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
 function runInfo(seedPath) {
   const { info, facts } = produceInfo(seedPath);
   const { infoPath, explainPath } = documentPaths(seedPath);
   const previous = existsSync(explainPath) ? readFileSync(explainPath, 'utf8') : null;
   const frame = buildFrame({ facts, previous });
+  const ledger = deriveLedger({ documentText: frame.text, projection: facts.projection });
 
   writeFileSync(infoPath, info.text, 'utf8');
   writeFileSync(explainPath, frame.text, 'utf8');
   process.stdout.write(info.text);
-  process.stderr.write(renderRunReport({ frame, unreadableNeighbours: facts.unreadableNeighbours }));
+  process.stderr.write(
+    renderRunReport({
+      frame,
+      unreadableNeighbours: facts.unreadableNeighbours,
+      ledger,
+      rounds: countRounds(frame.text),
+    }),
+  );
+  return EXIT_OK;
+}
+
+/**
+ * Append a round of empty numbered question blocks to the explanation.
+ *
+ * Every refusal names its reason and writes nothing: the size is checked before anything is
+ * read, the round cap and the open set before anything is written, so a refused `next` leaves
+ * the explanation byte-identical and can never half-append it. The numbers continue from the
+ * highest the document already holds, because a number a question was asked under never moves.
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function runNext(seedPath, size) {
+  const explainText = readExplanationOrFail(seedPath);
+  const { facts } = produceInfo(seedPath);
+
+  const rounds = countRounds(explainText);
+  if (rounds >= MAX_ROUNDS) {
+    throw new ExplainSeedError(`round limit of ${MAX_ROUNDS} reached; the document already opens ${rounds} rounds`, {
+      field: 'rounds',
+    });
+  }
+
+  const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
+  if (ledger.open.size === 0) {
+    throw new ExplainSeedError('nothing open to ask: every recorded point is settled or already bound to a question', {
+      field: 'ledger',
+    });
+  }
+
+  const { explainPath } = documentPaths(seedPath);
+  writeFileSync(explainPath, appendQuestionRound({ documentText: explainText, size }), 'utf8');
   return EXIT_OK;
 }
 
@@ -255,7 +337,7 @@ function runCheck(seedPath) {
  * @param {string} explainText
  * @returns {{ asked: number, answered: number, unanswered: Array<string> }}
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 export function readAnswers(explainText) {
   const located = locateSections(explainText);
   if (located.missing.includes(HUMAN_SECTION_ID) || located.duplicates.includes(HUMAN_SECTION_ID)) {
@@ -266,38 +348,53 @@ export function readAnswers(explainText) {
   }
 
   const items = splitItems(located.bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
-  const unanswered = items.filter((item) => decisionUnderPlaceholder(item.body) === null).map((item) => item.id);
+  const unanswered = items
+    .filter((item) => decisionUnderPlaceholder(item.body) === null)
+    .map((item) => (questionNumberOf(item.heading) === null ? item.heading : `Q${questionNumberOf(item.heading)}`));
   return { asked: items.length, answered: items.length - unanswered.length, unanswered };
 }
 
 /** What the round of questions has left to do, as the operator reads it. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-export function renderAnswerVerdict({ asked, answered, unanswered }) {
-  if (asked === 0) {
-    return 'answers OK: there was nothing to ask — no question stands in the human\'s section.\n';
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+export function renderAnswerVerdict({ asked, answered, unanswered, unsettled = [] }) {
+  if (unanswered.length === 0 && unsettled.length === 0) {
+    return asked === 0
+      ? "answers OK: there was nothing to ask — no question stands in the human's section, and no recorded point is unsettled.\n"
+      : `answers OK: ${answered} of ${asked} answered, none still open.\n`;
   }
-  if (unanswered.length === 0) {
-    return `answers OK: ${answered} of ${asked} answered, none still open.\n`;
-  }
+
   return [
-    `answers FAILED: ${answered} of ${asked} answered, ${unanswered.length} still open.`,
+    `answers FAILED: ${answered} of ${asked} answered, ${unanswered.length + unsettled.length} still open.`,
     ...unanswered.map((id) => `- ${id}`),
+    ...unsettled.map((id) => `- ${id}`),
     '',
   ].join('\n');
 }
 
-/** Report how many questions the human has answered, and name the ones they have not. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+/**
+ * Report how far the round has got: how many questions are answered, and what is still open.
+ *
+ * A document can be answered in full and still unfinished — a recorded point bound to a
+ * question the AI has not settled from, or left unattached — so the verdict reads the ledger
+ * as well as the placeholders and exits zero only when nothing is unsettled.
+ */
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function runAnswers(seedPath) {
-  const reading = readAnswers(readExplanationOrFail(seedPath));
-  process.stdout.write(renderAnswerVerdict(reading));
-  return reading.unanswered.length === 0 ? EXIT_OK : EXIT_FAILURE;
+  const explainText = readExplanationOrFail(seedPath);
+  const reading = readAnswers(explainText);
+  const { facts } = produceInfo(seedPath);
+  const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
+  const unsettled = [...ledger.unsettled].sort();
+
+  process.stdout.write(renderAnswerVerdict({ ...reading, unsettled }));
+  return reading.unanswered.length === 0 && unsettled.length === 0 ? EXIT_OK : EXIT_FAILURE;
 }
 
-// [::TICKET::] PX-221, PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
-    const { operation, seedPath } = parseArguments(argv);
+    const { operation, seedPath, size } = parseArguments(argv);
+    if (operation === OPERATIONS.NEXT) return runNext(seedPath, size);
     if (operation === OPERATIONS.CHECK) return runCheck(seedPath);
     if (operation === OPERATIONS.ANSWERS) return runAnswers(seedPath);
     return runInfo(seedPath);

@@ -40,14 +40,13 @@ import {
   HUMAN_ITEM_HEADING,
   PREDECIDED_ITEM_HEADING,
   REFERENCE_SEPARATOR,
-  referenceOf,
+  decisionUnderPlaceholder,
+  questionNumberOf,
   splitItems,
 } from './items.mjs';
-import {
-  INFO_SECTION_TITLES,
-  MAX_LISTED_CLAUSES,
-  truncateExcerpt,
-} from './render.mjs';
+import { ExplainSeedError } from './errors.mjs';
+import { deriveLedger } from './ledger.mjs';
+import { INFO_SECTION_TITLES, truncateExcerpt } from './render.mjs';
 
 export { HUMAN_ITEM_HEADING, PREDECIDED_ITEM_HEADING };
 
@@ -102,6 +101,15 @@ export const FRAME_SECTIONS = Object.freeze([
  */
 export const HUMAN_SECTION_ID = FRAME_SECTIONS[4].id;
 
+/**
+ * The section the AI decides in, as `FRAME_SECTIONS` declares it.
+ *
+ * Named rather than indexed at each use because the gate that judges a pre-decision and the
+ * reader that derives the ledger both need it, and two copies of the index would be two
+ * chances to move the section without moving one of its readers.
+ */
+export const PREDECIDED_SECTION_ID = FRAME_SECTIONS[5].id;
+
 /** The line that declares how many things the human is being asked to decide. */
 export const COUNT_LABEL = '人間が決めること';
 
@@ -142,6 +150,36 @@ export const GROUND_LABEL = '根拠';
 
 /** The line that states what would overturn the decision. */
 export const OVERRIDE_LABEL = '覆す条件';
+
+/**
+ * The line that names the recorded points one question settles.
+ *
+ * It stands in the AI-only region, because a question is a direction and the points it settles
+ * are the record's own vocabulary — the thing the person is not asked to read. The gate reads
+ * this line to know what the question carries, and the ledger reads it to know what is bound.
+ */
+export const BOUND_POINTS_LABEL = '束ねた論点';
+
+/** The line that states, in one line, what an answer lets the AI settle. */
+export const SCOPE_LABEL = 'この質問で決まること';
+
+/** How many recorded points one direction question must settle before it is worth asking. */
+export const MIN_BOUND_POINTS = 2;
+
+/** How many questions one round may put to the human. */
+export const MAX_AXES_PER_ROUND = 3;
+
+/**
+ * How many rounds the loop may run.
+ *
+ * A bound rather than a target: the command exists to remove work from the human, and a loop
+ * that never ends would be the largest possible version of the burden it was written to lift.
+ */
+export const MAX_ROUNDS = 5;
+
+/** The line that opens a round of questions, and the text that closes it. */
+export const ROUND_SEPARATOR_OPEN = '<!-- explain-seed:round ';
+export const ROUND_SEPARATOR_CLOSE = ' -->';
 
 /**
  * The line that tells the person the material under it is a copy of the record, not required reading.
@@ -207,7 +245,7 @@ export function mentionsId(text, id) {
  * @param {string} label
  * @returns {Array<string>|null} the lines, or nothing when the item carries no such label
  */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 function labelledLines(itemBody, label) {
   const lines = itemBody.split('\n');
   const prefix = `- ${label}:`;
@@ -218,6 +256,7 @@ function labelledLines(itemBody, label) {
   const collected = inline === '' ? [] : [inline];
   for (const line of lines.slice(index + 1)) {
     if (line.trim() === '' || line.startsWith('- ') || line.startsWith('#') || isPlaceholderLine(line)) break;
+    if (line.startsWith('<!--')) break;
     if (markerOffsetOf(line) >= 0) break;
     collected.push(line.trim());
   }
@@ -232,14 +271,37 @@ function labelledLines(itemBody, label) {
  * token, so an instruction behind a label would read as a sentence that mentions one, and
  * the gate would neither see it nor be able to trust what it saw.
  */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
-function labelledValue(itemBody, label) {
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+export function labelledValue(itemBody, label) {
   const collected = labelledLines(itemBody, label);
   if (collected === null) return null;
 
   const value = collected.join(' ').trim();
   if (value === '' || value.includes(MUST_FILL_MARKER) || value.includes(HUMAN_PLACEHOLDER)) return null;
   return value;
+}
+
+/**
+ * The recorded points a question binds, read from its AI-only line.
+ *
+ * The ids are what makes a question a direction rather than a point put to the human, so this
+ * reader is what the gate counts and what the ledger derives `bound` from. An unfilled line
+ * binds nothing rather than binding something guessed: a question whose ids are still an
+ * instruction has not been written yet, and the gate refuses it for that.
+ *
+ * @param {string} itemBody
+ * @returns {Array<string>}
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function boundPointIds(itemBody) {
+  const collected = labelledLines(itemBody, BOUND_POINTS_LABEL);
+  if (collected === null) return [];
+
+  return collected
+    .join(' ')
+    .split(/[,、]/)
+    .map((token) => token.trim())
+    .filter((token) => token !== '' && !token.includes(MUST_FILL_MARKER));
 }
 
 /** The letter a direction opens with, or nothing when the line opens with none. */
@@ -496,36 +558,6 @@ function renderMovedFacts(movedFacts) {
   return [`> ※ 前回の説明が依拠していた事実（${named}）が変わったため、この節は書き直しました。`, ''];
 }
 
-/** The line that says which facts moved under one human decision, above its placeholder. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function renderMovedFactsForItem(movedFacts) {
-  const named = movedFacts.map((id) => `INFO ${id.replace('I', '')}「${INFO_SECTION_TITLES[id]}」`).join('、');
-  return `> ※ この判断の説明が依拠していた事実（${named}）が変わったため、説明は書き直しました。人間が書いたメモはそのまま残しています。`;
-}
-
-/** The contract that governs a risky boundary, with the clauses stage two already settled. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function renderRecordedContracts(item) {
-  if (item.contracts.length === 0) {
-    return [`- この境界を定めている契約: ${ABSENT_SECTION_STATEMENT}`];
-  }
-
-  const lines = [];
-  for (const contract of item.contracts) {
-    const direction = DIRECTION_NAMES[contract.direction] ?? contract.direction;
-    lines.push(
-      `- この境界を定めている契約: ${contract.contract_id}（${direction} / ${contract.connection_kind ?? '種別未記載'}）— 相手 ${contract.counterpart}`,
-    );
-    const clauses = contract.clauses.slice(0, MAX_LISTED_CLAUSES);
-    for (const clause of clauses) {
-      lines.push(`  - すでに決まっていること（clauses.${clause.name}）: ${truncate(clause.text)}`);
-    }
-    const clausesLeft = contract.clauses.length - clauses.length;
-    if (clausesLeft > 0) lines.push(`  ${renderRemainder(clausesLeft)}`);
-  }
-  return lines;
-}
-
 /**
  * The context the question carries for a person who knows nothing of the implementation or the design.
  *
@@ -578,21 +610,28 @@ function renderRecommendationBlock() {
 }
 
 /**
- * One question for the human, numbered so an answer can name it, with the recorded material
- * behind it and a place to answer.
+ * One empty question block, numbered so an answer can name it, with a place to answer.
  *
  * The number is the frame's, not the AI's: a count the AI kept would drift between rounds, and
- * an answer that named Q3 would then name a different question than the one it was given.
+ * an answer that named Q3 would then name a different question than the one it was given. The
+ * points the question settles and the record they come from stand in the AI-only region, below
+ * the notice that tells the person they need not read it: a direction is put to a person in
+ * their own words, and the record's vocabulary is what the AI settles the points from.
  */
-// [::TICKET::] PX-222, PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227) --for-spec --no-implementation-order`.
-function renderHumanItem({ item, index, note, movedFacts }) {
-  const lines = [`${HUMAN_ITEM_HEADING} Q${index + 1}${REFERENCE_SEPARATOR}${item.id}`, ''];
-  lines.push(...renderContextBlock());
-  lines.push(`- ${RECORD_REFERENCE_NOTICE}`);
-  if (item.topic !== null) lines.push(`- 記録された論点: ${truncate(item.topic)}`);
-  if (item.whyUnresolved !== null) lines.push(`- 未解決とされた理由: ${truncate(item.whyUnresolved)}`);
-  lines.push(...renderRecordedContracts(item));
-  lines.push(
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+export function renderQuestionBlock({ number }) {
+  return [
+    `${HUMAN_ITEM_HEADING} Q${number}`,
+    '',
+    ...renderContextBlock(),
+    `- ${RECORD_REFERENCE_NOTICE}`,
+    `- ${BOUND_POINTS_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${BOUND_POINTS_LABEL} — この質問が1つの答えでまとめて決める記録上の論点の id を、カンマ区切りで2つ以上書く。この行から下は人間には見せない。`,
+    `- ${SCOPE_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${SCOPE_LABEL} — この答えで AI が何を決められるようになるかを1行で書く。人間には見せない。`,
+    `- 記録の写し:`,
+    `  ${MUST_FILL_MARKER} 記録の写し — 上の論点の記録（未解決とされた理由・この境界を定めている契約と条項）を原文のまま写す。人間には見せない。`,
+    '',
     `${MUST_FILL_MARKER} 何を決めるのか — 実装も設計も知らない高校生が読める言葉で2〜3文。専門用語を使うならその場で言い換える。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。上の記録や他の節を読んだ前提で書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
     '',
     ...renderOptionBlock(),
@@ -603,12 +642,8 @@ function renderHumanItem({ item, index, note, movedFacts }) {
     `- ${HARM_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${HARM_LABEL} — 決めずに実装が進むと現場で具体的に何が起きるか。「問題になります」で終わらせない。`,
     '',
-  );
-  if (movedFacts.length > 0) lines.push(renderMovedFactsForItem(movedFacts));
-  lines.push(HUMAN_PLACEHOLDER);
-  if (note !== null && note !== '') lines.push(note);
-  lines.push('');
-  return lines;
+    HUMAN_PLACEHOLDER,
+  ].join('\n');
 }
 
 /** One thing already decided, with what it rests on and what would overturn it. */
@@ -709,11 +744,12 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-  E5(material) {
-    const { humanDecisionItems } = material;
-    if (humanDecisionItems.length === 0) return [ABSENT_RESIDUALS_STATEMENT, ''];
-    return humanDecisionItems.flatMap((item) => [...item.text.split('\n')]);
+// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+  E5() {
+    // The human's section is maintained, never regenerated: `buildFrame` keeps the previous
+    // body when it carries this frame's question shape, and `next` appends the questions.
+    // This builder is what a frame with nothing to carry writes.
+    return [ABSENT_RESIDUALS_STATEMENT, ''];
   },
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E6(material) {
@@ -774,21 +810,28 @@ function renderFrameSection({ section, material }) {
   return `## ${section.title}\n\n${SECTION_BUILDERS[section.id](material).join('\n').trim()}`;
 }
 
-/** What a person wrote in an earlier document, keyed by the record the item was about. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+/**
+ * What a person wrote in an earlier document, keyed by what stood in the heading.
+ *
+ * The key is the record an item was about when it had one, and the heading itself otherwise:
+ * a question written by this frame carries only its number, and a note under it can no longer
+ * be re-anchored by the record — which is why the human's section is carried whole rather than
+ * rebuilt from notes, and why this reader is now used only to name what a reset could not keep.
+ */
+// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function collectHumanNotes({ located, faults }) {
   const notes = {};
   if (located === null) return notes;
 
   for (const [id, body] of Object.entries(located.bodies)) {
     for (const item of splitItems(body, HUMAN_ITEM_HEADING)) {
-      if (item.id === null) continue;
+      const anchor = item.id ?? item.heading;
       if (countPlaceholdersIn(item.body) !== 1) {
-        faults.push({ kind: 'unreadable-section', section: id, id: item.id });
+        faults.push({ kind: 'unreadable-section', section: id, id: anchor });
         continue;
       }
       const note = readHumanNote(item.body);
-      if (note !== null && note !== '') notes[item.id] = note;
+      if (note !== null && note !== '') notes[anchor] = note;
     }
   }
   return notes;
@@ -801,7 +844,8 @@ function collectHumanNotes({ located, faults }) {
  * be the same list: a label added to one and not the other either reopens every document on
  * every run, or keeps a body the gate refuses with no way back.
  */
-export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([OPTIONS_LABEL, CONTEXT_LABEL]);
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([OPTIONS_LABEL, CONTEXT_LABEL, BOUND_POINTS_LABEL]);
 
 /**
  * Whether a section holds the shape this frame writes.
@@ -818,11 +862,13 @@ export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([OPTIONS_LABEL, CONT
  * them the way the frame before it did, and a section it kept keeps the AI's prose, which no
  * frame writes.
  */
-// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 function carriesTheShapeThisFrameWrites(sectionId, body) {
   if (sectionId !== HUMAN_SECTION_ID) return true;
-  return splitItems(body, HUMAN_ITEM_HEADING).every((item) =>
-    SHAPE_LABELS_THIS_FRAME_WRITES.every((label) => labelledLines(item.body, label) !== null),
+  return splitItems(body, HUMAN_ITEM_HEADING).every(
+    (item) =>
+      questionNumberOf(item.heading) !== null &&
+      SHAPE_LABELS_THIS_FRAME_WRITES.every((label) => labelledLines(item.body, label) !== null),
   );
 }
 
@@ -848,35 +894,53 @@ export function buildFrame({ facts, previous }) {
   const recorded = previous === null ? null : readDigestBlock(previous);
   const located = previous === null ? null : locateSections(previous);
   const moved = movedFactNames({ recorded, computed: digests });
-  const openItems = collectOpenItems(facts.projection);
   const preDecided = collectPreDecidedItems(facts);
 
   const faults = faultsOfPrevious(located);
-  const notes = collectHumanNotes({ located, faults });
+  const discardedNotes = [];
+  const notes = collectHumanNotes({ located, faults: discardedNotes });
+  faults.push(...discardedNotes);
   const keptSections = [];
   const reopenedSections = [];
-  const humanDecisionItems = openItems.map((item, index) => ({
-    id: item.id,
-    text: renderHumanItem({ item, index, note: notes[item.id] ?? null, movedFacts: moved.E5 ?? [] }).join('\n'),
-  }));
+
+  // The human's section is maintained: it is never regenerated. A previous body that carries
+  // this frame's question shape is carried through byte for byte, so no run renumbers, reorders
+  // or deletes a question, a round separator or an answer. A body written by an earlier frame
+  // cannot be carried — its headings name records rather than questions — so it is reset, and
+  // the notes it cannot re-anchor are named so nothing is discarded in silence.
+  const previousHumanBody = located?.bodies[HUMAN_SECTION_ID];
+  const humanCarriesShape =
+    previousHumanBody !== undefined && carriesTheShapeThisFrameWrites(HUMAN_SECTION_ID, previousHumanBody);
+  if (previous !== null && !humanCarriesShape) {
+    for (const anchor of Object.keys(notes)) {
+      faults.push({ kind: 'unreadable-section', section: HUMAN_SECTION_ID, id: anchor });
+    }
+  }
+  const humanBody = humanCarriesShape ? previousHumanBody : ABSENT_RESIDUALS_STATEMENT;
 
   const chunks = FRAME_SECTIONS.map((section) => {
     const previousBody = located?.bodies[section.id];
-    const kept =
-      recorded !== null &&
-      previousBody !== undefined &&
-      recorded[section.id]?.digest === digests[section.id].digest &&
-      carriesTheShapeThisFrameWrites(section.id, previousBody);
-    if (kept) {
+    const digestMatches =
+      recorded !== null && previousBody !== undefined && recorded[section.id]?.digest === digests[section.id].digest;
+
+    if (section.id === HUMAN_SECTION_ID) {
+      if (digestMatches && humanCarriesShape) keptSections.push(section.id);
+      else reopenedSections.push(section.id);
+      return `## ${section.title}\n\n${humanBody}`;
+    }
+
+    if (digestMatches && carriesTheShapeThisFrameWrites(section.id, previousBody)) {
       keptSections.push(section.id);
       return `## ${section.title}\n\n${previousBody}`;
     }
     reopenedSections.push(section.id);
-    return renderFrameSection({
-      section,
-      material: { facts, openItems, preDecided, notes, movedFacts: moved[section.id] ?? [], humanDecisionItems },
-    });
+    return renderFrameSection({ section, material: { facts, preDecided, movedFacts: moved[section.id] ?? [] } });
   });
+
+  const humanDecisionItems = splitItems(humanBody, HUMAN_ITEM_HEADING).map((item) => ({
+    ...item,
+    number: questionNumberOf(item.heading),
+  }));
 
   const header = [
     `# RFC-SEED の解説: ${facts.projection.identity.name}（${facts.projection.identity.id}）`,
@@ -905,6 +969,94 @@ export function countHumanDecisionItems(documentText) {
   const located = locateSections(documentText);
   const body = located.bodies[HUMAN_SECTION_ID] ?? '';
   return splitItems(body, HUMAN_ITEM_HEADING).length;
+}
+
+/** The line that opens round `n` of questions. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function roundSeparator(n) {
+  return `${ROUND_SEPARATOR_OPEN}${n}${ROUND_SEPARATOR_CLOSE}`;
+}
+
+/**
+ * The rounds a document opens, in order, read from the separators between question blocks.
+ *
+ * The separator is the ledger's only record of a round: a question's number says which question
+ * it is, never which round put it, so the count of separators is the count of rounds and the
+ * separator a question stands after is the round it belongs to.
+ *
+ * @param {string} documentText
+ * @returns {Array<number>}
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function readRoundNumbers(documentText) {
+  const separators = String(documentText).match(/<!-- explain-seed:round (\d+) -->/g) ?? [];
+  return separators.map((separator) => Number(separator.match(/(\d+)/)[1]));
+}
+
+/** How many rounds of questions a document has opened. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function countRounds(documentText) {
+  return readRoundNumbers(documentText).length;
+}
+
+/** The numbers of the questions a document asks, in the order it asks them. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function readQuestionNumbers(documentText) {
+  const located = locateSections(documentText);
+  const body = located.bodies[HUMAN_SECTION_ID] ?? '';
+  return splitItems(body, HUMAN_ITEM_HEADING)
+    .map((item) => questionNumberOf(item.heading))
+    .filter((number) => number !== null);
+}
+
+/** The line range of one section's body, so a change can be spliced in without touching the rest. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function sectionBodySpan(lines, sectionId) {
+  let start = null;
+  let end = null;
+  for (const [index, line] of lines.entries()) {
+    const id = sectionIdOf(line);
+    if (id !== null) {
+      if (id === sectionId) start = index + 1;
+      else if (start !== null && end === null) end = index;
+      continue;
+    }
+    if (start !== null && end === null && (line.startsWith('## ') || line.startsWith(DIGEST_BLOCK_OPEN))) end = index;
+  }
+  return start === null ? null : { start, end: end ?? lines.length };
+}
+
+/**
+ * Append `size` empty numbered question blocks to the human's section, opening a round.
+ *
+ * The numbers continue from the highest number the document already holds, because a number a
+ * question was asked under never moves: renumbering would make an earlier answer name a
+ * different question. Everything already in the document is carried through unchanged — the
+ * separator is written before the blocks it opens, and the absent statement a frame writes is
+ * replaced rather than kept, because a document with questions is not one with none.
+ *
+ * @param {{ documentText: string, size: number }} input
+ * @returns {string}
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+export function appendQuestionRound({ documentText, size }) {
+  const lines = documentText.split('\n');
+  const span = sectionBodySpan(lines, HUMAN_SECTION_ID);
+  if (span === null) {
+    throw new ExplainSeedError(`the questions cannot be appended: ${HUMAN_SECTION_ID} is not a section this document holds`, {
+      field: EXPLAIN_FILE_NAME,
+    });
+  }
+
+  const existing = lines.slice(span.start, span.end).join('\n').trim();
+  const firstNumber = Math.max(0, ...readQuestionNumbers(documentText)) + 1;
+  const blocks = Array.from({ length: size }, (_, offset) => renderQuestionBlock({ number: firstNumber + offset }));
+  const addition = [roundSeparator(countRounds(documentText) + 1), '', blocks.join('\n\n')];
+
+  if (existing === '' || existing === ABSENT_RESIDUALS_STATEMENT) {
+    return [...lines.slice(0, span.start), '', ...addition, '', ...lines.slice(span.end)].join('\n');
+  }
+  return [...lines.slice(0, span.start), ...lines.slice(span.start, span.end), '', ...addition, '', ...lines.slice(span.end)].join('\n');
 }
 
 /** The declared count, or nothing when the introduction does not state one. */
@@ -939,38 +1091,83 @@ function sectionOfLine(documentText, lineNumber) {
  * those four: those four are about the choice the question offers, and this one is about
  * whether the question can be read at all by the person it is put to.
  */
-// [::TICKET::] PX-222, PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 function faultsOfDecisions({ body, openItems, section }) {
   const faults = [];
   const openIds = new Set(openItems.map((item) => item.id));
 
   for (const item of splitItems(body, HUMAN_ITEM_HEADING)) {
-    if (item.id === null || !openIds.has(item.id)) {
-      faults.push({ kind: 'unrecorded-decision', section, id: item.id });
+    const number = questionNumberOf(item.heading);
+    const question = number === null ? item.heading : `Q${number}`;
+
+    // The points a question settles, not the record its heading named: a question binds the
+    // recorded points it is a direction about, and an id the manifests never recorded is a
+    // question the manifests never recorded.
+    const bound = boundPointIds(item.body);
+    for (const id of bound) {
+      if (!openIds.has(id)) faults.push({ kind: 'unrecorded-decision', section, id });
     }
+    if (bound.length < MIN_BOUND_POINTS && openItems.length >= MIN_BOUND_POINTS) {
+      faults.push({ kind: 'too-few-bound-points', section, id: question });
+    }
+
     const placeholders = countPlaceholdersIn(item.body);
-    if (placeholders === 0) faults.push({ kind: 'missing-placeholder', section, id: item.id });
-    if (placeholders > 1) faults.push({ kind: 'duplicate-placeholder', section, id: item.id });
-    if (labelledValue(item.body, PARTY_LABEL) === null) faults.push({ kind: 'unnamed-party', section, id: item.id });
-    if (labelledValue(item.body, CONTEXT_LABEL) === null) faults.push({ kind: 'missing-context', section, id: item.id });
+    if (placeholders === 0) faults.push({ kind: 'missing-placeholder', section, id: question });
+    if (placeholders > 1) faults.push({ kind: 'duplicate-placeholder', section, id: question });
+    if (labelledValue(item.body, PARTY_LABEL) === null) faults.push({ kind: 'unnamed-party', section, id: question });
+    if (labelledValue(item.body, CONTEXT_LABEL) === null) faults.push({ kind: 'missing-context', section, id: question });
+    if (labelledValue(item.body, SCOPE_LABEL) === null) faults.push({ kind: 'missing-scope-line', section, id: question });
 
     const directions = directionsOffered(item.body);
-    if (directions.length < MIN_OPTION_COUNT) faults.push({ kind: 'too-few-options', section, id: item.id });
-    if (readRecommendation(item.body, directions) === null) faults.push({ kind: 'missing-recommendation', section, id: item.id });
+    if (directions.length < MIN_OPTION_COUNT) faults.push({ kind: 'too-few-options', section, id: question });
+    if (readRecommendation(item.body, directions) === null) faults.push({ kind: 'missing-recommendation', section, id: question });
     if (labelledValue(item.body, RECOMMENDATION_REASON_LABEL) === null) {
-      faults.push({ kind: 'missing-recommendation-reason', section, id: item.id });
+      faults.push({ kind: 'missing-recommendation-reason', section, id: question });
     }
     if (labelledValue(item.body, RECOMMENDATION_OVERRIDE_LABEL) === null) {
-      faults.push({ kind: 'missing-recommendation-override', section, id: item.id });
+      faults.push({ kind: 'missing-recommendation-override', section, id: question });
     }
   }
   return faults;
 }
 
+/** A ground that names a question, with or without the letter the answer chose. */
+const QUESTION_GROUND = /^Q(\d+)(?:\s*[A-Za-z])?\b/;
+
+/**
+ * Whether a ground names a question, recording what is wrong with the reference when it does.
+ *
+ * A question reference is the third kind of ground the document allows, beside a manifest id
+ * and a neighbour's document, and it widens the ground grammar rather than replacing it: only
+ * the reference is resolved here, so a ground naming the manifest vocabulary still goes through
+ * the other reader. The reference is resolved against the questions actually present, so an
+ * answer-grounded decision can never rest on a question this document does not ask or has not
+ * had answered.
+ *
+ * @returns {boolean} whether the ground was a question reference at all
+ */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function faultsOfQuestionGround({ ground, questionsByNumber, faults, section, id }) {
+  const matched = String(ground).trim().match(QUESTION_GROUND);
+  if (matched === null) return false;
+
+  const question = questionsByNumber.get(Number(matched[1]));
+  if (question === undefined) {
+    faults.push({ kind: 'unknown-question-as-ground', section, id });
+  } else if (decisionUnderPlaceholder(question.body) === null) {
+    faults.push({ kind: 'unanswered-question-as-ground', section, id });
+  }
+  return true;
+}
+
 /** The faults in the pre-decided section. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function faultsOfPreDecisions({ body, openIds, section }) {
+// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+function faultsOfPreDecisions({ body, openIds, questions, section }) {
   const faults = [];
+  const questionsByNumber = new Map(
+    questions.filter((question) => question.number !== null).map((question) => [question.number, question]),
+  );
+
   for (const item of splitItems(body, PREDECIDED_ITEM_HEADING)) {
     for (const [label, kind] of [
       [DECISION_LABEL, 'missing-decision'],
@@ -981,7 +1178,9 @@ function faultsOfPreDecisions({ body, openIds, section }) {
     }
     const ground = labelledValue(item.body, GROUND_LABEL);
     if (ground === null) continue;
-    if (!GROUND_SOURCE.test(ground)) faults.push({ kind: 'unresolvable-ground', section, id: item.id });
+    if (!faultsOfQuestionGround({ ground, questionsByNumber, faults, section, id: item.id }) && !GROUND_SOURCE.test(ground)) {
+      faults.push({ kind: 'unresolvable-ground', section, id: item.id });
+    }
     const openId = [...openIds].find((id) => mentionsId(ground, id));
     if (openId !== undefined) faults.push({ kind: 'open-item-as-ground', section, id: openId });
   }
@@ -989,16 +1188,14 @@ function faultsOfPreDecisions({ body, openIds, section }) {
 }
 
 /** The faults in the coverage of the recorded open items. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-function faultsOfCoverage({ decisions, preDecisions, openItems }) {
-  const faults = [];
-  for (const item of openItems) {
-    const asked = mentionsId(decisions, item.id);
-    const decided = mentionsId(preDecisions, item.id);
-    if (!asked && !decided) faults.push({ kind: 'missing-open-item', section: null, id: item.id });
-    if (asked && decided) faults.push({ kind: 'open-item-in-both-sections', section: null, id: item.id });
-  }
-  return faults;
+// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+function faultsOfCoverage({ ledger, openItems }) {
+  // Coverage is read from the ledger and not from the text: a point that a question binds and
+  // an answer later settles is named in both sections, and that is the end state the loop
+  // exists to reach, not a fault. What the rule refuses is a point left in no state at all.
+  return openItems
+    .filter((item) => ledger.open.has(item.id))
+    .map((item) => ({ kind: 'missing-open-item', section: null, id: item.id }));
 }
 
 /** The sections whose recorded digest is not the digest of the facts now on disk. */
@@ -1042,10 +1239,15 @@ export function verifyExplanation({ facts, explainText }) {
   ];
 
   const decisions = located.bodies[HUMAN_SECTION_ID] ?? '';
-  const preDecisions = located.bodies.E6 ?? '';
+  const preDecisions = located.bodies[PREDECIDED_SECTION_ID] ?? '';
+  const questions = splitItems(decisions, HUMAN_ITEM_HEADING).map((item) => ({
+    ...item,
+    number: questionNumberOf(item.heading),
+  }));
+  const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
   faults.push(...faultsOfDecisions({ body: decisions, openItems, section: HUMAN_SECTION_ID }));
-  faults.push(...faultsOfPreDecisions({ body: preDecisions, openIds, section: 'E6' }));
-  faults.push(...faultsOfCoverage({ decisions, preDecisions, openItems }));
+  faults.push(...faultsOfPreDecisions({ body: preDecisions, openIds, questions, section: PREDECIDED_SECTION_ID }));
+  faults.push(...faultsOfCoverage({ ledger, openItems }));
 
   const declared = declaredDecisionCount(explainText);
   if (declared !== countHumanDecisionItems(explainText)) {

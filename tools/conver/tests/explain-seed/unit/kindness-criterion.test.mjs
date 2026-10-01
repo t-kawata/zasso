@@ -18,12 +18,19 @@ import {
   FRAME_SECTIONS,
   HUMAN_ITEM_HEADING,
   RECORD_REFERENCE_NOTICE,
+  appendQuestionRound,
   buildFrame,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import { findOpenMarkers } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import { syntheticFacts } from '../helpers/synthetic-facts.mjs';
 
 const COMMAND_FILE = fileURLToPath(new URL('../../../.claude/commands/explain-seed.md', import.meta.url));
+
+/** A frame holding one question, because the frame itself now carries none until `next` runs. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function questionFrame() {
+  return appendQuestionRound({ documentText: buildFrame({ facts: syntheticFacts(), previous: null }).text, size: 1 });
+}
 
 /** The marker instructions in one section of a fresh frame. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
@@ -68,8 +75,7 @@ function sectionAround(commandFile, token) {
 }
 
 test('C005 invariant: the classification rule reaches the item the AI has to classify', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
 
   assert.ok(
     item.includes(FRAME_SECTIONS[5].title),
@@ -98,7 +104,7 @@ test('C003 invariant: every instruction says what an unacceptable answer looks l
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
   const markers = findOpenMarkers(frame.text);
   const withStandard = markers.filter((marker) =>
-    /書かない|投げ返|終わらせ|名指し|言い換え|並べない|移し|しない|見直す/.test(marker.text),
+    /書かない|投げ返|終わらせ|名指し|言い換え|並べない|移し|しない|見せない|見直す/.test(marker.text),
   );
 
   assert.ok(markers.length > 0, 'a fresh frame asks to be written');
@@ -107,8 +113,7 @@ test('C003 invariant: every instruction says what an unacceptable answer looks l
 
 // [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C003 invariant: the context instruction names the reader and forbids presupposing the records', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
   const [instruction] = findOpenMarkers(item).filter((marker) => marker.text.includes(CONTEXT_LABEL));
 
   assert.notEqual(instruction, undefined, 'the question asks to be given its own context');
@@ -131,13 +136,18 @@ test('C003 invariant: the command file states the reader where the question is w
 
   assert.match(
     sectionAround(commandFile, '### The question'),
-    /knows neither the implementation nor the design/i,
+    /high-school student/i,
     'the standard for the person answering is stated among the rules for the question',
   );
   assert.match(
+    flowItem(commandFile, 2),
+    /person knowing neither implementation nor design/,
+    'and again in the step that writes the question, where the AI meets it',
+  );
+  assert.match(
     flowItem(commandFile, 4),
-    /knows neither the implementation nor the design/i,
-    'and again in the step that puts the question, which is where the AI meets it',
+    /judge: W1–W12 per question/,
+    'and the step that puts the question is held to the same standard',
   );
 });
 
@@ -145,8 +155,12 @@ test('C005 invariant: the command file states the classification where the writi
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const writingStep = flowItem(commandFile, 2);
 
-  assert.match(writingStep, /could I write/i, 'the self-question for a handed-back engineering question is in the writing step');
-  assert.match(writingStep, /would a reasonable engineer/i, 'and so is the self-question for a silently decided experiential one');
+  assert.match(
+    writingStep,
+    /Can ground \+ decision \+ override condition be written now/,
+    'the self-question for a handed-back engineering question is in the writing step',
+  );
+  assert.match(writingStep, /light and reversible\?/, 'and so is the self-question for a silently decided experiential one');
 });
 
 test('C005 invariant: the pre-decided section tells its reader how to challenge it', () => {
@@ -168,6 +182,10 @@ test('C003 invariant: the command file sends the AI back to the criterion at the
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const gateStep = flowItem(commandFile, 3);
 
-  assert.match(gateStep, /Kind\/Unfit/, 'the gate step names the criterion rather than gesturing at it');
-  assert.match(gateStep, /≠|does \*\*not\*\* mean|does not mean/, 'and says plainly that passing the gate is not the criterion');
+  assert.match(gateStep, /apply Criteria/, 'the gate step names the criterion rather than gesturing at it');
+  assert.match(
+    sectionAround(commandFile, 'G5'),
+    /G4 PASS ≠ G3 PASS/,
+    'and the gate section says plainly that passing the gate is not the criterion',
+  );
 });

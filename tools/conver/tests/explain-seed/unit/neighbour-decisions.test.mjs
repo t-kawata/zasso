@@ -74,6 +74,25 @@ test('C001 postcondition: a placeholder with nothing under it is not a decision'
   assert.equal(readSettledDecisions({ documentText: UNDECIDED_BY_BETA }).size, 0);
 });
 
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C001 postcondition: a question of the current shape names its boundary on its bound-points line', () => {
+  const currentShape = [
+    '## 人間が決めること（ここだけ）',
+    '',
+    '### 判断 Q1',
+    '- 誰の体験が変わるか:',
+    '  却下の形は面を作る開発者の体験を変える。',
+    '- 束ねた論点:',
+    '  boundary-001',
+    '<!-- 人間の判断 -->',
+    '却下はエラーコードで返す。',
+  ].join('\n');
+
+  const decisions = readSettledDecisions({ documentText: currentShape });
+
+  assert.equal(decisions.get('boundary-001'), '却下はエラーコードで返す。', 'the reader follows the heading reference or the bound points, whichever the document carries');
+});
+
 test('C002 postcondition: a neighbour decision becomes one settled record naming its document', () => {
   const workspace = materializeExplainSeedWorkspace();
   const documentPath = writeNeighbourExplanation({ workspace, packageId: 'pkg-0002', documentText: DECIDED_BY_BETA });

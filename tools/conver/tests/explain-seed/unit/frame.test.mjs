@@ -6,15 +6,20 @@
 // PX-225 @verifies C004
 // PX-225 @verifies C006
 // PX-226 @verifies C001
+// PX-229 @verifies C007
 //
 // The frame is the script's half of the explanation: the structure, the instructions, the
 // placeholders and the count. The AI's half is the prose that replaces the markers, so the
 // frame has to be readable and answerable before a single word of it is written.
+//
+// Since PX-229 the frame holds no per-point question: the human's section is maintained, and
+// `next` appends the numbered question blocks. A frame with questions is therefore one a round
+// has been appended to, and the tests that judge a question build it that way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ABSENT_SECTION_STATEMENT,
+  ABSENT_RESIDUALS_STATEMENT,
   CONTEXT_LABEL,
   FRAME_SECTIONS,
   GROUND_LABEL,
@@ -24,15 +29,19 @@ import {
   OVERRIDE_LABEL,
   PARTY_LABEL,
   PREDECIDED_ITEM_HEADING,
+  RECORD_REFERENCE_NOTICE,
   RECOMMENDATION_LABEL,
   RECOMMENDATION_OVERRIDE_LABEL,
   RECOMMENDATION_REASON_LABEL,
-  RECORD_REFERENCE_NOTICE,
+  SCOPE_LABEL,
   SHAPE_LABELS_THIS_FRAME_WRITES,
   COUNT_LABEL,
+  appendQuestionRound,
   buildFrame,
+  countHumanDecisionItems,
   locateSections,
   mentionsId,
+  readQuestionNumbers,
   verifyExplanation,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
 import {
@@ -43,8 +52,8 @@ import {
   isPlaceholderLine,
   markerOffsetInLine,
 } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
-import { REFERENCE_SEPARATOR, splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
-import { fillEveryMarker } from '../helpers/fill-frame.mjs';
+import { splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
+import { authorExplanation } from '../helpers/fill-frame.mjs';
 import {
   ABSENT_SETTLEMENTS_STATEMENT,
   INFO_SECTION_TITLES,
@@ -54,6 +63,9 @@ import {
   renderInfo,
 } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
 import { SETTLED_ELSEWHERE, syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
+
+const E5_TITLE = FRAME_SECTIONS[4].title;
+const E6_TITLE = FRAME_SECTIONS[5].title;
 
 /** The body under one section heading, up to the next heading of the same level. */
 // [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
@@ -71,6 +83,74 @@ function itemsUnder(documentText, title, heading) {
   return sectionBody(documentText, title)
     .split('\n')
     .filter((line) => line.startsWith(heading)).length;
+}
+
+/** A frame holding a round of questions, which is the shape every question test judges. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function questionFrame({ facts = syntheticFacts(), size = 1 } = {}) {
+  return appendQuestionRound({ documentText: buildFrame({ facts, previous: null }).text, size });
+}
+
+/** An authored explanation whose one question binds every recorded point. */
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+function authored(facts = syntheticFacts()) {
+  return authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
+}
+
+/** The first question of the human's section, heading included. */
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+function firstHumanItem(frameText) {
+  const start = frameText.indexOf(HUMAN_ITEM_HEADING);
+  assert.notEqual(start, -1, 'the fixture asks the human at least one question');
+  const rest = frameText.slice(start);
+  const end = rest.indexOf(`\n${HUMAN_ITEM_HEADING}`, 1);
+  return end < 0 ? rest : rest.slice(0, end);
+}
+
+/**
+ * The same document with a person's answer written under the first place a person writes.
+ *
+ * The answer goes under a placeholder *line*: the document's own header explains what the
+ * placeholder is for, and an answer written into that sentence is an answer to nothing.
+ */
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+function withNoteUnderFirstPlaceholder(documentText, note) {
+  const lines = [];
+  let written = false;
+  for (const line of documentText.split('\n')) {
+    lines.push(line);
+    if (written || !isPlaceholderLine(line)) continue;
+    lines.push(note);
+    written = true;
+  }
+  return lines.join('\n');
+}
+
+/** The labels whose blocks the frame that asked for directions added, in one list for both surgeries below. */
+// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
+
+/**
+ * The same document with the blocks under the given labels taken out of every item.
+ *
+ * A block is the label's own line and the indented lines under it — the same extent
+ * `labelledLines` reads — so a document stripped here is one where the gate finds the label
+ * absent rather than emptied, which is what a document written by an earlier frame looks like.
+ */
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+function withoutLabelBlocks(documentText, labels) {
+  const kept = [];
+  let skipping = false;
+  for (const line of documentText.split('\n')) {
+    if (labels.some((label) => line.startsWith(`- ${label}:`))) {
+      skipping = true;
+      continue;
+    }
+    if (skipping && /^\s+\S/.test(line)) continue;
+    skipping = false;
+    kept.push(line);
+  }
+  return kept.join('\n');
 }
 
 test('C003 precondition: the frame is built from the current facts and one seed path', () => {
@@ -103,11 +183,11 @@ test('C003 postcondition: every explanation point is a whole-line marker carryin
   }
 });
 
-test('C003 postcondition: every human-decision item carries exactly one placeholder', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const bodies = sectionBody(frame.text, FRAME_SECTIONS[4].title).split(`\n${HUMAN_ITEM_HEADING} `).slice(1);
+test('C003 postcondition: every question carries exactly one placeholder', () => {
+  const frame = questionFrame({ size: 2 });
+  const bodies = sectionBody(frame, E5_TITLE).split(`\n${HUMAN_ITEM_HEADING} `).slice(1);
 
-  assert.equal(bodies.length, frame.humanDecisionItems.length);
+  assert.equal(bodies.length, 2, 'the frame carries the round it was given');
   for (const body of bodies) {
     const item = `${HUMAN_ITEM_HEADING} ${body}`;
     assert.equal(findHumanPlaceholders(item).length, 1, 'exactly one place for the human to write');
@@ -126,35 +206,39 @@ test('C003 invariant: the frame names the seed it was built from and the facts i
   assert.equal(new Set(frame.sectionDigests.map((entry) => entry.digest)).size, FRAME_SECTIONS.length);
 });
 
-test('C006 postcondition: every recorded open id is carried into the frame, and none is pre-decided', () => {
+test('C006 postcondition: every recorded open id is bound in the human section, and none is pre-decided', () => {
   const facts = syntheticFacts();
-  const frame = buildFrame({ facts, previous: null });
-  const decisions = sectionBody(frame.text, FRAME_SECTIONS[4].title);
-  const preDecided = sectionBody(frame.text, FRAME_SECTIONS[5].title);
+  const authoredText = authored(facts);
+  const decisions = sectionBody(authoredText, E5_TITLE);
+  const preDecided = sectionBody(authoredText, E6_TITLE);
   const openIds = syntheticOpenIds(facts.projection);
 
   assert.equal(openIds.length, 2, 'the fixture records two open items');
   for (const id of openIds) {
-    assert.ok(mentionsId(decisions, id), `${id} is asked of the human`);
+    assert.ok(mentionsId(decisions, id), `${id} is bound by the question asked of the human`);
     assert.equal(mentionsId(preDecided, id), false, `${id} is not decided for them`);
   }
 });
 
-test('C006 postcondition: one item per recorded open id, and the declared count is asked for rather than asserted', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
+test('C006 postcondition: the frame holds no per-point question, and the introduction asks for the count', () => {
+  const facts = syntheticFacts();
+  const frame = buildFrame({ facts, previous: null });
 
-  assert.equal(frame.humanDecisionItems.length, syntheticOpenIds().length);
-  assert.equal(itemsUnder(frame.text, FRAME_SECTIONS[4].title, HUMAN_ITEM_HEADING), syntheticOpenIds().length);
+  assert.equal(frame.humanDecisionItems.length, 0, 'the frame itself asks the human nothing until next appends a round');
   assert.match(
     frame.text,
     new RegExp(`${MUST_FILL_MARKER.replace(/[[\]]/g, '\\$&')}[^\\n]*${COUNT_LABEL}`),
     'the introduction asks for the count instead of stating it',
   );
+
+  const authoredText = authored(facts);
+  assert.equal(itemsUnder(authoredText, E5_TITLE, HUMAN_ITEM_HEADING), 1, 'the fixture binds both points from one direction question');
+  assert.equal(countHumanDecisionItems(authoredText), 1, 'and the declared count follows the number of questions, not the number of points');
 });
 
 test('C005 postcondition: a question the facts settle is pre-decided with a decision, a ground and an override condition', () => {
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const items = sectionBody(frame.text, FRAME_SECTIONS[5].title).split(`\n${PREDECIDED_ITEM_HEADING} `).slice(1);
+  const items = sectionBody(frame.text, E6_TITLE).split(`\n${PREDECIDED_ITEM_HEADING} `).slice(1);
 
   assert.ok(items.length > 0, 'the settled contracts, forbidden edges and obligations are listed');
   for (const body of items) {
@@ -164,55 +248,26 @@ test('C005 postcondition: a question the facts settle is pre-decided with a deci
   assert.match(frame.text, /contract_registry/, 'a ground names the manifest field it came from');
 });
 
-test('C005 postcondition: a question whose answer turns on how the result feels asks whose experience changes', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const decisions = sectionBody(frame.text, FRAME_SECTIONS[4].title);
-  const partyLines = decisions.split('\n').filter((line) => line.trimStart().startsWith(`- ${PARTY_LABEL}:`));
+test('C005 postcondition: every question asks whose experience changes, once per question', () => {
+  const frame = questionFrame({ size: 2 });
+  const partyLines = sectionBody(frame, E5_TITLE).split('\n').filter((line) => line.trimStart().startsWith(`- ${PARTY_LABEL}:`));
 
-  assert.equal(partyLines.length, syntheticOpenIds().length, 'one party line per item, and no more');
+  assert.equal(partyLines.length, 2, 'one party line per question, and no more');
 });
 
-test('C005 postcondition: a question about a boundary carries the contract that settles it', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const boundaryItem = frame.humanDecisionItems.find((item) => item.id === 'boundary-001');
+test('C001 invariant: the record material and the bound points stand in the AI-only region, below the notice', () => {
+  const item = firstHumanItem(questionFrame());
+  const noticeAt = item.indexOf(`- ${RECORD_REFERENCE_NOTICE}`);
+  const boundAt = item.indexOf('- 束ねた論点:');
+  const scopeAt = item.indexOf(`- ${SCOPE_LABEL}`);
 
-  assert.notEqual(boundaryItem, undefined, 'the fixture records boundary-001 as risky');
-  assert.match(boundaryItem.text, /contract-boundary-001/, 'the contract that governs this boundary is named');
-  assert.match(boundaryItem.text, /clauses\.canonicalization/, 'and the clause stage two already settled is quoted');
-});
-
-test('C005 postcondition: a boundary no contract covers still asks its question, and says what is missing', () => {
-  const facts = syntheticFacts({
-    projection: syntheticProjection({ grill: { questions: [], risky_boundaries: [{ id: 'boundary-999', topic: null }] } }),
-  });
-  const frame = buildFrame({ facts, previous: null });
-
-  assert.equal(frame.humanDecisionItems.length, 1);
-  assert.match(frame.humanDecisionItems[0].text, /boundary-999/);
+  assert.ok(noticeAt >= 0, 'the frame speaks its own line telling the person what follows need not be read');
+  assert.ok(boundAt > noticeAt, 'the points the question settles stand below it');
+  assert.ok(scopeAt > noticeAt, 'and so does the scope line the person is not shown');
   assert.ok(
-    frame.humanDecisionItems[0].text.includes(ABSENT_SECTION_STATEMENT),
-    'the absence of a governing contract is stated rather than left blank',
+    item.includes('記録の写し'),
+    'the question leaves a place for the AI to copy the record, which the frame itself no longer renders',
   );
-});
-
-test('C005 postcondition: the clauses quoted for a boundary are capped with an explicit remainder', () => {
-  const clauses = Array.from({ length: 9 }, (_, index) => ({ name: `clause${index}`, text: `Settled clause ${index}.` }));
-  const projection = syntheticProjection({
-    contracts: [
-      {
-        contract_id: 'contract-boundary-001',
-        boundary_id: 'boundary-001',
-        connection_kind: 'value_only',
-        direction: '提供',
-        counterpart: 'pkg-0002',
-        clauses,
-      },
-    ],
-  });
-  const frame = buildFrame({ facts: syntheticFacts({ projection }), previous: null });
-  const boundaryItem = frame.humanDecisionItems.find((item) => item.id === 'boundary-001');
-
-  assert.match(boundaryItem.text, /…ほか \d+ 件/, 'the clauses left out are counted');
 });
 
 test('C006 postcondition: a package that owns no open item says so in full rather than leaving the section empty', () => {
@@ -220,7 +275,7 @@ test('C006 postcondition: a package that owns no open item says so in full rathe
     projection: syntheticProjection({ grill: { questions: [], risky_boundaries: [] } }),
   });
   const frame = buildFrame({ facts, previous: null });
-  const decisions = sectionBody(frame.text, FRAME_SECTIONS[4].title);
+  const decisions = sectionBody(frame.text, E5_TITLE);
 
   assert.equal(frame.humanDecisionItems.length, 0);
   assert.ok(decisions.trim().length > 0, 'the section is not empty');
@@ -302,32 +357,22 @@ function renderFactsFor(projection) {
 }
 
 test('C003 postcondition: a boundary a neighbour has decided is not asked of this human', () => {
-  const frame = buildFrame({
-    facts: syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) }),
-    previous: null,
-  });
-  const decisions = sectionBody(frame.text, FRAME_SECTIONS[4].title);
+  const facts = syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) });
+  const authoredText = authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
+  const decisions = sectionBody(authoredText, E5_TITLE);
 
-  assert.equal(frame.humanDecisionItems.length, 1);
-  assert.equal(frame.humanDecisionItems[0].id, 'residual-000001', 'the boundary has left the human section');
-  assert.equal(mentionsId(decisions, 'boundary-001'), false, 'and it is not mentioned there at all');
+  assert.equal(syntheticOpenIds(facts.projection).length, 1, 'only the residual is still open here');
+  assert.equal(mentionsId(decisions, 'boundary-001'), false, 'the boundary has left the human section');
+  assert.equal(mentionsId(sectionBody(authoredText, E6_TITLE), 'boundary-001'), true, 'and stands in the pre-decided section instead');
 });
 
-test('C003 invariant: the items that remain keep their order and are not renumbered', () => {
-  const settledProjection = syntheticProjection({
-    grill: {
-      questions: [{ residual_id: 'residual-000001', question: 'Q', topic: null, why_unresolved: null }],
-      risky_boundaries: [{ id: 'boundary-001', topic: null }, { id: 'boundary-007', topic: null }, { id: 'boundary-009', topic: null }],
-    },
-    settledElsewhere: SETTLED_ELSEWHERE,
-  });
-  const frame = buildFrame({ facts: syntheticFacts({ projection: settledProjection }), previous: null });
+test('C007 invariant: the questions that remain keep their order, and no run renumbers one', () => {
+  const facts = syntheticFacts();
+  const published = authored(facts);
+  const merged = buildFrame({ facts, previous: published });
 
-  assert.deepEqual(
-    frame.humanDecisionItems.map((item) => item.id),
-    ['residual-000001', 'boundary-007', 'boundary-009'],
-    'removal is by id, so what is left keeps the order the manifests recorded',
-  );
+  assert.deepEqual(readQuestionNumbers(merged.text), readQuestionNumbers(published), 'the numbers are the ones the document already held');
+  assert.deepEqual(merged.humanDecisionItems.map((item) => item.number), readQuestionNumbers(published));
 });
 
 test('C004 postcondition: the settled question is pre-decided, first, carrying its neighbour as the ground', () => {
@@ -335,7 +380,7 @@ test('C004 postcondition: the settled question is pre-decided, first, carrying i
     facts: syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) }),
     previous: null,
   });
-  const preDecided = sectionBody(frame.text, FRAME_SECTIONS[5].title);
+  const preDecided = sectionBody(frame.text, E6_TITLE);
   const items = preDecided.split(`\n${PREDECIDED_ITEM_HEADING} `).slice(1);
 
   assert.match(items[0], /boundary-001/, 'it opens the list, so a capped list cannot drop it');
@@ -399,66 +444,9 @@ test('C004 invariant: with facts that are entirely ASCII, the tenth section carr
   );
 });
 
-/** The first item of the human's section, heading included. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function firstHumanItem(frameText) {
-  const start = frameText.indexOf(HUMAN_ITEM_HEADING);
-  assert.notEqual(start, -1, 'the fixture asks the human at least one question');
-  const rest = frameText.slice(start);
-  const end = rest.indexOf(`\n${HUMAN_ITEM_HEADING}`, 1);
-  return end < 0 ? rest : rest.slice(0, end);
-}
-
-/**
- * The same document with a person's answer written under the first place a person writes.
- *
- * The answer goes under a placeholder *line*: the document's own header explains what the
- * placeholder is for, and an answer written into that sentence is an answer to nothing.
- */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function withNoteUnderFirstPlaceholder(documentText, note) {
-  const lines = [];
-  let written = false;
-  for (const line of documentText.split('\n')) {
-    lines.push(line);
-    if (written || !isPlaceholderLine(line)) continue;
-    lines.push(note);
-    written = true;
-  }
-  return lines.join('\n');
-}
-
-/** The labels whose blocks the frame that asked for directions added, in one list for both surgeries below. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
-
-/**
- * The same document with the blocks under the given labels taken out of every item.
- *
- * A block is the label's own line and the indented lines under it — the same extent
- * `labelledLines` reads — so a document stripped here is one where the gate finds the label
- * absent rather than emptied, which is what a document written by an earlier frame looks like.
- */
-// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
-function withoutLabelBlocks(documentText, labels) {
-  const kept = [];
-  let skipping = false;
-  for (const line of documentText.split('\n')) {
-    if (labels.some((label) => line.startsWith(`- ${label}:`))) {
-      skipping = true;
-      continue;
-    }
-    if (skipping && /^\s+\S/.test(line)) continue;
-    skipping = false;
-    kept.push(line);
-  }
-  return kept.join('\n');
-}
-
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C001 postcondition: every human item offers directions and a recommendation, in the order a person reads them', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+test('C001 postcondition: every question offers directions and a recommendation, in the order a person reads them', () => {
+  const item = firstHumanItem(questionFrame());
   const positions = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL].map(
     (label) => item.indexOf(`- ${label}:`),
   );
@@ -475,10 +463,9 @@ test('C001 postcondition: every human item offers directions and a recommendatio
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: the new instructions are whole-line markers the counter can see', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
   // Keyed on the instructions' own openings rather than on any mention of 推奨: the context
   // instruction names the reason it has to make readable, and a filter that counted that
   // mention would report six instructions where the block writes five.
@@ -505,10 +492,9 @@ test('C001 invariant: an instruction behind a label is not an instruction, which
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the directions add no second place for the human to write', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
 
   assert.equal(findHumanPlaceholders(item).length, 1, 'one place to write, however many directions the item offers');
   assert.ok(
@@ -517,59 +503,57 @@ test('C001 invariant: the directions add no second place for the human to write'
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C001 invariant: a human section written before this command asked for directions is reopened rather than kept', () => {
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+test('C001 invariant: a human section written before this command asked for directions is reset rather than kept', () => {
   const facts = syntheticFacts();
-  const authored = fillEveryMarker(buildFrame({ facts, previous: null }).text);
-  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authored, DIRECTION_LABELS) });
+  const legacy = withoutLabelBlocks(authored(facts), DIRECTION_LABELS);
+  const merged = buildFrame({ facts, previous: legacy });
 
-  assert.ok(
-    merged.reopenedSections.includes(HUMAN_SECTION_ID),
-    'the digest still matches, so only the shape of the earlier question can tell the two apart',
-  );
+  assert.ok(merged.reopenedSections.includes(HUMAN_SECTION_ID), 'the digest still matches, so only the shape of the earlier question can tell the two apart');
   assert.deepEqual(
     merged.keptSections,
     FRAME_SECTIONS.map((section) => section.id).filter((id) => id !== HUMAN_SECTION_ID),
     'and no other section is disturbed by it',
   );
-  assert.ok(merged.text.includes(`- ${OPTIONS_LABEL}:`), 'the question is asked the way this command asks it');
+  assert.ok(
+    locateSections(merged.text).bodies[HUMAN_SECTION_ID].includes(ABSENT_RESIDUALS_STATEMENT),
+    'a question in the old shape cannot be re-anchored, so the section is reset rather than kept half-read',
+  );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C001 invariant: reopening a question for its shape keeps what the person wrote in it', () => {
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C007 error case: a reset reports the notes it could not carry, naming their anchors', () => {
   const facts = syntheticFacts();
   const note = '人間の判断: 現場では拒否のほうが自然だと考える。';
-  const authored = withNoteUnderFirstPlaceholder(fillEveryMarker(buildFrame({ facts, previous: null }).text), note);
-  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authored, DIRECTION_LABELS) });
+  const legacy = withNoteUnderFirstPlaceholder(withoutLabelBlocks(authored(facts), [OPTIONS_LABEL]), note);
+  const merged = buildFrame({ facts, previous: legacy });
 
-  assert.ok(merged.text.includes(note), 'the note is carried into the reopened item by the record it was written against');
-  assert.deepEqual(merged.faults, [], 'and the earlier document is read without complaint');
+  assert.ok(
+    merged.faults.some((fault) => fault.kind === 'unreadable-section' && fault.section === HUMAN_SECTION_ID),
+    'the note the reset could not re-anchor is named rather than discarded in silence',
+  );
+  assert.ok(!merged.text.includes(note), 'and the reset does not pretend to have kept it');
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: every question opens with its own context, above every line of the record', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
   const contextAt = item.indexOf(`- ${CONTEXT_LABEL}:`);
   const noticeAt = item.indexOf(RECORD_REFERENCE_NOTICE);
-  const recordAt = ['- 記録された論点:', '- 未解決とされた理由:', '- この境界を定めている契約:']
-    .map((line) => item.indexOf(line))
-    .filter((at) => at >= 0)
-    .sort((left, right) => left - right)[0];
+  const boundAt = item.indexOf('- 束ねた論点:');
 
   assert.ok(contextAt >= 0, 'the question says what it is about before it says what is being decided');
   assert.ok(noticeAt > contextAt, 'the notice stands below the context it closes');
-  assert.notEqual(recordAt, undefined, 'the fixture hands the question a record to stand apart from');
-  assert.ok(noticeAt < recordAt, 'and above the material it marks as a copy');
+  assert.ok(boundAt > noticeAt, 'and above the material it marks as not required reading');
   assert.ok(noticeAt < item.indexOf('何を決めるのか'), 'so nothing written for the record stands above the part written for the person');
   assert.equal(item.split(`- ${CONTEXT_LABEL}:`).length - 1, 1, 'one context per question');
   assert.equal(item.split(RECORD_REFERENCE_NOTICE).length - 1, 1, 'and one notice per question');
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the notice never stands over nothing', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const items = splitItems(locateSections(frame.text).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
+  const frame = questionFrame({ size: 2 });
+  const items = splitItems(locateSections(frame).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
 
   assert.ok(items.length > 0, 'the fixture asks at least one question');
   for (const item of items) {
@@ -577,24 +561,21 @@ test('C001 invariant: the notice never stands over nothing', () => {
     const noticeAt = lines.findIndex((line) => line.trim() === `- ${RECORD_REFERENCE_NOTICE}`);
     const under = (lines[noticeAt + 1] ?? '').trim();
 
-    assert.ok(noticeAt >= 0, `the frame speaks its own line in every question: ${item.id}`);
-    assert.ok(under.startsWith('- '), `and the line under it is the record it describes: ${item.id}`);
-    assert.ok(
-      !under.includes(MUST_FILL_MARKER),
-      `never the question itself, which the frame did not write and does not vouch for: ${item.id}`,
-    );
+    assert.ok(noticeAt >= 0, `the frame speaks its own line in every question: ${item.heading}`);
+    assert.ok(under.startsWith('- '), `and the line under it is the record it describes: ${item.heading}`);
+    assert.ok(!under.includes(MUST_FILL_MARKER), `never the question itself, which the frame did not write and does not vouch for: ${item.heading}`);
   }
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the notice closes the context, so the context value is the prose and not the line below it', () => {
   const facts = syntheticFacts();
-  const authoredText = fillEveryMarker(buildFrame({ facts, previous: null }).text);
+  const authoredText = authored(facts);
   const lines = firstHumanItem(authoredText).split('\n');
   const labelAt = lines.findIndex((line) => line.startsWith(`- ${CONTEXT_LABEL}:`));
   const noticeAt = lines.findIndex((line) => line.trim() === `- ${RECORD_REFERENCE_NOTICE}`);
 
-  assert.ok(labelAt >= 0 && noticeAt >= 0, 'the authored frame carries both lines');
+  assert.ok(labelAt >= 0 && noticeAt >= 0, 'the authored question carries both lines');
   assert.equal(noticeAt, labelAt + 2, 'the label, the prose written for it, then the notice that ends it');
   assert.notEqual(lines[labelAt + 1].trim(), '', 'so what the label reads is the prose, never the notice');
   assert.equal(
@@ -604,12 +585,11 @@ test('C001 invariant: the notice closes the context, so the context value is the
   );
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
-test('C001 invariant: a human section written before this command carried the context is reopened rather than kept', () => {
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+test('C001 invariant: a human section written before this command carried the context is reset rather than kept', () => {
   const facts = syntheticFacts();
-  const note = '人間の判断: 断るほうが現場では自然だと考える。';
-  const authoredText = withNoteUnderFirstPlaceholder(fillEveryMarker(buildFrame({ facts, previous: null }).text), note);
-  const merged = buildFrame({ facts, previous: withoutLabelBlocks(authoredText, [CONTEXT_LABEL]) });
+  const legacy = withoutLabelBlocks(authored(facts), [CONTEXT_LABEL]);
+  const merged = buildFrame({ facts, previous: legacy });
 
   assert.ok(
     merged.reopenedSections.includes(HUMAN_SECTION_ID),
@@ -620,14 +600,13 @@ test('C001 invariant: a human section written before this command carried the co
     FRAME_SECTIONS.map((section) => section.id).filter((id) => id !== HUMAN_SECTION_ID),
     'and no other section is disturbed by it',
   );
-  assert.ok(merged.text.includes(`- ${CONTEXT_LABEL}:`), 'the question asks for its context again');
-  assert.ok(merged.text.includes(note), 'while what the person wrote is carried by the record it was written against');
+  assert.ok(locateSections(merged.text).bodies[HUMAN_SECTION_ID].includes(ABSENT_RESIDUALS_STATEMENT), 'the section is reset');
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: every label the merge requires is one this frame writes', () => {
   const facts = syntheticFacts();
-  const authoredText = fillEveryMarker(buildFrame({ facts, previous: null }).text);
+  const authoredText = authored(facts);
 
   assert.ok(SHAPE_LABELS_THIS_FRAME_WRITES.length >= 2, 'the human section carries more than one part the frame must find');
   for (const label of SHAPE_LABELS_THIS_FRAME_WRITES) {
@@ -639,10 +618,9 @@ test('C001 invariant: every label the merge requires is one this frame writes', 
   }
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the person the question is written for is one formula, and the earlier one is gone', () => {
-  const frame = buildFrame({ facts: syntheticFacts(), previous: null });
-  const item = firstHumanItem(frame.text);
+  const item = firstHumanItem(questionFrame());
   const writtenForThem = findOpenMarkers(item).filter((marker) => /何を決めるのか|案[AB] —|推奨の理由 —/.test(marker.text));
 
   assert.equal(writtenForThem.length, 4, 'the question, its two directions and the reason for the recommendation');
@@ -650,30 +628,63 @@ test('C001 invariant: the person the question is written for is one formula, and
     assert.match(marker.text, /実装も設計も知らない/, `the instruction says who it is written for: ${marker.text}`);
   }
   assert.doesNotMatch(
-    frame.text,
+    item,
     /実装を知らない/,
     'the earlier formula asked only that the implementation be unknown, which a person who does not know the design cannot answer under',
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: every question is numbered, and the number is the one it is asked under', () => {
   const facts = syntheticFacts();
-  const frame = buildFrame({ facts, previous: null });
-  const headings = frame.text.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING));
+  const frame = questionFrame({ facts, size: 3 });
+  const headings = frame.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING));
 
-  assert.ok(headings.length > 0, 'the fixture asks at least one question');
-  for (const [index, heading] of headings.entries()) {
-    assert.ok(
-      heading.startsWith(`${HUMAN_ITEM_HEADING} Q${index + 1}${REFERENCE_SEPARATOR}`),
-      `the question the human will know as Q${index + 1} is the ${index + 1}th one asked: ${heading}`,
-    );
-  }
+  assert.deepEqual(headings, [`${HUMAN_ITEM_HEADING} Q1`, `${HUMAN_ITEM_HEADING} Q2`, `${HUMAN_ITEM_HEADING} Q3`]);
 
-  const again = buildFrame({ facts, previous: null });
+  const again = buildFrame({ facts, previous: frame });
   assert.deepEqual(
     again.text.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING)),
     headings,
     'and the number a question is asked under does not move between runs of the same facts',
   );
+});
+
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C007 postcondition: the human section keeps its body byte for byte when its facts moved, and the run reports it reopened', () => {
+  const facts = syntheticFacts();
+  const published = appendQuestionRound({ documentText: buildFrame({ facts, previous: null }).text, size: 1 });
+  const movedFacts = syntheticFacts({
+    projection: facts.projection,
+    infoSections: { ...facts.infoSections, I10: '## 10. What a neighbour has already settled\n\n- a neighbour settled something\n' },
+  });
+  const second = buildFrame({ facts: movedFacts, previous: published });
+
+  assert.equal(
+    locateSections(second.text).bodies[HUMAN_SECTION_ID],
+    locateSections(published).bodies[HUMAN_SECTION_ID],
+    'the body is carried through without a byte changing',
+  );
+  assert.ok(second.reopenedSections.includes(HUMAN_SECTION_ID), 'and the run reports it reopened so the AI re-judges it');
+  assert.deepEqual(readQuestionNumbers(second.text), readQuestionNumbers(published), 'no question is renumbered');
+});
+
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C007 boundary: a human section whose headings carry a record reference is reset to the absent statement', () => {
+  const facts = syntheticFacts();
+  const legacy = [
+    `## ${E5_TITLE}`,
+    '',
+    `${HUMAN_ITEM_HEADING} Q1 — residual-000001`,
+    '',
+    `- ${CONTEXT_LABEL}:`,
+    '  これは古い形である。',
+    '',
+    HUMAN_PLACEHOLDER,
+    '',
+  ].join('\n');
+  const rebuilt = buildFrame({ facts, previous: legacy });
+
+  assert.ok(locateSections(rebuilt.text).bodies[HUMAN_SECTION_ID].includes(ABSENT_RESIDUALS_STATEMENT));
+  assert.deepEqual(readQuestionNumbers(rebuilt.text), []);
 });

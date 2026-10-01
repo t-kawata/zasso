@@ -17,7 +17,7 @@ import {
   buildFrame,
   locateSections,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
-import { splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
+import { questionNumberOf, splitItems } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
 import { isPlaceholderLine } from '../../../.claude/scripts/explain-seed/lib/markers.mjs';
 import {
   OPERATIONS,
@@ -25,22 +25,25 @@ import {
   readAnswers,
   renderAnswerVerdict,
 } from '../../../.claude/scripts/explain-seed/run.mjs';
-import { fillEveryMarker } from '../helpers/fill-frame.mjs';
-import { syntheticFacts, syntheticProjection } from '../helpers/synthetic-facts.mjs';
+import { authorExplanation, fillEveryMarker } from '../helpers/fill-frame.mjs';
+import { syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helpers/synthetic-facts.mjs';
 
 const HUMAN_NOTE = '人間の判断: 現場では拒否のほうが自然だと考える。';
 const SEED_PATH = '/tmp/explain-seed-fixture/crates/protocol/alpha/RFC-SEED.md';
 
-/** An authored explanation: every instruction answered, no question answered. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-function authored() {
-  return fillEveryMarker(buildFrame({ facts: syntheticFacts(), previous: null }).text);
+/** An authored explanation whose one question binds every recorded point, no answer written. */
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+function authored(size = 1) {
+  return authorExplanation({ facts: syntheticFacts(), size, boundIds: syntheticOpenIds() });
 }
 
-/** The ids of the questions a document asks, in the order it asks them. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+/** The questions a document asks, named the way an answer names them, in the order it asks. */
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function askedIds(documentText) {
-  return splitItems(locateSections(documentText).bodies[HUMAN_SECTION_ID] ?? '', HUMAN_ITEM_HEADING).map((item) => item.id);
+  return splitItems(locateSections(documentText).bodies[HUMAN_SECTION_ID] ?? '', HUMAN_ITEM_HEADING).map((item) => {
+    const number = questionNumberOf(item.heading);
+    return number === null ? item.heading : `Q${number}`;
+  });
 }
 
 /**
@@ -97,7 +100,7 @@ test('C003 precondition and postcondition: a document whose questions are unansw
 
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 postcondition: each answer retires its own question and leaves the rest standing', () => {
-  const complete = authored();
+  const complete = authored(2);
   const [firstId, ...rest] = askedIds(complete);
   const oneAnswered = withNoteUnderFirstPlaceholder(complete, HUMAN_NOTE);
 
@@ -164,18 +167,20 @@ test('C003 boundary: a human section that appears twice is a reading failure, no
 });
 
 // [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-test('C004 precondition: the tool accepts every operation it declares, and each takes exactly one seed path', () => {
+test('C004 precondition: the tool accepts every operation it declares, and each takes the arguments it declares', () => {
   const names = Object.values(OPERATIONS);
 
-  assert.deepEqual(names, ['info', 'check', 'answers'], 'the third operation is the only addition to the surface');
+  assert.deepEqual(names, ['info', 'next', 'check', 'answers'], 'next is the fourth operation, and the only one taking a size');
   for (const operation of names) {
-    const parsed = parseArguments([operation, SEED_PATH]);
+    const argv = operation === OPERATIONS.NEXT ? [operation, SEED_PATH, '2'] : [operation, SEED_PATH];
+    const parsed = parseArguments(argv);
     assert.equal(parsed.operation, operation);
     assert.equal(parsed.seedPath, SEED_PATH);
+    assert.equal(parsed.size, operation === OPERATIONS.NEXT ? 2 : null, `${operation} carries no round size unless it asks for one`);
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C004 postcondition: every other argv is refused, and the refusal names what is accepted', () => {
   const names = Object.values(OPERATIONS);
   const refused = [
@@ -183,6 +188,8 @@ test('C004 postcondition: every other argv is refused, and the refusal names wha
     [],
     ['info'],
     ['info', SEED_PATH, SEED_PATH],
+    ['next', SEED_PATH],
+    ['next', SEED_PATH, '2', 'extra'],
     [`--seed=${SEED_PATH}`, SEED_PATH],
   ];
 
@@ -190,7 +197,21 @@ test('C004 postcondition: every other argv is refused, and the refusal names wha
     assert.throws(
       () => parseArguments(argv),
       (error) => names.every((name) => error.message.includes(name)),
-      `${JSON.stringify(argv)} is refused, and the refusal lists all three operations`,
+      `${JSON.stringify(argv)} is refused, and the refusal lists all four operations`,
+    );
+  }
+});
+
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C002 boundary: the round size next takes is an integer from one to the declared maximum, and nothing else', () => {
+  for (const size of ['1', '2', '3']) {
+    assert.equal(parseArguments(['next', SEED_PATH, size]).size, Number(size));
+  }
+  for (const size of ['0', '4', 'two', '1.5', '']) {
+    assert.throws(
+      () => parseArguments(['next', SEED_PATH, size]),
+      /round size/,
+      `${JSON.stringify(size)} is refused as a round size, naming what went wrong`,
     );
   }
 });

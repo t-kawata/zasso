@@ -11,6 +11,7 @@ import {
   HUMAN_ITEM_HEADING,
   PREDECIDED_ITEM_HEADING,
   decisionUnderPlaceholder,
+  questionNumberOf,
   referenceOf,
   splitItems,
 } from '../../../.claude/scripts/explain-seed/lib/items.mjs';
@@ -94,4 +95,18 @@ test('C001 invariant: the decision is a substring of the document and is never r
 
 test('C001 invariant: a heading without the reference separator names no record', () => {
   assert.equal(referenceOf('### 判断 H1'), null);
+});
+
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C001 postcondition: the number of a question is read from its heading, by value and not by text', () => {
+  assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q7`), 7);
+  assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q12`), 12, 'a two-digit number is read as one number, not as its first character');
+  assert.notEqual(questionNumberOf(`${HUMAN_ITEM_HEADING} Q12`), questionNumberOf(`${HUMAN_ITEM_HEADING} Q2`));
+});
+
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+test('C007 boundary: a heading whose text after the separator names a record yields no question number', () => {
+  assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 — residual-000001`), null, 'the heading an earlier frame wrote is not a question this frame asks');
+  assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} H1 — boundary-001`), null, 'and neither is one that names no number at all');
+  assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 の話`), null, 'a heading that mentions a number but is not one is not a question heading');
 });

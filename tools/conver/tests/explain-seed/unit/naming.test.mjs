@@ -103,9 +103,14 @@ test('C003 invariant: the command file quotes the section titles the frame actua
   }
 });
 
+// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 invariant: each document says which of the two agents it is for', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 
-  assert.match(commandFile, /this is what the AI works from/, 'the facts say the AI works from them');
-  assert.match(commandFile, /human's writing under the placeholders/, 'and the explanation says the human writes into it');
+  assert.match(commandFile, /AI works from this/, 'the facts say the AI works from them');
+  assert.match(
+    commandFile,
+    /human's writing under placeholders is what the downstream design interview reads/,
+    'and the explanation says the human writes into it, and who reads what they write',
+  );
 });
