@@ -55,6 +55,8 @@ import {
   reservedReverseDirectory,
   reservedTreeDecisionsPath,
 } from '../../workspacify-tree/lib/reserved-root.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 export {
   RESERVED_ALLOCATE_SUBDIRECTORY,
@@ -369,6 +371,7 @@ function hasFileNamed(root, names) {
  * for every candidate at once. ABOUT-REVERSE 3.6 asks whether *this* project has
  * history, which is only answerable when the project is its own repository.
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function readHistory(root) {
   const owner = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
   if (owner.status !== 0) {
@@ -379,7 +382,7 @@ function readHistory(root) {
     return {
       isRepository: false,
       commitCount: null,
-      reason: `the tree is not its own repository: it is a subdirectory of ${workTreeRoot}, so its commit history would be that of a larger project and would say nothing about this candidate`,
+      reason: `the tree is not its own repository: it is a subdirectory of ${toHomeRelative(workTreeRoot)}, so its commit history would be that of a larger project and would say nothing about this candidate`,
     };
   }
   const probe = spawnSync('git', ['rev-list', '--count', 'HEAD'], { cwd: root, encoding: 'utf8' });

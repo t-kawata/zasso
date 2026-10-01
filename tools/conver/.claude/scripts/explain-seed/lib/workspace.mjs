@@ -12,6 +12,8 @@ import { dirname, join, resolve } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
 import { requireField } from './seed-document.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
@@ -36,13 +38,13 @@ export function resolveWorkspaceRoot(seedPath) {
 
   if (candidates.length === 0) {
     throw new ExplainSeedError(
-      `no ${TREE_MANIFEST_FILE_NAME} is found in any directory above ${seedPath}`,
+      `no ${TREE_MANIFEST_FILE_NAME} is found in any directory above ${toHomeRelative(seedPath)}`,
       { field: 'stage1_manifest.path' },
     );
   }
   if (candidates.length > 1) {
     throw new ExplainSeedError(
-      `${TREE_MANIFEST_FILE_NAME} is found in more than one directory above ${seedPath}: ${candidates.join(', ')}`,
+      `${TREE_MANIFEST_FILE_NAME} is found in more than one directory above ${toHomeRelative(seedPath)}: ${candidates.map(toHomeRelative).join(', ')}`,
       { field: 'stage1_manifest.path' },
     );
   }
@@ -50,18 +52,18 @@ export function resolveWorkspaceRoot(seedPath) {
 }
 
 /** Read one JSON artefact, or say which path could not be read or parsed. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
 function readJsonArtefact(absolutePath, field) {
   let text;
   try {
     text = readFileSync(absolutePath, 'utf8');
   } catch {
-    throw new ExplainSeedError(`the ${field} cannot be read: ${absolutePath}`, { field });
+    throw new ExplainSeedError(`the ${field} cannot be read: ${toHomeRelative(absolutePath)}`, { field });
   }
   try {
     return JSON.parse(text);
   } catch {
-    throw new ExplainSeedError(`the ${field} is not valid JSON: ${absolutePath}`, { field });
+    throw new ExplainSeedError(`the ${field} is not valid JSON: ${toHomeRelative(absolutePath)}`, { field });
   }
 }
 
@@ -83,7 +85,7 @@ export function loadWorkspace({ seedPath, identity }) {
   try {
     specBytes = readFileSync(specPath);
   } catch {
-    throw new ExplainSeedError(`the specification cannot be read: ${specPath}`, { field: 'source_spec.path' });
+    throw new ExplainSeedError(`the specification cannot be read: ${toHomeRelative(specPath)}`, { field: 'source_spec.path' });
   }
 
   return {

@@ -9,27 +9,29 @@
 import { readFileSync } from 'node:fs';
 
 import { ExplainSeedError } from './errors.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** A fenced JSON block, which is how every machine-written seed section is carried. */
 const JSON_BLOCK = /```json\s*\n([\s\S]*?)\n```/g;
 
 /** Read the seed text, or say which path could not be read. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function readSeedText(seedPath) {
   try {
     return readFileSync(seedPath, 'utf8');
   } catch {
-    throw new ExplainSeedError(`the seed cannot be read: ${seedPath}`, { field: 'seed' });
+    throw new ExplainSeedError(`the seed cannot be read: ${toHomeRelative(seedPath)}`, { field: 'seed' });
   }
 }
 
 /** Parse one fenced block, or say which block in which seed is not JSON. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function parseBlock(blockText, seedPath) {
   try {
     return JSON.parse(blockText);
   } catch {
-    throw new ExplainSeedError(`the seed carries a JSON block that does not parse: ${seedPath}`, { field: 'seed' });
+    throw new ExplainSeedError(`the seed carries a JSON block that does not parse: ${toHomeRelative(seedPath)}`, { field: 'seed' });
   }
 }
 
@@ -67,7 +69,7 @@ export function readSeed(seedPath) {
   const identity = blocks.find((block) => block && typeof block === 'object' && block.package) ?? null;
 
   if (identity === null) {
-    throw new ExplainSeedError(`the seed records no identity block: ${seedPath}`, { field: 'package' });
+    throw new ExplainSeedError(`the seed records no identity block: ${toHomeRelative(seedPath)}`, { field: 'package' });
   }
   for (const field of REQUIRED_IDENTITY_FIELDS) requireField(identity, field);
 

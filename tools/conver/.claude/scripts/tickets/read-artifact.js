@@ -1,5 +1,7 @@
 const path = require('path');
 const fs = require('fs');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 const {
   validateTicketId,
   resolveAllPaths,
@@ -12,6 +14,7 @@ const FIELD_MAP = {
   review: 'review_report_path',
 };
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
   const type = process.argv[3] || '';
@@ -56,7 +59,7 @@ function main() {
 
   const artifactPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(rawPath);
   if (!fs.existsSync(artifactPath)) {
-    console.log(JSON.stringify({ success: false, error: `Ticket #${ticketId}: ${type} not yet created at ${artifactPath}` }));
+    console.log(JSON.stringify({ success: false, error: `Ticket #${ticketId}: ${type} not yet created at ${toHomeRelative(artifactPath)}` }));
     process.exit(1);
   }
 

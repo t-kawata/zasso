@@ -70,7 +70,7 @@
 ### 2.3 再現手順と実測
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 node -e "
 const fs=require('fs');
 const d=JSON.parse(fs.readFileSync('workspacify/tree/DECISIONS.json','utf8'));
@@ -167,7 +167,7 @@ function evaluateDatabase(adapters, packages) {
 
 ```bash
 node --input-type=module -e "
-import { runGatePipeline } from '/Users/kawata/shyme/gaia/.claude/scripts/workspacify-tree/lib/validation.mjs';
+import { runGatePipeline } from '~/shyme/gaia/.claude/scripts/workspacify-tree/lib/validation.mjs';
 const r = runGatePipeline({ structure: { reconstruction: { status: 'PASS' } } });
 console.log('final_audit に misuse キーが存在するか:', 'migration_atomicity_misuse_count' in r.finalAudit);
 "
@@ -205,8 +205,8 @@ grep -rn "\bcheckPortAdapterBoundary\b" .claude/scripts/ --include=*.mjs
 
 ```bash
 node -e "
-const d=require('/Users/kawata/shyme/gaia/workspacify/tree/DECISIONS.json');
-import('/Users/kawata/shyme/gaia/.claude/scripts/workspacify-tree/lib/adapters.mjs')
+const d=require('~/shyme/gaia/workspacify/tree/DECISIONS.json');
+import('~/shyme/gaia/.claude/scripts/workspacify-tree/lib/adapters.mjs')
  .then(({checkPortAdapterBoundary})=>{
    console.log(JSON.stringify(checkPortAdapterBoundary({ports:d.adapters.ports, packages:d.workspace})));
  });"
@@ -450,7 +450,7 @@ D3(a) のみが成果物に触れる。`collisions` を `approvals` で解消す
 ## 付録 A — 再現コマンド
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 
 # A-1 前提の確認: 検査が生きている 2 次元（FAIL することを確認）
 node -e "
@@ -473,8 +473,8 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=docs/GaiaSekkeiShiyou
 # A-3 D2 の再現: 検査関数は正しいが呼ばれていない
 grep -rn "\bcheckPortAdapterBoundary\b" .claude/scripts/ --include=*.mjs
 node -e "
-const d=require('/Users/kawata/shyme/gaia/workspacify/tree/DECISIONS.json');
-import('/Users/kawata/shyme/gaia/.claude/scripts/workspacify-tree/lib/adapters.mjs')
+const d=require('~/shyme/gaia/workspacify/tree/DECISIONS.json');
+import('~/shyme/gaia/.claude/scripts/workspacify-tree/lib/adapters.mjs')
  .then(({checkPortAdapterBoundary})=>
    console.log(JSON.stringify(checkPortAdapterBoundary({ports:d.adapters.ports, packages:d.workspace}))));"
 # 実測: {"violations":[],"missingPorts":[]}

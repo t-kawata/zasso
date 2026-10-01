@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { fromHomeRelative } = require('../lib/path-utils');
+const { fromHomeRelative, resolveStoredPath } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -223,6 +223,7 @@ function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPat
 /**
  * Main entry point
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey } = parseArguments();
 
@@ -257,7 +258,8 @@ function main() {
       if (phase.id !== parsed.phaseId && phase.phaseId !== parsed.phaseId) continue;
       const ticket = (phase.tickets || []).find(t => t.id === parsed.ticketId);
       if (ticket && ticket.specPath) {
-        specPath = path.resolve(ticketsDir, ticket.specPath);
+        // Expanded before it is resolved, so a record written elsewhere still resolves.
+        specPath = resolveStoredPath(ticket.specPath, ticketsDir);
         specExists = fs.existsSync(specPath);
       }
       break;

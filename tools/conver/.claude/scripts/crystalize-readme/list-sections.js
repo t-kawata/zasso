@@ -3,9 +3,12 @@
 
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 const DEFAULT_FILE_NAME = 'CRYSTALIZE-Status.json';
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const filePath = process.argv[2] || path.join(process.cwd(), DEFAULT_FILE_NAME);
 
@@ -15,7 +18,7 @@ function main() {
   try {
     raw = fs.readFileSync(resolvedPath, 'utf-8');
   } catch (err) {
-    console.error(`Failed to read file: ${resolvedPath}`);
+    console.error(`Failed to read file: ${toHomeRelative(resolvedPath)}`);
     console.error(err.message);
     process.exit(1);
   }
@@ -24,7 +27,7 @@ function main() {
   try {
     data = JSON.parse(raw);
   } catch (err) {
-    console.error(`Failed to parse JSON: ${resolvedPath}`);
+    console.error(`Failed to parse JSON: ${toHomeRelative(resolvedPath)}`);
     console.error(err.message);
     process.exit(1);
   }

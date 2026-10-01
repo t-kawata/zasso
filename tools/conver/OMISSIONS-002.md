@@ -1,8 +1,8 @@
 # OMISSIONS-002
 
-> 生成元: `/Users/kawata/shyme/zasso/tools/conver/OMISSIONS-002.json`
+> 生成元: `~/shyme/zasso/tools/conver/OMISSIONS-002.json`
 
-- **親RFC**: /Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md
+- **親RFC**: ~/shyme/zasso/tools/conver/RFC_ROOT.md
 - **タイトル**: RFC-001: conver.js — ACP-based Ticket Processing Pipeline
 - **生成日**: 2026-06-26
 - **サマリ**: RFC-001: conver.js は、二層構造の開発パイプラインにおける内部ループ（内側ループ）を完全自動化する ACP-based チケット処理パイプラインである。@agentclientprotocol/claude-agent-acp を通じて Claude Code セッションをプログラムから制御し、Tickets.json に定義されたチケットに対して make → plan → start → review → resolve → find の一連の工程を自動実行する。各工程は独立したACPセッション（4セッション完全分離）で実行され、DeepSeek V4（flash/pro）のモデル選択に対応する。TypeScript（ESM）で記述され、cli.ts（引数パース）、session.ts（ACP管理）、runner.ts（ループ制御）、tickets.ts（Tickets.json管理）、notifier.ts（Slack通知）、error.ts（エラー型）、conver.ts（エントリポイント）の7モジュールで構成される。エラー発生時は Slack への通知とプロセス停止を行う。

@@ -38,7 +38,7 @@ node .claude/scripts/explain-seed/run.mjs info "crates/foundation/gaia-foundatio
 Observed — exit code 1, stdout empty (0 bytes):
 
 ```
-file:///Users/kawata/shyme/gaia/.claude/scripts/explain-seed/lib/neighbour-decisions.mjs:25
+file://~/shyme/gaia/.claude/scripts/explain-seed/lib/neighbour-decisions.mjs:25
 import { EXPLAIN_FILE_NAME, locateSections } from './frame.mjs';
                             ^^^^^^^^^^^^^^
 SyntaxError: The requested module './frame.mjs' does not provide an export named 'locateSections'

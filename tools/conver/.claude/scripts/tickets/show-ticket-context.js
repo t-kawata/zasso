@@ -16,10 +16,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
-const { fromHomeRelative } = require('../lib/path-utils');
+const { fromHomeRelative, resolveStoredPath, toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -153,6 +152,7 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
  *   3. If the path lives under the user's home directory, prefix it with `~`.
  *   4. Otherwise keep the absolute path unchanged.
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function makeRelative(absPath, base) {
   try {
     const fromSrc = keepFromSrcDir(absPath);
@@ -161,7 +161,7 @@ function makeRelative(absPath, base) {
     const rel = path.relative(base, absPath);
     if (!rel.startsWith('..')) return rel;
 
-    const fromHome = replaceHomeWithTilde(absPath);
+    const fromHome = homeRelativeOrNull(absPath);
     if (fromHome !== null) return fromHome;
 
     return absPath;
@@ -190,16 +190,19 @@ function keepFromSrcDir(absPath) {
 }
 
 /**
- * Return absPath with its home-directory prefix replaced by `~`, or null when
- * absPath is not inside the user's home directory.
+ * Return absPath with its home-directory prefix replaced by `~`, or null when the
+ * path is not inside the user's home directory.
+ *
+ * The conversion itself belongs to path-utils, which the whole repository shares. What
+ * stays here is the one thing that helper does not answer: whether it applied at all. It
+ * returns its input unchanged when the path lies outside the home directory, so comparing
+ * the result with the input is what tells the two cases apart — and having one converter
+ * rather than a second copy of the rule beside it is what stops the two from drifting.
  */
-function replaceHomeWithTilde(absPath) {
-  const home = os.homedir();
-  if (absPath === home) return '~';
-  if (absPath.startsWith(home + path.sep)) {
-    return '~' + absPath.slice(home.length);
-  }
-  return null;
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+function homeRelativeOrNull(absPath) {
+  const converted = toHomeRelative(absPath);
+  return converted === absPath ? null : converted;
 }
 
 /**
@@ -523,7 +526,7 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-// [::TICKET::] PX-72, PX-75, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-72, PX-75, PX-87, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -894,8 +897,11 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     if (graphPath) lines.push(`| Graph | \`${makeRelative(graphPath, ticketsDir)}\` | ${graphExists} |`);
     if (dirsTreePath) lines.push(`| Dirs-Tree | \`${makeRelative(dirsTreePath, ticketsDir)}\` | ${dirsExists} |`);
     // spec path: prefer ticket's specPath if available, otherwise compute deterministically using naming convention
+    // A record stores the path home-relative, so it is expanded before it is resolved:
+    // resolving first discards the base whenever the stored value is absolute, which is
+    // how a record written on one machine came to point at that machine on every other.
     const specPath = ticket.specPath
-      ? path.resolve(ticketsDir, ticket.specPath)
+      ? resolveStoredPath(ticket.specPath, ticketsDir)
       : resolveTicketSpecPath(ticketsDir, ticketKey);
     const specExists = specPath ? fs.existsSync(specPath) : false;
     lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);

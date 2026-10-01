@@ -15,6 +15,8 @@
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const [,, rfcDir, operation, ...args] = process.argv;
 if (!rfcDir || !operation) {
@@ -24,7 +26,7 @@ if (!rfcDir || !operation) {
 
 const treePath = path.join(path.resolve(rfcDir), "DesignTree.json");
 if (!fs.existsSync(treePath)) {
-  console.error(`DesignTree.json not found: ${treePath}`);
+  console.error(`DesignTree.json not found: ${toHomeRelative(treePath)}`);
   process.exit(1);
 }
 

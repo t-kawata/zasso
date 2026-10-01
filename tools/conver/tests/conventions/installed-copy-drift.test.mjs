@@ -60,7 +60,31 @@ const REPOSITORY_ROOT = repositoryRootFrom(dirname(fileURLToPath(import.meta.url
  * removed the file, and any of the three appearing again fails here by name.
  */
 const ABSENT_FROM_COPIES = Object.freeze([]);
-const DIFFERING_IN_COPIES = Object.freeze([]);
+
+/**
+ * The modules the source of record has moved ahead of the copies in.
+ *
+ * **Re-measured 2026-10-01 by PX-231**, which converted the path each of these modules
+ * prints when it refuses something, so that a refusal names `~/...` rather than the home
+ * directory of the machine that ran it. The copies were not advanced with it, because
+ * PX-231 states its target as `tools/conver` and advancing them writes outside it; the
+ * resync is the follow-up that ticket declares.
+ *
+ * Recording the drift is this file's own mechanism rather than an escape from it: the
+ * module states above that each list is resolved by re-measuring and recording, and the
+ * gate's purpose is that a copy which has fallen behind is a recorded fact rather than a
+ * silence. What the record costs is that the installed copies still print absolute paths
+ * in these four refusals until the resync, which is a real and bounded lag, stated here
+ * by name rather than left for a reader to discover.
+ *
+ * [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+ */
+const DIFFERING_IN_COPIES = Object.freeze([
+  'holdout-ledger.mjs',
+  'sandbox.mjs',
+  'scope.mjs',
+  'staleness.mjs',
+]);
 
 /**
  * The modules the source of record holds, re-measured 2026-09-17 by P26-2.
@@ -179,11 +203,23 @@ test('the report names what was measured, and says none rather than nothing when
   // against, and each of the three lists states its emptiness in words rather than
   // leaving the reader to infer it from an absence of rows.
   assert.match(report, new RegExp(`\\*\\*${SOURCE_MODULE_COUNT}\\*\\* module`));
+
+  // Every list is stated with its count whether or not it holds anything, and a list that
+  // holds nothing says `none` rather than stopping after its heading. The count is what
+  // makes the two readable apart: a missing row and an empty list look the same otherwise,
+  // and the record this file keeps can legitimately hold names.
   const listsPerCopy = 3;
   assert.equal(
-    (report.match(/none/g) ?? []).length,
+    (report.match(/^- (?:absent from the copy|differing bytes|present only in the copy) \(\d+\):/gm) ?? []).length,
     listsPerCopy * measurement.copies.length,
-    'every list of every copy states its emptiness in words',
+    'every list of every copy states its count',
+  );
+  const emptyLists = measurement.copies.flatMap((copy) => [copy.absent, copy.differing, copy.extra])
+    .filter((list) => list.length === 0).length;
+  assert.equal(
+    (report.match(/none/g) ?? []).length,
+    emptyLists,
+    'and a list holding nothing says so in words rather than falling silent',
   );
 });
 

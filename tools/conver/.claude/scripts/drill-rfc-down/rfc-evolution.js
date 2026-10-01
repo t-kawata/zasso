@@ -26,6 +26,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import preflight from './preflight.cjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const SESSION_DIR_NAME = 'drills';
 const BASELINE_FILE = 'baseline.json';
@@ -288,7 +290,7 @@ function formatDeltaReport({ appendOnly, delta, violations, contradiction, resol
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const [,, mode, rfcPath] = process.argv;
   if (!mode || !rfcPath) {
@@ -297,7 +299,7 @@ function main() {
   }
   const resolvedRfcPath = path.resolve(rfcPath);
   if (!fs.existsSync(resolvedRfcPath)) {
-    console.error(`[ERROR] rfc-evolution: RFC not found: ${resolvedRfcPath}`);
+    console.error(`[ERROR] rfc-evolution: RFC not found: ${toHomeRelative(resolvedRfcPath)}`);
     process.exit(1);
   }
   const { sessionDir } = resolveSessionDir(resolvedRfcPath);

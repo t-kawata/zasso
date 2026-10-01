@@ -1,5 +1,5 @@
 {
-  "parentRfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md",
+  "parentRfcPath": "~/shyme/zasso/tools/conver/RFC_ROOT.md",
   "parentRfcTitle": "RFC-001: conver.js — ACP-based Ticket Processing Pipeline",
   "generatedAt": "2026-07-01",
   "summary": "",

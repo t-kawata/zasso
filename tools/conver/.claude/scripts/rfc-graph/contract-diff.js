@@ -37,6 +37,8 @@
 
 const fs = require('fs');
 const path = require('path');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 /** The gate vocabulary, declared locally for the reason `grounding-check.js` gives. */
 const GATE_STATUS = Object.freeze({ PASS: 'PASS', FAIL: 'FAIL' });
@@ -493,7 +495,7 @@ function readCandidates(document) {
   throw new Error('the candidate document must be a list, or carry a "candidates" list');
 }
 
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
   if (!options.graphPath || !options.candidatesPath || !options.outPath) {
@@ -571,7 +573,7 @@ function main() {
   }, null, 2)}\n`);
 
   process.stdout.write(`${renderContractDiffReport(gate, { differences: reconciled.differences, recorded })}\n`);
-  process.stdout.write(`Comparison written to \`${diffPath}\`.\n\n`);
+  process.stdout.write(`Comparison written to \`${toHomeRelative(diffPath)}\`.\n\n`);
 
   process.exit(gate.status === GATE_STATUS.PASS ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }

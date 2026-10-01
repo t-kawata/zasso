@@ -67,6 +67,8 @@ import {
   sidecarReferenceOf,
   summarizeReverseAllocateGates,
 } from './lib/reverse-mode.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
 
@@ -104,13 +106,14 @@ function loadLockedInput(manifestPath) {
   return { manifest, manifestDir, sourceText: source.sourceText, sourceHash: source.sourceHash };
 }
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function loadDecisions(decisionsPath) {
   const absPath = path.resolve(decisionsPath);
   let decisions;
   try {
     decisions = JSON.parse(readFileSync(absPath, 'utf8'));
   } catch {
-    throw new WorkSpacifyTreeError(`decisions file is not readable JSON: ${absPath}`, { gateId: 'G3' });
+    throw new WorkSpacifyTreeError(`decisions file is not readable JSON: ${toHomeRelative(absPath)}`, { gateId: 'G3' });
   }
   const schema = JSON.parse(readFileSync(DECISIONS_SCHEMA_PATH, 'utf8'));
   const report = validateAgainstSchema(decisions, schema);

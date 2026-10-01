@@ -37,6 +37,8 @@ import { pathToFileURL } from 'node:url';
 import process from 'node:process';
 
 import { sha256Hex } from './regression-gate.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The reverse sidecar holding the claims and their recorded forward references. */
 export const CLAIM_LEDGER_FILE_NAME = 'CLAIM-LEDGER.json';
@@ -170,7 +172,7 @@ function assertChangedInputsAreComparable(changedInputs) {
  * Dropping it would leave each claim that depends on it looking fresh, which is
  * the one answer the run is not entitled to give.
  */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-21|PX-231) --for-spec --no-implementation-order`.
 function examineInputs(root, changedInputs) {
   const examined = new Map();
   const findings = [];
@@ -186,7 +188,7 @@ function examineInputs(root, changedInputs) {
         kind: FINDING_KINDS.UNHASHABLE_INPUT,
         ref: input.ref,
         path: absolutePath,
-        detail: `${absolutePath} could not be hashed (${detail}), so no claim depending on it is reported as fresh`,
+        detail: `${toHomeRelative(absolutePath)} could not be hashed (${detail}), so no claim depending on it is reported as fresh`,
       });
     }
   }

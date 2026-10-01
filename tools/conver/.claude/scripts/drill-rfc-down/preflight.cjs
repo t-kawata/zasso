@@ -23,6 +23,8 @@
 const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+const { toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -108,6 +110,7 @@ function collectFilesRecursive(dir) {
  * @returns {{ materialPaths: string[], materialSummary: Array<{ path: string, type: string, fileCount: number }> }}
  * @throws {Error} If a path is missing or a directory contains no files
  */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function collectMaterialPaths(materialArgs, cwd) {
   const materialPaths = [];
   const materialSummary = [];
@@ -116,7 +119,7 @@ function collectMaterialPaths(materialArgs, cwd) {
     if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
       const files = collectFilesRecursive(resolved);
       if (files.length === 0) {
-        throw new Error(`Empty material directory: ${resolved}`);
+        throw new Error(`Empty material directory: ${toHomeRelative(resolved)}`);
       }
       materialPaths.push(...files);
       materialSummary.push({ path: resolved, type: 'directory', fileCount: files.length });
@@ -124,7 +127,7 @@ function collectMaterialPaths(materialArgs, cwd) {
       materialPaths.push(resolved);
       materialSummary.push({ path: resolved, type: 'file', fileCount: 1 });
     } else {
-      throw new Error(`Material path not found: ${resolved}`);
+      throw new Error(`Material path not found: ${toHomeRelative(resolved)}`);
     }
   }
   return { materialPaths, materialSummary };

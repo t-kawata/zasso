@@ -532,7 +532,7 @@ Three mechanical facts the file must state, because without them the operator mi
 outcome:
 
 1. **Publishing is atomic.** `replacePublishedDocuments` is called **once**, after every stage in the
-   prefix has run and the target has been re-digested (`scope.mjs:1973`), and it replaces the
+   prefix has run and the target has been re-digested (`scope.mjs:1975`), and it replaces the
    destination rather than adding to it, so the directory holds one run's documents and no other
    round's. A run that stops **publishes nothing**. There is no partial-document state to clean up.
 2. **There is no command-line prefix instrument.** Because of (1), a failure late in a long run
@@ -544,7 +544,7 @@ outcome:
    running program.
    **But**: a full run reached R8 in about **three minutes** (Appendix A.1). Run to the exit.
 3. **The target is digested before and after.** A single byte moved outside the reserved directory
-   and the run refuses to publish (`scope.mjs:1812-1817`). The tree must be quiescent, and the
+   and the run refuses to publish (`scope.mjs:1814-1819`). The tree must be quiescent, and the
    digest record names the directories it did not cover, so the claim is read as what it is rather
    than as a claim over the whole tree.
 
@@ -812,7 +812,7 @@ prevent.
 
 ## Appendix A — measurements taken
 
-All measurements were taken on **2026-09-11** in `/Users/kawata/shyme/zasso/tools/conver`.
+All measurements were taken on **2026-09-11** in `~/shyme/zasso/tools/conver`.
 
 ### A.1 The exit is reachable
 

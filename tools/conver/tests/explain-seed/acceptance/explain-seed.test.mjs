@@ -29,7 +29,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -864,4 +864,93 @@ test('C004 postcondition: next refuses when nothing is unattached, and opens a r
   writeFileSync(workspace.explainPath, appendAddedPoint(authored, ADDED_POINT), 'utf8');
   const opened = runExplainSeed(['next', workspace.seedPath, '1'], { cwd: workspace.root });
   assert.equal(opened.status, 0, opened.stderr.toString('utf8'));
+});
+
+// PX-231 @verifies C002
+// PX-231 @verifies C004
+/**
+ * A workspace that sits beneath a home directory of the test's own choosing.
+ *
+ * The home is injected twice over, because two different processes have to agree on it:
+ * `TMPDIR` decides where the fixture is created, so the workspace lands beneath the home,
+ * and `HOME` is the home the command reads when it writes its documents. A fixture left in
+ * the system temporary directory lies outside every home directory, and a conversion test
+ * run against it would pass whether or not the conversion happened.
+ */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+function workspaceUnderInjectedHome() {
+  const injectedHome = mkdtempSync(join(tmpdir(), 'px231-home-'));
+  const previousTmpdir = process.env.TMPDIR;
+  process.env.TMPDIR = injectedHome;
+  try {
+    return { injectedHome, workspace: materializeExplainSeedWorkspace() };
+  } finally {
+    if (previousTmpdir === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = previousTmpdir;
+  }
+}
+
+/** Every line of a document that begins with a path in a code span, as written. */
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+function pathLinesOf(documentText) {
+  return documentText.split('\n').filter((line) => /`[^`]*\/[^`]*`/.test(line));
+}
+
+test('C002 invariant: the command succeeds with the home injected, so no tilde reached a filesystem call', () => {
+  const { injectedHome, workspace } = workspaceUnderInjectedHome();
+
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root, env: { HOME: injectedHome } });
+
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+  assert.ok(existsSync(workspace.infoPath), 'the facts were written, so every recorded hash was recomputed and agreed');
+  assert.ok(existsSync(workspace.explainPath), 'and the explanation was written');
+  assert.ok(
+    workspace.seedPath.startsWith(`${injectedHome}/`),
+    'the fixture must sit beneath the injected home, or this test proves nothing',
+  );
+  rmSync(injectedHome, { recursive: true, force: true });
+});
+
+test('C004 postcondition: neither document carries the home directory', () => {
+  const { injectedHome, workspace } = workspaceUnderInjectedHome();
+  const run = runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root, env: { HOME: injectedHome } });
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+
+  const factsDocument = readFileSync(workspace.infoPath, 'utf8');
+  const explanationDocument = readFileSync(workspace.explainPath, 'utf8');
+
+  assert.equal(factsDocument.includes(injectedHome), false, `the facts name the machine: ${pathLinesOf(factsDocument).join(' | ')}`);
+  assert.equal(explanationDocument.includes(injectedHome), false, `the explanation names the machine: ${pathLinesOf(explanationDocument).join(' | ')}`);
+  assert.match(factsDocument, /^- workspace root: `~\/[^`]*`$/m, 'the root line is the anchor the four lines beneath it are read against');
+  assert.match(explanationDocument, /^- 対象の seed: `~\/[^`]*`$/m);
+  rmSync(injectedHome, { recursive: true, force: true });
+});
+
+test('C004 invariant: the four lines calibrated on the workspace root stay relative to it', () => {
+  const { injectedHome, workspace } = workspaceUnderInjectedHome();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root, env: { HOME: injectedHome } });
+
+  const factsDocument = readFileSync(workspace.infoPath, 'utf8');
+
+  for (const label of ['specification', 'stage 1 manifest', 'stage 2 manifest', 'seed']) {
+    assert.match(
+      factsDocument,
+      new RegExp(`^- ${label}: \`(?!~|/)[^\`]*\``, 'm'),
+      `${label} must stay calibrated on the root line rather than gaining a tilde of its own`,
+    );
+  }
+  rmSync(injectedHome, { recursive: true, force: true });
+});
+
+test('C004 invariant: a message the command prints names its path home-relative', () => {
+  const { injectedHome, workspace } = workspaceUnderInjectedHome();
+  rmSync(workspace.explainPath, { force: true });
+
+  const run = runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root, env: { HOME: injectedHome } });
+  const stderr = run.stderr.toString('utf8');
+
+  assert.notEqual(run.status, 0, 'there is no explanation to check');
+  assert.equal(stderr.includes(injectedHome), false, `the message names the machine: ${stderr}`);
+  assert.ok(stderr.includes('~/'), `the message must still name the path it looked for: ${stderr}`);
+  rmSync(injectedHome, { recursive: true, force: true });
 });

@@ -155,12 +155,27 @@ describe('collectMaterialPaths', () => {
     assert.throws(() => collectMaterialPaths(['missing.md'], dir), /Material path not found/);
   });
 
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('expands ~/ prefix', () => {
     const home = os.homedir();
-    const target = path.join(home, 'drill-no-such-file-xyz');
+
+    // The expansion is proved on a file that exists rather than on the message of one that
+    // does not: PX-231 made every message name its path home-relative, so a message that
+    // echoes `~/...` no longer shows whether the tilde was expanded before the lookup. This
+    // test file is itself under the home directory, which is what makes that observable
+    // without writing anything, and the premise is asserted rather than assumed.
+    const relativeToHome = path.relative(home, __filename);
+    assert.ok(
+      !relativeToHome.startsWith('..'),
+      'this test lives under the home directory, or the expansion below cannot be observed',
+    );
+    const { materialPaths } = collectMaterialPaths([`~/${relativeToHome}`], home);
+    assert.deepEqual(materialPaths, [__filename], 'the tilde was expanded before the file was looked for');
+
     assert.throws(
       () => collectMaterialPaths(['~/drill-no-such-file-xyz'], home),
-      (err) => err.message.includes('Material path not found') && err.message.includes(target),
+      (err) => err.message.includes('Material path not found') && err.message.includes('~/drill-no-such-file-xyz'),
+      'and a path that is not there is still named, home-relative',
     );
   });
 });

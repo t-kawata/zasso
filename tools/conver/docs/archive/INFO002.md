@@ -7,10 +7,10 @@
 | Verdict | **Defect in the scripts** (`.claude/scripts/workspacify-*`), not in the command definition, not in the authored payload |
 | Blocking gates | `G5` (WIG). A second configuration blocks `G3` instead — the two are mutually exclusive, see §4.5 |
 | Fix applied so far | **None.** This document is the repair instruction; no pipeline source file has been modified |
-| Workspace root | `/Users/kawata/shyme/gaia` |
-| Input manifest | `/Users/kawata/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json`, self-hash `166ec8abacf34319af71a3dda028ce2a9c6d3c8d32e211de871ef66d1a8ec835` |
-| Source specification | `/Users/kawata/shyme/gaia/GaiaSekkeiShiyousho_v31.md`, SHA-256 `2705c93cd6d82c27b3a6b0ab8dd21d67b0ce38cd43a2b8b7f8c08851a4e39aa7` |
-| Authored payload | `/Users/kawata/shyme/gaia/workspacify/allocate/DECISIONS.json` (28 seeds, 82 contracts, 2.3 MB) — complete, passes G0–G4, must **not** be re-authored |
+| Workspace root | `~/shyme/gaia` |
+| Input manifest | `~/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json`, self-hash `166ec8abacf34319af71a3dda028ce2a9c6d3c8d32e211de871ef66d1a8ec835` |
+| Source specification | `~/shyme/gaia/GaiaSekkeiShiyousho_v31.md`, SHA-256 `2705c93cd6d82c27b3a6b0ab8dd21d67b0ce38cd43a2b8b7f8c08851a4e39aa7` |
+| Authored payload | `~/shyme/gaia/workspacify/allocate/DECISIONS.json` (28 seeds, 82 contracts, 2.3 MB) — complete, passes G0–G4, must **not** be re-authored |
 
 ## 0. How to use this document
 
@@ -24,10 +24,10 @@ You are the AI asked to fix the pipeline. Read §1 first, then implement §4.7 a
 
 ```
 Node:        v26.0.0   (darwin 25.2.0, zsh)
-Workspace:   /Users/kawata/shyme/gaia          (== dirname of the manifest, per the command contract)
-Manifest:    /Users/kawata/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json   (7,801,956 bytes, self-hash 166ec8ab…)
-Spec:        /Users/kawata/shyme/gaia/GaiaSekkeiShiyousho_v31.md       (919,969 bytes, 13,976 lines, hash 2705c93c…)
-Decisions:   /Users/kawata/shyme/gaia/workspacify/allocate/DECISIONS.json (2,359,583 bytes)
+Workspace:   ~/shyme/gaia          (== dirname of the manifest, per the command contract)
+Manifest:    ~/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json   (7,801,956 bytes, self-hash 166ec8ab…)
+Spec:        ~/shyme/gaia/GaiaSekkeiShiyousho_v31.md       (919,969 bytes, 13,976 lines, hash 2705c93c…)
+Decisions:   ~/shyme/gaia/workspacify/allocate/DECISIONS.json (2,359,583 bytes)
 ```
 
 Manifest facts the two defects depend on (Appendix A carries them verbatim):
@@ -49,9 +49,9 @@ f8827f98629f71a54d70f6bc017a167267bbde80d9f2b46ea6cc2726cfe59af3  .claude/script
 ## 3. The failing run, reproduced
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 node .claude/scripts/workspacify-allocate/run.mjs validate "$HOME/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json"
-# {"status":"PASS","workspaceRoot":"/Users/kawata/shyme/gaia","sourceHash":"2705c93c…","manifestHash":"166ec8ab…","gateSummary":"G0:PASS G1:PASS"}
+# {"status":"PASS","workspaceRoot":"~/shyme/gaia","sourceHash":"2705c93c…","manifestHash":"166ec8ab…","gateSummary":"G0:PASS G1:PASS"}
 
 node .claude/scripts/workspacify-allocate/run.mjs gate "$HOME/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json"
 # {"status":"FAIL","gateId":"G5","reason":"workspace integration graph violations: proof_lifecycle_break(contract-boundary-036): the contract requires proof semantics but names no verifier; forbidden_semantic_flow_path(pkg-0017): forbidden semantic flow: pkg-0017 -> pkg-0016 -> pkg-0013"}
@@ -213,10 +213,10 @@ Take this path **only if the project owner rules that a boundary taking signed i
   typed_protocol_input: Object.freeze(['errors', 'canonicalization', 'signature', 'proof_verification', 'tests']),
 ```
 
-2. Re-publish stage 1 so the manifest records the new scope (the existing stage-1 decisions are still on disk at `/Users/kawata/shyme/gaia/workspacify/tree/DECISIONS.json`, 909,077 bytes — do **not** re-author them):
+2. Re-publish stage 1 so the manifest records the new scope (the existing stage-1 decisions are still on disk at `~/shyme/gaia/workspacify/tree/DECISIONS.json`, 909,077 bytes — do **not** re-author them):
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 node .claude/scripts/workspacify-tree/run.mjs gate   "--spec=docs/GaiaSekkeiShiyousho_v31.md"
 node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=docs/GaiaSekkeiShiyousho_v31.md"
 ```
@@ -413,14 +413,14 @@ Do not do any of the following; each one produces a green run that proves nothin
 1. The specification must sit **beside the manifest**, because stage 1 records only `path.basename(specPath)` (`workspacify-tree/run.mjs:904`) and stage 2 resolves that basename against the manifest directory (`tree-manifest-input.mjs:203-224`). It is already there:
 
    ```bash
-   shasum -a 256 /Users/kawata/shyme/gaia/GaiaSekkeiShiyousho_v31.md
+   shasum -a 256 ~/shyme/gaia/GaiaSekkeiShiyousho_v31.md
    # 2705c93cd6d82c27b3a6b0ab8dd21d67b0ce38cd43a2b8b7f8c08851a4e39aa7   (must equal input.source_hash)
    ```
 
 2. Every planned path must be absent or an empty directory (`G2.4`). The repository currently holds a 89-directory, file-less placeholder skeleton at `crates/` (the v30 layout); the plan publishes a v31 `crates/` tree, so it must be moved aside first. Use this exact pair of commands so the operation is reversible:
 
    ```bash
-   cd /Users/kawata/shyme/gaia
+   cd ~/shyme/gaia
    find crates -type d | sort > /tmp/crates-pre-v31-dirs.txt      # record it first
    mv crates /tmp/crates-pre-v31                                  # then move it aside
    ```
@@ -432,7 +432,7 @@ Do not do any of the following; each one produces a green run that proves nothin
 ### 8.2 The run
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 node .claude/scripts/workspacify-allocate/run.mjs validate "$HOME/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json"
 node .claude/scripts/workspacify-allocate/run.mjs plan     "$HOME/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json"
 node .claude/scripts/workspacify-allocate/run.mjs gate     "$HOME/shyme/gaia/WORKSPACIFY-TREE-MANIFEST.json"
@@ -442,11 +442,11 @@ node .claude/scripts/workspacify-allocate/run.mjs finalize "$HOME/shyme/gaia/WOR
 ### 8.3 Expected output at each step
 
 ```
-validate → {"status":"PASS","workspaceRoot":"/Users/kawata/shyme/gaia","sourceHash":"2705c93c…","manifestHash":"166ec8ab…","gateSummary":"G0:PASS G1:PASS"}
+validate → {"status":"PASS","workspaceRoot":"~/shyme/gaia","sourceHash":"2705c93c…","manifestHash":"166ec8ab…","gateSummary":"G0:PASS G1:PASS"}
 plan     → {"status":"PASS","plannedDirectoryCount":37,"relativeDirs":[…37 entries…],"gateSummary":"G2:PASS"}
 gate     → {"status":"COMPLETE","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS semantic:APPROVED"}
-finalize → {"published":true,"workspaceRoot":"/Users/kawata/shyme/gaia",
-            "allocateManifestPath":"/Users/kawata/shyme/gaia/WORKSPACIFY-ALLOCATE-MANIFEST.json",
+finalize → {"published":true,"workspaceRoot":"~/shyme/gaia",
+            "allocateManifestPath":"~/shyme/gaia/WORKSPACIFY-ALLOCATE-MANIFEST.json",
             "allocateManifestHash":"<64 hex>","residue":[…],
             "inputManifestHash":"166ec8abacf34319af71a3dda028ce2a9c6d3c8d32e211de871ef66d1a8ec835",
             "directoryCount":37,"packageCount":28,"seedCount":28,"contractCount":82,"waveCount":11,
@@ -459,7 +459,7 @@ finalize → {"published":true,"workspaceRoot":"/Users/kawata/shyme/gaia",
 ### 8.4 Acceptance checks on the published artefacts
 
 ```bash
-cd /Users/kawata/shyme/gaia
+cd ~/shyme/gaia
 find crates -name RFC-SEED.md | wc -l                       # 28
 node -e "const m=require('./WORKSPACIFY-ALLOCATE-MANIFEST.json');console.log(m.status,m.source_coverage.uncovered.length,m.wig.violations.length,m.gates.map(g=>g.id+':'+g.status).join(' '),m.semantic_review.status)"
 # COMPLETE 0 0 G4:PASS G5:PASS APPROVED
@@ -534,7 +534,7 @@ Then confirm the addendum did not disturb the mirror:
 
 ```bash
 node -e "
-const d=require('/Users/kawata/shyme/gaia/workspacify/allocate/DECISIONS.json');
+const d=require('~/shyme/gaia/workspacify/allocate/DECISIONS.json');
 const sides=d.seeds.flatMap(s=>s.contractEdges).filter(e=>e.contract_id==='contract-boundary-036');
 console.log(sides.length, JSON.stringify(sides[0].clauses.proof_verification)===JSON.stringify(sides[1].clauses.proof_verification));
 "

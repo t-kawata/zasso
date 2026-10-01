@@ -6,7 +6,7 @@
         test-conver test test-all test-rfc-graph test-tickets-reverse test-grill-reverse \
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution \
-        check-conventions check-bundle-fresh test-coverage \
+        check-conventions check-bundle-fresh check-path-emission test-coverage \
         deploy stubs crimes
 
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
@@ -93,6 +93,15 @@ check-conventions:
 #   「古い」ではなく「利用不可」として報告するため、規約検査とは分けてある。
 check-bundle-fresh:
 		node tests/check-bundle-fresh.mjs
+
+# check-path-emission: プロセスを出る絶対パスが、このマシンのホームディレクトリを
+#   名乗っていないかを検査する。コミット済みの成果物にホームの文字列が残っていないこと
+#   （規則そのもの。厳密）と、出力先へ届く補間が変換関数を通っていること（規則の一段手前。
+#   厳密だが網羅ではない）の2つを見る。規約検査と分けてあるのは失敗の理由が違うためで、
+#   どちらの検査が動いたかが読者に分かる必要がある。網羅でない理由は
+#   tests/lib/path-emission.mjs が述べている。
+check-path-emission:
+		node tests/check-path-emission.mjs
 
 # test-rfc-graph: rfc-graph 全スクリプトのテスト（CommonJS、tsc 不要）
 #   注意: グロブは shell の * が / を跨がないため、reverse/ は明示的に列挙する。

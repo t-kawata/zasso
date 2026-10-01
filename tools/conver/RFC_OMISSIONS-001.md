@@ -1,5 +1,5 @@
 ---
-parent-rfc: /Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md
+parent-rfc: ~/shyme/zasso/tools/conver/RFC_ROOT.md
 parent-omissions: OMISSIONS-001.md
 ---
 

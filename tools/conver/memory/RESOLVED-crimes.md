@@ -2,7 +2,7 @@
 
 ## Problem summary
 
-The Malfeasance.json in `/Users/kawata/shyme/zasso/crates/siprs/` recorded 65
+The Malfeasance.json in `~/shyme/zasso/crates/siprs/` recorded 65
 "crimes" (unresolved `[::STUB::]` markers), of which 64 were marked `false_positive`
 and 1 was resolved. Investigation revealed that the `false_positive` verdicts were
 unreliable — at least 11 were AI laziness (marking genuinely resolvable stubs as

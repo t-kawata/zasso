@@ -24,6 +24,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './errors.mjs';
+// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The command whose output is the order, and the manifest that says which workspace it is. */
 export const ORDER_VIEW_PATH = fileURLToPath(new URL('../../workspacify-order/run.mjs', import.meta.url));
@@ -72,7 +74,7 @@ function ancestorsOf(startDirectory) {
  * repeats only the search — not the ordering — because pairing one workspace's manifests with
  * another workspace's order would produce a document that is internally consistent and wrong.
  */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-224|PX-231) --for-spec --no-implementation-order`.
 function resolveOrderRoot(seedPath) {
   const candidates = ancestorsOf(dirname(resolve(seedPath))).filter((directory) =>
     existsSync(join(directory, ALLOCATE_MANIFEST_FILE_NAME)),
@@ -80,13 +82,13 @@ function resolveOrderRoot(seedPath) {
 
   if (candidates.length === 0) {
     throw new ExplainSeedError(
-      `no ${ALLOCATE_MANIFEST_FILE_NAME} is found in any directory above ${seedPath}, so the implementation order cannot be read`,
+      `no ${ALLOCATE_MANIFEST_FILE_NAME} is found in any directory above ${toHomeRelative(seedPath)}, so the implementation order cannot be read`,
       { field: 'stage2_manifest.path' },
     );
   }
   if (candidates.length > 1) {
     throw new ExplainSeedError(
-      `${ALLOCATE_MANIFEST_FILE_NAME} is found in more than one directory above ${seedPath}: ${candidates.join(', ')}`,
+      `${ALLOCATE_MANIFEST_FILE_NAME} is found in more than one directory above ${toHomeRelative(seedPath)}: ${candidates.map(toHomeRelative).join(', ')}`,
       { field: 'stage2_manifest.path' },
     );
   }
@@ -217,7 +219,7 @@ export function loadOrderFacts({ root, seedPath, packages }) {
   const orderRoot = resolveOrderRoot(seedPath);
   if (orderRoot !== resolve(root)) {
     throw new ExplainSeedError(
-      `the implementation order belongs to ${orderRoot}, and this run resolved ${resolve(root)}`,
+      `the implementation order belongs to ${toHomeRelative(orderRoot)}, and this run resolved ${toHomeRelative(resolve(root))}`,
       { field: 'stage2_manifest.path' },
     );
   }
