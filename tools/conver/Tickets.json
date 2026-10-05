@@ -32649,55 +32649,6 @@
             },
             {
               "id": "C003",
-              "sourceEdge": "The edge between the AI's prose in a question item and the letters the item defines: the 判断の前提 value and the last non-empty paragraph above the 選択肢 line are scanned, while the 選択肢 block is the line that gives A and B their meaning and the record copy is verbatim text the AI does not write.",
-              "precondition": "A question item offers two or more letters under 選択肢; the text formed by its 判断の前提 value together with the last non-empty paragraph above the 選択肢 line contains one of those letters standing alone, bounded by non-word characters.",
-              "postcondition": "verifyExplanation returns kind forward-reference for that item; a letter appearing only at or below the 選択肢 line (推奨, 推奨の理由, 推奨が覆る条件) raises nothing; a standalone A inside the 記録の写し value or its continuation lines raises nothing because no part of the record copy lies in the span; an item offering fewer than two letters is not scanned at all.",
-              "invariant": "The span is exactly those two pieces of text, so the scan never reads a label's own instruction line and never reads the record copy — measured against the three existing gaia questions, the span yields zero letter hits while the record copy of gaia-soul Q1 contains two standalone A's (`atomicity: \"A Forum Root Succession is atomic…\"`, `postconditions: \"A rejected authority operation…\"`)."
-            },
-            {
-              "id": "C004",
-              "sourceEdge": "The edge between lib/frame.mjs, which names fault kinds, and run.mjs, which prints them to the operator.",
-              "precondition": "FAULT_MESSAGES is a frozen map in run.mjs, exported, and faultsOfDecisions can return the kinds forward-reference and missing-settle-trace.",
-              "postcondition": "FAULT_MESSAGES carries both keys, each with a non-empty English sentence, so the report's fallback expression prints a sentence instead of a bare identifier.",
-              "invariant": "Every fault kind faultsOfDecisions can return has a message in FAULT_MESSAGES."
-            },
-            {
-              "id": "C005",
-              "sourceEdge": "The edge between where a test file is placed and the discovery rule that reaches it: the explain-seed suite lives under tests/, which tests/run-all-surfaces.mjs discovers, and that runner is what the repository's single test command invokes.",
-              "precondition": "The surfaces runner discovers every tests/**/*.test.mjs file and compares the executed set against the discovered set, failing the run on any file that exists but did not execute; the ticket's tests are placed under tests/explain-seed/unit/.",
-              "postcondition": "Both new tests execute under the repository's test command and their assertions are counted; neither .claude/tests/run-all.js nor tests/run-all-surfaces.mjs is modified by this ticket.",
-              "invariant": "Adding this ticket's tests requires no change to any discovery rule, because the rule already reaches the tree they are placed in."
-            },
-            {
-              "id": "C006",
-              "sourceEdge": "The edge between the command file, which is what the AI reads, and the frame, which is what the AI fills: .claude/commands/explain-seed.md states the shape, and lib/frame.mjs writes the labels that shape names.",
-              "precondition": "explain-seed.md is the installed command document, 261 lines before this ticket, and its Criteria section governs every MUST-FILL instruction while the new W13–W21 govern questions.",
-              "postcondition": "The file contains the heading `## The question gate (settle before drafting)`, the four forbidden inferences, rules W13 through W21, the reference opening sentence, the seven-line block order, the sentence pass, the read-back paragraph, the five worked-example rows, the Step 4a non-answer rule and the Step 5 evidence lines; the label 決められなかった理由 named there is the one frame.mjs writes.",
-              "invariant": "No rule stated in the command file contradicts a label or a fault the frame implements; no line of the existing W1–W12 table, Kind table or Gates list is deleted; and the file keeps the naming conventions its own tests pin — it names the AI and the human rather than addressing either as a second person, and the Flow item that puts the question still carries the literal judge line the suite pins."
-            },
-            {
-              "id": "C007",
-              "sourceEdge": "The edge between an installed workspace's documents and the frame that maintains them: the gaia workspace's EXPLAIN-RFC-SEED.md documents are read by locateSections and carriesTheShapeThisFrameWrites when the installed command runs against their seeds.",
-              "precondition": "Three EXPLAIN-RFC-SEED.md documents exist in the gaia workspace (home-relative: ~/shyme/gaia) — pkg-0001 gaia-foundation with no question, pkg-0002 gaia-soul with one, pkg-0020 gaia-network with two; all three pass check before the change; the installed copies of run.mjs, frame.mjs and explain-seed.md are byte-identical to this repository's.",
-              "postcondition": "Before the frame change is installed, each of the three question items carries a filled `- 決められなかった理由:` line; after the install, `node .claude/scripts/explain-seed/run.mjs check <seed>` exits 0 on all three documents, and the three recorded answers are still present.",
-              "invariant": "No existing INFO-RFC-SEED.md or EXPLAIN-RFC-SEED.md is regenerated by running info or next during this work, and the migrated documents' human sections are carried through unchanged."
-            },
-            {
-              "id": "C001",
-              "sourceEdge": "The edge between the frame that writes a question block and the merge test that decides whether an earlier block may be kept: renderQuestionBlock in lib/frame.mjs writes the block, and carriesTheShapeThisFrameWrites in the same file decides whether a previous human section is carried through byte for byte.",
-              "precondition": "renderQuestionBlock({ number }) is called for a human section whose items are numbered questions; the labels it writes are the ones exported from frame.mjs, and SHAPE_LABELS_THIS_FRAME_WRITES is the list carriesTheShapeThisFrameWrites reads.",
-              "postcondition": "The rendered block carries the line `- 決められなかった理由:` inside the AI-only region, positioned after the `束ねた論点` line and before the `選択肢` line; SETTLE_TRACE_LABEL is exported and is an element of SHAPE_LABELS_THIS_FRAME_WRITES; labelledValue of the rendered block for that label is null while its instruction marker stands, because a frame is not an answer.",
-              "invariant": "A human-section body carries this frame's shape exactly when every question item carries every label in SHAPE_LABELS_THIS_FRAME_WRITES, so a document the frame renders is always kept by the merge; and a body that carries the label with an unfilled value is still kept, because the value is the gate's rule, not the merge's — the section is reopened for its prose, never silently reset."
-            },
-            {
-              "id": "C002",
-              "sourceEdge": "The edge between a question item written into the document and the gate that reads it: faultsOfDecisions in lib/frame.mjs reads each human item's labelled lines, and run.mjs turns the fault kinds it returns into the sentences check prints.",
-              "precondition": "A human-section question item carries the 選択肢 block with at least two letters, a 推奨, a 推奨の理由 and a 推奨が覆る条件, and its 決められなかった理由 line is absent, or its value is empty, or the value still carries the MUST-FILL marker or the human placeholder.",
-              "postcondition": "verifyExplanation returns a fault whose kind is missing-settle-trace and whose id is that question's Q-number; run.mjs FAULT_MESSAGES maps the kind to a sentence; runCheck exits non-zero for the document.",
-              "invariant": "A document in which every question item carries a filled 決められなかった理由 value yields no missing-settle-trace fault, and adding that one line changes no other fault kind of that item."
-            },
-            {
-              "id": "C003",
               "sourceEdge": "The edge between the AI's prose in a question item and the letters the item defines: the 判断の前提 value and every left-margin paragraph above the 選択肢 line are scanned, while the 選択肢 block is the line that gives A and B their meaning and the record copy is verbatim text the AI does not write.",
               "precondition": "A question item offers two or more letters under 選択肢; the text formed by its 判断の前提 value together with every paragraph standing at the left margin above the 選択肢 line contains one of those letters standing alone, bounded by non-word characters.",
               "postcondition": "verifyExplanation returns kind forward-reference for that item; a letter appearing only at or below the 選択肢 line (推奨, 推奨の理由, 推奨が覆る条件) raises nothing; a standalone A inside the 記録の写し value or its continuation paragraphs raises nothing, because every label's value is indented under its label while the prose the human reads starts at the margin; an item offering fewer than two letters is not scanned at all.",
