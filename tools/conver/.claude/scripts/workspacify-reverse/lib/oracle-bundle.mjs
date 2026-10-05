@@ -51,10 +51,31 @@ export const BUNDLE_SCHEMA_VERSION = 1;
 /** The rule the `@verifies` count is measured by, named so the number reproduces. */
 export const VERIFIES_RULE = 'comment-anchored @verifies annotations under the oracle root, target/ and .git/ excluded';
 
-const GRAPH_FILE = 'RFC-ROOT-GRAPH.json';
-const DIRS_TREE_FILE = 'RFC-ROOT-Dirs-Tree.json';
+/**
+ * The answer key's artefact names, in both spellings, canonical first.
+ *
+ * The canonical RFC name is fixed at `RFC.md` (PX-235), so an oracle tree frozen since
+ * then carries `RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json`, while one frozen
+ * before carries the `RFC-ROOT-` forms. `Tickets.json` is the same under either.
+ */
+const GRAPH_FILE_NAMES = Object.freeze(['RFC-GRAPH.json', 'RFC-ROOT-GRAPH.json']);
+const DIRS_TREE_FILE_NAMES = Object.freeze(['RFC-Dirs-Tree.json', 'RFC-ROOT-Dirs-Tree.json']);
+const RFC_FILE_NAMES = Object.freeze(['RFC.md', 'RFC-ROOT.md']);
 const TICKETS_FILE = 'Tickets.json';
-const RFC_ROOT_FILE = 'RFC-ROOT.md';
+
+/**
+ * The first of `names` the oracle tree holds, or the first name when it holds none.
+ *
+ * The resolved name is what the bundle's rule text states, so a bundle read back says
+ * which spelling the key it was frozen from used.
+ */
+function resolveOracleArtefact(oracleRoot, names) {
+  for (const name of names) {
+    if (existsSync(join(oracleRoot, name))) return name;
+  }
+  return names[0];
+}
+
 const OMISSIONS_DIRECTORY = 'omissions';
 const TESTS_DIRECTORY = 'tests';
 
@@ -182,17 +203,18 @@ function matchingLines(root, predicate) {
 }
 
 function extractGraph(oracleRoot) {
-  const parsed = readJson(oracleRoot, GRAPH_FILE);
+  const graphFile = resolveOracleArtefact(oracleRoot, GRAPH_FILE_NAMES);
+  const parsed = readJson(oracleRoot, graphFile);
   const nodeIds = parsed.nodes.map((node) => node.id).sort();
   return {
-    rule: `${GRAPH_FILE}: nodes.length and edges.length`,
+    rule: `${graphFile}: nodes.length and edges.length`,
     nodes: parsed.nodes.length,
     edges: parsed.edges.length,
     nodeIds,
     // What each node says, so a grounding that names the right node for the
     // wrong reason is a divergence rather than a silent agreement.
     nodeTitles: Object.fromEntries(nodeIds.map((id) => [id, findNodeTitle(parsed.nodes, id)])),
-    sha256: sha256File(join(oracleRoot, GRAPH_FILE)),
+    sha256: sha256File(join(oracleRoot, graphFile)),
   };
 }
 
@@ -202,13 +224,14 @@ function findNodeTitle(nodes, id) {
 }
 
 function extractDirsTree(oracleRoot) {
-  const raw = readFileSync(join(oracleRoot, DIRS_TREE_FILE), 'utf8');
+  const dirsTreeFile = resolveOracleArtefact(oracleRoot, DIRS_TREE_FILE_NAMES);
+  const raw = readFileSync(join(oracleRoot, dirsTreeFile), 'utf8');
   const parsed = JSON.parse(raw);
   return {
-    rule: `${DIRS_TREE_FILE}: character count of the minified JSON, and every directory path under trees.*`,
+    rule: `${dirsTreeFile}: character count of the minified JSON, and every directory path under trees.*`,
     minifiedChars: JSON.stringify(parsed).length,
     directories: collectDirectories(parsed.trees),
-    sha256: sha256File(join(oracleRoot, DIRS_TREE_FILE)),
+    sha256: sha256File(join(oracleRoot, dirsTreeFile)),
   };
 }
 
@@ -305,13 +328,14 @@ function extractDesignHeaders(oracleRoot) {
 }
 
 function extractRfcRoot(oracleRoot) {
-  const raw = readFileSync(join(oracleRoot, RFC_ROOT_FILE), 'utf8');
+  const rfcFile = resolveOracleArtefact(oracleRoot, RFC_FILE_NAMES);
+  const raw = readFileSync(join(oracleRoot, rfcFile), 'utf8');
   const headings = [...raw.matchAll(/^#{1,6}\s+(.+)$/gm)].map((match) => match[1].trim());
   return {
-    rule: `${RFC_ROOT_FILE}: every markdown heading, which is the unit R8's claims are compared against`,
+    rule: `${rfcFile}: every markdown heading, which is the unit R8's claims are compared against`,
     headings,
     bytes: Buffer.byteLength(raw),
-    sha256: sha256File(join(oracleRoot, RFC_ROOT_FILE)),
+    sha256: sha256File(join(oracleRoot, rfcFile)),
   };
 }
 

@@ -71,15 +71,22 @@ export function decisionsInputDigest(skeleton) {
  * downstream commands add. They are declared separately because a tree can
  * reach the fourth layer and stop, and that is a different outcome from never
  * having started.
+ *
+ * The fourth layer's names are the same in every package, the root included: the
+ * canonical RFC name is fixed at `RFC.md` (PX-235), so the package's own name enters no
+ * artefact name and the directory's identifier stays in the partition's `path`. A tree
+ * that still spells them `RFC-<SLUG>.md` is read by the tools — the prior-artifact scan
+ * accepts both — but it has not reached this terminal state, and saying so is the point
+ * of measuring against a declaration rather than against whatever the run emitted.
  */
 export const TERMINAL_ARTEFACTS = Object.freeze({
   root: Object.freeze([
-    'RFC-ROOT.md',
-    'RFC-ROOT-GRAPH.json',
-    'RFC-ROOT-Dirs-Tree.json',
-    'RFC-ROOT-GRAPHIFY-Status.json',
-    'RFC-ROOT-BOUNDIFY-Status.json',
-    'RFC-ROOT-SPLIT-Status.json',
+    'RFC.md',
+    'RFC-GRAPH.json',
+    'RFC-Dirs-Tree.json',
+    'RFC-GRAPHIFY-Status.json',
+    'RFC-BOUNDIFY-Status.json',
+    'RFC-SPLIT-Status.json',
     'Tickets.json',
   ]),
   fifthLayer: Object.freeze([
@@ -91,16 +98,20 @@ export const TERMINAL_ARTEFACTS = Object.freeze({
   /** Names in a package directory that do not vary with the package's own name. */
   package: Object.freeze([
     'Tickets.json',
+    'RFC.md',
+    'RFC-GRAPH.json',
+    'RFC-Dirs-Tree.json',
+    'RFC-GRAPHIFY-Status.json',
+    'RFC-BOUNDIFY-Status.json',
+    'RFC-SPLIT-Status.json',
   ]),
-  /** Names in a package directory that carry the package's own name. */
-  packageNamed: Object.freeze([
-    'RFC-{package}.md',
-    'RFC-{package}-GRAPH.json',
-    'RFC-{package}-Dirs-Tree.json',
-    'RFC-{package}-GRAPHIFY-Status.json',
-    'RFC-{package}-BOUNDIFY-Status.json',
-    'RFC-{package}-SPLIT-Status.json',
-  ]),
+  /**
+   * Names in a package directory that carry the package's own name.
+   *
+   * Empty, and declared rather than deleted: since the canonical RFC name is fixed, no
+   * artefact is named after its package, and the group is the slot one would occupy.
+   */
+  packageNamed: Object.freeze([]),
   /** The fifth layer's per-package artefact: one seed, written by the allocate command. */
   packageFifthLayer: Object.freeze(['RFC-SEED.md']),
 });
@@ -217,10 +228,11 @@ function directoriesUnder(root) {
  * The packages a declared partition names, as `{name, path}` pairs.
  *
  * A partition entry carries both because the two are used for different things: the
- * path is where the package's directory is, and the name is the identifier its
- * artefacts carry. `RFC-{package}.md` is named after the identifier, not after the
- * directory, and the two differ as soon as a package is nested — `src-api` is the
- * name of the package at `src/api`.
+ * path is where the package's directory is, and the name is the identifier the partition
+ * declares for it. The two differ as soon as a package is nested — `src-api` is the name
+ * of the package at `src/api` — and the name is what an artefact named after its package
+ * would be built from. Since the canonical RFC name is fixed at `RFC.md`, none is, so the
+ * path is what every artefact is looked up under.
  *
  * An entry without both is dropped rather than guessed at: a partition that cannot
  * say where a package is cannot be measured against, and inventing a path from the

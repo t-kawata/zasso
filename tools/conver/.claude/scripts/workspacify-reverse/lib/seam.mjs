@@ -40,9 +40,23 @@ function collectPartitionPaths(value, found = new Set()) {
   return found;
 }
 
+/**
+ * Both names a prior cycle's partition may be on disk under, canonical first.
+ *
+ * The canonical RFC name is fixed at `RFC.md` (PX-235), so a project driven since then
+ * leaves `RFC-Dirs-Tree.json` while one driven before leaves `RFC-ROOT-Dirs-Tree.json`.
+ * A reader that knew one spelling would skip the seam for the other project instead of
+ * comparing against its prior, which is a different measurement than "no prior".
+ */
+const PRIOR_PARTITION_FILE_NAMES = Object.freeze(['RFC-Dirs-Tree.json', 'RFC-ROOT-Dirs-Tree.json']);
+
 /** Read the partition a prior cycle left, if the subject carries one. */
 export function readPriorPartitionPaths(root) {
-  return readPartitionPaths(join(root, 'RFC-ROOT-Dirs-Tree.json'));
+  for (const name of PRIOR_PARTITION_FILE_NAMES) {
+    const candidate = join(root, name);
+    if (existsSync(candidate)) return readPartitionPaths(candidate);
+  }
+  return readPartitionPaths(join(root, PRIOR_PARTITION_FILE_NAMES[0]));
 }
 
 /** Read the partition the analysis fixed, from the origin spec it published. */

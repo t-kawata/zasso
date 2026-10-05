@@ -687,10 +687,8 @@ function resolveReverseInputs() {
     specPath: path.join(reserve, RESERVED_ORIGIN_SPEC_FILE_NAME),
     sidecarDir: reserve,
     measuredEdgesPath: path.join(reserve, RESERVED_MEASURED_EDGES_FILE_NAME),
-    graphPath: path.join(measuredRoot, ROOT_GRAPH_FILE_NAME),
-    priorPartitionPath: existsSync(path.join(measuredRoot, ROOT_DIRS_TREE_FILE_NAME))
-      ? path.join(measuredRoot, ROOT_DIRS_TREE_FILE_NAME)
-      : null,
+    graphPath: resolveNamedArtefact(measuredRoot, ROOT_GRAPH_FILE_NAMES),
+    priorPartitionPath: resolveNamedArtefact(measuredRoot, ROOT_DIRS_TREE_FILE_NAMES, { nullWhenAbsent: true }),
     deltaPath: path.join(measuredRoot, ARCHITECTURE_DELTA_FILE_NAME),
   };
 }
@@ -716,11 +714,26 @@ function placeOriginSpecBesideTheManifest({ specPath, outDir }) {
   return beside;
 }
 
-/** The subject's own graph, which a project already driven through conver's loop carries. */
-const ROOT_GRAPH_FILE_NAME = 'RFC-ROOT-GRAPH.json';
+/**
+ * The subject's own graph, which a project already driven through conver's loop carries.
+ *
+ * Two names each, canonical first: the canonical RFC name is fixed at `RFC.md` (PX-235),
+ * so a subject driven since then carries `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` while one
+ * driven before carries the `RFC-ROOT-` forms. A reader that knew one spelling would treat
+ * the other subject as carrying no graph and no prior partition — which is a different
+ * measurement, not a missing file.
+ */
+const ROOT_GRAPH_FILE_NAMES = Object.freeze(['RFC-GRAPH.json', 'RFC-ROOT-GRAPH.json']);
+const ROOT_DIRS_TREE_FILE_NAMES = Object.freeze(['RFC-Dirs-Tree.json', 'RFC-ROOT-Dirs-Tree.json']);
 
-/** The subject's own directory tree, which is the layer-structure seam such a subject carries. */
-const ROOT_DIRS_TREE_FILE_NAME = 'RFC-ROOT-Dirs-Tree.json';
+/** The first of `names` that is on disk under `root`, or the first name itself. */
+function resolveNamedArtefact(root, names, { nullWhenAbsent = false } = {}) {
+  for (const name of names) {
+    const candidate = path.join(root, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return nullWhenAbsent ? null : path.join(root, names[0]);
+}
 
 /**
  * Take the seam, publish it into the delta, and hand back the record T5 will judge.

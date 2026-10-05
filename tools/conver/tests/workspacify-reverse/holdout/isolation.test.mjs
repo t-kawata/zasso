@@ -45,6 +45,30 @@ test('C003 postcondition: every contamination pattern is declared with a kind a 
   assert.equal(GROUND_TRUTH_PATTERNS.find((p) => p.kind === 'graph').matches('RFC-ROOT-GRAPH.json'), true);
 });
 
+test('C003 postcondition: the design-RFC pattern names both spellings, and a planted RFC.md is reported like the older one', () => {
+  const rfcPattern = GROUND_TRUTH_PATTERNS.find((pattern) => pattern.kind === 'rfc-markdown');
+
+  // The canonical RFC name is fixed at `RFC.md` (PX-235), and a project driven before
+  // that carries `RFC-ROOT.md` / `RFC-<PKG>.md`. Either spelling is the design document,
+  // so either spelling is what the executor must not be able to read.
+  assert.equal(rfcPattern.matches('RFC.md'), true, 'the name the tools write today');
+  assert.equal(rfcPattern.matches('RFC-ROOT.md'), true, 'and the name an older project carries');
+  assert.equal(rfcPattern.matches('RFC-AUTH.md'), true);
+  assert.equal(rfcPattern.matches('RFC-SEED.md'), true, 'the seed is design material, and was matched before this too');
+  assert.equal(rfcPattern.matches('RFC-NOTES.txt'), false, 'the shape is a Markdown design document');
+  assert.equal(rfcPattern.matches('README.md'), false, 'the readme is its own declared pattern');
+
+  const tree = createSyntheticTree({ 'src/lib.rs': 'pub fn a() {}\n', 'RFC.md': '# planted\n' });
+  try {
+    const result = verifyIsolation(tree.root);
+
+    assert.equal(result.clean, false);
+    assert.deepEqual(result.violations.map((violation) => violation.file), ['RFC.md']);
+  } finally {
+    tree.dispose();
+  }
+});
+
 // --- UT-6 / C003: planted ground truth is named -------------------------------
 
 test('UT-6: ground truth planted inside the target root is reported by filename', () => {

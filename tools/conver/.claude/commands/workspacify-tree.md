@@ -12,7 +12,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 # /workspacify-tree
 
-Role: given one Markdown specification, run structural analysis, candidate harvest, workspace design, completeness gates; publish the stage-two-only input `WORKSPACIFY-TREE-MANIFEST.json`. Do not implement specification. AI/running session makes design judgement; machine harvests, verifies, publishes.
+**Role**: given one Markdown specification, run structural analysis, candidate harvest, workspace design, completeness gates; publish the stage-two-only input `WORKSPACIFY-TREE-MANIFEST.json`. Do not implement specification. AI/running session makes design judgement; machine harvests, verifies, publishes.
 
 ## Language Protocol
 
@@ -67,8 +67,9 @@ Machine: harvesting, format, ownership uniqueness, DAG/cycles, forbidden layers,
 
 Output must let stage two verify coupling mechanically.
 
-- Handoff proof: provider implementation order; boundary clause groups (pre/post/invariants); segments/material; package responsibilities; contract-item order; all deterministically recomputable from same spec/decisions
+- Handoff proof: provider implementation order; boundary clause groups (precondition / postcondition / invariant); segments/material; package responsibilities; contract-item order; all deterministically recomputable from same spec/decisions
 - No unverified manifest/order/clause/segment-reference publish
+- Stage two may rely on exactly this: the provider of every boundary, each clause's precondition and invariant, and the implementation order the DAG proves. Anything the manifest does not carry, stage two must not assume.
 - Double gate: `finalize` calls stage-two entry gate immediately before publish; same predicate; no one-sided bypass
 - Gate fail output states problem, significance, correction
 
@@ -94,17 +95,17 @@ Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` c
 
 ## Step 3: authoring the decision JSON (the AI's design judgement)
 
-Purpose: decide workspace split, owners, permitted dependencies; encode machine-verifiable decision. Do not one-pass: run Step-4 gate; thicken ①→⑦ in order until COMPLETE.
+Purpose: **iterative procedure to raise the information level** — decide workspace split, owners, permitted dependencies (`dependency_reviews`); encode machine-verifiable decision. Do not one-pass: run Step-4 gate; thicken ①→⑦ in order until COMPLETE.
 
 1. Candidate classification: settle every `review_required|unresolved` via approvals; no unknown
 2. Package design: every package has `layer|kind|responsibilities` (non-empty)|`seed_required|owns`; tree paths match package leaf dirs
 3. Ownership: unique owner for object/claim/invariant/state-machine/error-code/required-test; `unallocated==0`; every `owns` object/claim has exactly one matching `ownership` entry; one-sided declaration is G3 refusal (`ownership_disagreement_count`)
-4. Dependencies/boundaries: enumerate permitted package edges with `reasonCode`; every forbidden edge has `alternative` and dev policy; every boundary consumer/provider in catalog; decide every adversarial dependency review: `keep|replace_with_port|merge|split|residual`; residual = published-graph default plus later per-directory grill, never abandoned judgement
+4. Dependencies/boundaries: enumerate permitted package edges with `reasonCode`; every forbidden edge has `alternative` and dev policy; every boundary consumer/provider in catalog; decide every adversarial dependency review and record it in `dependency_reviews`: `keep|replace_with_port|merge|split|residual`; residual = published-graph default plus later per-directory grill, never abandoned judgement
 5. Specification observations: settle every `structure.spec_pulse` candidate as `spec_defects` (`candidate_id|ai_interpretation|chosen_default|rationale`) or `residual_questions` (`candidate_id|topic|alternatives` non-empty|`chosen_default|why_unresolved`). No unsettled candidate. Free text forbids `TODO|TBD|ask the human|waiting for approval|human review required|confirm with the operator`
 6. Approval register: every judgement grounds in `approvals` (`decisionId|rationale|approver`)
-7. Final semantic approval: check every checklist item; only then record `{status:"APPROVED",statement,approver}`; otherwise redesign
+7. Final semantic approval: work through the AI final approval checklist below, item by item; only then record `{status:"APPROVED",statement,approver}` in `semantic_review`; otherwise redesign
 
-Write staging decision only at derived fixed `workspacify/tree/DECISIONS.json` beneath workspace root; no argument/env/pre-existing file relocates it. Validate `schemas/workspacify-tree-decisions.schema.json`. It is the authored input of record: both refusal and success preserve it, and its containing directory.
+Write staging decision only at the derived fixed `workspacify/tree/DECISIONS.json` beneath the workspace root. The location **is derived, never selected**: no argument, environment variable or pre-existing file relocates it, which is why no invocation below carries a decisions argument. Validate `schemas/workspacify-tree-decisions.schema.json`. It is the authored input of record: both refusal and success preserve it, and its containing directory.
 
 ```json
 {"workspace":[{"id":"pkg-0001","name":"alpha-protocol","path":"crates/protocol/alpha","layer":"protocol","kind":"production-library","responsibilities":["owns alpha records and validity"],"seed_required":true,"owns":{"objects":["obj-000001"],"claims":[],"invariants":["req-000001"],"state_machines":[],"error_codes":[],"required_tests":[]}}],"tree":[{"name":"crates","path":"crates","kind":"dir","children":[]}],"ownership":[{"objectId":"obj-000001","packageId":"pkg-0001"}],"dependencies":[],"boundaries":[],"adapters":{"ports":[],"databasePolicy":{"applicable":false}},"approvals":[{"decisionId":"obj-000001","rationale":"domain record; confirmed object","approver":"ai-session"}],"semantic_review":{"status":"APPROVED","statement":"ownership, DB policy, boundaries, order, over-splitting checked","approver":"ai-session"}}
@@ -188,9 +189,23 @@ Read stderr `[guide]`; correct input/decision; rerun gate. `REVIEW_REQUIRED|BLOC
 
 Mechanical prohibitions and Step-3 design guidance are exhaustive; add no discretionary prohibition.
 
+## The AI final approval checklist (before `semantic_review`)
+
+Step 3's item 7 is this list, worked through one item at a time. Each anchor names the decision it approves, so an approval that skipped one is a missing line rather than a thin statement.
+
+| Anchor | What is approved |
+|---|---|
+| Soundness of the owner assignment | every object, claim, invariant, state machine, error code and required test has exactly one owner, and the owner is the package that can implement it |
+| Validity of the reasonCode | each dependency's reason is a value of the declared vocabulary, not a paraphrase of one |
+| The alternative route of every forbidden edge | a forbidden edge carries the route that replaces it, so a refusal is not a dead end |
+| Whether adapter and DB apply | ports and `databasePolicy` are decided for this workspace, and a domain or protocol package carries no DB type and no raw SQL |
+| The final decision on over-splitting | the tree is split no finer than the responsibilities justify |
+| The dependency proof | `dependency_reviews` settles every adversarial dependency review, and the implementation order the DAG publishes is the one the decisions imply |
+| `semantic_review` | the record itself: status APPROVED, a statement, an approver |
+
 ## Definition of success
 
-Both: AI final semantic approval (`semantic_review.status=="APPROVED"`) and every machine gate PASS/unresolved review 0. Neither alone suffices. Final confirmation: reload manifest; schema/required values/self-hash; semantic-review record; stage-two entry-gate acceptance invoked by finalize.
+Both: the AI's final semantic approval (`semantic_review.status=="APPROVED"`) and every machine gate PASS/unresolved review 0. Neither alone suffices. Final confirmation: reload manifest; schema/required values/self-hash; semantic-review record; stage-two entry-gate acceptance invoked by finalize.
 
 ## Reverse mode (T1 to T6)
 **Rotation gate** — this section runs only when `reverse-decisions-mode` holds. Forward invokes finalize; absent/empty/unrecognized mode resolves FORWARD; this section cannot fire forward.

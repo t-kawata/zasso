@@ -204,6 +204,28 @@ test('C001 postcondition — the pattern-2 representative names its five root ar
   assert.deepEqual([...ROOT_LAYER_SET].sort(), detection.present.map((entry) => entry.marker).sort());
 });
 
+test('C001 postcondition — the same root set is recognised under the fixed canonical RFC name, which is what the tools write today', () => {
+  // The canonical RFC name is fixed at `RFC.md` (PX-235), so a project driven today holds
+  // the same five root artefacts under that spelling. Detection reads what is on disk, and
+  // a reading that knew only the older one would answer pattern 3 for this project.
+  const tree = createSyntheticTree({
+    'RFC.md': '# ROOT\n',
+    'RFC-GRAPH.json': '{}\n',
+    'RFC-Dirs-Tree.json': '{}\n',
+    'Tickets.json': '{}\n',
+    'DesignTree.json': '{}\n',
+  });
+  try {
+    const detection = detect(tree.root);
+
+    assert.equal(detection.pattern, 'pattern-2', 'the five-artefact root set, spelled the way the tools write it');
+    assert.equal(detection.present.find((entry) => entry.marker === 'root-rfc').path, 'RFC.md');
+    assert.deepEqual([...ROOT_LAYER_SET].sort(), detection.present.map((entry) => entry.marker).sort());
+  } finally {
+    tree.dispose();
+  }
+});
+
 test('C001 postcondition — the evidence names, for each marker, what was searched and whether it was found', () => {
   const detection = detect(REPRESENTATIVES['pattern-3']);
 
@@ -429,7 +451,11 @@ test('C001 error invariant — a subject matching no declared pattern says so, n
         'the declaration the state is answered against is the one its two lists account for',
       );
       assert.match(renderPatternDetection(detection), /undetermined/i);
-      assert.match(renderPatternDetection(detection), /RFC-\*\.md/, 'the render names what was searched for');
+      assert.match(
+        renderPatternDetection(detection),
+        /RFC\.md or RFC-<name>\.md/,
+        'the render names what was searched for, in both spellings the marker accepts',
+      );
     }
   } finally {
     empty.dispose();

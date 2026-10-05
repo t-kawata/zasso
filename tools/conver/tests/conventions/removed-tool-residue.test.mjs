@@ -41,6 +41,18 @@ const DESIGN_PATH = 'tools/conver/docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-D
 const SELF_PATH = 'tools/conver/tests/conventions/removed-tool-residue.test.mjs';
 
 /**
+ * The one test that names the tool on purpose, and the line that is its ground.
+ *
+ * It plants a stand-in of that name on the child's PATH and shows the run ignores it,
+ * which is the opposite of the defect this guard exists for: an instruction to use a
+ * tool that is gone. The exemption is granted by path and its ground is asserted, so a
+ * test that stopped planting the stand-in would lose the exemption rather than keep a
+ * permission nothing exercises.
+ */
+const STAND_IN_PATH = 'tools/conver/tests/workspacify-reverse/integration/command.test.mjs';
+const STAND_IN_GROUND = 'function zgBinDirectory()';
+
+/**
  * The instrument's own source — its modules and its command definitions.
  *
  * A file here that the scan cannot read is a finding rather than a skip, because this
@@ -244,7 +256,7 @@ test('no live surface still names the removed tool', () => {
   const unreadable = [];
 
   for (const path of trackedPaths(REPOSITORY_ROOT)) {
-    if (path === SELF_PATH || isFrozen(path)) continue;
+    if (path === SELF_PATH || path === STAND_IN_PATH || isFrozen(path)) continue;
     const read = readIfText(join(REPOSITORY_ROOT, path));
     if (!read.readable) {
       if (isInstrumentSource(path)) unreadable.push(`${path} (${read.reason})`);
@@ -279,6 +291,15 @@ test('the scan exempts its own file and no other', () => {
     findIdentifiers(`the guard lives at ${SELF_PATH}`),
     [],
     'the exemption is a path rather than a spelling, so naming it is not itself a finding',
+  );
+});
+
+test('the stand-in exemption is held only while the test it names still plants the stand-in', () => {
+  const text = readFileSync(join(REPOSITORY_ROOT, STAND_IN_PATH), 'utf8');
+
+  assert.ok(
+    text.includes(STAND_IN_GROUND),
+    `${STAND_IN_PATH} no longer plants the stand-in the exemption was granted for, so the exemption has nothing to permit`,
   );
 });
 

@@ -64,27 +64,19 @@ const ABSENT_FROM_COPIES = Object.freeze([]);
 /**
  * The modules the source of record has moved ahead of the copies in.
  *
- * **Re-measured 2026-10-01 by PX-231**, which converted the path each of these modules
- * prints when it refuses something, so that a refusal names `~/...` rather than the home
- * directory of the machine that ran it. The copies were not advanced with it, because
- * PX-231 states its target as `tools/conver` and advancing them writes outside it; the
- * resync is the follow-up that ticket declares.
+ * **Re-measured and emptied** by the change that fixed the canonical RFC name at `RFC.md`
+ * (PX-235) across the terminal inventory and every artefact reader: the six modules that
+ * declared or read those names were advanced into both copies with it, and the `scope.mjs`
+ * lag PX-231 recorded went with them. PX-231's own note names the resync as its follow-up,
+ * and P25-7's criterion is to advance the copies rather than record a lag.
  *
- * Recording the drift is this file's own mechanism rather than an escape from it: the
- * module states above that each list is resolved by re-measuring and recording, and the
- * gate's purpose is that a copy which has fallen behind is a recorded fact rather than a
- * silence. What the record costs is that the installed copies still print absolute paths
- * in these four refusals until the resync, which is a real and bounded lag, stated here
- * by name rather than left for a reader to discover.
+ * The record is still a record and not a formality: `absent` is a lag, `extra` is a fork,
+ * `differing` is a lag that has not yet removed the file, and any of the three appearing
+ * again fails here by name.
  *
  * [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
  */
-const DIFFERING_IN_COPIES = Object.freeze([
-  'holdout-ledger.mjs',
-  'sandbox.mjs',
-  'scope.mjs',
-  'staleness.mjs',
-]);
+const DIFFERING_IN_COPIES = Object.freeze([]);
 
 /**
  * The modules the source of record holds, re-measured 2026-09-17 by P26-2.

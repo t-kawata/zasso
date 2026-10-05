@@ -405,6 +405,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ---
 
 ## Reverse mode (G1 to G5)
+**Rotation gate** — this section runs only when `reverse-seed-index` holds. A forward seed carries no `reverse_index` in its machine-injected section 1, and `reverseIndexOf` returns null for it, so this section cannot fire in one.
 
 Mode: forward | reverse
   detect: `reverse-seed-index` in the seed's section 1. a forward seed carries none — this section cannot fire on one.

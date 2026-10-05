@@ -96,14 +96,14 @@ Finalize the README TOC. uses Step 0's `sourceFile` content as prerequisite.
 
 Policy: usage-focused TOC, no technical deep-dive. every heading gets a hierarchical path ID (`H1`, `H1-1`, `H1-2`, `H1-2-1`, `H2`, `H2-1`, ...) — parent = strip trailing `-<n>` (`H1-2-1`'s parent is `H1-2`). invariant: a child can exist only after its parent; an ID without its parent (e.g. `H2-1` without `H2`) is a structural violation → rejected.
 
-#### 1-1.
+#### 1-1. In refine mode, if `README.md exists: yes`, read the existing README.md and use it as prerequisite information for the heading proposals in 1-2 below (propose with the goal of refining and updating by referencing the previous headings and content). The finalized heading set is re-emitted to README.md in 1-8, and all sections are re-analyzed in Step 2. In fresh mode, skip 1-1.
 refine: read existing README.md as prerequisite for 1-2's proposals (goal: refine/update by referencing prior headings/content). the finalized heading set is re-emitted in 1-8, all sections re-analyzed in Step 2.
 fresh: skip.
 
-#### 1-2. Heading proposals (non-deterministic)
+#### 1-2. **Heading proposals (non-deterministic)**: The AI synthesizes each usage-focused TOC heading based on `sourceFile`. Each heading takes the form `{id, heading, contentOptions[], recommendation, reason, existingIds}` and carries a "content proposal" answerable with A/B/C or Yes/No. `existingIds` is the full set of existing node IDs (indicating that the parent exists). Each proposal must clearly state **the AI's recommendation and its reason**.
 judge: AI synthesizes each usage-focused TOC heading from `sourceFile`. shape: `{id, heading, contentOptions[], recommendation, reason, existingIds}` — a content proposal answerable A/B/C or Yes/No. `existingIds` = full set of existing node IDs (parent-exists evidence). every proposal states the AI's recommendation + reason.
 
-#### 1-3. Validation gate (deterministic, mandatory)
+#### 1-3. **Validation gate (deterministic, mandatory)**: Validate every proposal with `validate-toc-proposal.js` **before presenting it to the user**. Restructure until `valid:true`; never present an unvalidated proposal.
 gate: validate every proposal with `validate-toc-proposal.js` **before presenting to the user**. restructure until `valid:true`; never present an unvalidated proposal.
 ```bash
 echo '{"id":"H1-1","heading":"アカウントの追加","contentOptions":["add_account() と register() を呼ぶコード","SipAccountHandle 経由で登録状態を確認するコード","set_registration_enabled() で動的に登録を切り替えるコード"],"recommendation":"add_account() と register() を呼ぶコード","reason":"アカウント追加は最も基本的な操作であり、先に最小のコードを示すのが効果的なため","existingIds":["H1"]}' | node .claude/scripts/crystalize-readme/validate-toc-proposal.js || exit 1
@@ -112,24 +112,25 @@ fields: `id` (path ID, parent = strip trailing `-<n>`) / `heading` / `contentOpt
 this is a **living example** grounded in the real public API of the actual crate (siprs: `add_account`/`register`/`SipAccountHandle`) — assemble proposals with concrete content grounded in the actual target API/usage.
 invariant: heading/option/reason content in Japanese.
 
-#### 1-4. Record proposals
+#### 1-4. **Record proposals**: Record the validated proposal JSON in CRYSTALIZE-Status.json via `propose-heading`.
 ```bash
 echo '<proposal-json>' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" propose-heading
 ```
 
-#### 1-5. User response — **ask; stop** (the one designed exception to this file's global auto;never-ask)
+#### 1-5. **User response**: The user answers **with A/B/C/Yes/No per ID**. Free comments are also allowed. If a free comment is received, re-run the 1-2 heading proposals later in line with its content.
+**ask; stop** — the one designed exception to this file's global auto;never-ask.
 wait: user answers **A/B/C/Yes/No per ID**. free comments allowed → free comment received: re-run 1-2's proposals accordingly.
 
-#### 1-6. Record confirmations
+#### 1-6. **Record confirmations**: For each answer, record the confirmed content via `confirm-heading`. `confirmedContent` is the content of the chosen option.
 `confirmedContent` = the chosen option's content.
 ```bash
 echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading
 ```
 
-#### 1-7. Completion condition
+#### 1-7. **Completion condition**: Do not proceed until all heading items and their content are finalized. Repeat the revision and re-proposal of heading suggestions from 1-2 above until everything is finalized. After all nodes are finalized, complete Step 1 with `end-step 1`. **The final heading must always be "Examples（implementation samples）spec and design"**.
 gate: do not proceed until all heading items + content are finalized. loop 1-2→1-6 (revise/re-propose) until everything finalized. invariant: the final heading must always be "Examples（実装サンプル）仕様と設計". then `end-step 1`.
 
-#### 1-8. Skeleton output (end of Step 1, deterministic)
+#### 1-8. **Skeleton output (end of Step 1, deterministic)**: Mechanically output the finalized heading set + the examples section to README.md via script. The `<::TEMPLATE-README::>` marker is automatically attached to each usage section, and the `<::TEMPLATE-EXAMPLES::>` marker to the examples section.
 ```bash
 node .claude/scripts/crystalize-readme/emit-readme-skeleton.js --graph="$ARGUMENTS"
 ```
@@ -188,6 +189,7 @@ node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS"
 judge: read the English message text, not the exit code. "Examples resolved" (zero `<::TEMPLATE-EXAMPLES::>`, marker grammar clean) → Step complete. "Examples not resolved" (message enumerates unresolved usage sections / remaining `<::TEMPLATE-EXAMPLES::>` / grammar violations) → fix per instructions, re-run.
 
 ## Reverse rotation only — the return path from a RESIDUE to its scenario and its route
+**Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. `return-refs.js` is invoked with `--mode=reverse`; without the flag the artefact is returned itself and no return reference is written, so this section cannot fire in a forward run.
 
 Mode: forward | reverse
   detect: `return-refs-reverse-mode` holds / `--mode=reverse` passed. without it, this section cannot fire — the artefact returns itself, no return reference written.

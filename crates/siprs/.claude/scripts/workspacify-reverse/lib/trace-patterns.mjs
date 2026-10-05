@@ -58,13 +58,24 @@ export const TRACE_LAYERS = Object.freeze({
   }),
 });
 
+/**
+ * The design document's name, in both spellings, and the artefacts derived from it.
+ *
+ * `RFC.md` is the canonical name the tools write (PX-235); `RFC-ROOT.md` and its derived
+ * graph and dirs-tree are what a project driven before that carries. The alternation names
+ * the artefacts rather than accepting `RFC-*.md`, because a vendored tree holds numbered
+ * IETF documents (`RFC-4733.md`) that are ordinary domain knowledge and must survive every
+ * scrub — see `IETF_REFERENCE`.
+ */
+const DESIGN_DOCUMENT = String.raw`\b(?:RFC-ROOT\b|RFC(?:-GRAPH|-Dirs-Tree)?\.(?:md|json))`;
+
 /** Provenance comment patterns. Anchored to comment lines so code is never matched. */
 export const L1_PATTERNS = Object.freeze([
   new RegExp(`${COMMENT_PREFIX}.*\\[::TICKET::\\]`),
   new RegExp(`${COMMENT_PREFIX}\\s*Details:\\s*\`node `),
   new RegExp(`${COMMENT_PREFIX}.*\\bNODE_ID=`),
   new RegExp(`${COMMENT_PREFIX}.*To show details`),
-  new RegExp(`${COMMENT_PREFIX}.*\\bRFC-ROOT`),
+  new RegExp(`${COMMENT_PREFIX}.*${DESIGN_DOCUMENT}`),
   new RegExp(`${COMMENT_PREFIX}.*RFC-driven`),
   new RegExp(`${COMMENT_PREFIX}.*\\(N\\d{4}\\)`),
   new RegExp(`${COMMENT_PREFIX}.*\\bstub-gated\\b`),
@@ -89,7 +100,7 @@ export const L2_PATTERNS = Object.freeze([
  * lookahead keeps provenance comments out of this layer so that L1 and L3
  * never report the same line twice.
  */
-export const L3_PATTERN = /^(?!\s*(?:\/\/|#|;)).*\bRFC-ROOT\b/;
+export const L3_PATTERN = new RegExp(`^(?!\\s*(?:\\/\\/|#|;)).*${DESIGN_DOCUMENT}`);
 
 /** Marks the start of a boundify-generated traceability header. */
 export const HEADER_MARKER = /^\s*(?:\/\/+|#)\s*Initial Design Artifact/;

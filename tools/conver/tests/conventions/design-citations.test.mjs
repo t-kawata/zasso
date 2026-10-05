@@ -70,9 +70,11 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'command.test.mjs:153', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 153, token: 'assertCommandFileStructure' },
   // Re-measured 2026-10-01 by PX-231, which inserted a two-line import into scope.mjs: the
   // citation moved with the file rather than the file being kept still for the citation.
+  // Re-measured again when the canonical RFC name was fixed at `RFC.md` (PX-235): the same
+  // edit added the prior-partition name resolver above these two, and both moved with it.
   // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
-  { asWritten: 'scope.mjs:1975', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1975, token: 'replacePublishedDocuments(out, documents)' },
-  { asWritten: 'scope.mjs:1814-1819', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1814, token: 'the analysis modified its target' },
+  { asWritten: 'scope.mjs:1994', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1994, token: 'replacePublishedDocuments(out, documents)' },
+  { asWritten: 'scope.mjs:1833-1838', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1833, token: 'the analysis modified its target' },
   { asWritten: 'seed-local-checks.mjs:36', path: '.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs', line: 36, token: 'SEED_REQUIRED_SECTIONS.length' },
   { asWritten: 'run.mjs:383-387', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 387, token: 'action: second, root: process.cwd()' },
 ]);

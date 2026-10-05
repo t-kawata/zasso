@@ -42,7 +42,7 @@ function terminalFiles(packages) {
     files[name] = '{}\n';
   }
   for (const pkg of packages) {
-    files[`${pkg}/Tickets.json`] = '{}\n';
+    for (const name of TERMINAL_ARTEFACTS.package) files[`${pkg}/${name}`] = '{}\n';
     for (const template of TERMINAL_ARTEFACTS.packageNamed) {
       files[`${pkg}/${template.replace('{package}', pkg)}`] = '{}\n';
     }
@@ -83,10 +83,10 @@ test('C001 postcondition — a complete tree satisfies every element of the decl
   assert.deepEqual(measured.missing, []);
   assert.equal(measured.complete, true);
   assert.deepEqual(measured.packages, ['auth', 'transport']);
-  assert.equal(TERMINAL_ARTEFACTS.root.includes('RFC-ROOT.md'), true);
+  assert.equal(TERMINAL_ARTEFACTS.root.includes('RFC.md'), true);
   assert.equal(TERMINAL_ARTEFACTS.fifthLayer.includes('ARCHITECTURE-DELTA.json'), true);
   assert.equal(TERMINAL_ARTEFACTS.packageFifthLayer.includes('RFC-SEED.md'), true);
-  assert.equal(TERMINAL_ARTEFACTS.packageNamed.includes('RFC-{package}-Dirs-Tree.json'), true);
+  assert.equal(TERMINAL_ARTEFACTS.package.includes('RFC-Dirs-Tree.json'), true);
   tree.dispose();
 });
 
@@ -280,12 +280,15 @@ test('C001 precondition: a declared partition places each package artefact at th
   const partition = [{ name: 'src-api', path: 'src/api' }, { name: 'docs', path: 'docs' }];
   const tree = createSyntheticTree(terminalFilesFor(partition), { prefix: 'wsp-p25-3-' });
   try {
+    // The seed is the one artefact only a package can hold: the fourth layer's names are
+    // the same in the root package as in any other now that the canonical RFC name is
+    // fixed, so the seed is what tells a nested scope from the root.
     assert.ok(
-      existsSync(join(tree.root, 'src/api/RFC-src-api.md')),
+      existsSync(join(tree.root, 'src/api/RFC-SEED.md')),
       'the fixture carries the nested package material at the declared path',
     );
     assert.ok(
-      !existsSync(join(tree.root, 'RFC-src-api.md')),
+      !existsSync(join(tree.root, 'RFC-SEED.md')),
       'and not directly under the root, which is where a one-level reader would look',
     );
   } finally {
@@ -303,8 +306,8 @@ test('C001 postcondition: one entry per declared package, each artefact checked 
     assert.deepEqual([...measured.packages].sort(), ['docs', 'src/api']);
     assert.deepEqual(measured.missing, [], 'every declared artefact exists at its declared path');
     assert.ok(
-      measured.present.some((entry) => entry.scope === 'src/api' && entry.artefact === 'RFC-src-api.md'),
-      'the nested package is reported under its path and named by the identifier the partition declares',
+      measured.present.some((entry) => entry.scope === 'src/api' && entry.artefact === 'RFC.md'),
+      'the nested package is reported under its path, with the canonical RFC name every package writes',
     );
     assert.equal(measured.present.length, 11 + 2 * 8, 'the root inventory once, plus eight for each declared package');
     assert.equal(measured.complete, true);
@@ -371,8 +374,8 @@ test('C001 error: a partition naming a path that is absent from disk is reported
 
     assert.equal(measured.present.length, 0, 'a scope absent from disk satisfies nothing');
     assert.equal(measured.missing.length, 11 + 8);
-    assert.ok(measured.missing.some((entry) => entry.scope === 'docs' && entry.artefact === 'RFC-docs.md'));
-    assert.ok(measured.missing.some((entry) => entry.scope === 'root' && entry.artefact === 'RFC-ROOT.md'));
+    assert.ok(measured.missing.some((entry) => entry.scope === 'docs' && entry.artefact === 'RFC.md'));
+    assert.ok(measured.missing.some((entry) => entry.scope === 'root' && entry.artefact === 'RFC.md'));
     assert.equal(measured.complete, false);
   } finally {
     tree.dispose();
@@ -392,12 +395,18 @@ test('C003 invariant: the inventory is design section 2.3\'s list, eleven at the
   assert.equal(
     TERMINAL_ARTEFACTS.package.length + TERMINAL_ARTEFACTS.packageNamed.length + TERMINAL_ARTEFACTS.packageFifthLayer.length,
     8,
-    'one name that does not vary, six that carry the package identifier, and the fifth layer seed',
+    'seven names that do not vary and the fifth layer seed',
   );
   assert.deepEqual(Object.keys(TERMINAL_ARTEFACTS), ['root', 'fifthLayer', 'package', 'packageNamed', 'packageFifthLayer']);
-  for (const name of TERMINAL_ARTEFACTS.packageNamed) {
-    assert.ok(name.includes('{package}'), name + ' carries the identifier slot');
-  }
+  // The canonical RFC name is fixed at `RFC.md`, so no artefact carries the package's own
+  // name any more. The group stays declared and empty rather than removed: it is the slot a
+  // package-named artefact would occupy, and a reader that looked for one would otherwise
+  // find no answer at all.
+  assert.deepEqual(
+    TERMINAL_ARTEFACTS.packageNamed,
+    [],
+    'no artefact name carries the package identifier, because the canonical RFC name is fixed',
+  );
   for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer, ...TERMINAL_ARTEFACTS.package, ...TERMINAL_ARTEFACTS.packageFifthLayer]) {
     assert.ok(!name.includes('{package}'), name + ' carries no identifier slot, because its group is not the named one');
   }
