@@ -1257,16 +1257,21 @@ function sectionOfLine(documentText, lineNumber) {
 }
 
 /**
- * The two pieces of a question the AI writes in its own words, and nothing else.
+ * Everything above the options block that the AI wrote for the reader, and nothing else.
  *
  * A letter used here before the 選択肢 block gives it meaning is a forward reference: the reader
- * meets `A` and only later learns what `A` is. The scan therefore covers exactly what the AI
- * wrote for the reader — the context it carries and the prose that closes the question — and
- * excludes the record copy, whose verbatim contract text legitimately contains standalone
- * letters, and excludes every label's own instruction line.
+ * meets `A` and only later learns what `A` is. What the reader meets is the context the question
+ * carries and the prose that closes it, however many paragraphs that prose runs to, so the scan
+ * takes the context value and every paragraph standing at the left margin.
+ *
+ * The other candidate is to take the lines above the options and subtract the AI-only region,
+ * and that fails on real documents: a record copy quotes its contract verbatim, continuation
+ * paragraphs and all, and `atomicity: "A Forum Root Succession is atomic…"` is a standalone A
+ * the AI never wrote. Indentation is what separates the two — every label's value sits under its
+ * label, and the prose the human reads starts at the margin.
  *
  * @param {string} itemBody
- * @returns {string} the context value followed by the paragraph above the options
+ * @returns {string} the context value followed by every left-margin paragraph above the options
  */
 // [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function letterScanSpan(itemBody) {
@@ -1275,12 +1280,11 @@ function letterScanSpan(itemBody) {
   const optionsIndex = lines.findIndex((line) => line.trimStart().startsWith(`- ${OPTIONS_LABEL}:`));
   if (optionsIndex < 0) return context;
 
-  let cursor = optionsIndex - 1;
-  while (cursor >= 0 && lines[cursor].trim() === '') cursor -= 1;
-  const paragraph = [];
-  for (; cursor >= 0 && lines[cursor].trim() !== ''; cursor -= 1) paragraph.unshift(lines[cursor]);
+  const prose = lines
+    .slice(0, optionsIndex)
+    .filter((line) => line.trim() !== '' && line === line.trimStart() && !line.startsWith('- ') && !line.startsWith('#'));
 
-  return [context, ...paragraph].join('\n');
+  return [context, ...prose].join('\n');
 }
 
 /**

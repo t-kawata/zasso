@@ -76,6 +76,25 @@ function withValueUnder(documentText, label, value) {
   return lines.join('\n');
 }
 
+/**
+ * The document with one more paragraph added above the options, before the prose already there.
+ *
+ * A question may close in more than one paragraph, and a letter used in any of them is met by
+ * the reader before the options are written. Only the record copy is indented; the prose the
+ * AI writes for the human stands at the left margin.
+ */
+function withEarlierParagraph(documentText, paragraph) {
+  const lines = documentText.split('\n');
+  const optionsAt = lines.findIndex((line) => line.trimStart().startsWith(`- ${OPTIONS_LABEL}:`));
+  assert.notStrictEqual(optionsAt, -1, 'the document carries an options block');
+
+  let start = optionsAt - 1;
+  while (start >= 0 && lines[start].trim() === '') start -= 1;
+  while (start > 0 && lines[start - 1].trim() !== '') start -= 1;
+
+  return [...lines.slice(0, start), paragraph, '', ...lines.slice(start)].join('\n');
+}
+
 /** The document with one label and its value removed, as a question that never recorded it. */
 // [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function withoutLabel(documentText, label) {
@@ -127,6 +146,16 @@ test('a letter used above the options is refused, while the same letter below th
   const early = withValueUnder(complete, CONTEXT_LABEL, 'A と B のどちらに置くかを決めます。');
   assert.ok(faultKinds(early, facts).includes('forward-reference:Q1'),
     'a letter the reader meets before the options block is a defect');
+});
+
+test('a letter in an earlier paragraph of the question is refused, not only one in the last', () => {
+  const facts = syntheticFacts();
+  const twoParagraphs = withEarlierParagraph(authored(facts), 'A と B のどちらに置くかを決めます。');
+
+  assert.ok(
+    faultKinds(twoParagraphs, facts).includes('forward-reference:Q1'),
+    'every paragraph the reader meets above the options is scanned, not just the final one',
+  );
 });
 
 test('the record copy is outside the scan, so verbatim contract text raises no forward reference', () => {

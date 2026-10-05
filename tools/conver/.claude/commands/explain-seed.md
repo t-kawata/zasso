@@ -174,7 +174,7 @@ Lines 2–4 of the block below are this one sentence, separated so each part can
 
 Technical nouns are not the difficulty: Soul, フォーラム, 鍵, 譲渡 are things and are fine. Referentless words are the difficulty.
 
-Scoping decision, recorded here so the prose says which it is: W13–W21 are question rules. The Criteria section above continues to govern every `[::MUST-FILL::]` instruction, including the section prose (E1–E7); these nine govern the questions put to the human.
+Scoping decision, recorded here so the prose says which it is. Six of the nine are rules of the language the AI writes in, and they govern every `[::MUST-FILL::]` instruction — the section prose (E1–E7) as much as the questions: W14 (define before use), W15 (nouns that can be pointed at), W16 (event verbs), W18 (every sentence carries its parts), W19 (one name per thing), W20 (shallow noun phrases). The other three are about a question's own shape and govern the questions only: W13 (opinion first), W17 (the remainder as one sentence), W21 (say so when the conclusion and the remainder are the same thing).
 These rules govern the **chat message** as well as the document block. The human reads the chat message first; a block that reads well does not excuse a message that does not.
 
 ### The question block, in order
