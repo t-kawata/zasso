@@ -8,8 +8,8 @@ disable-model-invocation: true
 
 In: one `RFC-SEED.md` path. Nothing else.
 Out: `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md` beside it; facts of the first on stdout.
-Does: explains; settles every point the AI can ground; grills the human with few direction questions over multiple rounds; settles the rest from the answers; writes answers down; ends when zero points are open.
-Does not: decide for the human, publish a manifest, start a workflow, invoke another command. Grill = this loop. The downstream design interview is a separate session.
+Does: explains; settles every point the AI can ground; grills the human with few direction questions over multiple rounds; settles the rest from the answers; writes answers down; ends when zero points are open; re-opens on a viewpoint the human brings after that, recording it and running the loop again.
+Does not: decide for the human, publish a manifest, start a workflow, invoke another command. Grill = this loop, and so is re-entry: a viewpoint brought after Done is handled by this same loop, not by another command and not by a later session. The downstream design interview is a separate session.
 
 ## Core Rule
 
@@ -168,13 +168,35 @@ Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
 Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
 Exception: G4 PASS is not G3 PASS; G4 is structural only.
 Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+
+## Re-entry (Done is not the end of the conversation)
+
+Done means: no point is open for the material read so far. It does not close the
+conversation, and it does not close this command.
+
+A viewpoint the human brings after Done is a point like any other. On any human message
+after Done, run the same settle test over what it raised — the three lines, in writing —
+and act on the result:
+
+- the three lines can be written → settle the point, with its override condition; update the
+  documents; re-issue the report.
+- the three lines cannot be written → record the point with this command's own point-writer,
+  open a round on the point, and re-run the gate and the verdict.
+
+Re-entry is this command's own loop, not another command: the human is never asked to run
+anything again. A revision never renumbers a question (W7) and never overwrites an answer;
+an answered axis is never re-asked (W6). A revision round asks a new axis built from the
+point it raised and the still-open points only.
+
+A command that carries this block carries a writer for a point the human brings. Which
+writer it is belongs to that command's own section, not to this one.
 <!-- question-gate:end -->
 
 ## Arguments
 
 In: arg: `<path-to-RFC-SEED.md>`, required, only.
 Resolve: package + three reference paths from seed's identity block; workspace root = nearest ancestor dir holding both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` — the order is read from the tool that owns the ordering rule, and that tool resolves the same pair. Neighbours = packages at the other end of every boundary this package is a party to, found by the paths the stage-one manifest records for those package ids.
-second arg: `next` alone takes one — the round size — and `info`, `check` and `answers` take none. A second arg given to those three, dialogue, env var, hook, fetch → refuse; exit non-zero.
+second arg: `next` takes the round size, `revise` takes the payload, and `info`, `check` and `answers` take none. A second arg given to those three, dialogue, env var, hook, fetch → refuse; exit non-zero. The revise payload is one JSON object — `{"origin": "<the human's own words>", "statement": "<one line>"}` — so a viewpoint carrying spaces or shell characters reaches the command as it was written; `origin` is recorded verbatim, `statement` is the AI's refinement of it.
 
 ## Artifacts
 
@@ -223,7 +245,8 @@ Base: `.claude/scripts/explain-seed/`.
 | Script | Contract |
 |---|---|
 | `run.mjs info <path>` | resolves, verifies, reads implementation order from `workspacify-order`, reads neighbours' explanations for settled boundaries, writes facts + prints those bytes, writes frame + ledger beside seed. exit 0 = published; non-zero = names offending artefact. stderr: kept / reopened; unreadable neighbour documents |
-| `run.mjs next <path> <n>` | appends n empty numbered question blocks; numbers continue; n ≤ 3; refuses past round 5, or when no point is open; rewrites nothing existing. non-zero = names reason |
+| `run.mjs next <path> <n>` | appends n empty numbered question blocks; numbers continue; n ≤ 3; refuses when the current cycle has opened 5 rounds, or when no point is open; rewrites nothing existing. non-zero = names reason |
+| `run.mjs revise <path> <payload-json>` | records one point the human brought after Done — `origin` verbatim, `statement` as 論点 — under the next reserved id, opens a cycle, and writes the explanation. refuses an empty, multi-line or marker-bearing value, and refuses past 3 cycles; writes nothing on refusal. non-zero = names the fault kind. stderr: the id, the cycle, the ledger counts |
 | `run.mjs check <path>` | gate: exit 0 only if every instruction answered; every question has context, ≥2 directions, one recommendation, overturning fact, scope line, ≥2 bound points; every settled item has ground + override condition; no point vanished; every section rests on current facts. else names sections at fault, exit non-zero |
 | `run.mjs answers <path>` | verdict: exit 0 only if every question carries an answer under its placeholder AND ledger unsettled = 0 (no point left `open` or `bound`); else names unanswered questions and unsettled points, exit non-zero. reads, writes nothing |
 
@@ -440,7 +463,9 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
       Prose-only repair of a question the human could not answer is a defect: it spends the human's round on the AI's classification error.
       Three consecutive prose repairs of one question → stop; settle the point or name it misclassified in Step 5.
    b. record: under the question's `<!-- 人間の判断 -->`, lines below: letter + human's prose. placeholder line untouched. never answer for the human; never fill a placeholder to pass G5.
-   c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it in the human's section as an added-point block (reserved id `added-NNN`, 出どころ = the human's own words it came from, 論点 = one line). It is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
+   c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it:
+      `node .claude/scripts/explain-seed/run.mjs revise "$ARGUMENTS" '{"origin":"<the human's words, verbatim>","statement":"<one line>"}'`
+      The script owns the id (`added-NNN`), the block's shape and its place in the human's section; the AI owns only the refinement. Never hand-write the block: a hand-written one is a second writer of a format that already has one, and Step 5 forbids hand-editing either document. The recorded point is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
       yes → 「先に決めておいたこと」: 決定, 根拠 (`Qn` + letter, + manifest ids), 覆す条件.
       no → point stays open; note what the answer failed to entail. Never guess. An added point takes the same ladder: settled here if the answer entails it, bound next round if it does not.
    d. gate: `run.mjs check` (G4); fail → fix per stderr; re-run.
@@ -449,6 +474,15 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
       unanswered question remains → a, those questions only
       open points remain → re-run Step 2's Q0–Q3 on residual points and added points alike; `run.mjs next "$ARGUMENTS" <axes>`; new axis per U14; → a
       `next` refuses (round cap, or nothing open) → stop; report residual points; settle none.
+
+4b. **Re-entry** — auto; never ask. A viewpoint the human brings after Done runs this same
+   step, not another command and not a later session. The settle test comes first, in writing:
+   - the three lines can be written → settle the point with 決定, 根拠, 覆す条件; go to Step 5.
+   - the three lines cannot be written → `run.mjs revise` records the point (Step 4c's call), the
+     recorded point re-opens the ledger, and 4e opens the round it needs; G4 and G5 are re-run
+     as they are for any round.
+   `revise` refuses past its cycle bound, and that refusal is the honest end of the loop: report
+   the point and settle none, rather than recording it with no way to ask about it.
 
 5. **Report** — Japanese, ordered; written after loop exit; reports what was decided:
    package location + contents (human is about to hold a design conversation)
@@ -462,3 +496,4 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    no hand-editing either document; wrong → inputs wrong → regenerate.
 
 Done: both documents exist, published; facts printed once; G4 passed; G5 passed (every question answered, ledger unsettled = 0 — no point left `open` or `bound`); report written after loop exit, naming every G3-caught-but-unfixed item.
+Done is a state of the material read so far, not the end of the conversation: a viewpoint the human brings afterwards is recorded by Step 4b and the loop runs again, so the command's last act is the report it re-issues, never a refusal to continue.

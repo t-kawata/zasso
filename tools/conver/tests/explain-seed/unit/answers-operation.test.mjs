@@ -32,6 +32,9 @@ import { syntheticFacts, syntheticOpenIds, syntheticProjection } from '../helper
 const HUMAN_NOTE = '人間の判断: 現場では拒否のほうが自然だと考える。';
 const SEED_PATH = '/tmp/explain-seed-fixture/crates/protocol/alpha/RFC-SEED.md';
 
+/** One revision payload, as the AI passes the human's viewpoint to `revise`. */
+const REVISION_PAYLOAD = JSON.stringify({ origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' });
+
 /** An authored explanation whose one question binds every recorded point, no answer written. */
 // [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function authored(size = 1) {
@@ -167,17 +170,31 @@ test('C003 boundary: a human section that appears twice is a reading failure, no
   assert.throws(() => readAnswers(doubled), ExplainSeedError);
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-236) --for-spec --no-implementation-order`.
 test('C004 precondition: the tool accepts every operation it declares, and each takes the arguments it declares', () => {
   const names = Object.values(OPERATIONS);
 
-  assert.deepEqual(names, ['info', 'next', 'check', 'answers'], 'next is the fourth operation, and the only one taking a size');
+  assert.deepEqual(
+    names,
+    ['info', 'next', 'check', 'answers', 'revise'],
+    'revise is the fifth operation, and the second one carrying an argument of its own',
+  );
   for (const operation of names) {
-    const argv = operation === OPERATIONS.NEXT ? [operation, SEED_PATH, '2'] : [operation, SEED_PATH];
+    const argv =
+      operation === OPERATIONS.NEXT
+        ? [operation, SEED_PATH, '2']
+        : operation === OPERATIONS.REVISE
+          ? [operation, SEED_PATH, REVISION_PAYLOAD]
+          : [operation, SEED_PATH];
     const parsed = parseArguments(argv);
     assert.equal(parsed.operation, operation);
     assert.equal(parsed.seedPath, SEED_PATH);
     assert.equal(parsed.size, operation === OPERATIONS.NEXT ? 2 : null, `${operation} carries no round size unless it asks for one`);
+    assert.equal(
+      parsed.payload,
+      operation === OPERATIONS.REVISE ? REVISION_PAYLOAD : null,
+      `${operation} carries no payload unless it takes one`,
+    );
   }
 });
 
@@ -191,6 +208,8 @@ test('C004 postcondition: every other argv is refused, and the refusal names wha
     ['info', SEED_PATH, SEED_PATH],
     ['next', SEED_PATH],
     ['next', SEED_PATH, '2', 'extra'],
+    ['revise', SEED_PATH],
+    ['revise', SEED_PATH, REVISION_PAYLOAD, 'extra'],
     [`--seed=${SEED_PATH}`, SEED_PATH],
   ];
 
@@ -198,7 +217,7 @@ test('C004 postcondition: every other argv is refused, and the refusal names wha
     assert.throws(
       () => parseArguments(argv),
       (error) => names.every((name) => error.message.includes(name)),
-      `${JSON.stringify(argv)} is refused, and the refusal lists all four operations`,
+      `${JSON.stringify(argv)} is refused, and the refusal lists every operation it accepts`,
     );
   }
 });
