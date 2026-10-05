@@ -76,7 +76,7 @@ check for: too-broad assertions (`assert!(result.is_ok())` when field checks are
 
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 
-invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already guarantees a clean marker tree (no orphan keys, no terminal excuses, every marker re-pointed, a complete grouped-unit manifest emitted). Step 1 consumes that manifest via `batch-create-resolving-tickets.js` — one resolving ticket per (sourceKey, unit) group, atomic on-disk marker-key rewrite. auto; never pause to ask the human — this is the AI's work item per the no-external-excuse rule.
+invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already guarantees a clean marker tree (no orphan keys, no terminal excuses, every marker re-pointed, a complete grouped-unit manifest emitted). Step 1 consumes that manifest via `batch-create-resolving-tickets.js` — one resolving ticket per (sourceKey, unit) group, atomic on-disk marker-key rewrite. auto; never ask the human — this is the AI's work item per the no-external-excuse rule.
 
 cwd = Tickets.json root (source root).
 ```bash
@@ -87,11 +87,12 @@ cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js
 out: review (`--no-write`) prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`; commit prints the same with `dryRun: false` — Tickets.json gains one `todo` ticket per non-skipped entry, on-disk marker lines re-point to the new key (C007-skipped markers, already referencing an active ticket, untouched).
 invariant: re-run-safe (already-active-referencing markers skipped, never duplicates). on failure: nothing written; stderr lists each failure (file:line + Action-directive) — fix and re-run.
 
-> Manifest handoff: consolidation Step 5 wrote `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, `file` cwd-relative:
-> ```json
-> [{ "sourceKey": "P4-2", "stubs": [{ "file": "src/a.rs", "line": 4, "content": "// [::STUB::] P4-2: reason -- Implement" }] }]
-> ```
-> pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
+**Manifest handoff**: consolidation Step 5 wrote `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, `file` cwd-relative.
+
+```json
+[{ "sourceKey": "P4-2", "stubs": [{ "file": "src/a.rs", "line": 4, "content": "// [::STUB::] P4-2: reason -- Implement" }] }]
+```
+pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
 
 Post-creation content rewrite (mandatory): each new resolving ticket is a deep-clone carrying the SOURCE's OLD content.
 ```
@@ -165,6 +166,8 @@ deliverable = verification that each contract is enforced by test code, with sou
 
 ### Step 5 — Evaluate and record (per-contract, per-criterion, immediately)
 
+#### Evaluation procedure (per criterion, not per contract)
+
 For EACH contract, evaluate all 3 criteria (A/B/C).
 rule: record only when `passed=false` for any criterion. record the moment confirmed — no batching, no memory-reliance. never record vague unease/style preferences/off-criteria observations.
 
@@ -215,7 +218,7 @@ Rules per criterion:
 
 The moment a `passed=false` is confirmed, construct the `foundOmissions` entry and pipe it.
 
-Example — first omission, contract C001 criterion B:
+#### Example: first omission found for contract C001, criterion B
 ```bash
 echo '[{
   "evaluations": [{
@@ -232,7 +235,7 @@ echo '[{
   --ticket-key=P0-4
 ```
 
-Example — multiple criteria found together, same contract:
+#### Multiple evaluations in one call (for multiple criteria on the same contract)
 ```bash
 echo '[{
   "severity": "critical",
@@ -290,7 +293,7 @@ removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`
 node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 ```
 computes optimal phase/ticket boundaries from Steps 2–7's omissions, merges mechanically into Tickets.json. mechanical merge → generic phase names (P6, P7, ...); stdout lists each phase's node titles/ticket info + the exact `rename-phases.js` commands (follow in Step 10).
-invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to cwd (Tickets.json root).
+invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
 gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 
 # Step 10 — Rename phases
@@ -311,6 +314,7 @@ removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`
 rationale: the rollback backup exists only to undo a *wrong* consolidation; once the manifest is consumed and tickets created, restoring it would desync markers from created tickets — remove both together. re-running requires a fresh consolidation.
 
 ## Reverse rotation only — the return path from an omission to its uncertainty
+**Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. `return-refs.js` is invoked with `--mode=reverse`; without the flag the artefact is returned itself and no return reference is written, so this section cannot fire in a forward run.
 
 Mode: forward | reverse
   detect: `return-refs-reverse-mode` holds / `--mode=reverse` passed. without it, this section cannot fire — the artefact returns itself, no return reference written.

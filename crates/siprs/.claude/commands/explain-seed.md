@@ -65,6 +65,111 @@ Four inferences this gate forbids. Each has produced a wrong question.
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+<!-- question-gate:begin -->
+## Core Rule
+
+Never put a point to the human. Put only direction questions.
+
+- **point**: one recorded open item. The set is not closed: a viewpoint the human
+  brings is refined into an orderly point before it is recorded, and is then a point
+  like any other, put through the same settle-and-bundle filter.
+- **direction question**: one question on a priority, a desired state, or whose
+  experience comes first. One answer lets the AI settle many points itself.
+- **order**: AI settles first; only what it cannot settle is bundled; only the bundle
+  is asked.
+- **direction ≠ vague**. Wide in span, concrete in words: each direction names who,
+  in what situation, gains what, loses what. No implementation term.
+- **count**: questions ≪ points. At most three axes to a round.
+- **the human sees little**: only what the choice needs.
+- **end**: only when the AI has settled every point. Unsettled points remain → new
+  direction questions on those points only.
+
+## The question gate (settle before drafting)
+
+A question may not be drafted until the settle test has been written out and has
+failed. For every point about to become a question, write these three lines first, in
+this order:
+
+- 決定: <what is decided>
+- 根拠: <the record id, the upstream document, or the question and letter it rests on>
+- 覆す条件: <the fact that would overturn it>
+
+If all three lines can be written, the point is settled: it goes to
+「先に決めておいたこと」 and no question is drafted. Only a point whose three lines
+cannot be written becomes a question. The gate's output is those three lines, not a
+feeling: a question drafted without them is a defect even if it reads well. The line
+that records the failed test is `決められなかった理由`.
+
+Four inferences this gate forbids. Each has produced a wrong question.
+
+| inference | refusal, and why it is wrong |
+|---|---|
+| 「a flag named this point, so it is the human's」 | `flag-is-not-a-ground` — a flag is not a ground and is not weight. |
+| 「a doubt about this record means there is no ground」 | `foreign-package-doubt` — a doubt filed under another package is not this package's point. Establish whose point it is before treating it as material. |
+| 「the doubt says only the author can decide, so it must be asked」 | `author-only-is-material-not-exemption` — that sentence is material *for* the test above, not an exemption from it. Write the three lines. |
+| 「the point is weighty, so it is the human's」 | `weight-alone-does-not-bind` — weight alone does not bind a point to a question. The binding condition is weighty **and** no ground. A ground the AI has not looked for is not an absent ground. |
+
+## The ladder
+
+Read the prior records before drafting anything. Every point takes the first rung that
+matches:
+
+- **Q0** — a published record already decides it → settle; ground is that record.
+- **Q0'** — an upstream artifact or a neighbour clearly settled it → settle; ground is
+  that document. It stands in 「先に決めておいたこと」 and is never re-asked, never
+  reopened, and never moved back into a question.
+- **Q1** — the material entails it, once the AI has **finished looking** → settle;
+  ground is the place in the material.
+- **Q2** — the result is light and reversible → settle, with an override condition.
+- **Q3** — weighty or hard to reverse, **and** the three lines cannot be written after
+  looking → bind to a direction question.
+
+A question binds at least two points, unless fewer than two are open. One answer
+settles every point bound to it. The axes a round may open are capped, and what does
+not fit stays open for a later round rather than being dropped or folded into an axis
+it would weaken.
+
+## The question block, in order
+
+1. 状況 — who does what, when, with what consequence.
+2. 私の結論 — the AI's own answer, in words, with its reason. No option letter yet.
+3. すでに決まっていること — one sentence: 「これ以外は決まっています」.
+4. 残っている選択 — one sentence: 「あなたに残っているのは〜だけです」.
+5. 選択肢 — `A: <meaning>` / `B: <meaning>`. The letters appear here for the first time.
+6. 推奨 — the letter, now that it is defined.
+7. 推奨が覆る条件 — the fact that would change it.
+
+If line 2 cannot be written at all, or line 4 cannot be written narrowly, stop: go
+back to the question gate. A name used before the line that defines it is a defect at
+that line; fix the line, never append a gloss later.
+
+## The loop
+
+- A reply carrying a letter is an answer; prose is added to the letter, never put in
+  its place.
+- A reply carrying no letter is not an answer — and it is not nothing: what it raised
+  is refined into a point, and the settle test is re-run on that point before any
+  prose is rewritten. A reply that is not an answer is evidence about the **point**,
+  not only about the wording.
+- An answered axis is never re-asked. A later round asks a new axis built from the
+  still-open points and the added ones only.
+
+## Gates
+
+- **G0 records** — the prior records were read and the scan recorded. Not read → stop.
+- **G1 settle** — every point the records ground is settled, with its three lines.
+- **G2 fill** — every block carries its lines and its settle trace.
+- **G3 ask** — every question is a direction, binds at least two points, and reads top
+  to bottom.
+- **G4 check** — the structural gate: `check` exits 0.
+- **G5 answers** — the verdict: every question answered and no point unsettled.
+
+Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
+Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
+Exception: G4 PASS is not G3 PASS; G4 is structural only.
+Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+<!-- question-gate:end -->
+
 ## Arguments
 
 In: arg: `<path-to-RFC-SEED.md>`, required, only.

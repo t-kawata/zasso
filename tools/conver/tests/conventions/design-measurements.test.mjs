@@ -45,16 +45,14 @@ function sectionBetween(fromHeading, toHeading) {
 /**
  * Every name a brace shorthand stands for.
  *
- * §2.3 writes the three status files as one shorthand — `RFC-<PKG>-{GRAPHIFY,
- * BOUNDIFY,SPLIT}-Status.json` — so a reader counts three names where a literal
- * comparison sees one. Expanding is what lets the page's list and the instrument's
- * list be compared at all.
+ * §2.3 writes the three status files as one shorthand — `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-
+ * Status.json` — so a reader counts three names where a literal comparison sees one.
+ * Expanding is what lets the page's list and the instrument's list be compared at all.
  */
 // [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function expandBraceShorthands(text) {
-  // Only a brace carrying a comma is a shorthand. `{package}` is the name slot — the
-  // instrument writes `RFC-{package}-GRAPH.json` and expanding the slot would rewrite
-  // every template into a name nothing declares.
+  // Only a brace carrying a comma is a shorthand. A brace holding one word is part of the
+  // name itself, and expanding it would rewrite that name into one nothing declares.
   const shorthand = /\{([^{}]*,[^{}]*)\}/.exec(text);
   if (shorthand === null) return [text];
   const [whole, options] = shorthand;
@@ -64,12 +62,11 @@ function expandBraceShorthands(text) {
 }
 
 /**
- * The artefact names §2.3 writes, with `<PKG>` normalised and shorthands expanded.
+ * The artefact names §2.3 writes, with shorthands expanded.
  *
- * A span is added as written *and* as expanded: `RFC-{package}.md` is the name the
- * instrument declares, and expanding its braces would rewrite it into a name nothing
- * declares. Only the shorthand spans have a form worth expanding, and taking both
- * costs nothing.
+ * A span is added as written *and* as expanded: §2.3 writes the status files once, as
+ * `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`, and the instrument declares three names.
+ * A span that is not a shorthand has a single form, and taking both costs nothing.
  */
 // [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function declaredInventories() {
@@ -79,19 +76,17 @@ function declaredInventories() {
     if (/\.(json|md)$/.test(name)) names.add(name);
   };
   for (const [, span] of section.matchAll(/`([^`]+)`/g)) {
-    const normalized = span.replace(/<PKG>/g, '{package}');
-    add(normalized);
-    for (const expanded of expandBraceShorthands(normalized)) add(expanded);
+    add(span);
+    for (const expanded of expandBraceShorthands(span)) add(expanded);
   }
   return names;
 }
 
 test('§2.3 names every artefact the terminal-state instrument measures against', () => {
   const declared = declaredInventories();
-  // §2.3 states the fourth layer once, as the template every package follows, and the
-  // workspace root is a package under the path `.` (§2.1). So a root artefact is listed
-  // when the template that would name it for any other package is listed.
-  const asTemplate = (name) => name.replace(/^RFC-ROOT/, 'RFC-{package}');
+  // §2.3 states the fourth layer once, and the workspace root is a package under the path
+  // `.` (§2.1). Since the canonical RFC name is fixed at `RFC.md`, the root and a nested
+  // package name their artefacts identically and the one list covers both.
   const measured = [
     ...TERMINAL_ARTEFACTS.root,
     ...TERMINAL_ARTEFACTS.fifthLayer,
@@ -99,7 +94,7 @@ test('§2.3 names every artefact the terminal-state instrument measures against'
     ...TERMINAL_ARTEFACTS.packageNamed,
     ...TERMINAL_ARTEFACTS.packageFifthLayer,
   ];
-  const absent = measured.filter((name) => !declared.has(name) && !declared.has(asTemplate(name)));
+  const absent = measured.filter((name) => !declared.has(name));
   assert.deepEqual(
     absent,
     [],

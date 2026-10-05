@@ -38,7 +38,7 @@ conver scaffolding already exists on disk**, and by nothing else.
 | # | The input project | Entry point | What must happen |
 |---|---|---|---|
 | **1** | Independently implemented. No conver artefacts at all — no RFC, no graph, no tickets, no headers | `workspacify-reverse` → `workspacify-tree` → `workspacify-allocate` → … | The project is drawn into conver's loop space. The four layers are **created** |
-| **2** | Already driven by conver's full four-layer loop. The workspace root holds `RFC-ROOT.md`, `RFC-ROOT-GRAPH.json`, `RFC-ROOT-Dirs-Tree.json`, `Tickets.json`, `DesignTree.json` | `workspacify-reverse` → `workspacify-tree` → `workspacify-allocate` → … | The four layers are **re-instantiated per directory**, at finer granularity. See §3 |
+| **2** | Already driven by conver's full four-layer loop. The workspace root holds `RFC-ROOT.md`, `RFC-ROOT-GRAPH.json`, `RFC-ROOT-Dirs-Tree.json`, `Tickets.json`, `DesignTree.json` — the older spelling, which is what a project driven before §2.3 fixed the canonical name at `RFC.md` carries | `workspacify-reverse` → `workspacify-tree` → `workspacify-allocate` → … | The four layers are **re-instantiated per directory**, at finer granularity. See §3 |
 | **3** | Developed with individual conver commands (`/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`) but never through the full four-layer loop. Holds some artefacts, not the set | `workspacify-reverse` → `workspacify-tree` → `workspacify-allocate` → … | Same terminal state as 1 and 2. What exists is kept, what is missing is created |
 | **4** | Empty, plus a long specification document | **`workspacify-tree` → `workspacify-allocate` → …** — no reverse rotation | The ordinary forward rotation. Nothing is reconstructed because there is nothing to reconstruct |
 
@@ -118,20 +118,22 @@ Evidence, all from the code:
 | The graph and the Dirs-Tree sit **beside their RFC** | `.claude/commands/boundify-graph.md` — `basename="$(basename "$1" -GRAPH.json)"`, `dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"` |
 | The workspace root **is itself a package**, path `.` | `workspacify-tree/lib/structure-parity.mjs` — `ROOT_PACKAGE_PATH = '.'` (line 69); the comment and the assignment at lines 126–131 read *"A file at the project root is owned by the package whose path is `.` … Without this a project with a root-level `build.rs` could satisfy neither gate"*; `packageOwnsPath` (line 172) treats `.` as owning everything |
 
-So `RFC-ROOT-GRAPH.json` is not a special name for a project-wide graph. `ROOT` is the **directory
-identifier**, and the file is the graph of the directory named ROOT. A subdirectory `src/auth` gets
-`RFC-AUTH-GRAPH.json` beside its own `RFC-AUTH.md`.
+So a graph is not named after a project-wide document either. The canonical RFC name is fixed at
+`RFC.md` (§2.3), so every package holds `RFC-GRAPH.json` beside its own `RFC.md`; which package a
+file belongs to is read from the directory it sits in — the directory the partition records as its
+`path`. A tree whose artefacts still spell the package name (`RFC-ROOT-GRAPH.json`,
+`RFC-AUTH-GRAPH.json`) is an older tree: the tools read it, and it is not this layout.
 
 ### 2.2 The concrete terminal layout
 
 ```
 <workspace root>/
-  RFC-ROOT.md                        ┐
-  RFC-ROOT-GRAPH.json                │ the ROOT package's own four layers
-  RFC-ROOT-Dirs-Tree.json            │
-  RFC-ROOT-GRAPHIFY-Status.json      │
-  RFC-ROOT-BOUNDIFY-Status.json      │
-  RFC-ROOT-SPLIT-Status.json         │
+  RFC.md                             ┐ the ROOT package's own four layers
+  RFC-GRAPH.json                     │
+  RFC-Dirs-Tree.json                 │
+  RFC-GRAPHIFY-Status.json           │
+  RFC-BOUNDIFY-Status.json           │
+  RFC-SPLIT-Status.json              │
   Tickets.json                       ┘
   WORKSPACIFY-TREE-MANIFEST.json     ┐
   WORKSPACIFY-ALLOCATE-MANIFEST.json │ the fifth layer: the partition, made explicit
@@ -141,17 +143,17 @@ identifier**, and the file is the graph of the directory named ROOT. A subdirect
 
   src/auth/                          ┐
     RFC-SEED.md                      │ the fifth layer's seed for this directory
-    RFC-AUTH.md                      │
-    RFC-AUTH-GRAPH.json              │ this directory's own four layers
-    RFC-AUTH-Dirs-Tree.json          │
-    RFC-AUTH-GRAPHIFY-Status.json    │
-    RFC-AUTH-BOUNDIFY-Status.json    │
-    RFC-AUTH-SPLIT-Status.json       │
+    RFC.md                           │
+    RFC-GRAPH.json                   │ this directory's own four layers
+    RFC-Dirs-Tree.json               │
+    RFC-GRAPHIFY-Status.json         │
+    RFC-BOUNDIFY-Status.json         │
+    RFC-SPLIT-Status.json            │
     Tickets.json                     ┘
   src/db/
     RFC-SEED.md
-    RFC-DB.md
-    RFC-DB-GRAPH.json
+    RFC.md
+    RFC-GRAPH.json
     …
 ```
 
@@ -181,9 +183,13 @@ package the partition declares:
 `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json`, `ARCHITECTURE-DELTA.json`,
 `DesignTree.json`, `RFC-SEED.md` (one per package directory)
 
-**Fourth layer (per package):**
-`RFC-<PKG>.md`, `RFC-<PKG>-GRAPH.json`, `RFC-<PKG>-Dirs-Tree.json`, `Tickets.json`,
-`RFC-<PKG>-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`
+**Fourth layer (per package, the root included):**
+`RFC.md`, `RFC-GRAPH.json`, `RFC-Dirs-Tree.json`, `Tickets.json`,
+`RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`
+
+The canonical RFC name is fixed at `RFC.md` in every package, so no artefact name carries
+the package's own name: the root's seven are the seven a nested package holds, and a
+package is told apart by the directory the partition records as its `path`.
 
 That is eleven at the root — the seven above plus the fifth layer's four — and eight
 per package. `terminal-state.mjs`'s `TERMINAL_ARTEFACTS` states the list as data and the
@@ -532,7 +538,7 @@ Three mechanical facts the file must state, because without them the operator mi
 outcome:
 
 1. **Publishing is atomic.** `replacePublishedDocuments` is called **once**, after every stage in the
-   prefix has run and the target has been re-digested (`scope.mjs:1975`), and it replaces the
+   prefix has run and the target has been re-digested (`scope.mjs:1994`), and it replaces the
    destination rather than adding to it, so the directory holds one run's documents and no other
    round's. A run that stops **publishes nothing**. There is no partial-document state to clean up.
 2. **There is no command-line prefix instrument.** Because of (1), a failure late in a long run
@@ -544,7 +550,7 @@ outcome:
    running program.
    **But**: a full run reached R8 in about **three minutes** (Appendix A.1). Run to the exit.
 3. **The target is digested before and after.** A single byte moved outside the reserved directory
-   and the run refuses to publish (`scope.mjs:1814-1819`). The tree must be quiescent, and the
+   and the run refuses to publish (`scope.mjs:1833-1838`). The tree must be quiescent, and the
    digest record names the directories it did not cover, so the claim is read as what it is rather
    than as a claim over the whole tree.
 

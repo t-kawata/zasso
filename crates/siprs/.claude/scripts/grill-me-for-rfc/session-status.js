@@ -25,12 +25,12 @@ const statusPath = path.join(rfcDir, "Status.json");
 const treePath = path.join(rfcDir, "DesignTree.json");
 
 if (!fs.existsSync(statusPath)) {
-  console.log("⚠️  Status.json not found. Run init.js first.");
+  process.stdout.write("⚠️  Status.json not found. Run init.js first." + "\n");
   process.exit(0);
 }
 
 const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
-const { state, reviewLoopCount, researchPath, rfcPath } = status;
+const { state, reviewLoopCount, researchPath, materialPaths, rfcPath } = status;
 
 // Read DesignTree (treat as empty tree if it does not exist)
 let nodes = [];
@@ -47,7 +47,7 @@ if (fs.existsSync(treePath)) {
   }
 }
 
-// ─── Helper functions ───
+// Helpers shared by the step table above.
 
 function countAll(ns) {
   return ns.reduce((acc, n) => acc + 1 + countAll(n.children || []), 0);
@@ -148,15 +148,24 @@ const { step, label, action, warning } = deriveStep(
 
 // ─── Display ───
 
-console.log("📋 Session Status");
-console.log(`  State: ${state}`);
-console.log(`  Step: ${step} — ${label}`);
-console.log(`  Next Action: ${action}`);
+process.stdout.write("📋 Session Status" + "\n");
+process.stdout.write(`  State: ${state}` + "\n");
+process.stdout.write(`  Step: ${step} — ${label}` + "\n");
+process.stdout.write(`  Next Action: ${action}` + "\n");
 if (warning) {
-  console.log(`  ⚠️  ${warning}`);
+  process.stdout.write(`  ⚠️  ${warning}` + "\n");
 }
-console.log("");
-console.log(`  Nodes: ${totalNodes} total / ${openCount} open`);
-console.log(`  Loop Count: ${reviewLoopCount ?? 0}`);
-console.log(`  Research Path: ${researchPath ?? "(not set)"}`);
-console.log(`  RFC Path: ${rfcPath ?? "(not set)"}`);
+process.stdout.write("\n");
+process.stdout.write(`  Nodes: ${totalNodes} total / ${openCount} open` + "\n");
+process.stdout.write(`  Loop Count: ${reviewLoopCount ?? 0}` + "\n");
+process.stdout.write("  Material:" + "\n");
+// materialPaths is the list current runs write; researchPath is the single path an
+// older session carries, and is shown only when the list is absent.
+const materials = Array.isArray(materialPaths) ? materialPaths : (researchPath ? [researchPath] : []);
+if (materials.length === 0) {
+  process.stdout.write("    (none)" + "\n");
+}
+for (const materialPath of materials) {
+  process.stdout.write(`    ${materialPath}` + "\n");
+}
+process.stdout.write(`  RFC Path: ${rfcPath ?? "(not set)"}` + "\n");

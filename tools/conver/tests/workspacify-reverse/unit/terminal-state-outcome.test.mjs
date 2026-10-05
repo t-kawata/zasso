@@ -45,13 +45,13 @@ function reportFor({ states = [], comparison = null, ladder = { position: 'L0' }
 /** A measured state, shaped as `measureTerminalState` returns one. */
 // [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function measuredState(representative, complete) {
-  const missing = [{ scope: 'auth', artefact: 'RFC-auth.md' }];
+  const missing = [{ scope: 'auth', artefact: 'RFC.md' }];
   return {
     representative,
     complete,
     packages: ['auth'],
     missing: complete ? [] : missing,
-    present: complete ? [{ scope: 'auth', artefact: 'RFC-auth.md' }] : [],
+    present: complete ? [{ scope: 'auth', artefact: 'RFC.md' }] : [],
   };
 }
 
@@ -110,7 +110,7 @@ test('C001 invariant — a refusal measured off a real tree is recorded as not p
 test('C001/C004 — a tree holding every declared artefact is measured complete and derived as proved', () => {
   const files = { 'src/main.rs': 'pub fn main() {}\n' };
   for (const artefact of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer]) files[artefact] = '{}\n';
-  files['src/Tickets.json'] = '{}\n';
+  for (const artefact of TERMINAL_ARTEFACTS.package) files[`src/${artefact}`] = '{}\n';
   for (const template of TERMINAL_ARTEFACTS.packageNamed) files[`src/${template.replace('{package}', 'src')}`] = '{}\n';
   for (const artefact of TERMINAL_ARTEFACTS.packageFifthLayer) files[`src/${artefact}`] = '# seed\n';
 

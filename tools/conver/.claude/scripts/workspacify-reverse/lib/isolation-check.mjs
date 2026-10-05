@@ -39,7 +39,10 @@ export const GROUND_TRUTH_PATTERNS = Object.freeze([
   Object.freeze({
     kind: 'rfc-markdown',
     description: 'a design RFC',
-    matches: (name) => /^RFC-.*\.md$/.test(name),
+    // Both spellings, for the reason the marker in `pattern-detection.mjs` accepts both:
+    // the canonical name is fixed at `RFC.md` (PX-235), and a project driven before that
+    // carries `RFC-ROOT.md` / `RFC-<PKG>.md`. Either is the design document.
+    matches: (name) => /^RFC(-.*)?\.md$/.test(name),
   }),
   Object.freeze({
     kind: 'tickets',

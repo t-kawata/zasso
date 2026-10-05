@@ -1239,8 +1239,27 @@ async function runR65({ root, ledger, redPlan, reconstruction, language }) {
 // entry point then silently ran a different prefix from the command line's.
 // [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
-/** The name the old cycle's partition keeps when its cycle is interrupted: left where it is, and read as material. */
+/** The names the old cycle's partition keeps when its cycle is interrupted: left where it is, and read as material. */
 const DIRS_TREE_FILE = 'RFC-ROOT-Dirs-Tree.json';
+
+/**
+ * Both names a prior cycle's partition may be on disk under, canonical first.
+ *
+ * The canonical RFC name is fixed at `RFC.md` (PX-235), so a project driven since then
+ * leaves `RFC-Dirs-Tree.json` while one driven before leaves `RFC-ROOT-Dirs-Tree.json`.
+ * A reader that knew one spelling would report the other project as never having had a
+ * prior partition, which is a different finding from a prior it could not read.
+ */
+const PRIOR_DIRS_TREE_FILE_NAMES = Object.freeze(['RFC-Dirs-Tree.json', DIRS_TREE_FILE]);
+
+/** The path a prior cycle's partition sits at, or where it would sit if there is none. */
+function resolvePriorPartitionPath(root) {
+  for (const name of PRIOR_DIRS_TREE_FILE_NAMES) {
+    const candidate = join(root, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(root, PRIOR_DIRS_TREE_FILE_NAMES[0]);
+}
 
 /**
  * Which of the four cases the logical side of the comparison is in.
@@ -1287,15 +1306,15 @@ function logicalPartitionOf(dirsTree) {
  */
 // [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function readPriorPartition(root) {
-  const path = join(root, DIRS_TREE_FILE);
+  const path = resolvePriorPartitionPath(root);
   if (!existsSync(path)) {
     return {
       dirsTree: null,
       logical: null,
       logicalState: LOGICAL_PARTITION_STATES.UNDECIDED,
-      logicalReason: `No prior partition is on disk at ${DIRS_TREE_FILE}, which is the normal case for a project that `
-        + 'came in by pattern 1 or 3: the logical partition is undecided, so the cards below are a prompt rather '
-        + 'than a comparison.',
+      logicalReason: `No prior partition is on disk at ${PRIOR_DIRS_TREE_FILE_NAMES.join(' or ')}, which is the normal `
+        + 'case for a project that came in by pattern 1 or 3: the logical partition is undecided, so the cards below '
+        + 'are a prompt rather than a comparison.',
     };
   }
 
@@ -1311,7 +1330,7 @@ function readPriorPartition(root) {
       // prior partition is on disk and broken, and only the reason string would
       // otherwise carry the difference.
       logicalState: LOGICAL_PARTITION_STATES.UNREADABLE,
-      logicalReason: `A prior partition is on disk at ${DIRS_TREE_FILE} and could not be read (${error.message}), so `
+      logicalReason: `A prior partition is on disk at ${path} and could not be read (${error.message}), so `
         + 'the logical partition is undecided for a different reason than absence: the file is present and its '
         + 'content is unknown.',
     };
@@ -1323,7 +1342,7 @@ function readPriorPartition(root) {
     logical,
     logicalState: logical.length === 0 ? LOGICAL_PARTITION_STATES.EMPTY : LOGICAL_PARTITION_STATES.STATED,
     logicalReason: logical.length === 0
-      ? `A prior partition is on disk at ${DIRS_TREE_FILE} and names no package, so its emptiness is a measurement `
+      ? `A prior partition is on disk at ${path} and names no package, so its emptiness is a measurement `
         + 'about the prior cycle rather than an absence of one.'
       : '',
   };

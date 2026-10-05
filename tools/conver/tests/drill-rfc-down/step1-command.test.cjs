@@ -1,3 +1,4 @@
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * step1-command.test.cjs — Static verification of the /drill-rfc-down Step 1 command definition
  *
@@ -80,12 +81,21 @@ function subStepSection(id) {
 }
 
 describe('Step 1-5 grill First-Class Rules', () => {
-  it('documents the 4-part question structure', () => {
+  // PX-234 replaced the question's documented structure: the 4-part shape
+  // (background / line-broken options / recommendation) is superseded by the settle
+  // ladder and the seven-line block, which say when a question may be asked at all.
+  // The assertions below hold the new contract to the same standard — every part the
+  // step instructs the AI to write is named here — rather than being dropped.
+  it('documents the settle ladder and the seven-line question block', () => {
     const step15 = subStepSection('1-5');
     assert.match(step15, /Q番号|Q<number>|Q[0-9]/, 'question ID');
-    assert.match(step15, /Background and rationale/i, 'background and rationale');
-    assert.match(step15, /Newline-separated options/i, 'line-broken choices');
-    assert.match(step15, /Recommendation with reasoning/i, 'recommendation with rationale');
+    for (const rung of ['Q0', "Q0'", 'Q1', 'Q2', 'Q3']) {
+      assert.ok(step15.includes(rung), `ladder rung ${rung}`);
+    }
+    for (const line of ['状況', '私の結論', 'すでに決まっていること', '残っている選択', '選択肢', '推奨', '推奨が覆る条件']) {
+      assert.ok(step15.includes(line), `block line ${line}`);
+    }
+    assert.match(step15, /settle trace/i, 'the reason a point could not be settled is recorded');
   });
 
   it('documents coarse-granularity bundling, two-pass, and per-turn summary', () => {

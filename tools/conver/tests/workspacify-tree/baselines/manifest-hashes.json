@@ -191,7 +191,7 @@
         "# Step 11 — Clean up transient consolidation artifacts (full success only)",
         "## Reverse rotation only — the return path from an omission to its uncertainty"
       ],
-      "languageProtocolDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "documentDigest": "454acf50b0c18a1c2f2a28c73a3c4e5452bf98e74d0352de750e56ca9f30e0e9"
     },

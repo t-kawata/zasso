@@ -103,9 +103,14 @@ function defineMarker(id, searched, matches) {
  * condition's business rather than a marker's, because the same artefact name is
  * asked two questions — "does the root hold this?" for pattern 2, and "does this
  * exist at all?" for pattern 3.
+ *
+ * The RFC marker accepts both spellings on purpose: the canonical name is fixed at
+ * `RFC.md` (PX-235) and every project driven since writes it, while a project driven
+ * before that carries `RFC-ROOT.md` / `RFC-<PKG>.md`. A reading that knew only one of
+ * them would answer "no conver scaffolding here" for half the projects that have it.
  */
 export const CONVER_MARKERS = Object.freeze([
-  defineMarker('root-rfc', 'RFC-*.md', (artefact) => /^RFC-.*\.md$/.test(basenameOf(artefact.path))),
+  defineMarker('root-rfc', 'RFC.md or RFC-<name>.md', (artefact) => /^RFC(-.*)?\.md$/.test(basenameOf(artefact.path))),
   defineMarker('root-graph', '*-GRAPH.json', (artefact) => /-GRAPH\.json$/.test(basenameOf(artefact.path))),
   defineMarker('root-dirs-tree', '*-Dirs-Tree.json', (artefact) => /-Dirs-Tree\.json$/.test(basenameOf(artefact.path))),
   defineMarker('root-tickets', 'Tickets.json', (artefact) => basenameOf(artefact.path) === 'Tickets.json'),

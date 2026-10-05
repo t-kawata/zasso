@@ -11,6 +11,7 @@ import {
   TRACE_PATTERNS,
   L1_PATTERNS,
   L2_PATTERNS,
+  L3_PATTERN,
   IETF_REFERENCE,
   isCommentLine,
 } from '../../../.claude/scripts/workspacify-reverse/lib/trace-patterns.mjs';
@@ -76,4 +77,28 @@ test('TRACE_PATTERNS is the frozen single source for all layers', () => {
   assert.ok(TRACE_PATTERNS.HEADER_MARKER instanceof RegExp);
   assert.ok(TRACE_PATTERNS.FENCE instanceof RegExp);
   assert.ok(TRACE_PATTERNS.IETF_REFERENCE instanceof RegExp);
+});
+
+test('the design document is matched in both spellings, and a numbered IETF document is not', () => {
+  // `RFC.md` is the canonical name the tools write (PX-235); `RFC-ROOT.md` is what a
+  // project driven before that carries, and its derived graph and dirs-tree likewise. A
+  // scrub that knew only the older spelling would leave the newer one in the tree, which
+  // is the whole failure this layer exists to prevent.
+  const commentLines = ['// Graph: ../RFC-GRAPH.json', '// See RFC.md for the design.'];
+  for (const line of commentLines) {
+    assert.ok(
+      L1_PATTERNS.some((pattern) => pattern.test(line)),
+      `a comment naming the design document is provenance: ${line}`,
+    );
+  }
+
+  const codeLines = ['const canonical = "RFC.md";', 'let tree = "RFC-Dirs-Tree.json";'];
+  for (const line of codeLines) {
+    assert.ok(L3_PATTERN.test(line), `a non-comment line reading the design document is L3: ${line}`);
+  }
+
+  // Numbered IETF documents are ordinary domain knowledge and must survive every scrub,
+  // which is why the alternation names the artefacts instead of accepting `RFC-*.md`.
+  assert.equal(L3_PATTERN.test('const standard = "RFC-4733.md";'), false);
+  assert.equal(L1_PATTERNS.some((pattern) => pattern.test('// RFC 4733 defines DTMF.')), false);
 });

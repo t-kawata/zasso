@@ -32,8 +32,8 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
         │
         ▼ 各パッケージディレクトリで（ルートも path "." の1パッケージ）
   上流ループ（分解・人間＋AI 実行）
-    /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets
-    正典RFC → *-GRAPH.json → *-Dirs-Tree.json → Tickets.json
+    /explain-seed → /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets
+    種の事実と説明 → 正典RFC → *-GRAPH.json → *-Dirs-Tree.json → Tickets.json
         │
         ▼ チケット
   実装ループ（収束・AI 自動実行）
@@ -60,7 +60,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 | 層（ループ） | 実行主体 | コマンド | 責務 |
 |--------|----------|----------|------|
 | **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。一周で終わらず、内側が実装を進めるたびに繰り返す |
-| **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
+| **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/explain-seed` → `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
 | **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証する。ビジネスの再投資と進化・適応を安全に進める |
@@ -73,27 +73,30 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 `/workspacify-tree` と `/workspacify-allocate` は、4つのループを**包み込む外殻**です。ループ間の辺ではなく**第五層**にあたります。第五層は「マニフェストが1枚増える」ことではなく、**ワークスペースをパッケージに分割し、4つのループをパッケージディレクトリごとに再実体化する**ことです。
 
-- `RFC-SEED.md` は**全パッケージディレクトリにちょうど1つ**置かれます。これは完成 RFC ではなく `/grill-me-for-rfc` の**種**で、14見出し固定。**§1（Identity/Position）と §2（Coupling Contracts）は機械注入で、AI は書けません**
+- `RFC-SEED.md` は**全パッケージディレクトリにちょうど1つ**置かれます。これは完成 RFC ではなく `/grill-me-for-rfc` の**種**で、14見出し固定。**§1（Identity/Position）と §2（Coupling Contracts）は機械注入で、AI は書けません**。人間は `/explain-seed` でこの種を先に説明され（事実と説明の2文書）、そこで書いた答えが後段の grill の先行記録になります
 - `Tickets.json` は**その設計文書と同じディレクトリ**に生成されます
 - グラフと Dirs-Tree は**自分の RFC の隣**に座ります
-- **ワークスペースルート自身がパッケージ（path `.`）**です。`RFC-ROOT-GRAPH.json` の `ROOT` は「プロジェクト全体」の特別名ではなく**ディレクトリ識別子**で、サブディレクトリ `src/auth` は自分の `RFC-AUTH.md` の隣に `RFC-AUTH-GRAPH.json` を持ちます
+- **正典 RFC のファイル名は `RFC.md` に固定**です。どのパッケージでも同じ名前で、パッケージ名はファイル名に入りません（ディレクトリの識別子は manifest の `packages[].path` が持ちます）。`/grill-me-for-rfc` はこの名前だけを書き、後段もこの名前から `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` を導出します
+- **ワークスペースルート自身がパッケージ（path `.`）**です。ルートも `src/auth` も、自分の `RFC.md` の隣に `RFC-GRAPH.json` と `Tickets.json` を持ちます
 
 ### 終端状態 — 4つの入口が到達すべき形
 
 ```
 <workspace root>/
-  RFC-ROOT.md  RFC-ROOT-GRAPH.json  RFC-ROOT-Dirs-Tree.json  Tickets.json
-  RFC-ROOT-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json      ← ROOT パッケージ自身の4層（7点）
+  RFC.md  RFC-GRAPH.json  RFC-Dirs-Tree.json  Tickets.json
+  RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json           ← ROOT パッケージ自身の4層（7点）
   WORKSPACIFY-TREE-MANIFEST.json  WORKSPACIFY-ALLOCATE-MANIFEST.json
   ARCHITECTURE-DELTA.json  DesignTree.json            ← 第五層（4点）
 
   src/auth/
     RFC-SEED.md                                       ← 第五層の種
-    RFC-AUTH.md  RFC-AUTH-GRAPH.json  RFC-AUTH-Dirs-Tree.json  Tickets.json
-    RFC-AUTH-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json    ← このディレクトリ自身の4層（8点）
+    RFC.md  RFC-GRAPH.json  RFC-Dirs-Tree.json  Tickets.json
+    RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json         ← このディレクトリ自身の4層（8点）
 ```
 
 ルートに**11点**（4層の7点 ＋ 第五層の4点）、各パッケージに**8点**です。**予約ルート `workspacify/` はこのレイアウトの外にあり、第五層はその中に入りません**（後述）。
+
+**正典 RFC の名前は `RFC.md` に固定**で、パッケージごとに変わりません。このリポジトリの `crates/siprs/RFC-ROOT.md` のような既存の木は**旧名のまま読み取られ**、書き名は `RFC.md` です。
 
 ### 4つのパターン — 入口の分類
 
@@ -102,7 +105,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 | # | 入力プロジェクト | 入口 | 起きること |
 |---|---|---|---|
 | **1** | 独立実装。conver 成果物が一切ない（RFC もグラフもチケットもヘッダも無い） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → … | 4層を**作成**する |
-| **2** | conver の4層ループで既に駆動済み（ルートに `RFC-ROOT.md` / `RFC-ROOT-GRAPH.json` / `RFC-ROOT-Dirs-Tree.json` / `Tickets.json` / `DesignTree.json`） | 同上 | 4層を**ディレクトリごとに再実体化**する。追加ではなく**中断** |
+| **2** | conver の4層ループで既に駆動済み（ルートに `RFC-ROOT.md` / `RFC-ROOT-GRAPH.json` / `RFC-ROOT-Dirs-Tree.json` / `Tickets.json` / `DesignTree.json`。この綴りは既存プロジェクトのもので、新規に書く正典名は `RFC.md`） | 同上 | 4層を**ディレクトリごとに再実体化**する。追加ではなく**中断** |
 | **3** | 個別コマンド（`/make-ticket` 〜 `/resolve-ticket`）だけを使い、4層ループは通っていない。成果物は一部 | 同上 | 1・2 と同じ終端状態へ。**あるものは保ち、無いものを作る** |
 | **4** | 空 ＋ 長い仕様書 | **`/workspacify-tree` → `/workspacify-allocate` → …**（逆回転なし） | 通常の順回転。再建するものが無い |
 
@@ -124,6 +127,10 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 機械の語彙は **`proved` / `not proved`** だけで、「成功／失敗」は機械の語彙ではありません。逆回転の成功条件は `/crystalize-readme` の **RESIDUE 0** であり、**ループを複数回回したうえで人間が判断**します。ラダーは L0（解析は走るが RFC が純粋な追認）〜 L3（RESIDUE 0 ＋ 全チケットの Red 証拠 ＋ 人間の判定）で、**L3 だけが成功**です。
 
+**正典 RFC の名前は `RFC.md` に固定です。** これは `/grill-me-for-rfc` が書く唯一の名前で、パッケージ名はファイル名に入りません。既存の木が持つ旧名（`RFC-ROOT.md` / `RFC-<PACKAGE>.md`）は**読み取り専用の互換**で、先行記録の走査と `/drill-rfc-down` の RFC 解決はどちらの綴りも受け付けます。
+
+終端を測る側も同じ名前に揃っています。終端インベントリ（`.claude/scripts/workspacify-reverse/lib/terminal-state.mjs` の `TERMINAL_ARTEFACTS`）は `RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json` を宣言し、設計文書 §2.3（`docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md`）と凍結テストがそれを保持します。旧名の木は読めますが、**この終端状態には達していない**と測られます — 走が出したものに合わせず、宣言に合わせて測るのがこの計測器の役目だからです。
+
 ### 逆回転に固有の最深の論点 — Red の再建
 
 conver の最高法規は「red 無き green は違反」と定めますが、**既存実装のテストは最初から green です**。したがって逆回転では、`/start-ticket` が要求する「実装が無いから失敗する」という証拠を**遡って生成し直す**必要があります。手段は確定しており（不変条件の書き換え注入＝invariant mutation / 構文等価の証明＝TCE / プロパティベーステストの自動生成＝PBT）、`/split-to-tickets` の逆対応が**Red を持たない契約をすべて記録し、欠落ごとに再建チケットを1枚生成**します。これが無ければ、リバースエンジニアリングから始めた全体が**最初から偽の green** になります。
@@ -143,6 +150,8 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 | **設計起因**（RFC 自体の考慮不足・欠落、市場変化による進化・適応要求） | `/drill-rfc-down`（grill） | 正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新 → 実装ループで再実装 | 進化ループ経由で収束 |
 
 実装ループを回すだけでは解消できないギャップに遭遇したとき、それが `/crystalize-readme`（商品起因）や `/drill-rfc-down`（設計起因・進化・適応要求）の出番です。
+
+**問いは最後の手段です。** 上流ループと進化ループでは、AI が**先に確定を試みます** — 公開記録・上流成果物・隣人の決定・与えられた資料を読み、決定・根拠・覆す条件の3行が書けるなら、それはもう問いではありません。`/explain-seed`・`/grill-me-for-rfc`・`/drill-rfc-down` は**同一の question-gate ブロック**を共有し、同じ規律で判定します。人間に届くのは**確定できなかった点だけ**で、しかも方向の問いとして束ねられ（1ラウンド最大3軸・最大5ラウンド）、1つの答えが多くの点を確定します。**人間の注意は希少資源**であり、質問数を減らすことは節約ではなく設計です。
 
 ---
 
@@ -190,7 +199,7 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 ## /drill-rfc-down — 進化の扉
 
-**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式の質問攻め**で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。
+**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式**（先行記録から確定できる点は先に確定し、確定できない点だけを方向の問いとして束ねて聞く）で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。
 
 **ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
 
@@ -198,7 +207,8 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 - 追記優先。全文書き換え・セクション削除・破壊的変更は禁止
 - DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一のノード機構（Q-id 規約）を再利用しつつ、セッションは `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して既存の `Status.json` 等には触れない（既存セッションがあれば継続）
-- 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める
+- 問いは**先に確定を試みてから**立てる。`/explain-seed`・`/grill-me-for-rfc` と**バイト同一の question-gate ブロック**を持ち、`settle-run.js "$SESSION_DIR" prior "$RFC_DIR"` がパッケージと隣接ディレクトリの先行記録（`RFC.md` または `RFC-<SLUG>.md` / `RFC-SEED.md` / `INFO-RFC-SEED.md` / `EXPLAIN-RFC-SEED.md`）を読む。**確定できた点は聞かず**、確定できなかった点だけを束ね（1ラウンド最大3軸・最大5ラウンド）7行の塊として聞く。settle テスト（決定・根拠・覆す条件の3行）が書けて落ちるまで、問いは起草できない
+- 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める。人間の答えは、**その答えが含意する点を AI が settle するため**に使う（含意しない点は bound のまま残し、何を含意しなかったかを言う）
 - I/O 境界参照情報を追記し、後段の graphify / boundify が安全に分割できるようにする
 - 確定した差分に対して graphify → boundify → split を実行して `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新し、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証して積み増しチケットを生成する。boundify は新規ファイルを `Initial Design Artifact` ヘッダ付きで機械生成し、既存ファイルのヘッダも自動更新する（実装本体は不変）。verify は孤立エッジ契約（グラフに存在しどのチケットにも紐づかない契約）も検出する
 
@@ -244,12 +254,24 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 ### 上流ループ（人間＋AI 実行）
 
-#### `/grill-me-for-rfc <調査情報パス> <RFC出力パス>`
+#### `/explain-seed <path-to-RFC-SEED.md>`
 
-調査情報をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
+第五層が置いた `RFC-SEED.md` を、設計面接（grill）の**前に**人間へ平易に説明し、人間の判断だけを人間から引き出します。入力は seed のパス1つだけです。
 
-- **入力**: 調査情報のファイル/ディレクトリパス + RFC 出力先 `.md`
-- **プロセス**: `init.js` が DesignTree / Status.json / CheckList.md を初期化 → AI が設計判断を質問（Yes/No または選択肢形式）→ DesignTree のノードを resolved にしていく → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
+- **出力**: seed の隣に2文書。`INFO-RFC-SEED.md`（**事実**・英語・スクリプトが書く。2つの manifest・seed・仕様書・隣人の説明から組み立て、stdout に同じバイトを出す）と `EXPLAIN-RFC-SEED.md`（**説明**・日本語・AI と人間の共著）。**事実と説明を別文書に分ける**のが要点で、`/grill-me-for-rfc` と `/drill-rfc-down` はこの2文書を先行記録として読む
+- **プロセス**: `run.mjs info` が事実と枠を書く（G1）→ AI が `[::MUST-FILL::]` を日本語で埋める（G2）→ `run.mjs next` が番号付きの空の質問ブロックを追記（1ラウンド最大3問）→ AI が自分の散文を1つの判断として自己判定する（G3）→ `run.mjs check` がゲート（G4）→ `run.mjs answers` が判定（G5: 全問に回答があり、未確定点がゼロ）
+- **質問の作法**: 論点は人間に投げず、**方向の問い**だけを投げる。順番は「AI が確定 → 確定できない点だけを束ねる → 束ねたものだけを聞く」で、1ラウンド最大3問・最大5ラウンド。結果として質問数は論点数よりずっと少なくなる
+- **不変条件**: 書く前に検証（記録ハッシュが食い違えば1バイトも書かない）／論点は消えない（`open`・`bound`・`settled` のいずれかで、ground の無い決定の根拠にはならない）／AI は人間の答えを書かない／ワークスペースへは読み取りのみで、作るのはこの2文書だけ
+- **位置づけ**: 上流は `/workspacify-allocate` の seed、下流は設計面接。ここでゼロになった未確定点は、後段の grill では**聞かれません**
+
+#### `/grill-me-for-rfc [<material file|directory>...]`
+
+material（0個以上のファイル/ディレクトリ）をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
+
+- **入力**: material（ファイル、またはすべてのファイルが material であるディレクトリ）。**0個でも可**（事前成果物と会話のみから始める）。**RFC 出力先は引数ではありません**。これに加えて STEP 0 が、実行したディレクトリ（`$RFC_DIR`）と隣接ディレクトリの先行記録 — `RFC.md`・`RFC-SEED.md`・`INFO-RFC-SEED.md`・`EXPLAIN-RFC-SEED.md` — を読みます（既存の木では正典が旧名 `RFC-<SLUG>.md` のこともあるため、読み取りはその綴りも受け付けます）
+- **出力**: 正典 RFC は常に `$RFC_DIR/RFC.md`。**名前は固定で、引数でも走査でも変えられません**。派生する成果物名も固定です（`/graphify-rfc` → `RFC-GRAPH.json`、`/boundify-graph` → `RFC-Dirs-Tree.json`）
+- **プロセス**: `init.js "$RFC_DIR" $ARGUMENTS` が DesignTree / Status.json / CheckList.md を初期化 → STEP 0 の先行走査と `settle-run.js "$RFC_DIR" prior` → はしごで確定できる点を確定 → 確定できない点だけを束ねて（1ラウンド最大3軸・最大5ラウンド）7行の塊で聞く → 答えが含意する点を `settle` で確定 → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
+- **質問ゲート**: 「決定・根拠・覆す条件」の3行が書けて**落ちる**まで、問いは起草できません。根拠は**この走で実際に読んだ記録**に限られ、読んでいない記録を根拠にした確定は拒否されます。この規則ブロックは `/explain-seed`・`/drill-rfc-down` と**バイト同一**（3ファイルで共有する1つのブロック）で、3コマンドが別々の問い方へ drift しないことをテストが保証します
 - **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
 - **逆対応（リバースモード）**: 入力は `/workspacify-allocate` が逆モードで発行した `RFC-SEED.md`（§1 にリバース索引を機械注入で持つ）。逆対応の質問生成器が §1 の索引と residual から質問候補を生成し、**未解決 claim ごとに「意図か偶然か」の問い**を挿入します。順回転の seed は名前で拒否されます（順回転の seed はこの grill の入力ではありません）
 
@@ -366,7 +388,7 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 
 #### `/drill-rfc-down [<material file|directory>...]`
 
-正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5成果物の相互整合性を機械検証し、積み増しチケットを生成します。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
+正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5成果物の相互整合性を機械検証し、積み増しチケットを生成します。問いは先に**先行記録から確定を試み**、確定できなかった点だけを `/grill-me-for-rfc`・`/explain-seed` とバイト同一の question-gate ブロックで束ねて聞きます。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
 
 ---
 
@@ -599,6 +621,24 @@ workspacify/（予約ルート・終端レイアウトの外。文書倉庫）
 
 **予約ルートは文書倉庫であり、第五層はその中に入りません。** 解析のどの走査もこの名前のディレクトリへ降りないため、書き込んでも測った木は測ったままです。decisions 文書は**staging**であって記録ではなく、記録は公開された manifest です。
 
+### INFO-RFC-SEED / EXPLAIN-RFC-SEED（`/explain-seed` の成果物）
+
+```
+INFO-RFC-SEED.md（事実・英語・スクリプトが著者。stdout に同じバイトを出す）
+├── 2つの manifest・seed・仕様書・隣人の説明から導出
+├── どの事実も出典識別子を名指しする。空の節は空だと書く
+└── 説明・評価・助言の文は書かない（AI はこの文書から作業する）
+
+EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
+├── 枠（スクリプトが書く）: 7節・点の台帳・[::MUST-FILL::]（AI が埋める）・<!-- 人間の判断 -->（人間が書く）
+├── 質問ブロック（run.mjs next が番号を付けて追記。番号は振り直さない）:
+│     番号 / 文脈 / 方向 A・B（必要なら C） / 推奨（1つだけ） / 理由 / 覆す事実 / スコープ行
+│     ＋ 束ねた点の id と記録の写し（AI 専用・枠マーク付きで人間には見せない）
+├── 確定項目（「先に決めておいたこと」）: 決定・根拠・覆す条件
+├── 追加点（人間が持ち込んだ視点を1つの点に整えたもの）: 出どころ・論点。予約 id `added-NNN`
+└── 完成は run.mjs answers が exit 0 を返したときだけ（全問に回答があり、未確定点がゼロ）
+```
+
 ---
 
 ## スクリプトリファレンス
@@ -638,13 +678,21 @@ workspacify/（予約ルート・終端レイアウトの外。文書倉庫）
 
 `derive-output-paths.js`（Preflight・モード判定）/ `update-step-status.js`（Step 進行管理・確認記録）/ `validate-toc-proposal.js`（目次提案の構造検証）/ `emit-readme-skeleton.js`（骨子の機械出力）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
 
+### question-gate（`.claude/scripts/question-gate/`）
+
+`/explain-seed`・`/grill-me-for-rfc`・`/drill-rfc-down` が共有する質問ゲートの核です。`settle.mjs`（決定・根拠・覆す条件の3行を判定し、4つの禁じられた推論を名前で拒否する）/ `prior-decisions.mjs`（先行記録の走査 — `RFC.md` と `RFC-<SLUG>.md` の両綴りを読む）/ `bundle.mjs`（1ラウンド最大3軸への束ね。1軸あたり最低2点、ただし開いている点が2点未満なら1点）/ `block.mjs`（7行の質問ブロックの描画と読み戻し）/ `rounds.mjs`（最大5ラウンド）/ `ledger.mjs`（点を `open` / `bound` / `settled` の3つに分割）/ `answers.mjs`（文字を持たない回答を点へ還元する）
+
+### explain-seed（`.claude/scripts/explain-seed/`）
+
+`run.mjs`（`info` / `next` / `check` / `answers` の4サブコマンド）と `lib/`（`digest.mjs` / `errors.mjs` / `frame.mjs` / `items.mjs` / `ledger.mjs` / `markers.mjs` / `neighbour-decisions.mjs` / `order.mjs` / `projection.mjs` / `render.mjs` / `seed-document.mjs` / `verify.mjs` / `workspace.mjs`）。`items.mjs`・`ledger.mjs` は質問ゲートと同じ語彙（点・束・確定）を扱います
+
 ### grill-me-for-rfc（`.claude/scripts/grill-me-for-rfc/`）
 
-`init.js` / `init-for-drill-rfc-down.js` / `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js`
+`init.js` / `init-for-drill-rfc-down.js` / `settle-run.js`（先行記録の走査と確定の駆動。drill の同名ファイルとバイト同一）/ `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js` / `normative-decision.js` / `reverse-questions.js`
 
 ### drill-rfc-down（`.claude/scripts/drill-rfc-down/`）
 
-`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
+`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `settle-run.js`（先行記録の走査と確定の駆動。grill の同名ファイルとバイト同一）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
 
 ---
 
@@ -727,7 +775,7 @@ install.js -y -t /path/to/target/.claude
 
 ### スラッシュコマンド経由（Claude Code 内）
 
-1. `/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く
+1. `/explain-seed` に `RFC-SEED.md` を説明させ（事実と説明の2文書）、`/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く
 2. `/graphify-rfc` で RFC を論理グラフ化（`*-GRAPH.json`）
 3. `/boundify-graph` で実装ディレクトリツリーを生成（`*-Dirs-Tree.json`）
 4. `/split-to-tickets` でフェーズ・チケットに分解（`Tickets.json`）
@@ -763,7 +811,7 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 > 適合ループを回す場合、手順1の「モジュール単位に切る」は `/workspacify-tree` → `/workspacify-allocate` が機械的に行い、訓練は**各ディレクトリに `RFC-SEED.md` が置かれた状態**から始まります（手順2以降はパッケージディレクトリごとに実行します）。
 
 1. ターゲットの開発をモジュール単位に設計として切る（必ず安全な I/O 境界で切り、ディレクトリが独立する単位）
-2. /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
+2. /explain-seed で RFC-SEED.md を説明させ（事実と説明の2文書）、続いて /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
 3. /graphify-rfc -> /boundify-graph -> /split-to-tickets（上流パイプライン）を手動で実行し、
 4. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
 5. `node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json` でチケット一覧を目視せよ。

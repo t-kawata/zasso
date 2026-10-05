@@ -2,9 +2,11 @@
 /**
  * init-for-drill-rfc-down.js <target-rfc-path>
  *
- * Dedicated initialization wrapper for /drill-rfc-down.
- * Checks existing DesignTree/Status/CheckList; reuses if present, generates via init.js if not.
- * research-path = target-rfc-path (to append to itself).
+ * Initializes a grill session for the package that holds the given RFC: it checks
+ * for existing DesignTree/Status/CheckList and reuses them, calling init.js only
+ * when one is missing. The RFC is handed over as the package's only material.
+ *
+ * /drill-rfc-down no longer calls this wrapper; its Step 1 uses session-init.js.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -32,7 +34,7 @@ for (const fileName of targetFiles) {
 // Call init.js if any files are missing
 if (missing.length > 0) {
   const initScript = path.join(__dirname, "init.js");
-  const result = spawnSync("node", [initScript, researchPath, outputPath], { stdio: ["inherit", "pipe", "inherit"], encoding: "utf-8" });
+  const result = spawnSync("node", [initScript, path.dirname(resolvedRfcPath), resolvedRfcPath], { stdio: ["inherit", "pipe", "inherit"], encoding: "utf-8" });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
@@ -46,4 +48,4 @@ if (fs.existsSync(statusPath)) {
   } catch { /* non-fatal */ }
 }
 
-console.log(JSON.stringify({ session: existing.length === 3 ? "continued" : "new", existing, missing, researchPath }));
+process.stdout.write(JSON.stringify({ session: existing.length === 3 ? "continued" : "new", existing, missing, researchPath }) + "\n");
