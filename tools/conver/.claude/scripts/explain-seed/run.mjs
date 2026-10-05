@@ -90,9 +90,16 @@ const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
 // [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
 const ARITY = Object.freeze({ [OPERATIONS.INFO]: 1, [OPERATIONS.NEXT]: 2, [OPERATIONS.CHECK]: 1, [OPERATIONS.ANSWERS]: 1 });
 
-/** What each fault means, said in the terms the operator reading the report is holding. */
+/**
+ * What each fault means, said in the terms the operator reading the report is holding.
+ *
+ * Exported so the invariant that every kind faultsOfDecisions can return has a sentence here
+ * is assertable: the report falls back to the raw kind, and a raw kind in the report is a
+ * message nobody wrote.
+ */
 // [::TICKET::] PX-222, PX-226, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229|PX-230) --for-spec --no-implementation-order`.
-const FAULT_MESSAGES = Object.freeze({
+// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+export const FAULT_MESSAGES = Object.freeze({
   'open-marker': 'an explanation point has not been written yet',
   'missing-placeholder': 'there is no place for the human to write',
   'duplicate-placeholder': 'there is more than one place for the human to write',
@@ -125,6 +132,8 @@ const FAULT_MESSAGES = Object.freeze({
   'duplicate-added-point': 'a point the document adds uses an id a recorded point or another block already uses',
   'uncited-added-point': 'a point the document adds does not say where it came from',
   'unstated-added-point': 'a point the document adds does not state what it is',
+  'forward-reference': 'the question names an option before the options are written',
+  'missing-settle-trace': 'the question does not record why the records could not settle the point',
 });
 
 /** The operation, the seed path it acts on, and the round size only `next` takes. */

@@ -32,6 +32,29 @@ Downstream (role, not name): design interview
 - consumes: `EXPLAIN-RFC-SEED.md` — human answers under placeholders + settled items
 - expects: zero open points; every settled item carries decision + ground + override condition
 
+## The question gate (settle before drafting)
+
+A question may not be drafted until the settle test has been written out and has failed.
+For every point about to become a question, write these three lines first, in this order:
+
+- 決定: <what is decided>
+- 根拠: <the manifest id, the neighbour document, or `Qn` + letter it rests on>
+- 覆す条件: <the fact that would overturn it>
+
+If all three lines can be written, the point is settled: it goes to 「先に決めておいたこと」 and no question is drafted.
+Only a point whose three lines cannot be written becomes a question.
+The gate’s output is those three lines, not a feeling: a question drafted without them is a defect even if it reads well.
+The line that records the failed test is `決められなかった理由`, and it is written where the frame asks for it.
+
+Four inferences this gate forbids. Each has produced a wrong question.
+
+| inference | why it is wrong |
+|---|---|
+| 「a manifest flag named this point, so it is the human's」 | `handoff_summary.risky_boundaries` is one global list covering many boundaries at once and carries no per-boundary material. **A flag is not a ground and is not weight.** |
+| 「a recorded doubt about this record means there is no ground」 | a doubt filed under another package — a `residual` or `grill_question` whose `package_id` is not this package — is not this package's point. Establish whose point it is before treating it as material. |
+| 「the doubt itself says only the author can decide, so it must be asked」 | that sentence is material *for* the test above, not an exemption from it. Write the three lines. |
+| 「the point is weighty, so it is the human's」 | weight alone does not bind a point to a question. The binding condition is weighty **and** no ground. A ground the AI has not looked for is not an absent ground. |
+
 ## Language Protocol
 
 | Context | Language |
@@ -127,6 +150,56 @@ judge: apply per question when writing (Step 2, Step 4e) and asking (Step 4a).
 judge: W1–W5, W9–W12 fail → fix prose (G2, G3). Never lower the question to fit the answer; never move it to 「先に決めておいたこと」 to silence it.
 W7: AI reads the number, never counts it. W8: AI records letter and prose, never supplies the letter; a letterless free answer is unanswered, and what it raised is refined into a point rather than dropped.
 
+### The question's shape
+
+judge: apply per question, in addition to W1–W12, when writing (Step 2, Step 4e) and when asking (Step 4a).
+
+| id | rule |
+|---|---|
+| W13 | opinion first: the question opens with the AI's own conclusion **in words** and its reason, before any option letter or alternative is offered |
+| W14 | define before use: no letter, id or name appears before the line that gives it meaning. The block reads top to bottom with nothing undefined at its point of use — a bare `A` before 選択肢 is a defect |
+| W15 | nouns that can be pointed at: no referentless nouns (相手, 整合, 主体, 扱い, 記録のうえで, 立場), no nominalized verbs (取り方, 伝わり方, 中身). test: can the AI point at it? no → rewrite |
+| W16 | verbs are events a person can picture (移る, 使えなくなる, 決まる), not bookkeeping verbs (記録する, 扱う, 位置づける) |
+| W17 | the remainder is stated as a sentence: 「あなたに残っているのは〜だけです」. If that sentence cannot be written narrowly, the point is not the human's — back to the question gate |
+| W18 | every sentence carries all three parts explicitly — 誰が (subject), 何を (object), どうする (predicate, an event) — plus いつ (moment) where a moment applies. The parts stand in the sentence, not in an inference the human must supply. Passive voice and inanimate subjects are rewritten (「値が渡される」→「身元側が値を渡す」). One sentence carries one proposition; a sentence that reads 「〜して、〜して、〜する」 is split |
+| W19 | one name per thing: the specification's own noun is used, glossed once at first use, and never replaced by a parallel coinage. Writing two names for one thing in one breath (「フォーラム（forum、掲示板）」, 「身元（soul）」) is forbidden — it makes the human hold a mapping table |
+| W20 | noun phrases stay shallow: at most one relative clause per noun. A clause-modified abstract noun (「〜する〜する相手」) is rewritten as a sentence with its own actor and verb |
+| W21 | when the AI's conclusion and the remaining choice are the same thing, say so. The remainder is then 「あなたに残っているのは、この結論を覆す事実があるかどうかだけです」 — never an open A/B, which would ask the human to re-decide what the AI just decided |
+
+**The reference form of the opening**, as the human asked for it:
+
+> 私は〈理由〉という理由で〈結論〉とするのが良いと思っていますが、選択の余地は以下の部分に少しだけ残ります。
+
+Lines 2–4 of the block below are this one sentence, separated so each part can be checked. Keep the three-part shape (conclusion → what is settled → how little remains) even when the AI rephrases; do not drop the third part, which is what makes the question narrow.
+
+Technical nouns are not the difficulty: Soul, フォーラム, 鍵, 譲渡 are things and are fine. Referentless words are the difficulty.
+
+Scoping decision, recorded here so the prose says which it is: W13–W21 are question rules. The Criteria section above continues to govern every `[::MUST-FILL::]` instruction, including the section prose (E1–E7); these nine govern the questions put to the human.
+These rules govern the **chat message** as well as the document block. The human reads the chat message first; a block that reads well does not excuse a message that does not.
+
+### The question block, in order
+
+Every line is written before the next one. The chat message is this block, in this order, with the AI-only region omitted.
+
+1. 状況 — who does what, when, with what consequence. 2–3 sentences. No design words.
+2. 私の結論 — the AI's own answer, in words, with its reason. No option letter yet.
+3. すでに決まっていること — one sentence: 「これ以外は決まっています」. Never an enumeration of the AI's own work.
+4. 残っている選択 — one sentence: 「あなたに残っているのは〜だけです」.
+5. 選択肢 — `A: <meaning>` / `B: <meaning>`. The letters appear here for the first time, each with its meaning on its own line.
+6. 推奨 — the letter, now that it is defined.
+7. 推奨が覆る条件 — the fact that would change it.
+
+If line 2 cannot be written at all, or line 4 cannot be written narrowly, stop: go back to the question gate.
+
+Sentence pass, before the read-back: take the block one sentence at a time and fill four slots for each — 誰が / 何を / どうする / いつ.
+A slot that cannot be filled means the sentence is rewritten there and then, not carried to the gate.
+A sentence whose 何を slot turns out to be a clause (「〜のか〜のかが決まっていません」) has no object at all; rewrite it as a sentence whose object is a thing.
+A sentence whose 誰が slot is a document, a record or an abstraction (「契約が定めている」「書き方が無い」) is rewritten with the person who does it.
+
+Read-back, before the block is written into the document or the message is sent:
+read the block top to bottom, one line at a time, and at each line ask whether every name, letter and term in it has already been given its meaning above.
+A line that introduces a name its reader has not met is a defect at that line. Fix the line; do not add a gloss later in the block.
+
 ### Examples
 
 Good (Japanese, as shown to the human):
@@ -150,6 +223,25 @@ Bad:
 | point-question | 「失敗時の再試行は3回か5回か」 | technical; AI settles |
 | vague-actor | 「手間と見落としのどちらを重く見るか」 | who, what unnamed; unchoosable |
 | question-flood | 「エラー表示は?」「キャッシュは?」「再試行は?」を別々に聞く | one direction asked as many questions |
+
+Bad, from this pipeline, with the tell that classifies it:
+
+| label | what was asked | the tell, and where it belongs |
+|---|---|---|
+| dressed point-question | 「この境界を value_only として記録するか state_transition として記録するか」 | the answer changes only a record's label; no person's experience changes. **Tell: the party line cannot name anyone.** → settle (U1) |
+| mechanism question | 「掲示板は鍵の交代や凍結をどうやって知りますか」 | asks *how* the coupling is implemented. **Tell: the directions are mechanisms (pull / push), not outcomes.** → settle (W2) |
+| actorless question | 「この2つの間で、いまの鍵や手続きの状態をどう渡しますか」 | **Tell: the sentence has no subject.** → W4, W15 |
+| unreadable question | 「身元側の手続きに参加して自分の状態を変える相手」 | **Tell: the noun cannot be pointed at; the verb is a bookkeeping verb.** → W15, W16 |
+| forward reference | 「私の結論は A です」 before the 選択肢 block | **Tell: the letter is used before it is defined.** → W14 |
+
+Good, the same content written to be read top to bottom. This point should have been settled, so the example shows shape only.
+
+> Soul の持ち主が替わると、その Soul が持っているフォーラムの運営権も、新しい持ち主に移ります。古い持ち主の鍵は、その瞬間から使えなくなります。
+> 私の結論は、フォーラムは Soul が決めた結果を受け取るだけで自分では何も決めない、というものです。理由は…。これ以外は決まっています。
+> あなたに残っているのは一点だけです。フォーラムは運営権を、次のどちらとして持つかです。
+> - A: Soul から渡された内容で決まる。自分では決めない。
+> - B: フォーラムが自分で運営権を決める。
+> 私は A を推します。覆る条件は…。
 
 ### Kind
 
@@ -237,7 +329,11 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    a. ask: put every unanswered question as `Q<n>: `.
       shown: context; directions `A` `B` (`C` where useful); recommendation as a choice; reason; overturning fact. Scope line → in the document only.
       not shown: point list, ids, clause names, record text, deliberation.
-      judge: W1–W12 per question; unanswerable from what is written → context or directions missing, not the answer; fix (G2), re-run G4, ask again. The one who asks carries the context.
+      judge: W1–W12 per question and W13–W21 per question; unanswerable from what is written → context or directions missing, not the answer; fix (G2), re-run G4, ask again. The one who asks carries the context.
+      before asking: perform the block's sentence pass and read-back (see Criteria → The question block, in order) and confirm that the document block and the chat message are the same content in the same order. The human reads the message first; a block that reads well does not excuse a message that does not.
+      A reply that is not an answer (no letter, W8) is evidence about the *point*, not only about the prose. Before rewriting anything, re-run Step 2's Q0–Q3 on that point and write the three lines out (the question gate). Re-ask the axis only after that gate has failed again, in writing.
+      Prose-only repair of a question the human could not answer is a defect: it spends the human's round on the AI's classification error.
+      Three consecutive prose repairs of one question → stop; settle the point or name it misclassified in Step 5.
    b. record: under the question's `<!-- 人間の判断 -->`, lines below: letter + human's prose. placeholder line untouched. never answer for the human; never fill a placeholder to pass G5.
    c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it in the human's section as an added-point block (reserved id `added-NNN`, 出どころ = the human's own words it came from, 論点 = one line). It is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
       yes → 「先に決めておいたこと」: 決定, 根拠 (`Qn` + letter, + manifest ids), 覆す条件.
@@ -255,6 +351,8 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    → each settled point: decision, ground (`Qn` + letter / manifest), override condition — grouped by the question that settled it; AI-settled items with reason (state plainly if none)
    → rounds used; points left open if stopped at cap
    → thin items named per Unfit table, if any
+   → per question: whether only a human could answer it, and the three lines that could not be written (that is the evidence)
+   → any question the settle gate would have settled: named, with the three lines it should have produced
    → one line: human's judgement stands under each `<!-- 人間の判断 -->`; the downstream design interview reads it
    no hand-editing either document; wrong → inputs wrong → regenerate.
 

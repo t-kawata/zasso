@@ -162,6 +162,17 @@ export const OVERRIDE_LABEL = '覆す条件';
  */
 export const BOUND_POINTS_LABEL = '束ねた論点';
 
+/**
+ * The line that records why the records could not settle this point.
+ *
+ * The settle gate's output is the three lines 決定・根拠・覆す条件: a point they can be written
+ * for is settled and never asked. This line is what remains of that test when it fails — which
+ * records were read and why none of them was decisive — so a question carries the evidence that
+ * it was asked only after the test failed in writing. It stands in the AI-only region because
+ * the person answering is asked for a judgement, not for the AI's search.
+ */
+export const SETTLE_TRACE_LABEL = '決められなかった理由';
+
 /** The line that states, in one line, what an answer lets the AI settle. */
 export const SCOPE_LABEL = 'この質問で決まること';
 
@@ -246,20 +257,34 @@ function sectionIdOf(line) {
 }
 
 /**
+ * Whether a text names this token as a whole word rather than inside a longer one.
+ *
+ * A plain substring test would not do, for two readers that both need the same boundary: a
+ * record id, where `boundary-001` is a substring of `contract-boundary-001`, and an option
+ * letter, where `A` is a substring of every English article.
+ *
+ * @param {string} text
+ * @param {string} token
+ * @returns {boolean}
+ */
+export function mentionsStandalone(text, token) {
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(text);
+}
+
+/**
  * Whether a text names this record.
  *
- * A plain substring test would not do: `boundary-001` is a substring of
- * `contract-boundary-001`, so a coverage check built on one would report an open item as
- * carried when only a longer, different id was there — and, worse, would report a decision
- * as resting on an undecided question whenever a contract id happened to end in one.
+ * A coverage check built on a substring test would report an open item as carried when only a
+ * longer, different id was there — and, worse, would report a decision as resting on an
+ * undecided question whenever a contract id happened to end in one.
  *
  * @param {string} text
  * @param {string} id
  * @returns {boolean}
  */
 export function mentionsId(text, id) {
-  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(text);
+  return mentionsStandalone(text, id);
 }
 
 /**
@@ -707,11 +732,11 @@ function renderMovedFacts(movedFacts) {
  * glossing every design term the directions and the reason below it will use, so that reading
  * nothing else is enough.
  */
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-232) --for-spec --no-implementation-order`.
 function renderContextBlock() {
   return [
     `- ${CONTEXT_LABEL}:`,
-    `  ${MUST_FILL_MARKER} ${CONTEXT_LABEL} — 実装も設計も知らない高校生が、選択肢と推奨の理由だけを読んで選べるように、そこに出てくる設計の言葉をすべて日常語に言い換え、何の話かを2〜3文で閉じる。上の記録や他の節を読んだ前提で書かない。事実や論点の写しにしない。`,
+    `  ${MUST_FILL_MARKER} ${CONTEXT_LABEL} — 実装も設計も知らない高校生が、選択肢と推奨の理由だけを読んで選べるように書く。誰が・何を・いつ・どうするのかと、そうなると何が起きるかを2〜3文で閉じ、出てくる設計の言葉はすべてその場で日常語に言い換える。指させる名詞だけを使い、指示対象の無い名詞（相手・整合・主体・扱い・立場）と、動詞を名詞にした語（取り方・伝わり方・中身）を使わない。使う前に定義する — 記号・id・名前は、その意味を与える行より先に書かない。上の記録や他の節を読んだ前提で書かない。事実や論点の写しにしない。`,
   ];
 }
 
@@ -767,12 +792,14 @@ export function renderQuestionBlock({ number }) {
     `- ${RECORD_REFERENCE_NOTICE}`,
     `- ${BOUND_POINTS_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${BOUND_POINTS_LABEL} — この質問が1つの答えでまとめて決める記録上の論点の id を、カンマ区切りで2つ以上書く。この行から下は人間には見せない。`,
+    `- ${SETTLE_TRACE_LABEL}:`,
+    `  ${MUST_FILL_MARKER} ${SETTLE_TRACE_LABEL} — この論点について 決定・根拠・覆す条件 を先に書いてみて、書けなかった理由を書く。どの記録を調べて、なぜそれが決め手にならなかったかを名指しする。3行が書けたなら、この論点は質問ではなく「先に決めておいたこと」に置き、この質問は作らない。人間には見せない。`,
     `- ${SCOPE_LABEL}:`,
     `  ${MUST_FILL_MARKER} ${SCOPE_LABEL} — この答えで AI が何を決められるようになるかを1行で書く。人間には見せない。`,
     `- 記録の写し:`,
     `  ${MUST_FILL_MARKER} 記録の写し — 上の論点の記録（未解決とされた理由・この境界を定めている契約と条項）を原文のまま写す。人間には見せない。`,
     '',
-    `${MUST_FILL_MARKER} 何を決めるのか — 実装も設計も知らない高校生が読める言葉で2〜3文。専門用語を使うならその場で言い換える。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。上の記録や他の節を読んだ前提で書かない。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
+    `${MUST_FILL_MARKER} 何を決めるのか — 実装も設計も知らない高校生が読める言葉で書く。順序は次のとおり。まず何の話かを2〜3文（専門用語はその場で言い換える）。次に AI 自身の結論を言葉で書く（理由も書く。記号はまだ書かない）。次に「これ以外は決まっています」と1文で書き、AI が決めたことを並べない。最後に「残っているのは〜だけです」と1文で書く — 人を代名詞で指さず、狭く書けないなら、この論点は人間のものではないので質問をやめる。1文は1つの出来事だけを、誰が・何を・どうする（+ いつ）を明示して書く。記録する・扱う・位置づけるのような簿記の動詞ではなく、人が思い浮かべられる出来事の動詞を使う。読めるかどうかではなく、結果の重さだけで選べるかどうかで書く。事実に書いてあることをもう一度書かない。上の記録や他の節を読んだ前提で書かない。これは ${SETTLE_TRACE_LABEL} を書いてみて書けなかった後にはじめて書く（先に質問を作らない）。もしこの判断が事実と慣習だけで決まるなら、ここには書かず「${FRAME_SECTIONS[5].title}」へ移し、${DECISION_LABEL}・${GROUND_LABEL}・${OVERRIDE_LABEL}を書く（工学判断を人間に投げ返さない）。`,
     '',
     ...renderOptionBlock(),
     ...renderRecommendationBlock(),
@@ -985,7 +1012,12 @@ function collectHumanNotes({ located, faults }) {
  * every run, or keeps a body the gate refuses with no way back.
  */
 // [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
-export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([OPTIONS_LABEL, CONTEXT_LABEL, BOUND_POINTS_LABEL]);
+export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([
+  OPTIONS_LABEL,
+  CONTEXT_LABEL,
+  BOUND_POINTS_LABEL,
+  SETTLE_TRACE_LABEL,
+]);
 
 /**
  * Whether a section holds the shape this frame writes.
@@ -1082,9 +1114,9 @@ export function buildFrame({ facts, previous }) {
     number: questionNumberOf(item.heading),
   }));
 
-  // The seed path stays absolute for the readers and the subprocess, because neither
-  // expands a tilde; only the copy that leaves the process is converted, so the document
-  // remains a function of the seed rather than of the machine that happened to run it.
+  // The seed path stays absolute for the readers and the subprocess, since neither expands a
+  // tilde. Only the copy that leaves the process is converted, so the document depends on the
+  // seed alone rather than on the machine that happened to run it.
   const emittedSeedPath = toHomeRelative(facts.seedPath);
 
   const header = [
@@ -1225,6 +1257,46 @@ function sectionOfLine(documentText, lineNumber) {
 }
 
 /**
+ * The two pieces of a question the AI writes in its own words, and nothing else.
+ *
+ * A letter used here before the 選択肢 block gives it meaning is a forward reference: the reader
+ * meets `A` and only later learns what `A` is. The scan therefore covers exactly what the AI
+ * wrote for the reader — the context it carries and the prose that closes the question — and
+ * excludes the record copy, whose verbatim contract text legitimately contains standalone
+ * letters, and excludes every label's own instruction line.
+ *
+ * @param {string} itemBody
+ * @returns {string} the context value followed by the paragraph above the options
+ */
+// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+function letterScanSpan(itemBody) {
+  const lines = String(itemBody).split('\n');
+  const context = labelledValue(itemBody, CONTEXT_LABEL) ?? '';
+  const optionsIndex = lines.findIndex((line) => line.trimStart().startsWith(`- ${OPTIONS_LABEL}:`));
+  if (optionsIndex < 0) return context;
+
+  let cursor = optionsIndex - 1;
+  while (cursor >= 0 && lines[cursor].trim() === '') cursor -= 1;
+  const paragraph = [];
+  for (; cursor >= 0 && lines[cursor].trim() !== ''; cursor -= 1) paragraph.unshift(lines[cursor]);
+
+  return [context, ...paragraph].join('\n');
+}
+
+/**
+ * Whether a question names one of its own options before the options are written.
+ *
+ * The letters are the ones the question offers, read from the document, so the rule follows the
+ * question's own alphabet rather than one fixed here.
+ */
+// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+function faultsOfForwardReference({ itemBody, directions, section, question, faults }) {
+  const span = letterScanSpan(itemBody);
+  if (!directions.some((letter) => mentionsStandalone(span, letter))) return;
+  faults.push({ kind: 'forward-reference', section, id: question });
+}
+
+/**
  * The faults in the human-decision section.
  *
  * The four rules about directions are per question and independent of each other: a question
@@ -1236,7 +1308,7 @@ function sectionOfLine(documentText, lineNumber) {
  * those four: those four are about the choice the question offers, and this one is about
  * whether the question can be read at all by the person it is put to.
  */
-// [::TICKET::] PX-222, PX-226, PX-227, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229, PX-230, PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229|PX-230|PX-232) --for-spec --no-implementation-order`.
 function faultsOfDecisions({ body, universe, unsettledCount, section }) {
   const faults = [];
 
@@ -1265,9 +1337,19 @@ function faultsOfDecisions({ body, universe, unsettledCount, section }) {
     if (labelledValue(item.body, PARTY_LABEL) === null) faults.push({ kind: 'unnamed-party', section, id: question });
     if (labelledValue(item.body, CONTEXT_LABEL) === null) faults.push({ kind: 'missing-context', section, id: question });
     if (labelledValue(item.body, SCOPE_LABEL) === null) faults.push({ kind: 'missing-scope-line', section, id: question });
+    // The settle gate's own output, read as a value: a line still carrying its instruction or the
+    // human placeholder is not an answer, and labelledValue already refuses both.
+    if (labelledValue(item.body, SETTLE_TRACE_LABEL) === null) {
+      faults.push({ kind: 'missing-settle-trace', section, id: question });
+    }
 
     const directions = directionsOffered(item.body);
     if (directions.length < MIN_OPTION_COUNT) faults.push({ kind: 'too-few-options', section, id: question });
+    // A question that cannot be answered by choosing is not yet a question, so the letters it
+    // has not settled on cannot be read as used or unused.
+    if (directions.length >= MIN_OPTION_COUNT) {
+      faultsOfForwardReference({ itemBody: item.body, directions, section, question, faults });
+    }
     if (readRecommendation(item.body, directions) === null) faults.push({ kind: 'missing-recommendation', section, id: question });
     if (labelledValue(item.body, RECOMMENDATION_REASON_LABEL) === null) {
       faults.push({ kind: 'missing-recommendation-reason', section, id: question });
