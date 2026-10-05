@@ -7,6 +7,7 @@
  *   node .claude/scripts/explain-seed/run.mjs next    <path-to-RFC-SEED.md> <axes>
  *   node .claude/scripts/explain-seed/run.mjs check   <path-to-RFC-SEED.md>
  *   node .claude/scripts/explain-seed/run.mjs answers <path-to-RFC-SEED.md>
+ *   node .claude/scripts/explain-seed/run.mjs revise  <path-to-RFC-SEED.md> '<payload-json>'
  *
  * The seed is the only input because the seed already knows everything else: its identity
  * block names the package and the three reference paths, and the workspace root is the
@@ -35,6 +36,12 @@
  * the ledger reports no recorded point unsettled, and it names the questions and the points
  * that remain, so a round ends at a verdict rather than at a hope.
  *
+ * `revise` is how a viewpoint the human brings after Done becomes a point. It records the
+ * human's own words and the one line they were refined to, opens a cycle, and writes nothing
+ * else: the ledger is derived, so recording the point is the whole mechanism. The payload is
+ * one JSON argument rather than three, so a viewpoint carrying spaces or shell characters
+ * reaches this process exactly as it was written.
+ *
  * Nothing is written until every recorded hash has been recomputed and agreed, with or
  * without a document from an earlier run: an earlier document changes what is preserved,
  * never what is verified.
@@ -60,11 +67,18 @@ import {
   HUMAN_ITEM_HEADING,
   HUMAN_SECTION_ID,
   MAX_AXES_PER_ROUND,
+  MAX_CYCLES,
   MAX_ROUNDS,
+  appendAddedPointBlock,
+  appendCycleMarker,
   appendQuestionRound,
   buildFrame,
+  countCycles,
   countRounds,
+  countRoundsInCurrentCycle,
+  isOneVerbatimLine,
   locateSections,
+  nextAddedPointId,
   verifyExplanation,
 } from './lib/frame.mjs';
 import { deriveLedger } from './lib/ledger.mjs';
@@ -75,7 +89,7 @@ const ERROR_PREFIX = '[explain-seed]';
 
 /** The things this command does, and nothing else. */
 // [::TICKET::] PX-221, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-229) --for-spec --no-implementation-order`.
-export const OPERATIONS = Object.freeze({ INFO: 'info', NEXT: 'next', CHECK: 'check', ANSWERS: 'answers' });
+export const OPERATIONS = Object.freeze({ INFO: 'info', NEXT: 'next', CHECK: 'check', ANSWERS: 'answers', REVISE: 'revise' });
 
 /** What the refusal names, derived so the message cannot describe a parser that no longer exists. */
 const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
@@ -88,7 +102,13 @@ const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
  * of axes a round may put, and every other operation acts on the seed path alone.
  */
 // [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
-const ARITY = Object.freeze({ [OPERATIONS.INFO]: 1, [OPERATIONS.NEXT]: 2, [OPERATIONS.CHECK]: 1, [OPERATIONS.ANSWERS]: 1 });
+const ARITY = Object.freeze({
+  [OPERATIONS.INFO]: 1,
+  [OPERATIONS.NEXT]: 2,
+  [OPERATIONS.CHECK]: 1,
+  [OPERATIONS.ANSWERS]: 1,
+  [OPERATIONS.REVISE]: 2,
+});
 
 /**
  * What each fault means, said in the terms the operator reading the report is holding.
@@ -142,25 +162,28 @@ export function parseArguments(argv) {
   const [operation, ...positionals] = argv;
   const refused = () =>
     new ExplainSeedError(
-      `explain-seed takes an operation (${OPERATION_NAMES.join(', ')}), one seed path, and for next the number of axes (1 to ${MAX_AXES_PER_ROUND}); received ${JSON.stringify(argv)}`,
+      `explain-seed takes an operation (${OPERATION_NAMES.join(', ')}), one seed path, and for next the number of axes (1 to ${MAX_AXES_PER_ROUND}) or for revise the payload; received ${JSON.stringify(argv)}`,
       { field: 'arguments' },
     );
 
   if (operation === undefined || operation.startsWith('-') || !OPERATION_NAMES.includes(operation)) throw refused();
   if (positionals.length !== ARITY[operation]) throw refused();
 
-  const [seedArgument, sizeArgument] = positionals;
+  const [seedArgument, secondArgument] = positionals;
   if (seedArgument === undefined || seedArgument.startsWith('-')) throw refused();
-  if (operation !== OPERATIONS.NEXT) return { operation, seedPath: resolve(seedArgument), size: null };
+  if (operation === OPERATIONS.REVISE) {
+    return { operation, seedPath: resolve(seedArgument), size: null, payload: secondArgument };
+  }
+  if (operation !== OPERATIONS.NEXT) return { operation, seedPath: resolve(seedArgument), size: null, payload: null };
 
-  const size = Number(sizeArgument);
+  const size = Number(secondArgument);
   if (!Number.isInteger(size) || size < 1 || size > MAX_AXES_PER_ROUND) {
     throw new ExplainSeedError(
-      `round size must be an integer between 1 and ${MAX_AXES_PER_ROUND}; received ${JSON.stringify(sizeArgument)}`,
+      `round size must be an integer between 1 and ${MAX_AXES_PER_ROUND}; received ${JSON.stringify(secondArgument)}`,
       { field: 'axes' },
     );
   }
-  return { operation, seedPath: resolve(seedArgument), size };
+  return { operation, seedPath: resolve(seedArgument), size, payload: null };
 }
 
 /**
@@ -297,16 +320,19 @@ function runInfo(seedPath) {
  * the explanation byte-identical and can never half-append it. The numbers continue from the
  * highest the document already holds, because a number a question was asked under never moves.
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-229|PX-236) --for-spec --no-implementation-order`.
 function runNext(seedPath, size) {
   const explainText = readExplanationOrFail(seedPath);
   const { facts } = produceInfo(seedPath);
 
-  const rounds = countRounds(explainText);
+  // The cap bounds the questions asked of one body of material, so a revision — which brings
+  // material the earlier rounds never saw — opens a fresh cycle with its own budget.
+  const rounds = countRoundsInCurrentCycle(explainText);
   if (rounds >= MAX_ROUNDS) {
-    throw new ExplainSeedError(`round limit of ${MAX_ROUNDS} reached; the document already opens ${rounds} rounds`, {
-      field: 'rounds',
-    });
+    throw new ExplainSeedError(
+      `round limit of ${MAX_ROUNDS} reached; the current cycle already opened ${rounds} rounds`,
+      { field: 'rounds' },
+    );
   }
 
   const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
@@ -405,13 +431,83 @@ function runAnswers(seedPath) {
   return reading.unanswered.length === 0 && unsettled.length === 0 ? EXIT_OK : EXIT_FAILURE;
 }
 
-// [::TICKET::] PX-221, PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+/**
+ * The two things a revision carries, read from the one JSON argument that holds them.
+ *
+ * The origin is the human's own words and is recorded verbatim; the statement is the one line
+ * they were refined to. Each is refused when it could not stand as a labelled line of the block
+ * — empty, carrying a newline, or carrying a marker this document reads — because a value that
+ * changed what the readers count would be recorded as something other than what was said.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+function readRevision({ payloadArgument }) {
+  let payload;
+  try {
+    payload = JSON.parse(payloadArgument);
+  } catch {
+    throw new ExplainSeedError(
+      `a revision carries its payload as one JSON object with an origin and a statement; received ${JSON.stringify(payloadArgument)}`,
+      { field: 'payload' },
+    );
+  }
+
+  const origin = typeof payload?.origin === 'string' ? payload.origin.trim() : '';
+  const statement = typeof payload?.statement === 'string' ? payload.statement.trim() : '';
+
+  if (!isOneVerbatimLine(origin)) {
+    throw new ExplainSeedError(`uncited-added-point: ${FAULT_MESSAGES['uncited-added-point']}`, {
+      field: 'payload',
+    });
+  }
+  if (!isOneVerbatimLine(statement)) {
+    throw new ExplainSeedError(`unstated-added-point: ${FAULT_MESSAGES['unstated-added-point']}`, {
+      field: 'payload',
+    });
+  }
+  return { origin, statement };
+}
+
+/**
+ * Record one viewpoint the human brought after Done, and open the cycle it begins.
+ *
+ * The operation writes the explanation and nothing else: the ledger is derived on every read,
+ * so the recorded point is the whole mechanism that re-opens the run. Everything is validated
+ * before the first byte, so a refused revision leaves the document exactly as it was.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+function runRevise(seedPath, payloadArgument) {
+  const explainText = readExplanationOrFail(seedPath);
+  const revision = readRevision({ payloadArgument });
+  const { facts } = produceInfo(seedPath);
+
+  const cycles = countCycles(explainText);
+  if (cycles >= MAX_CYCLES) {
+    throw new ExplainSeedError(`cycle limit of ${MAX_CYCLES} reached; the document already opened ${cycles} cycles`, {
+      field: 'cycles',
+    });
+  }
+
+  const id = nextAddedPointId({ documentText: explainText });
+  const opened = appendCycleMarker({ documentText: explainText, number: cycles + 1 });
+  const revised = appendAddedPointBlock({ documentText: opened, id, ...revision });
+  const ledger = deriveLedger({ documentText: revised, projection: facts.projection });
+
+  const { explainPath } = documentPaths(seedPath);
+  writeFileSync(explainPath, revised, 'utf8');
+  process.stderr.write(
+    `revise: recorded ${id} at cycle ${cycles + 1} — ${ledger.open.size} open, ${ledger.unsettled.size} unsettled\n`,
+  );
+  return EXIT_OK;
+}
+
+// [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
-    const { operation, seedPath, size } = parseArguments(argv);
+    const { operation, seedPath, size, payload } = parseArguments(argv);
     if (operation === OPERATIONS.NEXT) return runNext(seedPath, size);
     if (operation === OPERATIONS.CHECK) return runCheck(seedPath);
     if (operation === OPERATIONS.ANSWERS) return runAnswers(seedPath);
+    if (operation === OPERATIONS.REVISE) return runRevise(seedPath, payload);
     return runInfo(seedPath);
   } catch (error) {
     if (error instanceof ExplainSeedError) {

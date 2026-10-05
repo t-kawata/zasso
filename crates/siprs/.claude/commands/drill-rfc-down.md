@@ -132,6 +132,28 @@ Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
 Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
 Exception: G4 PASS is not G3 PASS; G4 is structural only.
 Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+
+## Re-entry (Done is not the end of the conversation)
+
+Done means: no point is open for the material read so far. It does not close the
+conversation, and it does not close this command.
+
+A viewpoint the human brings after Done is a point like any other. On any human message
+after Done, run the same settle test over what it raised — the three lines, in writing —
+and act on the result:
+
+- the three lines can be written → settle the point, with its override condition; update the
+  documents; re-issue the report.
+- the three lines cannot be written → record the point with this command's own point-writer,
+  open a round on the point, and re-run the gate and the verdict.
+
+Re-entry is this command's own loop, not another command: the human is never asked to run
+anything again. A revision never renumbers a question (W7) and never overwrites an answer;
+an answered axis is never re-asked (W6). A revision round asks a new axis built from the
+point it raised and the still-open points only.
+
+A command that carries this block carries a writer for a point the human brings. Which
+writer it is belongs to that command's own section, not to this one.
 <!-- question-gate:end -->
 
 ## Arguments
@@ -407,6 +429,26 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-12
 ```
 
 out: `$SESSION_DIR/delta.json` → Step 2.
+
+#### 1-13. Re-entry after Completion
+
+Completion is a state of the material read so far, not the end of the conversation. A
+viewpoint the human brings afterwards re-enters this command's own grill; the human is never
+asked to run anything again.
+
+1. Run the settle test in writing — 決定 / 根拠 / 覆す条件. A point the records ground is
+   settled with the DesignTree `settle` operation, and Steps 2 → 3 → 4 → 5 re-run.
+2. A point they do not ground is added as a node:
+   ```bash
+   node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
+   node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-5
+   ```
+   and 1-5 to 1-12 re-run over it, followed by Steps 2 → 3 → 4 → 5.
+3. The RFC stays append-only: the re-entry appends the settled evolution, it never rewrites
+   what a previous cycle wrote. Step 5's cross-artifact verification re-runs because the
+   artefacts changed, and a high finding sends the run back to Step 2 as it always does.
+
+---
 
 ### Step 2: graphify
 
