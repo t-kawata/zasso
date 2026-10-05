@@ -15,6 +15,9 @@
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
+import { MAX_POINTS_PER_AXIS_FLOOR, bundleAxes } from "../question-gate/bundle.mjs";
+import { refineLetterlessAnswer } from "../question-gate/answers.mjs";
+import { settlePoint } from "../question-gate/settle.mjs";
 // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
@@ -72,6 +75,58 @@ function saveAndValidate() {
     console.error(JSON.stringify({ ok: false, phase: "schema-validation", errors }, null, 2));
     process.exit(1);
   }
+}
+
+/**
+ * The grounds this run has actually read: the artifacts it found, the grounds the
+ * decisions in them rest on, and what they state.
+ *
+ * A settlement may rest only on one of these. A ground the AI never read is not a
+ * ground it has, which is why an empty scan settles nothing.
+ */
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+function recordsOf() {
+  const scan = tree.priorScan;
+  if (scan === undefined) return [];
+  return [
+    ...(scan.artifacts ?? []),
+    ...(scan.decisions ?? []).map((entry) => entry.ground).filter((ground) => typeof ground === "string" && ground !== ""),
+    ...(scan.grounds ?? []).map((entry) => entry.statement),
+  ];
+}
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+function refuseSettlement(settlement) {
+  const required = ["decision", "ground", "override"];
+  const missing = required.filter((field) => typeof settlement[field] !== "string" || settlement[field].trim() === "");
+  if (missing.length === 0) return null;
+  return `settle refused: ${missing.join(", ")} required — a settlement needs the decision, the record it rests on, and the fact that would overturn it`;
+}
+
+/**
+ * Why a block may not be bound, or null when it may.
+ *
+ * The settle trace is not checked here: a block is opened empty and filled
+ * afterwards, and whether its trace accounts for the records read is the gate's
+ * judgement, not the writer's.
+ */
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+function refuseBlock(block) {
+  const boundIds = Array.isArray(block.boundNodeIds) ? block.boundNodeIds : [];
+  // The floor is the core's, not a second copy of it: a question binds at least
+  // MAX_POINTS_PER_AXIS_FLOOR points unless fewer than that many are open.
+  const { axes } = bundleAxes({
+    candidates: [{ boundIds, direction: block.scopeLine ?? "" }],
+    openCount: Math.max(countOpen(tree.nodes), boundIds.length),
+  });
+  if (axes.length === 0) {
+    return `bind refused: a question binds at least ${MAX_POINTS_PER_AXIS_FLOOR} points unless fewer are open — a single-point question is a fact-question wearing a question's clothes`;
+  }
+  return null;
+}
+
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+function ensureQuestions() {
+  if (!Array.isArray(tree.questions)) tree.questions = [];
 }
 
 switch (operation) {
@@ -160,6 +215,83 @@ switch (operation) {
     }
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, operation: "delete", nodeId }) + "\n");
+    break;
+  }
+  case "settle": {
+    const [nodeId, settlementJson] = args;
+    const node = findNode(tree.nodes, nodeId);
+    if (!node) { console.error(`Node not found: ${nodeId}`); process.exit(1); }
+    const settlement = JSON.parse(settlementJson);
+    // The gate runs here rather than a second copy of its rules: a point whose only
+    // support is one of the four forbidden inferences is refused by name, and one
+    // whose ground the run never read is not settled.
+    const verdict = settlePoint({
+      point: { id: nodeId },
+      candidate: settlement,
+      records: recordsOf(),
+      inferences: settlement.inferences ?? [],
+    });
+    if (verdict.kind !== "settled") {
+      console.error(`settle refused (${verdict.kind}): ${verdict.refusal ?? verdict.reason}`);
+      process.exit(1);
+    }
+    node.status = "resolved";
+    node.questions.push({
+      resolvedAt: new Date().toISOString(),
+      answer: verdict.decision,
+      decision: verdict.decision,
+      ground: verdict.ground,
+      override: verdict.override,
+      source: "ai",
+    });
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, operation: "settle", nodeId }) + "\n");
+    break;
+  }
+  case "bind": {
+    const [numberText, blockJson] = args;
+    const block = JSON.parse(blockJson);
+    const refusal = refuseBlock(block);
+    if (refusal) { console.error(refusal); process.exit(1); }
+    ensureQuestions();
+    const number = Number(numberText);
+    const existing = tree.questions.find((entry) => entry.number === number);
+    const filled = {
+      number,
+      boundNodeIds: block.boundNodeIds,
+      scopeLine: typeof block.scopeLine === "string" ? block.scopeLine : "",
+      settleTrace: typeof block.settleTrace === "string" ? block.settleTrace : "",
+      framing: block.framing ?? { context: "", conclusion: "", settled: "", remainder: "" },
+      choice: block.choice ?? { directions: [], recommendation: "", overturning: "" },
+      answer: null,
+    };
+    if (existing) Object.assign(existing, filled);
+    else tree.questions.push(filled);
+    tree.questions.sort((left, right) => left.number - right.number);
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, operation: "bind", number }) + "\n");
+    break;
+  }
+  case "answer": {
+    const [numberText, reply] = args;
+    ensureQuestions();
+    const block = tree.questions.find((entry) => entry.number === Number(numberText));
+    if (!block) { console.error(`Question not found: ${numberText}`); process.exit(1); }
+    const refined = refineLetterlessAnswer({ reply });
+    if (!refined.answered) {
+      console.error(
+        `answer refused: the reply carries no letter, so it does not answer Q${block.number}. ` +
+          `What it raised — "${refined.raised.origin}" — is a point: refine it into a node and settle or bind that.`,
+      );
+      process.exit(1);
+    }
+    block.answer = reply;
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, operation: "answer", number: block.number }) + "\n");
+    break;
+  }
+  case "blocks": {
+    process.stdout.write(JSON.stringify({ ok: true, operation: "blocks", questions: tree.questions ?? [] }) + "\n");
     break;
   }
   case "open-count": {

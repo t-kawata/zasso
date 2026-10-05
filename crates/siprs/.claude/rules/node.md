@@ -23,6 +23,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `grill-me-for-rfc` | `module` |
 | `hooks` | `commonjs` |
 | `lib` | `commonjs` |
+| `question-gate` | `module` |
 | `rfc-graph` | `commonjs` |
 | `tickets` | `commonjs` |
 | `utils` | `unknown` |

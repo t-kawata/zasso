@@ -2,12 +2,14 @@
 /**
  * list-files.js <rfc-dir>
  *
- * Reads researchPath from <rfc-dir>/Status.json and
- * outputs a flat list of file paths (as a JSON array) to STDOUT
- * for the file or directory pointed to by that path.
+ * Reads the material paths from <rfc-dir>/Status.json and prints, as a JSON array,
+ * every file beneath them, in the order the run was given them.
  *
- * This eliminates the need for the AI to remember $RESEARCH_PATH;
- * it is resolved mechanically from $RFC_DIR alone.
+ * This is what lets the AI read its material without remembering the command line:
+ * the list is resolved mechanically from $RFC_DIR alone.
+ *
+ * A session with no material prints an empty array. Absence of material is an empty
+ * set, not the directory the process happens to be running in.
  */
 import fs from "fs";
 import path from "path";
@@ -29,29 +31,42 @@ if (!fs.existsSync(statusPath)) {
 }
 
 const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
-const researchPath = status.researchPath;
 
-if (!researchPath) {
-  console.error(`researchPath not found in Status.json. Re-run init.js.`);
-  process.exit(1);
+/**
+ * The material paths this session holds.
+ *
+ * materialPaths is the field current runs write. researchPath is the single path a
+ * Status.json written before that field existed carries, and is read only when the
+ * list is absent, so an older session still lists its material instead of failing.
+ */
+// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+function materialPathsOf(record) {
+  if (Array.isArray(record.materialPaths)) return record.materialPaths;
+  return record.researchPath ? [record.researchPath] : [];
 }
 
-const resolved = researchPath;
+const materialPaths = materialPathsOf(status);
 
-if (!fs.existsSync(resolved)) {
-  console.error(`Research path not found: ${resolved}`);
-  process.exit(1);
+for (const materialPath of materialPaths) {
+  if (!fs.existsSync(materialPath)) {
+    console.error(`Material path not found: ${materialPath}`);
+    process.exit(1);
+  }
 }
 
-function collectFiles(p) {
-  const stat = fs.statSync(p);
-  if (stat.isFile()) return [p];
+/** Every file beneath a material: the file itself, or every file a directory holds. */
+// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+function collectMaterialFiles(materialPath) {
+  const stat = fs.statSync(materialPath);
+  if (stat.isFile()) return [materialPath];
   if (stat.isDirectory()) {
-    return fs.readdirSync(p)
-      .flatMap(name => collectFiles(path.join(p, name)));
+    return fs.readdirSync(materialPath)
+      .flatMap((name) => collectMaterialFiles(path.join(materialPath, name)));
   }
   return [];
 }
 
-const files = collectFiles(resolved);
-console.log(JSON.stringify(files, null, 2));
+// A Set so a material named twice contributes its files once, and insertion order
+// so the printed list reads in the order the run was given.
+const files = [...new Set(materialPaths.flatMap(collectMaterialFiles))];
+process.stdout.write(JSON.stringify(files, null, 2) + "\n");

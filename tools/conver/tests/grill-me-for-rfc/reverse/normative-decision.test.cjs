@@ -1,3 +1,4 @@
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
 // P22-13 @verifies C002
 // @verifies C003
@@ -552,8 +553,12 @@ test('IT-3: the forward grill behaviour this ticket must not change is still rea
     commandText.includes('## Language Protocol'),
     'the Language Protocol table the command has always carried survives the append',
   );
-  assert.ok(
-    commandText.includes('**The user answers ONLY with Yes/No or an A/B/C choice.'),
+  // PX-234 rewrote the question's shape in this file. The rule is unchanged, so the
+  // assertion now reads the sentence the command states it in rather than the one it
+  // used before that rewrite — the vocabulary itself is what must survive.
+  assert.match(
+    commandText,
+    /user answers ONLY Yes\/No or A\/B\/C/,
     'the closed answer vocabulary survives: reverse mode adds questions in the same form',
   );
 });

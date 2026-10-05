@@ -1,6 +1,6 @@
 ---
 description: Interactive grill session for writing RFC design documents under strict constraints (complete coverage, no delegation, no stubs).
-argument-hint: </path/to/INFO-DIR-OR-FILE> </path/to/RFC-TO-OURPUT.md>
+argument-hint: [<material file|directory>...]
 disable-model-invocation: true
 ---
 
@@ -20,15 +20,125 @@ Interactive grill session for writing an RFC design document under strict constr
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+<!-- question-gate:begin -->
+## Core Rule
+
+Never put a point to the human. Put only direction questions.
+
+- **point**: one recorded open item. The set is not closed: a viewpoint the human
+  brings is refined into an orderly point before it is recorded, and is then a point
+  like any other, put through the same settle-and-bundle filter.
+- **direction question**: one question on a priority, a desired state, or whose
+  experience comes first. One answer lets the AI settle many points itself.
+- **order**: AI settles first; only what it cannot settle is bundled; only the bundle
+  is asked.
+- **direction ≠ vague**. Wide in span, concrete in words: each direction names who,
+  in what situation, gains what, loses what. No implementation term.
+- **count**: questions ≪ points. At most three axes to a round.
+- **the human sees little**: only what the choice needs.
+- **end**: only when the AI has settled every point. Unsettled points remain → new
+  direction questions on those points only.
+
+## The question gate (settle before drafting)
+
+A question may not be drafted until the settle test has been written out and has
+failed. For every point about to become a question, write these three lines first, in
+this order:
+
+- 決定: <what is decided>
+- 根拠: <the record id, the upstream document, or the question and letter it rests on>
+- 覆す条件: <the fact that would overturn it>
+
+If all three lines can be written, the point is settled: it goes to
+「先に決めておいたこと」 and no question is drafted. Only a point whose three lines
+cannot be written becomes a question. The gate's output is those three lines, not a
+feeling: a question drafted without them is a defect even if it reads well. The line
+that records the failed test is `決められなかった理由`.
+
+Four inferences this gate forbids. Each has produced a wrong question.
+
+| inference | refusal, and why it is wrong |
+|---|---|
+| 「a flag named this point, so it is the human's」 | `flag-is-not-a-ground` — a flag is not a ground and is not weight. |
+| 「a doubt about this record means there is no ground」 | `foreign-package-doubt` — a doubt filed under another package is not this package's point. Establish whose point it is before treating it as material. |
+| 「the doubt says only the author can decide, so it must be asked」 | `author-only-is-material-not-exemption` — that sentence is material *for* the test above, not an exemption from it. Write the three lines. |
+| 「the point is weighty, so it is the human's」 | `weight-alone-does-not-bind` — weight alone does not bind a point to a question. The binding condition is weighty **and** no ground. A ground the AI has not looked for is not an absent ground. |
+
+## The ladder
+
+Read the prior records before drafting anything. Every point takes the first rung that
+matches:
+
+- **Q0** — a published record already decides it → settle; ground is that record.
+- **Q0'** — an upstream artifact or a neighbour clearly settled it → settle; ground is
+  that document. It stands in 「先に決めておいたこと」 and is never re-asked, never
+  reopened, and never moved back into a question.
+- **Q1** — the material entails it, once the AI has **finished looking** → settle;
+  ground is the place in the material.
+- **Q2** — the result is light and reversible → settle, with an override condition.
+- **Q3** — weighty or hard to reverse, **and** the three lines cannot be written after
+  looking → bind to a direction question.
+
+A question binds at least two points, unless fewer than two are open. One answer
+settles every point bound to it. The axes a round may open are capped, and what does
+not fit stays open for a later round rather than being dropped or folded into an axis
+it would weaken.
+
+## The question block, in order
+
+1. 状況 — who does what, when, with what consequence.
+2. 私の結論 — the AI's own answer, in words, with its reason. No option letter yet.
+3. すでに決まっていること — one sentence: 「これ以外は決まっています」.
+4. 残っている選択 — one sentence: 「あなたに残っているのは〜だけです」.
+5. 選択肢 — `A: <meaning>` / `B: <meaning>`. The letters appear here for the first time.
+6. 推奨 — the letter, now that it is defined.
+7. 推奨が覆る条件 — the fact that would change it.
+
+If line 2 cannot be written at all, or line 4 cannot be written narrowly, stop: go
+back to the question gate. A name used before the line that defines it is a defect at
+that line; fix the line, never append a gloss later.
+
+## The loop
+
+- A reply carrying a letter is an answer; prose is added to the letter, never put in
+  its place.
+- A reply carrying no letter is not an answer — and it is not nothing: what it raised
+  is refined into a point, and the settle test is re-run on that point before any
+  prose is rewritten. A reply that is not an answer is evidence about the **point**,
+  not only about the wording.
+- An answered axis is never re-asked. A later round asks a new axis built from the
+  still-open points and the added ones only.
+
+## Gates
+
+- **G0 records** — the prior records were read and the scan recorded. Not read → stop.
+- **G1 settle** — every point the records ground is settled, with its three lines.
+- **G2 fill** — every block carries its lines and its settle trace.
+- **G3 ask** — every question is a direction, binds at least two points, and reads top
+  to bottom.
+- **G4 check** — the structural gate: `check` exits 0.
+- **G5 answers** — the verdict: every question answered and no point unsettled.
+
+Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
+Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
+Exception: G4 PASS is not G3 PASS; G4 is structural only.
+Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+<!-- question-gate:end -->
+
 ## Usage
 
 ```
-/grill-me-for-rfc <research-path> <rfc-output-file-path>
-(Optional free-form notes on a new line below the arguments)
+/grill-me-for-rfc [<material file|directory>...]
 ```
-- `<research-path>`: researched file or directory
-- `<rfc-output-file-path>`: RFC design document output path (`.md`)
-- free-form notes: optional supplementary info/constraints
+- material: a file, or a directory whose every file is material
+- zero or more: a run with no material works from the prior artifacts already in the
+  package directory and from the conversation alone
+- the RFC is not an argument. The run writes `./RFC.md`, always
+
+Invocation:
+```bash
+/grill-me-for-rfc <material-file-or-dir> <material-file-or-dir> ...
+```
 
 ---
 
@@ -36,11 +146,15 @@ Interactive grill session for writing an RFC design document under strict constr
 
 | Variable | Derivation | Value |
 |----------|------------|-------|
-| `$RESEARCH_PATH` | 1st argument | research file/directory path |
-| `$RFC_OUTPUT_PATH` | 2nd argument | RFC document output path (`.md`) |
-| `$RFC_DIR` | `dirname "$RFC_OUTPUT_PATH"` | dir holding RFC artifacts (Status.json, DesignTree.json, CheckList.md, etc.) |
+| `$MATERIAL_PATHS` | the arguments, in order | the files/directories this run reads |
+| `$RFC_DIR` | the invocation directory | dir holding RFC artifacts (Status.json, DesignTree.json, CheckList.md, etc.) |
+| `$RFC_PATH` | `"$RFC_DIR/RFC.md"` | the canonical RFC this run writes |
 
-invariant: once `init.js` runs, `$RESEARCH_PATH`/`$RFC_OUTPUT_PATH` persist in `Status.json` — only `$RFC_DIR` needs tracking thereafter.
+`$ARGUMENTS` is deliberately unquoted, as in `/drill-rfc-down`: the shell passes each
+space-separated argument as argv, and init.js resolves each one. No argument means no
+material — never the current directory.
+
+invariant: once `init.js` runs, `$MATERIAL_PATHS` persist in `Status.json` — only `$RFC_DIR` needs tracking thereafter.
 
 ### Schema Validation Gate
 
@@ -71,17 +185,30 @@ out:
 ### STEP 0: Initialization
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/init.js "$RESEARCH_PATH" "$RFC_OUTPUT_PATH"
+node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" $ARGUMENTS
 ```
-generates in the RFC output dir: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING).
+generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING), and records the material list and the fixed RFC path in `Status.json`. A material path that does not exist is reported and the run stops before writing anything.
 
-ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (RFC output file may or may not exist yet — first written at STEP 5).
-ask; stop — Overwrite mode: RFC output file exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete old RFC file, re-run `init.js`.
+ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (the RFC may or may not exist yet — first written at STEP 5).
+ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete the old RFC, re-run `init.js`.
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
 ```
-file → its path. directory → flat JSON array of all file paths recursively. read all, internalize as research material.
+flat JSON array of every file beneath every material the run was given, in the order it was given them. An empty array means the run has no material. read all, internalize as research material.
+
+**Before any question is drafted, read what this package already holds.**
+
+```bash
+node .claude/scripts/grill-me-for-rfc/settle-run.js "$RFC_DIR" prior
+```
+
+Reads `RFC.md` (or `RFC-<SLUG>.md`), `RFC-SEED.md`, `INFO-RFC-SEED.md` and
+`EXPLAIN-RFC-SEED.md` in `$RFC_DIR`, and the same in each neighbour directory the
+stage-one manifest names, passed as further arguments, records the scan in `DesignTree.json`, and prints what those documents
+decide. What they decide is settled by the ladder in STEP 2 and is never asked. A
+package where they decide everything opens no question at all, and that is a
+completed run rather than a failure.
 
 ---
 
@@ -98,21 +225,37 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"..."
 
 ## ★ First-Class Rules (MUST be followed without exception)
 
-1. every question MUST contain, in order (length proportional to design-decision complexity — do not aim for concise):
-   0. Question ID: `Q<number>`, unique within a turn
-   1. Background and rationale: why this decision is needed, what options exist, trade-offs — enough for an informed choice
-   2. Choices as a line-broken list: one choice per line, markdown list — never two choices on one line
-   3. AI's recommendation with rationale: state the one recommended choice, explain specifically why over alternatives — recommending without reasoning forbidden
+The rule a question obeys is stated once, above, in **Core Rule**, **The question
+gate**, **The ladder**, **The question block, in order**, **The loop** and **Gates**.
+It is not restated here. What this section adds is the mechanics of this command.
 
-   closed answer vocabulary (absolute, on the AI's asking behavior): user answers ONLY Yes/No or A/B/C. AI must NEVER ask for free-form answers (if the user volunteers one anyway, AI may accept it).
+```bash
+node .claude/scripts/grill-me-for-rfc/settle-run.js "$RFC_DIR" next <n>
+node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" bind <n> '<block_json>'
+node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" settle <node_id> '<settlement_json>'
+node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" answer <n> '<the human reply>'
+```
 
-2. bundle questions at coarse granularity — never one question per design decision:
-   - one question = a sub-domain (e.g. "choice of authentication method") bundling 3–5 related decisions
-   - one turn = a larger design domain (e.g. the entire auth system), 5–10 questions
-   - two-pass: big-picture architecture first, then details
-   - end of each turn: summarize what was decided before the next turn
-3. no RFC content during the grill session — questions and answers only.
-4. after every user answer: immediately update the corresponding DesignTree nodes.
+1. run the ladder — **Q0**, **Q0'**, **Q1**, **Q2**, **Q3** — over every node before
+   drafting any question; the first matching rung wins. A node the records ground is
+   settled with `settle`, which refuses a settlement that carries no ground or no
+   override.
+2. `next <n>` opens at most three numbered blocks. Fill each with `bind`, which
+   refuses a block binding fewer than two nodes: a single-point question is a
+   fact-question wearing a question's clothes.
+3. the block's seven lines are 状況 / 私の結論 / すでに決まっていること /
+   残っている選択 / 選択肢 / 推奨 / 推奨が覆る条件, in that order.
+4. every block carries a settle trace naming the records that were read and why none
+   of them was decisive. `check` refuses a block whose trace is empty, and refuses a
+   block whose trace names none of the records the scan found.
+5. no RFC content during the grill session — questions and answers only.
+6. after every user answer: record it with `answer`, then settle with `settle` the
+   nodes that answer entails, or leave them bound and say what the answer failed to
+   entail. An answer that is not a letter is not an answer — and what it raised is
+   refined into a node rather than discarded.
+
+The closed answer vocabulary is unchanged: user answers ONLY Yes/No or A/B/C. AI must
+NEVER ask for free-form answers (if the user volunteers one anyway, AI may accept it).
 
 ### Question Format Validation Gate (MANDATORY)
 
@@ -193,6 +336,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 ### STEP 5: RFC Writing
 
 begin once the user approves the checklist.
+write the document to `$RFC_PATH` — `$RFC_DIR/RFC.md`, the one name this command gives the RFC.
 
 ## RFC Hard Constraints (MUST be followed without exception)
 
@@ -238,11 +382,11 @@ Downstream (role): future graph-splitting commands (`/graphify-rfc`, `/boundify-
 - contract: lets them split the document along natural seams safely
 
 ```bash
-node "$SCRIPT_DIR/insert-io-boundary-template.js" "$TARGET_RFC"
+node .claude/scripts/grill-me-for-rfc/insert-io-boundary-template.js "$RFC_PATH"
 ```
 heal-loop: AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker, follows its instruction, generates content from the existing RFC, replaces the marker. repeat until none remain.
 ```bash
-node "$SCRIPT_DIR/check-io-stubs.js" "$TARGET_RFC"
+node .claude/scripts/grill-me-for-rfc/check-io-stubs.js "$RFC_PATH"
 if [ $? -ne 0 ]; then
   echo "ERROR: Remaining [::IO-INFO-STUB::] markers found. AI content completion is incomplete."
   exit 1

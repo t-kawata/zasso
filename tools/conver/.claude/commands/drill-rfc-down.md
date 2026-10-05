@@ -29,6 +29,111 @@ Invariants:
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+<!-- question-gate:begin -->
+## Core Rule
+
+Never put a point to the human. Put only direction questions.
+
+- **point**: one recorded open item. The set is not closed: a viewpoint the human
+  brings is refined into an orderly point before it is recorded, and is then a point
+  like any other, put through the same settle-and-bundle filter.
+- **direction question**: one question on a priority, a desired state, or whose
+  experience comes first. One answer lets the AI settle many points itself.
+- **order**: AI settles first; only what it cannot settle is bundled; only the bundle
+  is asked.
+- **direction ≠ vague**. Wide in span, concrete in words: each direction names who,
+  in what situation, gains what, loses what. No implementation term.
+- **count**: questions ≪ points. At most three axes to a round.
+- **the human sees little**: only what the choice needs.
+- **end**: only when the AI has settled every point. Unsettled points remain → new
+  direction questions on those points only.
+
+## The question gate (settle before drafting)
+
+A question may not be drafted until the settle test has been written out and has
+failed. For every point about to become a question, write these three lines first, in
+this order:
+
+- 決定: <what is decided>
+- 根拠: <the record id, the upstream document, or the question and letter it rests on>
+- 覆す条件: <the fact that would overturn it>
+
+If all three lines can be written, the point is settled: it goes to
+「先に決めておいたこと」 and no question is drafted. Only a point whose three lines
+cannot be written becomes a question. The gate's output is those three lines, not a
+feeling: a question drafted without them is a defect even if it reads well. The line
+that records the failed test is `決められなかった理由`.
+
+Four inferences this gate forbids. Each has produced a wrong question.
+
+| inference | refusal, and why it is wrong |
+|---|---|
+| 「a flag named this point, so it is the human's」 | `flag-is-not-a-ground` — a flag is not a ground and is not weight. |
+| 「a doubt about this record means there is no ground」 | `foreign-package-doubt` — a doubt filed under another package is not this package's point. Establish whose point it is before treating it as material. |
+| 「the doubt says only the author can decide, so it must be asked」 | `author-only-is-material-not-exemption` — that sentence is material *for* the test above, not an exemption from it. Write the three lines. |
+| 「the point is weighty, so it is the human's」 | `weight-alone-does-not-bind` — weight alone does not bind a point to a question. The binding condition is weighty **and** no ground. A ground the AI has not looked for is not an absent ground. |
+
+## The ladder
+
+Read the prior records before drafting anything. Every point takes the first rung that
+matches:
+
+- **Q0** — a published record already decides it → settle; ground is that record.
+- **Q0'** — an upstream artifact or a neighbour clearly settled it → settle; ground is
+  that document. It stands in 「先に決めておいたこと」 and is never re-asked, never
+  reopened, and never moved back into a question.
+- **Q1** — the material entails it, once the AI has **finished looking** → settle;
+  ground is the place in the material.
+- **Q2** — the result is light and reversible → settle, with an override condition.
+- **Q3** — weighty or hard to reverse, **and** the three lines cannot be written after
+  looking → bind to a direction question.
+
+A question binds at least two points, unless fewer than two are open. One answer
+settles every point bound to it. The axes a round may open are capped, and what does
+not fit stays open for a later round rather than being dropped or folded into an axis
+it would weaken.
+
+## The question block, in order
+
+1. 状況 — who does what, when, with what consequence.
+2. 私の結論 — the AI's own answer, in words, with its reason. No option letter yet.
+3. すでに決まっていること — one sentence: 「これ以外は決まっています」.
+4. 残っている選択 — one sentence: 「あなたに残っているのは〜だけです」.
+5. 選択肢 — `A: <meaning>` / `B: <meaning>`. The letters appear here for the first time.
+6. 推奨 — the letter, now that it is defined.
+7. 推奨が覆る条件 — the fact that would change it.
+
+If line 2 cannot be written at all, or line 4 cannot be written narrowly, stop: go
+back to the question gate. A name used before the line that defines it is a defect at
+that line; fix the line, never append a gloss later.
+
+## The loop
+
+- A reply carrying a letter is an answer; prose is added to the letter, never put in
+  its place.
+- A reply carrying no letter is not an answer — and it is not nothing: what it raised
+  is refined into a point, and the settle test is re-run on that point before any
+  prose is rewritten. A reply that is not an answer is evidence about the **point**,
+  not only about the wording.
+- An answered axis is never re-asked. A later round asks a new axis built from the
+  still-open points and the added ones only.
+
+## Gates
+
+- **G0 records** — the prior records were read and the scan recorded. Not read → stop.
+- **G1 settle** — every point the records ground is settled, with its three lines.
+- **G2 fill** — every block carries its lines and its settle trace.
+- **G3 ask** — every question is a direction, binds at least two points, and reads top
+  to bottom.
+- **G4 check** — the structural gate: `check` exits 0.
+- **G5 answers** — the verdict: every question answered and no point unsettled.
+
+Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
+Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
+Exception: G4 PASS is not G3 PASS; G4 is structural only.
+Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+<!-- question-gate:end -->
+
 ## Arguments
 
 In:
@@ -118,9 +223,19 @@ Capture pre-edit RFC at `$SESSION_DIR/baseline.json`.
 
 Read all material, README RESIDUE, prior user conversation; understand complete scope; present evolution scope to user.
 
+**Before any question is drafted, read what this package already holds.**
+
 ```bash
+node "$DRILL_DIR/settle-run.js" "$SESSION_DIR" prior "$RFC_DIR"
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-3
 ```
+
+Reads `RFC.md` (or `RFC-<SLUG>.md`), `RFC-SEED.md`, `INFO-RFC-SEED.md` and
+`EXPLAIN-RFC-SEED.md` in the package directory — and in any neighbour directory the
+stage-one manifest names, passed as further arguments — records the scan in the session `DesignTree.json`, and prints what those
+documents decide. What they decide is settled by the ladder in 1-5 and is never asked.
+A package where they decide everything opens no question at all, and the session
+completes with nothing put to the human.
 
 #### 1-4. Generate DesignTree Nodes
 
@@ -141,24 +256,46 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-4
 
 Ask validated 5–10-question turn; await answers. Determine evolution by grill questions.
 
-Every question; ordered; detail proportional to decision complexity; do not over-compress:
-0. unique turn-local `Q<number>` ID.
-1. Background and rationale: the need, the options, their trade-offs.
-2. Newline-separated options: one per list item; never two on one line.
-3. Recommendation with reasoning: the concrete choice, and why it beats the others.
+The rule a question obeys is stated once, above, in **Core Rule**, **The question
+gate**, **The ladder**, **The question block, in order**, **The loop** and **Gates**.
+It is not restated here. What this step adds is the mechanics of this command.
 
-User answer: Yes/No or A/B/C only; never request free-form answer; unsolicited free text allowed.
+The cycle this session runs is 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定, in
+that order: this step performs the 質問 and 回答 halves, 1-8 performs the 追記, 1-7 and
+1-9 the CheckList 照合, and 1-10 the 再 grill 判定.
+
+1. run the ladder — **Q0**, **Q0'**, **Q1**, **Q2**, **Q3** — over every node before
+   drafting any question; the first matching rung wins. A node the records ground is
+   settled with `settle`, which refuses a settlement carrying no ground or no override.
+2. `next <n>` opens at most three numbered blocks. Fill each with `bind`, which refuses
+   a block binding fewer than two nodes.
+3. the block's seven lines are 状況 / 私の結論 / すでに決まっていること /
+   残っている選択 / 選択肢 / 推奨 / 推奨が覆る条件, in that order.
+4. every block carries a settle trace naming the records that were read and why none of
+   them was decisive. `check` refuses a block whose trace is empty, and refuses a block
+   whose trace names none of the records the scan found.
+5. before display: run `validate-question-format.js` until `valid: true`; never skip.
+6. answer received → record it with `answer`, then settle the nodes it entails with
+   `settle`, or leave them bound and say what the answer failed to entail. An answer
+   carrying no letter is not an answer — and what it raised is refined into a node
+   rather than discarded.
+
+User answer: Yes/No or A/B/C only; never request free-form answer; unsolicited free
+text allowed.
 
 Grill contract:
 - Coarse-grained bundling: 1 question = 3–5 nodes; 1 turn = 5–10 questions.
 - Two-pass approach: architecture → details.
 - Summarize settled decisions at each turn end.
-- before display: run `validate-question-format.js` until `valid: true`; never skip.
 - answer received → immediately update the node: `node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" add '<json>'` — the standalone `add` for a new top-level node, then `resolve` / `batch-resolve`; `add-child` / `refine` / `delete` as required.
 - Do not write the RFC while grilling.
 
 ```bash
 node "$DRILL_DIR/validate-question-format.js" "<question text>"
+node "$DRILL_DIR/settle-run.js" "$SESSION_DIR" next <n>
+node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" bind <n> '<block_json>'
+node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" settle "<node_id>" '<settlement_json>'
+node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" answer <n> "<the human reply>"
 node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" add '{"id":"Q5","title":"<new design decision>","status":"open","children":[],"questions":[]}'
 node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" resolve "<node_id>" "<answer summary>"
 node "$DRILL_DIR/update-tree.js" "$SESSION_DIR" batch-resolve '["Q1","Q2","Q3"]' "<answer summary>"

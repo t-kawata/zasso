@@ -44,9 +44,9 @@ export function validateStatus(sessionDir) {
     return errors;
   }
 
-  let data;
+  let status;
   try {
-    data = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+    status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
   } catch (e) {
     errors.push("Status.json: JSON parse failed — " + e.message);
     return errors;
@@ -54,23 +54,23 @@ export function validateStatus(sessionDir) {
 
   const requiredFields = ["state", "researchPath", "rfcPath", "rfcDir", "reviewLoopCount", "createdAt", "updatedAt"];
   for (const field of requiredFields) {
-    if (data[field] === undefined || data[field] === null) {
+    if (status[field] === undefined || status[field] === null) {
       errors.push(`Status.json: required field "${field}" is missing`);
     }
   }
 
-  if (data.state && !VALID_STATES.includes(data.state)) {
-    errors.push(`Status.json.state: invalid value "${data.state}" (valid: ${VALID_STATES.join(", ")})`);
+  if (status.state && !VALID_STATES.includes(status.state)) {
+    errors.push(`Status.json.state: invalid value "${status.state}" (valid: ${VALID_STATES.join(", ")})`);
   }
 
-  if (typeof data.reviewLoopCount !== "number" || data.reviewLoopCount < 0) {
+  if (typeof status.reviewLoopCount !== "number" || status.reviewLoopCount < 0) {
     errors.push("Status.json.reviewLoopCount: must be a non-negative number");
   }
 
-  if (data.createdAt && isNaN(Date.parse(data.createdAt))) {
+  if (status.createdAt && isNaN(Date.parse(status.createdAt))) {
     errors.push("Status.json.createdAt: must be a valid ISO 8601 date");
   }
-  if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
+  if (status.updatedAt && isNaN(Date.parse(status.updatedAt))) {
     errors.push("Status.json.updatedAt: must be a valid ISO 8601 date");
   }
 
@@ -88,32 +88,77 @@ export function validateDesignTree(sessionDir) {
     return errors;
   }
 
-  let data;
+  let tree;
   try {
-    data = JSON.parse(fs.readFileSync(treePath, "utf-8"));
+    tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
   } catch (e) {
     errors.push("DesignTree.json: JSON parse failed — " + e.message);
     return errors;
   }
 
-  if (data.version === undefined || typeof data.version !== "number" || data.version < 1) {
+  if (tree.version === undefined || typeof tree.version !== "number" || tree.version < 1) {
     errors.push("DesignTree.json.version: must be a number >= 1");
   }
 
-  if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
+  if (tree.updatedAt && isNaN(Date.parse(tree.updatedAt))) {
     errors.push("DesignTree.json.updatedAt: must be a valid ISO 8601 date");
   }
 
-  if (!Array.isArray(data.nodes)) {
+  if (!Array.isArray(tree.nodes)) {
     errors.push("DesignTree.json.nodes: must be an array");
   } else {
-    errors.push(...validateNodeArray(data.nodes, "nodes", new Set()));
+    errors.push(...validateNodeArray(tree.nodes, "nodes", new Set()));
+  }
+
+  if (tree.questions !== undefined && !Array.isArray(tree.questions)) {
+    errors.push("DesignTree.json.questions: must be an array when present");
+  } else if (Array.isArray(tree.questions)) {
+    errors.push(...validateQuestionBlocks(tree.questions));
+  }
+
+  if (tree.priorScan !== undefined && !Array.isArray(tree.priorScan.artifacts)) {
+    errors.push("DesignTree.json.priorScan.artifacts: must be an array when a prior scan is present");
   }
 
   return errors;
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+/**
+ * The question blocks a run has opened.
+ *
+ * This validates shape only. Whether a block is *allowed* — whether it binds
+ * enough nodes, whether its settle trace accounts for the records that were read —
+ * is the question gate's judgement and lives in settle-run.js check, because a
+ * block is opened empty and filled afterwards and must be readable in between.
+ *
+ * @param {Array<object>} blocks
+ * @returns {string[]} error messages
+ */
+// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+export function validateQuestionBlocks(blocks) {
+  const errors = [];
+  const seenNumbers = new Set();
+
+  blocks.forEach((block, i) => {
+    const p = `questions[${i}]`;
+    if (typeof block.number !== "number") {
+      errors.push(`${p}.number: must be a number`);
+    } else if (seenNumbers.has(block.number)) {
+      errors.push(`${p}.number: duplicate number ${block.number}`);
+    } else {
+      seenNumbers.add(block.number);
+    }
+    if (!Array.isArray(block.boundNodeIds)) errors.push(`${p}.boundNodeIds: must be an array`);
+    if (typeof block.scopeLine !== "string") errors.push(`${p}.scopeLine: must be a string`);
+    if (typeof block.settleTrace !== "string") errors.push(`${p}.settleTrace: must be a string`);
+    if (block.framing !== undefined && typeof block.framing !== "object") errors.push(`${p}.framing: must be an object`);
+    if (block.choice !== undefined && typeof block.choice !== "object") errors.push(`${p}.choice: must be an object`);
+  });
+
+  return errors;
+}
+
+// [::TICKET::] PX-157, PX-158, PX-159, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-234) --for-spec --no-implementation-order`.
 function validateNodeArray(nodes, pathPrefix, seenIds) {
   const errors = [];
   nodes.forEach((node, i) => {
@@ -142,6 +187,14 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
         }
         if (!q.answer || typeof q.answer !== "string") {
           errors.push(`${p}.questions[${qi}].answer: required field`);
+        }
+        // A settlement that names a ground must also say what would overturn it:
+        // a decision nobody can name the undoing of is not a decision the run can
+        // stand behind. A human resolution carries no ground and is not held to
+        // this, because the answer the person gave is its own ground.
+        // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+        if (q.ground !== undefined && (typeof q.override !== "string" || q.override === "")) {
+          errors.push(`${p}.questions[${qi}].override: required when a settlement carries a ground`);
         }
       });
     }

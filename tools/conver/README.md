@@ -244,11 +244,12 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 ### 上流ループ（人間＋AI 実行）
 
-#### `/grill-me-for-rfc <調査情報パス> <RFC出力パス>`
+#### `/grill-me-for-rfc [<material file|directory>...]`
 
-調査情報をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
+material（0個以上のファイル/ディレクトリ）をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
 
-- **入力**: 調査情報のファイル/ディレクトリパス + RFC 出力先 `.md`
+- **入力**: material（ファイル、またはすべてのファイルが material であるディレクトリ）。**0個でも可**（事前成果物と会話のみから始める）。**RFC 出力先は引数ではありません**
+- **出力**: 正典 RFC は常に `./RFC.md`。名前の揺れを許さないため、引数でも走査でも他の綴りを受け付けません
 - **プロセス**: `init.js` が DesignTree / Status.json / CheckList.md を初期化 → AI が設計判断を質問（Yes/No または選択肢形式）→ DesignTree のノードを resolved にしていく → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
 - **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
 - **逆対応（リバースモード）**: 入力は `/workspacify-allocate` が逆モードで発行した `RFC-SEED.md`（§1 にリバース索引を機械注入で持つ）。逆対応の質問生成器が §1 の索引と residual から質問候補を生成し、**未解決 claim ごとに「意図か偶然か」の問い**を挿入します。順回転の seed は名前で拒否されます（順回転の seed はこの grill の入力ではありません）

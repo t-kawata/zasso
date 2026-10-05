@@ -22,6 +22,8 @@ import { fileURLToPath } from 'url';
 import { validateAll } from './check-all-schema.js';
 // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
+// [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+import { AI_SUPPLEMENT_COMMENT } from '../grill-me-for-rfc/lib/checklist-fence.mjs';
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -58,7 +60,7 @@ function classifySessionFiles(sessionDir) {
  * Write the three session templates under $SESSION_DIR.
  * Mirrors init.js's template shapes so the session is grill-compatible.
  */
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234) --for-spec --no-implementation-order`.
 function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
   fs.mkdirSync(sessionDir, { recursive: true });
   const now = new Date().toISOString();
@@ -76,13 +78,12 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
     updatedAt: now,
     nodes: [],
   }, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(path.join(sessionDir, CHECKLIST_FILE), `# RFC 要件チェックリスト
-
-> このファイルは /drill-rfc-down により自動管理されます。
-> grillセッション完了後に内容が充填されます。
-
-<!-- GENERATED -->
-`, 'utf8');
+  // The shape generate-checklist.js recognises as its own: the header the schema
+  // requires, and the trailing comment that lets the first generation migrate the
+  // file. A bare `<!-- GENERATED -->` comment matched neither a fence nor the
+  // comment, so 1-7 refused on every fresh session.
+  // [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+  fs.writeFileSync(path.join(sessionDir, CHECKLIST_FILE), `# RFC 要件チェックリスト\n\n${AI_SUPPLEMENT_COMMENT}\n`, 'utf8');
 }
 
 // [::TICKET::] PX-157, PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
