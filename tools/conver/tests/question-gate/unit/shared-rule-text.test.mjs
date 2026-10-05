@@ -1,4 +1,5 @@
 // PX-234 @verifies C004
+// PX-236 @verifies C006
 // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * One rule text in three files.
@@ -7,6 +8,11 @@
  * where the mechanism came from. Encoding that as an intention is worth nothing —
  * three texts agree today and drift the first time one of them is edited. A
  * delimited block compared byte for byte turns the intention into a check.
+ *
+ * Since PX-236 the block also carries the re-entry rule: Done means no point is open
+ * for the material read so far, not that the conversation is over. The rule lives here
+ * rather than in each command's own steps so all three inherit it together, and this
+ * file is where their agreement is asserted.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -81,8 +87,8 @@ test('C004 invariant: the shared block states the gate, the ladder and the refus
   ]) {
     assert.ok(block.includes(refusal), `the block names the refusal ${refusal}`);
   }
-  for (const q of ['Q0', "Q0'", 'Q1', 'Q2', 'Q3']) {
-    assert.ok(block.includes(q), `the block states the ladder rung ${q}`);
+  for (const rung of ['Q0', "Q0'", 'Q1', 'Q2', 'Q3']) {
+    assert.ok(block.includes(rung), `the block states the ladder rung ${rung}`);
   }
 });
 
@@ -91,4 +97,22 @@ test('C004 invariant: the block is the same text the two commands act on, not a 
 
   assert.ok(block.length > 1500, 'a block that fits in a paragraph cannot carry the rule');
   assert.equal(block.includes('RFC-SEED.md'), false, 'the block speaks the vocabulary both commands share, not one command’s file names');
+});
+
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+test('C006 invariant: the block states that Done re-opens when the human brings a viewpoint', () => {
+  const block = delimitedBlock(read(COMMAND_FILES[1]));
+
+  assert.ok(
+    block.includes('Done is not the end of the conversation'),
+    'the re-entry section is stated, so a viewpoint brought after Done has a state to fire in',
+  );
+  assert.ok(
+    block.includes('this command’s own loop') || block.includes("this command's own loop"),
+    'and the rule says re-entry is this command’s own loop, not another command to run',
+  );
+  assert.ok(
+    /never renumbers a question/.test(block),
+    'and keeps the numbering rule a revision must not break',
+  );
 });

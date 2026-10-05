@@ -198,6 +198,27 @@ export const ADDED_POINT_OPEN = '<!-- explain-seed:added-point';
 
 export const ADDED_POINT_CLOSE = '<!-- /explain-seed:added-point -->';
 
+/**
+ * Every marker this document writes: an HTML comment naming this command, opening or closing.
+ *
+ * A value that carries one of these would be read as a marker rather than as the words it is,
+ * so the guard below refuses it: the human's own words are recorded verbatim, and a line that
+ * changes what the readers count is not verbatim.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export const MARKER_NAMESPACE = /<!--\s*\/?explain-seed:/u;
+
+/**
+ * Whether a value can stand as one labelled line, with nothing read out of it.
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function isOneVerbatimLine(value) {
+  return typeof value === 'string' && value !== '' && !value.includes('\n') && !MARKER_NAMESPACE.test(value);
+}
+
 /** The two lines inside an added-point block: where it came from, and what it is. */
 // [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export const ADDED_POINT_ORIGIN_LABEL = '出どころ';
@@ -218,9 +239,33 @@ export const MAX_AXES_PER_ROUND = 3;
  */
 export const MAX_ROUNDS = 5;
 
+/**
+ * How many cycles a document may run.
+ *
+ * A cycle is opened by a revision — a viewpoint the human brought after the run had settled
+ * every point it could. Each cycle gets its own round budget, because the material a revision
+ * adds is new material and the round bound exists to bound the questions asked of one body of
+ * material, not to forbid the human from ever speaking again. The bound on cycles is what keeps
+ * that from becoming an unbounded loop.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export const MAX_CYCLES = 3;
+
 /** The line that opens a round of questions, and the text that closes it. */
 export const ROUND_SEPARATOR_OPEN = '<!-- explain-seed:round ';
 export const ROUND_SEPARATOR_CLOSE = ' -->';
+
+/**
+ * The line that opens the cycle a revision begins.
+ *
+ * Rounds are numbered for the whole document and never restart, so the separator alone cannot
+ * say which cycle a round belongs to. This marker is the boundary a cycle count is read from:
+ * the rounds after the last one are the rounds that count against the current cycle.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export const CYCLE_MARKER_PREFIX = '<!-- explain-seed:cycle ';
+
+export const CYCLE_MARKER_SUFFIX = ' -->';
 
 /**
  * The line that tells the person the material under it is a copy of the record, not required reading.
@@ -438,6 +483,103 @@ export function renderAddedPointBlock({ id, origin, statement }) {
     `- ${ADDED_POINT_STATEMENT_LABEL}: ${statement}`,
     ADDED_POINT_CLOSE,
   ].join('\n');
+}
+
+/**
+ * The id the next point the document adds will carry.
+ *
+ * The highest id in use decides, not the number of blocks: an id a point was recorded under
+ * never moves, so a block removed by hand must not hand its id to the next point recorded.
+ *
+ * @param {{ documentText: string }} input
+ * @returns {string}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function nextAddedPointId({ documentText }) {
+  const highest = readAddedPoints({ documentText })
+    .map((point) => Number(String(point.id).slice(ADDED_POINT_ID_PREFIX.length)))
+    .filter((number) => Number.isInteger(number))
+    .reduce((max, number) => Math.max(max, number), 0);
+  const next = `${ADDED_POINT_ID_PREFIX}${String(highest + 1).padStart(3, '0')}`;
+
+  if (!RESERVED_POINT_ID.test(next)) {
+    throw new ExplainSeedError(
+      `no id is left for a point the document adds: ${next} is not the shape a reserved id carries`,
+      { field: EXPLAIN_FILE_NAME },
+    );
+  }
+  return next;
+}
+
+/**
+ * Append one point the document adds to the end of the human's section.
+ *
+ * The block goes where the person's writing lives, so the maintained section an info run keeps
+ * carries it and no run can lose it. The statement that nothing is registered is replaced
+ * rather than kept: it says the section holds no unresolved point, and after this call it does.
+ * Every other byte is carried through, so a question number and an answer already written are
+ * never disturbed by a revision.
+ *
+ * @param {{ documentText: string, id: string, origin: string, statement: string }} input
+ * @returns {string}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function appendAddedPointBlock({ documentText, id, origin, statement }) {
+  return appendToHumanSection({
+    documentText,
+    rendered: renderAddedPointBlock({ id, origin, statement }),
+    what: 'the point',
+  });
+}
+
+/**
+ * Append the marker that opens the cycle a revision began.
+ *
+ * The marker is written before the block the revision records, so that block belongs to the
+ * cycle it opened and the rounds opened after the marker are the ones that count against it.
+ *
+ * @param {{ documentText: string, number: number }} input
+ * @returns {string}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function appendCycleMarker({ documentText, number }) {
+  return appendToHumanSection({
+    documentText,
+    rendered: cycleSeparator(number),
+    what: 'the cycle',
+  });
+}
+
+/**
+ * Put one rendered line at the end of the human's section, changing nothing else.
+ *
+ * The statement that nothing is registered is replaced rather than kept: it says the section
+ * holds no unresolved point, and once something is appended there it does not. Every other byte
+ * is carried through, so a question number and an answer already written are never disturbed.
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+function appendToHumanSection({ documentText, rendered, what }) {
+  const lines = documentText.split('\n');
+  const span = sectionBodySpan(lines, HUMAN_SECTION_ID);
+  if (span === null) {
+    throw new ExplainSeedError(
+      `${what} cannot be recorded: ${HUMAN_SECTION_ID} is not a section this document holds once`,
+      { field: EXPLAIN_FILE_NAME },
+    );
+  }
+
+  // The section is located by the heading line, never by the first place its title happens to
+  // appear: a document that quotes the title inside another section would otherwise take the
+  // point into that section, where nothing reads it and the section it belongs to never sees it.
+  const head = lines.slice(0, span.start).join('\n');
+  const body = lines.slice(span.start, span.end).join('\n');
+  const tail = lines.slice(span.end).join('\n');
+  const after = tail === '' ? '' : `\n${tail}`;
+
+  if (body.trim() === '' || body.trim() === ABSENT_RESIDUALS_STATEMENT) {
+    return `${head}\n\n${rendered}${after}`;
+  }
+  return `${head}\n${body.trimEnd()}\n\n${rendered}${after}`;
 }
 
 /**
@@ -1174,6 +1316,54 @@ export function readRoundNumbers(documentText) {
 // [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function countRounds(documentText) {
   return readRoundNumbers(documentText).length;
+}
+
+/** The line that opens cycle `n`, the cycle a revision begins. */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function cycleSeparator(n) {
+  return `${CYCLE_MARKER_PREFIX}${n}${CYCLE_MARKER_SUFFIX}`;
+}
+
+/**
+ * The cycles a document has opened, in order, read from the markers a revision writes.
+ *
+ * A document written before this marker existed holds none, and holds no cycle: every round it
+ * carries belongs to the one cycle it has been running, which is exactly what
+ * `countRoundsInCurrentCycle` reports when no marker is present.
+ *
+ * @param {string} documentText
+ * @returns {Array<number>}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function readCycleNumbers(documentText) {
+  const text = String(documentText);
+  const pattern = new RegExp(`${CYCLE_MARKER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)${CYCLE_MARKER_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+  return (text.match(pattern) ?? []).map((marker) => Number(marker.match(/(\d+)/)[1]));
+}
+
+/** How many cycles a document has opened. */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function countCycles(documentText) {
+  return readCycleNumbers(documentText).length;
+}
+
+/**
+ * The rounds that count against the cycle the document is in.
+ *
+ * The rounds a document opened before its last revision were asked of the material read then;
+ * a revision brings material the earlier rounds never saw, so they do not spend the new cycle's
+ * budget. With no marker the whole document is one cycle, which is how every document written
+ * before cycles existed is read.
+ *
+ * @param {string} documentText
+ * @returns {number}
+ */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+export function countRoundsInCurrentCycle(documentText) {
+  const text = String(documentText);
+  const lastMarker = text.lastIndexOf(CYCLE_MARKER_PREFIX);
+  const currentCycle = lastMarker < 0 ? text : text.slice(lastMarker);
+  return (currentCycle.match(/<!-- explain-seed:round (\d+) -->/g) ?? []).length;
 }
 
 /** The numbers of the questions a document asks, in the order it asks them. */

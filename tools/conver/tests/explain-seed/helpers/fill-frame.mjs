@@ -25,9 +25,9 @@ import {
   OVERRIDE_LABEL,
   PREDECIDED_ITEM_HEADING,
   SCOPE_LABEL,
+  appendAddedPointBlock,
   appendQuestionRound,
   buildFrame,
-  renderAddedPointBlock,
   renderQuestionBlock,
   roundSeparator,
 } from '../../../.claude/scripts/explain-seed/lib/frame.mjs';
@@ -225,7 +225,7 @@ export function authorDocument({ facts, questions = [], preDecided = [] }) {
   return fillEveryMarker(text, { boundIds: [] });
 }
 
-/** One section's body replaced, keeping every other section exactly as it was. */
+/** One section's body appended to, keeping every other section exactly as it was. */
 // [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function appendToSection(documentText, sectionIndex, blockText) {
   const title = FRAME_SECTIONS[sectionIndex].title;
@@ -245,16 +245,17 @@ function appendToSection(documentText, sectionIndex, blockText) {
  * Append one added-point block at the end of the human's section.
  *
  * The block lives where the person's writing lives, so it is carried by the same maintained
- * section an info run keeps. The text is written by the frame's own writer, because a helper
- * that spelled the block itself would author a document the reader might not recognise.
+ * section an info run keeps. The command writes it the same way since PX-236, so this helper
+ * calls that writer rather than spelling the block a second time: a test that authored a
+ * document the writer could not have produced would be testing a format nobody uses.
  *
  * @param {string} documentText - an authored EXPLAIN document
  * @param {{ id: string, origin: string, statement: string }} point
  * @returns {string} the same document with the block appended to the human's section
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-230|PX-236) --for-spec --no-implementation-order`.
 export function appendAddedPoint(documentText, { id, origin, statement }) {
-  return appendToSection(documentText, 4, renderAddedPointBlock({ id, origin, statement }));
+  return appendAddedPointBlock({ documentText, id, origin, statement });
 }
 
 /**

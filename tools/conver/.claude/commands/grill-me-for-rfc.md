@@ -123,6 +123,28 @@ Rule: G0–G2 — a parent that is not PASS never yields a child that is PASS.
 Rule: G5 asks only a round G4 accepted; G4 accepts only a round G2 filled.
 Exception: G4 PASS is not G3 PASS; G4 is structural only.
 Prohibition: never resolve a G4 failure by moving a question into 「先に決めておいたこと」.
+
+## Re-entry (Done is not the end of the conversation)
+
+Done means: no point is open for the material read so far. It does not close the
+conversation, and it does not close this command.
+
+A viewpoint the human brings after Done is a point like any other. On any human message
+after Done, run the same settle test over what it raised — the three lines, in writing —
+and act on the result:
+
+- the three lines can be written → settle the point, with its override condition; update the
+  documents; re-issue the report.
+- the three lines cannot be written → record the point with this command's own point-writer,
+  open a round on the point, and re-run the gate and the verdict.
+
+Re-entry is this command's own loop, not another command: the human is never asked to run
+anything again. A revision never renumbers a question (W7) and never overwrites an answer;
+an answered axis is never re-asked (W6). A revision round asks a new axis built from the
+point it raised and the still-open points only.
+
+A command that carries this block carries a writer for a point the human brings. Which
+writer it is belongs to that command's own section, not to this one.
 <!-- question-gate:end -->
 
 ## Usage
@@ -401,6 +423,32 @@ gate (all 3 required): all DesignTree nodes `resolved` (`open-count`=0) AND all 
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```
+
+---
+
+### STEP 8a: Re-entry after DONE
+
+DONE means no node is open for the material read so far. It is not the end of the
+conversation: a viewpoint the human brings afterwards is a node like any other, and this
+command handles it — the human is never asked to run anything again.
+
+1. Run the settle test in writing — 決定 / 根拠 / 覆す条件. A point the records ground is
+   settled with `update-tree.js settle`, and STEP 6, STEP 7 and STEP 8 re-run.
+2. A point they do not ground is recorded, not argued with:
+   ```bash
+   node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
+   ```
+   Then reopen the grill and re-run STEP 2 to STEP 8:
+   ```bash
+   node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
+   node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
+   ```
+3. A re-entry round follows the same rules as any round: it asks a new axis built from the
+   added node and the still-open nodes only (W6), it never renumbers a question (W7), and it
+   never overwrites an answer already written (W8). `loop-count > 3` is reported as STEP 7 says.
+
+Re-entry is this command's own loop. STEP 5's RFC prose is written once the grill closes
+again, so the document never carries a decision the re-entry round has not settled.
 
 ---
 

@@ -866,6 +866,55 @@ test('C004 postcondition: next refuses when nothing is unattached, and opens a r
   assert.equal(opened.status, 0, opened.stderr.toString('utf8'));
 });
 
+/** Put an answer under the nth place the human writes, counted from one. */
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+function answerPlaceholder(documentText, answer, nth) {
+  const lines = [];
+  let seen = 0;
+  for (const line of documentText.split('\n')) {
+    lines.push(line);
+    if (isPlaceholderLine(line)) {
+      seen += 1;
+      if (seen === nth) lines.push(answer);
+    }
+  }
+  return lines.join('\n');
+}
+
+// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+test('C004 postcondition: a viewpoint brought after Done re-opens the run, and the loop closes again', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
+
+  // The run the human saw finish: one answered round, every recorded point settled.
+  let done = withHumanNote(authorFrame(workspace, { boundIds: openIdsOf(workspace) }));
+  for (const id of openIdsOf(workspace)) done = appendPreDecision(done, { reference: id, ground: 'Q1 A' });
+  writeFileSync(workspace.explainPath, done, 'utf8');
+  const finished = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.equal(finished.status, 0, finished.stdout.toString('utf8') + finished.stderr.toString('utf8'));
+
+  // The human now brings a viewpoint; the AI refines it and records it with one call.
+  const revision = { origin: ADDED_POINT.origin, statement: ADDED_POINT.statement };
+  const revised = runExplainSeed(['revise', workspace.seedPath, JSON.stringify(revision)], { cwd: workspace.root });
+  assert.equal(revised.status, 0, revised.stderr.toString('utf8'));
+  assert.match(readFileSync(workspace.explainPath, 'utf8'), /added-001/, 'the viewpoint is recorded in the document');
+
+  // The loop is open again — which is what the run previously could not do.
+  const reopenedVerdict = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.notEqual(reopenedVerdict.status, 0, 'the recorded viewpoint keeps the run open');
+  assert.match(reopenedVerdict.stdout.toString('utf8'), /added-001/, 'and the verdict names it');
+  const opened = runExplainSeed(['next', workspace.seedPath, '1'], { cwd: workspace.root });
+  assert.equal(opened.status, 0, opened.stderr.toString('utf8'));
+
+  // The AI answers the new round and settles the point from the answer, so the run closes again.
+  let closed = fillEveryMarker(readFileSync(workspace.explainPath, 'utf8'), { boundIds: ['added-001'] });
+  closed = answerPlaceholder(closed, 'A', 2);
+  closed = appendPreDecision(closed, { reference: 'added-001', ground: 'Q2 A' });
+  writeFileSync(workspace.explainPath, closed, 'utf8');
+  const refinished = runExplainSeed(['answers', workspace.seedPath], { cwd: workspace.root });
+  assert.equal(refinished.status, 0, refinished.stdout.toString('utf8') + refinished.stderr.toString('utf8'));
+});
+
 // PX-231 @verifies C002
 // PX-231 @verifies C004
 /**
