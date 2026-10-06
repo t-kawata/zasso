@@ -124,6 +124,7 @@ function isSeparator(line) {
  * @param {string} cell
  * @returns {string}
  */
+// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function unwrapCodeSpan(cell) {
   const match = /^`(.*)`$/.exec(cell);
   return match ? match[1].trim() : cell;

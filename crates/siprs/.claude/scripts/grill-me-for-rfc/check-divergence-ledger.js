@@ -44,6 +44,7 @@ const PRECEDENCE_MARKER = 'canonical';
  * @param {string} location
  * @returns {boolean}
  */
+// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function resolvesInsideArtifact(location) {
   const trimmed = location.trim();
   return trimmed.length > 0 && !trimmed.endsWith('.md');

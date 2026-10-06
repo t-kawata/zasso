@@ -209,12 +209,12 @@ function findCandidates(rfcDir) {
     });
   }
 
-  const info = texts['INFO-RFC-SEED.md'];
-  if (info && NO_NEIGHBOUR_SETTLED_PATTERN.test(info)) {
-    const infoTime = statSync(join(rfcDir, 'INFO-RFC-SEED.md')).mtimeMs;
+  const informationRecord = texts['INFO-RFC-SEED.md'];
+  if (informationRecord && NO_NEIGHBOUR_SETTLED_PATTERN.test(informationRecord)) {
+    const informationRecordTime = statSync(join(rfcDir, 'INFO-RFC-SEED.md')).mtimeMs;
     for (const sibling of siblingPackages(rfcDir)) {
       const siblingTime = statSync(join(sibling, 'RFC.md')).mtimeMs;
-      if (siblingTime > infoTime) {
+      if (siblingTime > informationRecordTime) {
         candidates.push({
           artifact: 'INFO-RFC-SEED.md',
           location: '§10',
