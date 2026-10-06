@@ -34,6 +34,7 @@ const bind = (dir, number, block) =>
 const settle = (dir, nodeId, settlement) =>
   runCommand(GRILL_UPDATE_TREE, [dir, 'settle', nodeId, JSON.stringify(settlement)]);
 
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 postcondition: prior records the scan and prints what the artifacts decide', () => {
   const fixture = materializeGrillFixture({ withPriorArtifacts: true, withNodes: 3 });
   try {
@@ -44,7 +45,11 @@ test('C001 postcondition: prior records the scan and prints what the artifacts d
     assert.match(result.stdout, /the store is a file/, 'and the decision it carries');
 
     const scan = readTree(fixture.rfcDir).priorScan;
-    assert.deepEqual(scan.artifacts, ['RFC-SEED.md', 'INFO-RFC-SEED.md', 'EXPLAIN-RFC-SEED.md']);
+    // What was read, not what contributed: RFC.md is read and decides nothing (it has
+    // no heading carrying a paragraph), so it belongs here all the same. A record
+    // derived from the entries produced would have hidden it, and the gate would then
+    // refuse a settle trace that names it truthfully.
+    assert.deepEqual(scan.artifacts, ['RFC-SEED.md', 'INFO-RFC-SEED.md', 'EXPLAIN-RFC-SEED.md', 'RFC.md']);
     assert.equal(scan.decisions.length > 0, true);
   } finally {
     disposeFixture(fixture);

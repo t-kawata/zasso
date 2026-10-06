@@ -11,6 +11,7 @@ import {
   HUMAN_ITEM_HEADING,
   PREDECIDED_ITEM_HEADING,
   decisionUnderPlaceholder,
+  isItemHeading,
   questionNumberOf,
   referenceOf,
   splitItems,
@@ -109,4 +110,26 @@ test('C007 boundary: a heading whose text after the separator names a record yie
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 — residual-000001`), null, 'the heading an earlier frame wrote is not a question this frame asks');
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} H1 — boundary-001`), null, 'and neither is one that names no number at all');
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 の話`), null, 'a heading that mentions a number but is not one is not a question heading');
+});
+
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+test('C001 boundary: a heading belongs to the token only when the token ends there', () => {
+  // One rule, both tokens: a heading that continues the token's characters is another
+  // heading, and reading it as this one would open an item the frame never wrote.
+  for (const heading of [HUMAN_ITEM_HEADING, PREDECIDED_ITEM_HEADING]) {
+    const longer = `${heading}ことの補足`;
+    assert.equal(isItemHeading(heading, heading), true, 'the bare token opens an item');
+    assert.equal(isItemHeading(`${heading} A1 — record-1`, heading), true, 'and so does the token followed by what the frame writes');
+    assert.equal(isItemHeading(longer, heading), false, `${longer} merely begins with the same characters`);
+  }
+});
+
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+test('C001 invariant: the number of an indented question is read, because the item is', () => {
+  // Both readers normalise leading whitespace the same way, so an indented heading
+  // cannot be one reader's item and no reader's question.
+  const indented = splitItems(`  ${HUMAN_ITEM_HEADING} Q3\n<!-- 人間の判断 -->\n`, HUMAN_ITEM_HEADING);
+
+  assert.equal(indented.length, 1, 'the indented heading opens an item');
+  assert.equal(questionNumberOf(indented[0].heading), 3, 'and the item names a question');
 });

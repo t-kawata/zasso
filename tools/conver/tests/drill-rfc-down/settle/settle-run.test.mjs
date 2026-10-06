@@ -37,6 +37,7 @@ const bind = (dir, number, block) =>
 const settle = (dir, nodeId, settlement) =>
   runCommand(DRILL_UPDATE_TREE, [dir, 'settle', nodeId, JSON.stringify(settlement)]);
 
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 postcondition: prior reads the package directory and records the scan in the session', () => {
   const fixture = materializeDrillSession({ withPriorArtifacts: true, withNodes: 3 });
   try {
@@ -44,10 +45,13 @@ test('C001 postcondition: prior reads the package directory and records the scan
 
     assert.equal(result.status, 0);
     assert.match(result.stdout, /RFC-SEED\.md/);
+    // What was read, not what contributed: RFC-AUTH.md is read and decides nothing
+    // (it has no heading carrying a paragraph), so it is recorded all the same.
     assert.deepEqual(readTree(fixture.sessionDir).priorScan.artifacts, [
       'RFC-SEED.md',
       'INFO-RFC-SEED.md',
       'EXPLAIN-RFC-SEED.md',
+      'RFC-AUTH.md',
     ]);
   } finally {
     disposeFixture(fixture);

@@ -52,11 +52,15 @@ const PACKAGE_DIR_NAME = 'pkg';
 const DESIGN_TREE_FILENAME = 'DesignTree.json';
 
 /** The three artifacts a package directory may already hold, and what each says. */
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 const PRIOR_ARTIFACT_CONTENT = {
   'RFC-SEED.md': '## §1 Identity/Position\n\nThe soul side owns the key.\n',
   'INFO-RFC-SEED.md': 'session_store: declared at src/api/session_storage.rs\n',
+  // The heading carries the ordinal and the record the frame writes it for: the
+  // frame always appends them, so a fixture with the bare token would assert a
+  // spelling no producer emits and would hide a reader that cannot see the real one.
   'EXPLAIN-RFC-SEED.md':
-    '### 先に決めた\n- 決定: the store is a file\n- 根拠: RFC-SEED.md#§1\n- 覆す条件: a level moves\n',
+    '### 先に決めた A1 — contract-boundary-083\n- 決定: the store is a file\n- 根拠: RFC-SEED.md#§1\n- 覆す条件: a level moves\n',
 };
 
 /** A ground a fixture settlement may rest on, named the way priorDecisions reports it. */

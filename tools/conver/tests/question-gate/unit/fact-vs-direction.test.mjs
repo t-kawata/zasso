@@ -11,6 +11,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   GRILL_SETTLE_RUN,
@@ -55,9 +57,16 @@ test('C001 invariant: a question that names none of the records is refused, and 
   }
 });
 
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 boundary: with no artifact to read, the rule does not apply and the round passes', () => {
   const fixture = materializeGrillFixture({ withPriorArtifacts: false, withNodes: 3 });
   try {
+    // The fixture writes the RFC the command's own step produces, and the scanner
+    // reads any RFC-*.md it finds. The boundary under test is a directory holding
+    // nothing readable, so the RFC has to go too: leaving it would make this a test
+    // of a package that does hold a record, which is the case above.
+    rmSync(join(fixture.rfcDir, 'RFC.md'));
+
     runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'prior']);
     runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'next', '1']);
     runCommand(GRILL_UPDATE_TREE, [fixture.rfcDir, 'bind', '1', JSON.stringify(questionBlock({ settleTrace: 'no record in this package decides it' }))]);

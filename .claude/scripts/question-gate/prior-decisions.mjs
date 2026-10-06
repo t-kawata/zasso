@@ -14,6 +14,11 @@
  */
 import { join } from 'node:path';
 
+// The explanation's own vocabulary, taken from the module that writes it: the heading
+// and the rule that recognises it are one definition, so a change to the spelling
+// cannot reach the frame without reaching this reader.
+import { PREDECIDED_ITEM_HEADING, isItemHeading } from '../explain-seed/lib/items.mjs';
+
 /** The three seed artifacts, and the canonical RFC found beside them. */
 export const PRIOR_ARTIFACTS = Object.freeze(['RFC-SEED.md', 'INFO-RFC-SEED.md', 'EXPLAIN-RFC-SEED.md']);
 
@@ -21,8 +26,6 @@ export const PRIOR_ARTIFACTS = Object.freeze(['RFC-SEED.md', 'INFO-RFC-SEED.md',
 const CANONICAL_RFC_PATTERN = /^RFC(-.*)?\.md$/;
 const SEED_ARTIFACT = 'RFC-SEED.md';
 
-/** The vocabulary the seed's explanation is written in. */
-export const PREDECIDED_ITEM_HEADING = '### 先に決めた';
 const DECISION_LABEL = '決定';
 const GROUND_LABEL = '根拠';
 
@@ -64,10 +67,10 @@ function readLabelledItems(text) {
  * @param {{ artifact: string, source: string, text: string }} input
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
 function decisionsOfExplanation({ artifact, source, text }) {
   return readLabelledItems(text)
-    .filter((item) => item.heading === PREDECIDED_ITEM_HEADING)
+    .filter((item) => isItemHeading(item.heading, PREDECIDED_ITEM_HEADING))
     .filter((item) => (item.labels[GROUND_LABEL] ?? '') !== '')
     .map((item) => ({
       artifact,
@@ -183,27 +186,35 @@ function artifactNamesOf({ directory, listDirectory }) {
 }
 
 /**
- * Read one directory's artifacts and return what they decide and what they ground.
+ * Read one directory's artifacts and return what they decide and which were read.
+ *
+ * The two facts are returned together because they are not the same fact: an artifact
+ * that is read and decides nothing contributes no entry, and a caller that learned
+ * only from the entries would report it as if it were absent — which is how an honest
+ * settle trace naming it came to be refused.
  *
  * @param {{ directory: string, readFile: (path: string) => string|null, listDirectory: (directory: string) => string[] }} input
- * @returns {Array<object>}
+ * @returns {{ entries: Array<object>, artifactsRead: string[] }}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
 function entriesOfDirectory({ directory, readFile, listDirectory }) {
   const entries = [];
+  const artifactsRead = [];
   for (const artifact of artifactNamesOf({ directory, listDirectory })) {
     const source = join(directory, artifact);
     const text = readFile(source);
     // An artifact that cannot be read settles nothing. It is not salvaged into a
     // guess, because a guess here becomes a decision the human was never asked.
     if (typeof text !== 'string') continue;
+    artifactsRead.push(artifact);
     entries.push(...entriesOfArtifact({ artifact, source, text }));
   }
-  return entries;
+  return { entries, artifactsRead };
 }
 
 /**
- * The decisions and grounds the package directory and its neighbours already hold.
+ * The decisions and grounds the package directory and its neighbours already hold,
+ * together with the artifacts that were read to find them.
  *
  * A neighbour's explanation is read and never written: what the neighbour settled
  * is a ground for this package, and this package has no authority over it.
@@ -214,12 +225,34 @@ function entriesOfDirectory({ directory, readFile, listDirectory }) {
  *   readFile: (path: string) => string|null,
  *   listDirectory?: (directory: string) => string[],
  * }} input
+ * @returns {{
+ *   entries: Array<{ artifact: string, source: string, kind: 'decision'|'ground', decision: string|null, ground: string|null, statement: string }>,
+ *   artifactsRead: string[],
+ * }}
+ */
+export function priorScan({ directory, neighbours = [], readFile, listDirectory = () => [] }) {
+  const scanned = entriesOfDirectory({ directory, readFile, listDirectory });
+  const entries = [...scanned.entries];
+  const artifactsRead = new Set(scanned.artifactsRead);
+  for (const neighbour of neighbours) {
+    const neighbourScan = entriesOfDirectory({ directory: neighbour, readFile, listDirectory });
+    entries.push(...neighbourScan.entries);
+    for (const artifact of neighbourScan.artifactsRead) artifactsRead.add(artifact);
+  }
+  return { entries, artifactsRead: [...artifactsRead] };
+}
+
+/**
+ * The decisions and grounds the package directory and its neighbours already hold.
+ *
+ * @param {{
+ *   directory: string,
+ *   neighbours?: string[],
+ *   readFile: (path: string) => string|null,
+ *   listDirectory?: (directory: string) => string[],
+ * }} input
  * @returns {Array<{ artifact: string, source: string, kind: 'decision'|'ground', decision: string|null, ground: string|null, statement: string }>}
  */
-export function priorDecisions({ directory, neighbours = [], readFile, listDirectory = () => [] }) {
-  const entries = entriesOfDirectory({ directory, readFile, listDirectory });
-  for (const neighbour of neighbours) {
-    entries.push(...entriesOfDirectory({ directory: neighbour, readFile, listDirectory }));
-  }
-  return entries;
+export function priorDecisions(input) {
+  return priorScan(input).entries;
 }
