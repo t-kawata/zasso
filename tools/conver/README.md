@@ -65,6 +65,8 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
 | **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証する。ビジネスの再投資と進化・適応を安全に進める |
 
+**進化の入口は、上流ループを通過したかどうかで決まります** — 通過前は `/grill-me-for-rfc` の再実行、通過後は上表の `/drill-rfc-down` です。ループ単位の境界と但し書きは、後述の「/drill-rfc-down — 進化の扉」にある「進化の入口は、上流ループを通過したかどうかで決まる」を参照してください。
+
 ---
 
 ## 適合ループ — 4つの入口と第五層
@@ -199,9 +201,30 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 ## /drill-rfc-down — 進化の扉
 
-**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式**（先行記録から確定できる点は先に確定し、確定できない点だけを方向の問いとして束ねて聞く）で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。
+**役割**: 上流ループを終えた正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式**（先行記録から確定できる点は先に確定し、確定できない点だけを方向の問いとして束ねて聞く）で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。上流ループを終える前の入口については次節を参照してください。
 
 **ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
+
+### 進化の入口は、上流ループを通過したかどうかで決まる
+
+正典 RFC を新しい情報で進化させる入口は、**上流ループ（`/graphify-rfc` → `/boundify-graph` → `/split-to-tickets`）を終えたかどうか**で切り替わります。コマンド名の一覧ではなく、**ループ単位**で覚えてください。
+
+```
+  上流ループ（分解）
+    /explain-seed → /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets
+                                                                              │
+                                                                              │  ★ ループ単位の境界
+                                                                              │     上流ループの完了
+                                                                              ▼
+  進化の入口
+    上流ループを終える前  →  /grill-me-for-rfc を新しい資料と共に再実行する
+    上流ループを終えた後  →  /drill-rfc-down（本節が説明する「進化の扉」）
+```
+
+- **上流ループを終える前** — 正典 RFC はまだ唯一の設計成果物です。`/grill-me-for-rfc` に新しい資料を渡して再実行すると、その資料はセッションに記録されて読み取り段に届き、確定した差分が RFC に反映されます。書き直しの直前には旧 RFC の退避が取られるため、反映後に差分を確認できます。
+- **上流ループを終えた後** — RFC からグラフ・ディレクトリ境界・チケットが既に導出されています。ここで RFC だけを書き換えると、派生成物は古い設計を抱えたまま取り残され、しかもそれを検出できません。進化は `/drill-rfc-down` が担います。RFC への追記を差分として読み、grill → graphify → boundify → split → verify を通して派生成物と歩調を合わせるためです。
+
+**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `*-GRAPH.json` を書いた瞬間**です。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`*-Dirs-Tree.json` / `Tickets.json` / `README.md`）が揃わず起動しません。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
 
 **編集方針**:
 

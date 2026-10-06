@@ -1,3 +1,5 @@
+// PX-238 @verifies C005
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * preflight.test.cjs — Tests for drill-rfc-down Step 0 Preflight (preflight.js)
  *
@@ -363,13 +365,18 @@ describe('formatPreflightMarkdown', () => {
 });
 
 describe('formatAbortMessage', () => {
-  it('lists each missing artifact and instructs abort', () => {
+  it('lists each missing artifact with its producer and names the upstream loop', () => {
     const msg = formatAbortMessage({ rfc: '/p/RFC.md', readme: '/p/README.md' });
     assert.match(msg, /\[ERROR\]/);
     assert.match(msg, /Missing files:/);
     assert.match(msg, /RFC: \/p\/RFC\.md/);
     assert.match(msg, /README\.md: \/p\/README\.md/);
-    assert.match(msg, /Abort: fix the missing files/);
+    assert.match(msg, /RFC: \/p\/RFC\.md \(produced by \/grill-me-for-rfc\)/);
+    assert.equal(
+      msg.includes('/drill-rfc-down evolves a canon that already carries its graph'),
+      true,
+      'the abort says what the drill is for, so the caller learns it is the wrong door',
+    );
   });
 });
 
