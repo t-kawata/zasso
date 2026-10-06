@@ -23,12 +23,15 @@ import {
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 const ARTIFACT_CONTENT = {
   'RFC.md': '## Design\n\nThe store is a file.\n',
   'RFC-SEED.md': '## §1 Identity/Position\n\nsoul-side owns the key.\n',
   'INFO-RFC-SEED.md': 'session_store: src/api/session_storage.rs\n',
+  // The heading is the one the frame writes, ordinal and record included: a bare
+  // token here would pass whether or not the reader can see the real documents.
   'EXPLAIN-RFC-SEED.md':
-    '### 先に決めた\n- 決定: the store is a file\n- 根拠: RFC-SEED.md#§1\n- 覆す条件: a level moves\n',
+    '### 先に決めた A1 — contract-boundary-083\n- 決定: the store is a file\n- 根拠: RFC-SEED.md#§1\n- 覆す条件: a level moves\n',
 };
 
 const ALL_FOUR = Object.keys(ARTIFACT_CONTENT);

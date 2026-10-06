@@ -42,10 +42,11 @@ test('C004 invariant: the question-gate driver is byte-identical in both tools',
   );
 });
 
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C004 invariant: both drivers import the same parts of the core', () => {
   for (const tool of ['grill-me-for-rfc', 'drill-rfc-down']) {
     const source = readFileSync(join(GRILL, 'scripts', tool, 'settle-run.js'), 'utf8');
-    for (const symbol of ['partitionPoints', 'priorDecisions', 'nextNumbers', 'readAnswers', 'renderBlock', 'readBack']) {
+    for (const symbol of ['partitionPoints', 'priorScan', 'nextNumbers', 'readAnswers', 'renderBlock', 'readBack']) {
       assert.ok(source.includes(symbol), `${tool} reaches the core's ${symbol}`);
     }
   }
