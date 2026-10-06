@@ -26,6 +26,16 @@ export const SEED_FILE_NAME = 'RFC-SEED.md';
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 
+/**
+ * The design document a grill session writes.
+ *
+ * `grill-me-for-rfc/init.js` takes an rfc directory and always writes `<rfc-dir>/RFC.md`,
+ * and the seed it grills is the one in that same directory, so this document sits beside
+ * the seed rather than in a directory of its own. Declared here for the same reason as the
+ * explanation file name above: one string is not worth reaching across scripts for.
+ */
+export const RFC_FILE_NAME = 'RFC.md';
+
 /** Every ancestor of `startDirectory`, nearest first, ending at the filesystem root. */
 export function ancestorsOf(startDirectory) {
   const ancestors = [];
@@ -53,6 +63,19 @@ function holds(candidate, fileName) {
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function holdsExplanation({ root, packagePath }) {
   return holds(join(root, packagePath), EXPLAIN_FILE_NAME);
+}
+
+/**
+ * Whether a package directory already carries the design document a grill session writes.
+ *
+ * The rule is the one `holdsExplanation` follows: existence is the whole thing, so the file
+ * is never opened and a directory that cannot be read answers false rather than failing a
+ * plan that is only meant to describe the workspace. The two documents are probed apart
+ * because neither implies the other — a grill session accepts a directory whose seed was
+ * never explained, and a hand-written RFC.md can precede any session at all.
+ */
+export function holdsRfc({ root, packagePath }) {
+  return holds(join(root, packagePath), RFC_FILE_NAME);
 }
 
 /** The one ancestor directory holding both manifests. */

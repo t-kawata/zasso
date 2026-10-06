@@ -21,6 +21,37 @@ export const PREDECIDED_ITEM_HEADING = '### 先に決めた';
 export const REFERENCE_SEPARATOR = ' — ';
 
 /**
+ * Whether one line opens an item under this heading.
+ *
+ * The frame writes an item heading and the gate reads a neighbour's explanation back,
+ * so the rule that recognises one lives here, beside the headings it recognises, and
+ * both sides call it. Stating it twice is what let them drift: the frame appends the
+ * ordinal and the record to every heading it writes, while the reader compared the
+ * whole line for equality, so no item the frame ever wrote was seen.
+ *
+ * Leading whitespace is trimmed, the same way `isPlaceholderLine` treats it, so an
+ * indented heading is the same item to every caller.
+ *
+ * The heading's token ends where the line ends or where whitespace follows. Without
+ * that boundary a longer heading that merely begins with the same characters —
+ * `### 先に決めたことの補足` — would open an item, and an item whose 決定 is empty but
+ * whose 根拠 is not would offer that ground to the settlement universe as though a
+ * record had decided it. The boundary is the token's own, not its ordinals or its
+ * separator, so it holds for a spelling this frame has not written yet.
+ *
+ * @param {string} line
+ * @param {string} heading
+ * @returns {boolean}
+ */
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+export function isItemHeading(line, heading) {
+  const trimmed = String(line).trimStart();
+  if (!trimmed.startsWith(heading)) return false;
+  const afterToken = trimmed.slice(heading.length);
+  return afterToken === '' || /^\s/.test(afterToken);
+}
+
+/**
  * The record an item's heading is about, or nothing when the heading names none.
  *
  * @param {string} heading
@@ -46,8 +77,13 @@ const QUESTION_HEADING = /^### 判断 Q(\d+)\s*$/u;
  * @returns {number|null}
  */
 // [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
 export function questionNumberOf(heading) {
-  const matched = String(heading).match(QUESTION_HEADING);
+  // Leading whitespace is trimmed here for the same reason `isItemHeading` trims it:
+  // both read the heading of an item the same reader produced, so a normalisation that
+  // held for one and not the other would allow an indented question to be recognised as
+  // an item and then be reported as naming no question.
+  const matched = String(heading).trimStart().match(QUESTION_HEADING);
   return matched === null ? null : Number(matched[1]);
 }
 
@@ -64,7 +100,7 @@ export function splitItems(sectionBodyText, heading) {
   const items = [];
   let current = null;
   for (const line of String(sectionBodyText).split('\n')) {
-    if (line.startsWith(heading)) {
+    if (isItemHeading(line, heading)) {
       if (current !== null) items.push(current);
       current = { heading: line, lines: [] };
       continue;

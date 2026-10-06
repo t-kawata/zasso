@@ -14,6 +14,7 @@ import { basename, join } from 'node:path';
 
 import {
   EXPLAIN_FILE_NAME,
+  RFC_FILE_NAME,
   materializeChainWorkspace,
   materializeOrderWorkspace,
   materializeWideProviderWorkspace,
@@ -266,11 +267,11 @@ function explainedPlanLines(workspace) {
     `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
     '',
     'level  0    alone     1 dir',
-    '  * crates/protocol/package-1 ✅ EXPLAINED',
+    '  * crates/protocol/package-1 🔴 EXPLAINED',
     '',
     'level  1    parallel  2 dirs',
     '  * crates/protocol/package-2',
-    '    crates/protocol/package-3 ✅ EXPLAINED',
+    '    crates/protocol/package-3 🔴 EXPLAINED',
     '',
     'parallel width   level   0  1',
     '                 dirs    1  2',
@@ -302,7 +303,7 @@ test('C001 invariant: the label is appended and never padded, so no line carries
   // Asserted before the whitespace rule so the case is red while the label is absent: a
   // whitespace check alone holds in a plan that carries no label at all, and would pass
   // whatever the renderer did with the mark.
-  assert.ok(text.includes('  * crates/protocol/package-1 ✅ EXPLAINED'));
+  assert.ok(text.includes('  * crates/protocol/package-1 🔴 EXPLAINED'));
   for (const line of text.split('\n')) {
     assert.equal(line, line.trimEnd(), `trailing whitespace: ${JSON.stringify(line)}`);
   }
@@ -400,7 +401,7 @@ test('C002 boundary: a package whose directory is absent stays unexplained inste
   const model = twoLevelModel(workspace);
 
   assert.deepEqual([...model.explainedIds], ['pkg-0001']);
-  assert.equal(renderPlan(model).includes('package-3 ✅ EXPLAINED'), false);
+  assert.equal(renderPlan(model).includes('package-3 🔴 EXPLAINED'), false);
 });
 
 test('C001 boundary: a workspace that explains everything marks every line, and one that explains nothing marks none', (t) => {
@@ -413,9 +414,9 @@ test('C001 boundary: a workspace that explains everything marks every line, and 
   t.after(() => all.remove());
   const allText = renderPlan(twoLevelModel(all));
 
-  assert.equal(allText.match(/✅ EXPLAINED/g).length, 2);
-  assert.ok(allText.includes('  * crates/protocol/package-1 ✅ EXPLAINED'));
-  assert.ok(allText.includes('  * crates/protocol/package-2 ✅ EXPLAINED'));
+  assert.equal(allText.match(/🔴 EXPLAINED/g).length, 2);
+  assert.ok(allText.includes('  * crates/protocol/package-1 🔴 EXPLAINED'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 🔴 EXPLAINED'));
   assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /EXPLAINED/);
 });
 
@@ -426,7 +427,7 @@ test('C001 invariant: the focused block is unchanged by the explained state', (t
 
   // The plan of the very fixture whose block is compared carries the mark, so this case is
   // red while the label is absent and green only once the mark exists and is confined to it.
-  assert.equal(renderPlan(twoLevelModel(explained)).match(/✅ EXPLAINED/g).length, 2);
+  assert.equal(renderPlan(twoLevelModel(explained)).match(/🔴 EXPLAINED/g).length, 2);
   // The mark belongs to the level listing. The focused block answers a different question,
   // and this pins that boundary so a later change cannot widen the printed surface by accident.
   assert.equal(focus(explained), focus(plain));
@@ -442,4 +443,164 @@ test('C004 boundary: the heading is a blank line followed by the hash-marked H1'
   // The stale expectation this file carried started at the name, with neither the blank line
   // nor the marker, so the two expectations cannot be confused for one another.
   assert.notEqual(lines[1], `${name} implementation order — 3 dirs / 2 levels / 2 dependencies`);
+});
+
+// The grilled mark.
+//
+// It answers one question: does RFC.md exist in this package directory. The mark is
+// independent of the explained one — a grill session accepts a directory that was never
+// explained, so a package may carry either mark, both or neither — and the glyph is spelled
+// as a literal in the assertions below for the same reason as the explained mark above.
+
+/** The two-level fixture marked on both axes: pkg-0001 both, pkg-0002 grilled only, pkg-0003 explained only. */
+function grilledFixture(t) {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [
+      ['pkg-0002', 'pkg-0001'],
+      ['pkg-0003', 'pkg-0001'],
+    ],
+    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    explained: ['pkg-0001', 'pkg-0003'],
+    grilled: ['pkg-0001', 'pkg-0002'],
+  });
+  t.after(() => workspace.remove());
+  return workspace;
+}
+
+test('C002 precondition: grilledIds names exactly the packages whose directory holds RFC.md', (t) => {
+  const workspace = grilledFixture(t);
+  const model = twoLevelModel(workspace);
+
+  assert.ok(model.grilledIds instanceof Set);
+  assert.deepEqual([...model.grilledIds].sort(), ['pkg-0001', 'pkg-0002']);
+  assert.ok([...model.grilledIds].every((id) => model.pathOf.has(id)));
+});
+
+test('C002 postcondition: each mark follows its own document, so one line may carry both and another only one', (t) => {
+  const workspace = grilledFixture(t);
+
+  // Written out in full rather than rebuilt from the model: the three lines together pin the
+  // independence of the marks (grilled only, explained only, both) and their order.
+  assert.equal(
+    renderPlan(twoLevelModel(workspace)),
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1 🔴 EXPLAINED 🟡 GRILLED',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2 🟡 GRILLED',
+      '    crates/protocol/package-3 🔴 EXPLAINED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('C002 invariant: neither document stands in for the other, so a mark never appears without its own file', (t) => {
+  const grilledOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], grilled: ['pkg-0001'] });
+  t.after(() => grilledOnly.remove());
+  const explainedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], explained: ['pkg-0001'] });
+  t.after(() => explainedOnly.remove());
+
+  assert.equal(existsSync(grilledOnly.rfcPathOf('pkg-0001')), true);
+  assert.equal(existsSync(grilledOnly.explainPathOf('pkg-0001')), false);
+  const grilledModel = twoLevelModel(grilledOnly);
+  assert.deepEqual(grilledModel.grilledIds, new Set(['pkg-0001']));
+  assert.deepEqual(grilledModel.explainedIds, new Set());
+  assert.ok(renderPlan(grilledModel).includes('package-1 🟡 GRILLED'));
+  assert.equal(renderPlan(grilledModel).includes('EXPLAINED'), false);
+
+  const explainedModel = twoLevelModel(explainedOnly);
+  assert.deepEqual(explainedModel.explainedIds, new Set(['pkg-0001']));
+  assert.deepEqual(explainedModel.grilledIds, new Set());
+  assert.ok(renderPlan(explainedModel).includes('package-1 🔴 EXPLAINED'));
+  assert.equal(renderPlan(explainedModel).includes('GRILLED'), false);
+});
+
+test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed document marks nothing', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+  });
+  t.after(() => workspace.remove());
+  const directory = join(workspace.root, workspace.pathOf.get('pkg-0001'));
+  writeFileSync(join(directory, `${RFC_FILE_NAME}.bak`), '');
+  writeFileSync(join(directory, 'GRILL.md'), '');
+
+  assert.equal(existsSync(join(directory, RFC_FILE_NAME)), false);
+  assert.deepEqual(twoLevelModel(workspace).grilledIds, new Set());
+});
+
+test('C002 boundary: the document is found in the package directory and in no directory around it', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    grilled: ['pkg-0002'],
+  });
+  t.after(() => workspace.remove());
+  const parent = join(workspace.root, 'crates', 'protocol');
+  // The workspace root and the layer directory both carry a document that belongs to
+  // neither of them, so a probe that walked upward would mark the wrong package.
+  writeFileSync(join(workspace.root, RFC_FILE_NAME), '');
+  writeFileSync(join(parent, RFC_FILE_NAME), '');
+  assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0002'), RFC_FILE_NAME)), true);
+
+  assert.deepEqual(twoLevelModel(workspace).grilledIds, new Set(['pkg-0002']));
+});
+
+test('C002 boundary: a package whose directory is absent stays ungrilled instead of failing the plan', (t) => {
+  const workspace = grilledFixture(t);
+  rmSync(join(workspace.root, workspace.pathOf.get('pkg-0002')), { recursive: true, force: true });
+  const model = twoLevelModel(workspace);
+
+  assert.deepEqual([...model.grilledIds], ['pkg-0001']);
+  assert.equal(renderPlan(model).includes('package-2 🟡 GRILLED'), false);
+});
+
+test('C001 boundary: a workspace that grills everything marks every line, and one that grills nothing marks none', (t) => {
+  const all = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    grilled: ['pkg-0001', 'pkg-0002'],
+  });
+  t.after(() => all.remove());
+  const allText = renderPlan(twoLevelModel(all));
+
+  assert.equal(allText.match(/🟡 GRILLED/g).length, 2);
+  assert.ok(allText.includes('  * crates/protocol/package-1 🟡 GRILLED'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 🟡 GRILLED'));
+  assert.doesNotMatch(allText, /EXPLAINED/);
+  assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /GRILLED/);
+});
+
+test('C001 invariant: the focused block is unchanged by the grilled state', (t) => {
+  const grilled = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [
+      ['pkg-0002', 'pkg-0001'],
+      ['pkg-0003', 'pkg-0001'],
+    ],
+    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    grilled: ['pkg-0003'],
+  });
+  t.after(() => grilled.remove());
+  const plain = fixture(t);
+  const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
+
+  // The plan of the very fixture whose block is compared carries the mark, so this case is
+  // red while the label is absent and green only once the mark exists and is confined to it.
+  assert.ok(renderPlan(twoLevelModel(grilled)).includes('    crates/protocol/package-3 🟡 GRILLED\n'));
+  assert.equal(focus(grilled), focus(plain));
+  assert.doesNotMatch(focus(grilled), /GRILLED/);
 });

@@ -32,7 +32,7 @@ import path from "path";
 import { validateAll } from "./check-all-schema.js";
 import { toHomeRelative } from "../lib/path-utils.js";
 import { partitionPoints } from "../question-gate/ledger.mjs";
-import { priorDecisions } from "../question-gate/prior-decisions.mjs";
+import { priorScan } from "../question-gate/prior-decisions.mjs";
 import { MAX_AXES_PER_ROUND } from "../question-gate/bundle.mjs";
 import { nextNumbers } from "../question-gate/rounds.mjs";
 import { isAnsweredByLetter, readAnswers, refineLetterlessAnswer } from "../question-gate/answers.mjs";
@@ -220,23 +220,26 @@ function renderPrior(entries) {
   return `${lines.join("\n")}\n`;
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-237) --for-spec --no-implementation-order`.
 function runPrior(recordDirectories) {
   // The records live in the package directory, which for a drill session is one level
   // up from the session directory the tree lives in. The caller names the directories
   // to read, so neither tool has to guess where its own records are.
   const directories = recordDirectories.length > 0 ? recordDirectories : [sessionDir];
   const entries = [];
+  const artifactsRead = [];
   for (const directory of directories) {
-    entries.push(
-      ...priorDecisions({ directory, readFile: readIfReadable, listDirectory: listIfReadable }),
-    );
+    const scanned = priorScan({ directory, readFile: readIfReadable, listDirectory: listIfReadable });
+    entries.push(...scanned.entries);
+    artifactsRead.push(...scanned.artifactsRead);
   }
 
+  // What was read, not what contributed: an artifact that is readable and decides
+  // nothing is still a thing this run read, and a settle trace may name it.
   tree.priorScan = {
     scannedAt: new Date().toISOString(),
     directories: [...directories],
-    artifacts: [...new Set(entries.map((entry) => entry.artifact))],
+    artifacts: [...new Set(artifactsRead)],
     decisions: entries.filter((entry) => entry.kind === "decision"),
     grounds: entries.filter((entry) => entry.kind === "ground"),
     unreadable: [...unreadableDocuments],

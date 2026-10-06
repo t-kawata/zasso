@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { basename, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EXPLAIN_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
+import { EXPLAIN_FILE_NAME, RFC_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-order/run.mjs', import.meta.url));
 
@@ -165,11 +165,16 @@ test('IT: tests/check-conventions.mjs names this directory with the module syste
   assert.match(result.stdout, /\*\*workspacify-order\*\* — esm \(decided by extension\), \d+ file\(s\), conforms/);
 });
 
-// PX-228 — the explained mark, exercised through the process.
+// PX-228 — the marks, exercised through the process.
 
-/** The three-package fixture, with the explanation document in the named directories. */
+/**
+ * The three-package fixture, with each document in the directories its list names.
+ *
+ * The two lists are independent, so a caller may mark a directory as explained, as grilled,
+ * as both or as neither, and the expected stdout of each shape is written out in full.
+ */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-function explainedWorkspace(t, explained) {
+function markedWorkspace(t, { explained = [], grilled = [] } = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
     edges: [
@@ -178,6 +183,7 @@ function explainedWorkspace(t, explained) {
     ],
     levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
     explained,
+    grilled,
   });
   t.after(() => workspace.remove());
   return workspace;
@@ -200,7 +206,7 @@ function digestTree(root) {
 }
 
 test('IT: an explained workspace prints the label after the path and exits 0', (t) => {
-  const workspace = explainedWorkspace(t, ['pkg-0001', 'pkg-0003']);
+  const workspace = markedWorkspace(t, { explained: ['pkg-0001', 'pkg-0003'] });
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -213,11 +219,11 @@ test('IT: an explained workspace prints the label after the path and exits 0', (
       `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
-      '  * crates/protocol/package-1 ✅ EXPLAINED',
+      '  * crates/protocol/package-1 🔴 EXPLAINED',
       '',
       'level  1    parallel  2 dirs',
       '  * crates/protocol/package-2',
-      '    crates/protocol/package-3 ✅ EXPLAINED',
+      '    crates/protocol/package-3 🔴 EXPLAINED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -229,7 +235,7 @@ test('IT: an explained workspace prints the label after the path and exits 0', (
 });
 
 test('IT: an unexplained workspace prints byte for byte the plan it printed before this ticket', (t) => {
-  const workspace = explainedWorkspace(t, []);
+  const workspace = markedWorkspace(t);
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -239,7 +245,7 @@ test('IT: an unexplained workspace prints byte for byte the plan it printed befo
 });
 
 test('IT: the mark follows the directory and not the manifest, so writing the document alone changes the plan', (t) => {
-  const workspace = explainedWorkspace(t, []);
+  const workspace = markedWorkspace(t);
   const readManifests = () => [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];
   const manifestsBefore = readManifests();
 
@@ -248,31 +254,107 @@ test('IT: the mark follows the directory and not the manifest, so writing the do
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 ✅ EXPLAINED\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🔴 EXPLAINED\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
 test('IT: a seed run prints the mark in the plan and no mark in the focused block', (t) => {
-  const workspace = explainedWorkspace(t, ['pkg-0003']);
+  const workspace = markedWorkspace(t, { explained: ['pkg-0003'] });
 
   const result = runOrder([workspace.seedPathOf('pkg-0003')], { cwd: workspace.root });
 
   assert.equal(result.status, 0);
   // The rule of dashes opens the focused block, so everything before it is the plan.
   const [plan, block] = result.stdout.split('─'.repeat(66));
-  assert.ok(plan.includes('    crates/protocol/package-3 ✅ EXPLAINED\n'));
+  assert.ok(plan.includes('    crates/protocol/package-3 🔴 EXPLAINED\n'));
   assert.ok(plan.includes('\n  * crates/protocol/package-2\n'));
   assert.match(block, /▶ crates\/protocol\/package-3 +level 1 · 3rd\n/);
   assert.doesNotMatch(block, /EXPLAINED/);
 });
 
-test('IT: the command writes nothing, so an unexplained workspace stays unexplained', (t) => {
-  const workspace = explainedWorkspace(t, []);
+test('IT: the command writes nothing, so an unmarked workspace stays unmarked', (t) => {
+  const workspace = markedWorkspace(t);
   const before = digestTree(workspace.root);
 
   const result = runOrder([], { cwd: workspace.root });
 
   assert.equal(result.status, 0);
   assert.equal(digestTree(workspace.root), before);
-  assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0001'), EXPLAIN_FILE_NAME)), false);
+  for (const fileName of [EXPLAIN_FILE_NAME, RFC_FILE_NAME]) {
+    assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0001'), fileName)), false);
+  }
+});
+
+test('IT: a grilled workspace prints the grill mark after the path and exits 0', (t) => {
+  const workspace = markedWorkspace(t, { grilled: ['pkg-0002', 'pkg-0003'] });
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.stderr, '');
+  assert.equal(result.status, 0);
+  assert.equal(
+    result.stdout,
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2 🟡 GRILLED',
+      '    crates/protocol/package-3 🟡 GRILLED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('IT: a directory holding both documents prints both marks, explained first', (t) => {
+  const workspace = markedWorkspace(t, {
+    explained: ['pkg-0001', 'pkg-0003'],
+    grilled: ['pkg-0001', 'pkg-0002'],
+  });
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.status, 0);
+  assert.equal(
+    result.stdout,
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1 🔴 EXPLAINED 🟡 GRILLED',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2 🟡 GRILLED',
+      '    crates/protocol/package-3 🔴 EXPLAINED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('IT: the grill mark follows the directory and not the manifest, so writing RFC.md alone changes the plan', (t) => {
+  const workspace = markedWorkspace(t);
+  const readManifests = () => [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];
+  const manifestsBefore = readManifests();
+
+  const before = runOrder([], { cwd: workspace.root });
+  writeFileSync(join(workspace.root, workspace.pathOf.get('pkg-0003'), RFC_FILE_NAME), '');
+  const after = runOrder([], { cwd: workspace.root });
+
+  assert.notEqual(after.stdout, before.stdout);
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟡 GRILLED\n'));
+  assert.deepEqual(readManifests(), manifestsBefore);
 });

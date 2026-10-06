@@ -11,7 +11,7 @@
  */
 import { basename, dirname, resolve, sep } from 'node:path';
 
-import { holdsExplanation, SEED_FILE_NAME } from './workspace.mjs';
+import { holdsExplanation, holdsRfc, SEED_FILE_NAME } from './workspace.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
 
 /** Provider-first levels: the rule computeImplementationOrder in stage one applies. */
@@ -227,17 +227,22 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   for (const list of providersOf.values()) list.sort();
   for (const list of consumersOf.values()) list.sort();
 
-  // Probed once per package, and only after the manifest is proven complete, so a package
-  // with no path fails with the message that names the field rather than reaching the
-  // filesystem with an undefined segment.
+  // Both marks are probed once per package, and only after the manifest is proven complete,
+  // so a package with no path fails with the message that names the field rather than
+  // reaching the filesystem with an undefined segment. Neither probe reads the document it
+  // finds, and neither implies the other, so the two sets are built independently.
   const explainedIds = new Set(
     packages.filter((pkg) => holdsExplanation({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
+  );
+  const grilledIds = new Set(
+    packages.filter((pkg) => holdsRfc({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
 
   return {
     workspaceName: basename(resolve(root)),
     packages,
     explainedIds,
+    grilledIds,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),

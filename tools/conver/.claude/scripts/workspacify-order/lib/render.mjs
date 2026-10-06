@@ -16,7 +16,9 @@ export const PARALLEL_LABEL = 'parallel';
 export const FOCUS_MARKER = '▶';
 export const CRITICAL_MARKER = '*';
 /** Written after a path whose package directory already carries its explanation document. */
-export const EXPLAINED_LABEL = '✅ EXPLAINED';
+export const EXPLAINED_LABEL = '🔴 EXPLAINED';
+/** Written after the explanation mark, when the directory also carries its grilled design. */
+export const GRILLED_LABEL = '🟡 GRILLED';
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
@@ -67,14 +69,28 @@ function renderLevelHeader(index, memberCount) {
   return `${LEVEL_LABEL} ${number}    ${word}${count}`;
 }
 
+/**
+ * The marks a package carries, in the order the pipeline reaches them.
+ *
+ * The seed is explained before it is grilled, so a directory that reached both reads left to
+ * right as the work happened. Each mark is written from its own document alone: RFC.md can
+ * sit in a directory that was never explained, so a package may carry one, both or neither,
+ * and printing only the furthest would drop a fact the directory holds.
+ */
+function renderMarks(model, id) {
+  const marks = [];
+  if (model.explainedIds.has(id)) marks.push(EXPLAINED_LABEL);
+  if (model.grilledIds.has(id)) marks.push(GRILLED_LABEL);
+  return marks.map((mark) => ` ${mark}`).join('');
+}
+
 // [::TICKET::] PX-223, PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228) --for-spec --no-implementation-order`.
 function renderPackageLine(model, id) {
   const marker = model.criticalChain.includes(id) ? CRITICAL_MARKER : ' ';
-  // The path is never padded: a line whose package is not explained ends there, so padding
-  // would only leave trailing blanks. The label is appended rather than aligned to a column,
+  // The path is never padded: a line whose package carries no mark ends there, so padding
+  // would only leave trailing blanks. A mark is appended rather than aligned to a column,
   // because it qualifies the path it follows instead of opening a second field.
-  const explanation = model.explainedIds.has(id) ? ` ${EXPLAINED_LABEL}` : '';
-  return `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}${explanation}`;
+  return `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}${renderMarks(model, id)}`;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
