@@ -45,6 +45,26 @@ const ARTIFACT_LABELS = {
 };
 
 /**
+ * The command that produces each artifact the drill requires.
+ *
+ * The drill is the evolution door for a canon that already carries these artifacts:
+ * its delta is computed against them, so it needs them to exist before it can say
+ * what changed. A package holding only an RFC is not broken — it has not run the
+ * upstream loop yet — and telling its author to re-run the drill sends them in a
+ * circle. Naming the producer turns the abort into the next action.
+ */
+const ARTIFACT_PRODUCERS = {
+  rfc: '/grill-me-for-rfc',
+  graph: '/graphify-rfc',
+  dirsTree: '/boundify-graph',
+  readme: '/crystalize-readme',
+};
+
+/** The upstream loop, in the order that produces what a drill run needs. */
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+const UPSTREAM_LOOP = '/explain-seed → /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets';
+
+/**
  * Parse command line arguments.
  *
  * The /drill-rfc-down Step 0 command may arrive either as pre-split argv
@@ -361,19 +381,29 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
 /**
  * Format the abort message listing the missing artifacts.
  *
+ * Each missing artifact names the command that produces it, and the message says
+ * which loop the package has not finished, so a caller who holds only an RFC learns
+ * where to go instead of re-running the command that just refused them.
+ *
  * @param {Object} missing — Labeled paths that do not exist
- * @returns {string} Error message with abort instruction
+ * @returns {string} Error message with the next action
  */
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function formatAbortMessage(missing) {
-  const lines = Object.entries(missing)
-    .map(([key, filePath]) => `- ${ARTIFACT_LABELS[key] || key}: ${filePath}`);
+  const lines = Object.entries(missing).map(([key, filePath]) => {
+    const label = ARTIFACT_LABELS[key] || key;
+    const producer = ARTIFACT_PRODUCERS[key];
+    return producer ? `- ${label}: ${filePath} (produced by ${producer})` : `- ${label}: ${filePath}`;
+  });
   return [
     '[ERROR] /drill-rfc-down Preflight failed.',
     '',
     'Missing files:',
     ...lines,
     '',
-    'Abort: fix the missing files and re-run `/drill-rfc-down`.',
+    '/drill-rfc-down evolves a canon that already carries its graph, directory tree and tickets.',
+    `This package has not completed the upstream loop (${UPSTREAM_LOOP}) —`,
+    'run that loop to produce the missing artifacts, then re-run `/drill-rfc-down`.',
   ].join('\n');
 }
 

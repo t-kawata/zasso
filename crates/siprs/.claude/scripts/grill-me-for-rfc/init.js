@@ -51,14 +51,73 @@ if (statusExists) {
   mode = "overwrite_confirm";
 }
 
+/**
+ * The material the session already holds.
+ *
+ * materialPaths is the field current runs write. researchPath is the single path a
+ * Status.json written before that field existed carries, and is read only when the
+ * list is absent, so an older session still reports its material instead of failing.
+ *
+ * @param {object} status — the parsed Status.json
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+function materialPathsOf(status) {
+  if (Array.isArray(status.materialPaths)) return status.materialPaths;
+  return status.researchPath ? [status.researchPath] : [];
+}
+
+/**
+ * Join the material a resume was given to the material the session already holds.
+ *
+ * A resumed run is the same run continuing, so what it is handed is added to the
+ * session rather than replacing it. Order is part of the contract: list-files.js
+ * walks the recorded list in the order given, so this appends and never sorts. A
+ * path already recorded — or named twice in one invocation — contributes once,
+ * which keeps the list a set of materials rather than a log of invocations.
+ *
+ * @param {string[]} recorded — the material paths the session already holds
+ * @param {string[]} given — the material paths this invocation was handed
+ * @returns {{ merged: string[], added: string[] }}
+ */
+// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+function mergeMaterialPaths(recorded, given) {
+  const merged = [...recorded];
+  const added = [];
+  for (const materialPath of given) {
+    if (merged.includes(materialPath)) continue;
+    merged.push(materialPath);
+    added.push(materialPath);
+  }
+  return { merged, added };
+}
+
 if (mode === "resume") {
-  const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+  // Validate what is on disk before touching it: a session that is already
+  // malformed is reported and left exactly as it was found, which is the guarantee
+  // the resume path had before it started writing at all.
   const schemaErrors = validateAll(rfcDir);
   if (schemaErrors.length > 0) {
     console.error(JSON.stringify({ ok: false, phase: "schema-validation", errors: schemaErrors }, null, 2));
     process.exit(1);
   }
-  process.stdout.write(JSON.stringify({ mode: "resume", status }) + "\n");
+
+  const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+  const { merged, added } = mergeMaterialPaths(materialPathsOf(status), materialPaths);
+
+  // The session was resumed, so its timestamp moves either way; the material list
+  // and the moment it last grew move only when this invocation contributed
+  // something, which is what lets a completed session tell "a viewpoint arrived
+  // afterwards" apart from "this run finished and nothing has happened since".
+  status.updatedAt = new Date().toISOString();
+  if (added.length > 0) {
+    status.materialPaths = merged;
+    status.researchPath = merged[0] ?? "";
+    status.materialsAddedAt = status.updatedAt;
+  }
+  fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf-8");
+
+  process.stdout.write(JSON.stringify({ mode: "resume", status, addedMaterials: added }) + "\n");
   process.exit(0);
 }
 

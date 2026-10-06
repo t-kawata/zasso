@@ -27,8 +27,26 @@ export const GRILL_SETTLE_RUN = join(GRILL_DIR, 'settle-run.js');
 export const GRILL_UPDATE_TREE = join(GRILL_DIR, 'update-tree.js');
 export const GRILL_INIT = join(GRILL_DIR, 'init.js');
 export const GRILL_LIST_FILES = join(GRILL_DIR, 'list-files.js');
+export const GRILL_SESSION_STATUS = join(GRILL_DIR, 'session-status.js');
+export const GRILL_UPDATE_STATUS = join(GRILL_DIR, 'update-status.js');
+export const GRILL_BACKUP_RFC = join(GRILL_DIR, 'backup-rfc.js');
+export const GRILL_CANON_STATE = join(GRILL_DIR, 'canon-state.js');
+
+/**
+ * The defect gates the grill runs over a workspace rather than over one session:
+ * one decides which paths may be written, three read the RFC's appendices, and one
+ * opens a cited section so a defect can be confirmed before it is carried.
+ */
+// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+export const GRILL_GUARD_EDIT_SURFACE = join(GRILL_DIR, 'guard-edit-surface.js');
+export const GRILL_DEFECT_REPORT = join(GRILL_DIR, 'defect-report.js');
+export const GRILL_CHECK_DIVERGENCE_LEDGER = join(GRILL_DIR, 'check-divergence-ledger.js');
+export const GRILL_SCAN_DEFECTS = join(GRILL_DIR, 'scan-defects.js');
+export const GRILL_SHOW_RECORD = join(GRILL_DIR, 'show-record.js');
+
 export const DRILL_SETTLE_RUN = join(DRILL_DIR, 'settle-run.js');
 export const DRILL_UPDATE_TREE = join(DRILL_DIR, 'update-tree.js');
+export const DRILL_PREFLIGHT = join(DRILL_DIR, 'preflight.cjs');
 
 const RESEARCH_FILENAME = 'research.md';
 const MATERIAL_FILENAME = 'material.md';
@@ -107,9 +125,9 @@ function makeRoot(prefix) {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
-function runNode(script, args) {
-  return execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+// [::TICKET::] PX-234, PX-235, PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235|PX-238) --for-spec --no-implementation-order`.
+function runNode(script, args, options = {}) {
+  return execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...options });
 }
 
 /**
@@ -281,13 +299,18 @@ export function runDrillPreflight({ ticketsPath, materialPath }) {
  * are about the exit code and the sentence it printed, and a thrown
  * ExecFileSyncError would hide the stdout the gate wrote.
  *
+ * `options` is passed through to execFileSync, so a caller whose script resolves a
+ * path against the working directory — preflight's README.md is one — can name the
+ * directory the run starts in rather than inheriting the test runner's.
+ *
  * @param {string} script
  * @param {string[]} args
+ * @param {import('node:child_process').ExecFileSyncOptions} [options]
  * @returns {{ status: number, stdout: string, stderr: string }}
  */
-export function runCommand(script, args) {
+export function runCommand(script, args, options = {}) {
   try {
-    const stdout = runNode(script, args);
+    const stdout = runNode(script, args, options);
     return { status: 0, stdout, stderr: '' };
   } catch (error) {
     return { status: error.status ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' };

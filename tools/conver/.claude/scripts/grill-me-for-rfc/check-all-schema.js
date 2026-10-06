@@ -94,7 +94,41 @@ export function validateStatus(rfcDir) {
     errors.push("Status.json.updatedAt: must be a valid ISO 8601 date");
   }
 
+  validateOptionalDates(status, errors);
+
   return errors;
+}
+
+/**
+ * The timestamps a session may carry or omit.
+ *
+ * Named rather than written inline at the check, because the same two fields are
+ * written by update-status.js (completedAt, on completion) and init.js
+ * (materialsAddedAt, when a resume adds material), and read as a pair by the
+ * re-entry signal in session-status.js.
+ */
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+const OPTIONAL_DATE_FIELDS = ["completedAt", "materialsAddedAt"];
+
+/**
+ * Validate the timestamps a session may or may not carry.
+ *
+ * completedAt and materialsAddedAt are optional: a Status.json written before they
+ * existed is valid, and a session that has never completed or never had material
+ * added after a completion carries neither. When present they are dates, because
+ * the re-entry signal is a comparison between the two rather than the presence of
+ * either.
+ *
+ * @param {object} status — the parsed Status.json
+ * @param {string[]} errors — accumulator the caller reports
+ */
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+function validateOptionalDates(status, errors) {
+  for (const optionalDate of OPTIONAL_DATE_FIELDS) {
+    if (status[optionalDate] !== undefined && isNaN(Date.parse(status[optionalDate]))) {
+      errors.push(`Status.json.${optionalDate}: must be a valid ISO 8601 date`);
+    }
+  }
 }
 
 // ─── DesignTree.json schema validation ───

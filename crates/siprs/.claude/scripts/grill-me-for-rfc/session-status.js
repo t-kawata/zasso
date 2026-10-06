@@ -63,7 +63,30 @@ function countOpen(ns) {
 
 // ─── Derive step ───
 
-function deriveStep(state, nodes, openCount, loopCount) {
+/**
+ * Whether material was recorded after the run last completed.
+ *
+ * Both moments are written by scripts rather than inferred: update-status.js
+ * writes completedAt on the completion transition, and init.js writes
+ * materialsAddedAt only when a resume actually contributed a path. Comparing them
+ * is what tells "a viewpoint arrived after this run finished" — which the command's
+ * re-entry rule says re-opens it — apart from a session that has merely been written
+ * to since. A record carrying neither field (one written before they existed) has
+ * nothing to re-open, so it answers false rather than guessing.
+ *
+ * @param {object} status — the parsed Status.json
+ * @returns {boolean}
+ */
+// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+function materialArrivedAfterCompletion(status) {
+  const completedAt = Date.parse(status.completedAt ?? "");
+  const materialsAddedAt = Date.parse(status.materialsAddedAt ?? "");
+  if (Number.isNaN(completedAt) || Number.isNaN(materialsAddedAt)) return false;
+  return materialsAddedAt > completedAt;
+}
+
+// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+function deriveStep(state, nodes, openCount, loopCount, reentry) {
   switch (state) {
     case "GRILLING":
       if (nodes.length === 0) {
@@ -125,6 +148,14 @@ function deriveStep(state, nodes, openCount, loopCount) {
         action: "Verify all conditions, transition to DONE to declare completion",
       };
     case "DONE":
+      if (reentry) {
+        return {
+          step: "✅ STEP 8 → STEP 2",
+          label: "Complete — material arrived afterwards",
+          action:
+            "Re-entry: run settle-run.js prior, then STEP 2 to STEP 8 over the material added since this run completed",
+        };
+      }
       return {
         step: "✅ STEP 8",
         label: "Complete",
@@ -144,6 +175,7 @@ const { step, label, action, warning } = deriveStep(
   nodes,
   openCount,
   reviewLoopCount,
+  materialArrivedAfterCompletion(status),
 );
 
 // ─── Display ───

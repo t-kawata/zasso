@@ -214,6 +214,16 @@ generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json`
 ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (the RFC may or may not exist yet — first written at STEP 5).
 ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete the old RFC, re-run `init.js`.
 
+Resume mode carrying material: arguments that add paths to the session are a re-entry round, not a fresh read. `init.js` records the added paths beside the ones already held — in the order given, each once — and reports them in `addedMaterials`; the material list is never replaced, and an argument already recorded changes nothing. `list-files.js` below walks the whole recorded list, so the new material reaches the reading step with no second command to run.
+
+Guard — before any question is drafted and before anything is written, confirm the canon still stands alone:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/canon-state.js "$RFC_DIR"
+```
+
+exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
+
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
 ```
@@ -359,6 +369,14 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 
 begin once the user approves the checklist.
 write the document to `$RFC_PATH` — `$RFC_DIR/RFC.md`, the one name this command gives the RFC.
+
+Take a copy of the document being replaced before writing it:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/backup-rfc.js "$RFC_PATH"
+```
+
+The grill writes the whole RFC from the settled tree. The tree holds the decisions; it does not hold the prose or the code examples that carry them, and nothing else in this command keeps a copy. The copy taken here is what makes an unfaithful rewrite diffable by the human or by the next run instead of silent. It is not a gate: the write still replaces the file, and the copy is a second file beside it.
 
 ## RFC Hard Constraints (MUST be followed without exception)
 

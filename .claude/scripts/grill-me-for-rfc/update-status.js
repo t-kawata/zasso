@@ -24,6 +24,16 @@ const VALID_STATES = [
   "DONE",
 ];
 
+/**
+ * The one state that means a run is finished.
+ *
+ * Named because it is the only transition that also records when it happened:
+ * `updatedAt` moves on every transition, so once anything else is written the
+ * record no longer says when the run completed — and that moment is what tells a
+ * later arrival of material apart from a session that has simply been touched.
+ */
+const COMPLETION_STATE = "DONE";
+
 const [,, rfcDir, operation, ...args] = process.argv;
 if (!rfcDir || !operation) {
   console.error("Usage: update-status.js <rfc-dir> <operation> [args...]");
@@ -48,6 +58,18 @@ function saveAndValidate() {
   }
 }
 
+/**
+ * Record that the run completed, at the moment it did.
+ *
+ * Only a completion calls this, and a re-entered run that completes again
+ * overwrites the value, which keeps "material arrived after this run finished"
+ * true of the latest completion rather than of the first one.
+ */
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+function recordCompletion() {
+  status.completedAt = new Date().toISOString();
+}
+
 switch (operation) {
   case "set-state": {
     const newState = args[0];
@@ -56,18 +78,21 @@ switch (operation) {
       process.exit(1);
     }
     status.state = newState;
+    if (newState === COMPLETION_STATE) {
+      recordCompletion();
+    }
     saveAndValidate();
-    console.log(JSON.stringify({ ok: true, state: newState }));
+    process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");
     break;
   }
   case "inc-loop": {
     status.reviewLoopCount = (status.reviewLoopCount || 0) + 1;
     saveAndValidate();
-    console.log(JSON.stringify({ ok: true, reviewLoopCount: status.reviewLoopCount }));
+    process.stdout.write(JSON.stringify({ ok: true, reviewLoopCount: status.reviewLoopCount }) + "\n");
     break;
   }
   case "show": {
-    console.log(JSON.stringify(status, null, 2));
+    process.stdout.write(JSON.stringify(status, null, 2) + "\n");
     break;
   }
   default:
