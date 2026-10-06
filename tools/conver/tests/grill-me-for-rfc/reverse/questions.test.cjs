@@ -119,13 +119,21 @@ function stageOneResidual(overrides = {}) {
 // C001 precondition — the seed carries a reverse index in section 1
 // ---------------------------------------------------------------------------
 
+/**
+ * The heading that must never gain a reverse index: the one after the required
+ * sections. A reverse index there would add a fifteenth heading and break the
+ * forward rotation, so the test asserts its absence by name rather than by literal.
+ */
+const FORBIDDEN_REVERSE_INDEX = SEED_REQUIRED_SECTIONS.length + 1;
+
+// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
 test('C001 precondition: the reverse index is read from section 1 of a real rendered seed', () => {
   const seedText = reverseSeed();
   const parsed = parseSeed(seedText);
 
   assert.equal(parsed.headings.length, SEED_REQUIRED_SECTIONS.length);
   assert.equal(parsed.headings.length, 14, 'the reverse index rides inside section 1; a fifteenth heading would break the forward rotation');
-  assert.equal(parsed.headings.some((heading) => heading.index === 15), false);
+  assert.equal(parsed.headings.some((heading) => heading.index === FORBIDDEN_REVERSE_INDEX), false);
   assert.deepEqual(reverseIndexOf(parsed), REVERSE_INDEX);
 
   const { questions } = generateReverseQuestions({ seedText, claims: [unresolvedClaim()] });

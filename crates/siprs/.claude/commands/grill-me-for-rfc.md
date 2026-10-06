@@ -20,6 +20,59 @@ Interactive grill session for writing an RFC design document under strict constr
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+## ★ Cross-directory resolution (first-class, top priority)
+
+A grill reads records. Some of what it reads is wrong, and a design that cannot be
+implemented is wrong whatever its records say. A run that only answers questions carries
+the wrongness forward — and a defect whose fix lives in another directory is invisible to
+a run that never looks outside its own.
+
+A **defect** is a place where the design cannot be implemented: a **contradiction**
+(two statements cannot both hold), a **conflict** (two declarations compete for one
+thing, or one side demands an outcome the other cannot produce), or a **deficiency**
+(a name is used but not defined, a contract is missing, a boundary is unstated). The
+test is one question: can an implementer read this design and write the implementation
+to the end, inventing nothing? A place where they must invent is a defect.
+
+- **resolve all of them**: every defect this run finds is resolved before the run declares
+  DONE. "Recorded and left open" is not a disposition this command admits.
+- **the inspection is the whole workspace**: this package is a part. Read the neighbours'
+  designs, not only their appendices, and check the composition — that the types this
+  document names are the types its neighbours pass, that its ordering claims are the ones
+  they assume, that every edge names a counterpart that exists. A part is implementable
+  only in composition.
+- **the target may be another directory**: a defect owned by another package is resolved by
+  correcting that package's artifacts. Reaching across directories is the expected case,
+  not an exception.
+- **the edit surface is what this command generates**: `RFC.md`, `DesignTree.json`,
+  `CheckList.md` and `Status.json` are editable **anywhere**. `RFC-SEED.md`,
+  `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md`, the `WORKSPACIFY-*.json` manifests and the
+  specification are **never** edited: their hashes are recorded and chained.
+  `guard-edit-surface.js` refuses them by name.
+- **a seed defect is resolved in the output, not in the input**: where a stage-1 artifact
+  asserts something a higher record contradicts, the resolution is the RFC naming the
+  contradiction, taking the correct reading, and indexing it in the ledger. That is a
+  resolution, not a deferral.
+- **verify before carrying**: a defect inherited from another package's appendix is a
+  *reading*, not a record. Open the cited section with `show-record.js` and confirm it
+  before it travels. A false defect propagates: one reached two RFCs and a checklist before
+  anyone read the source.
+- **follow the fix downstream**: after a cross-directory fix, every artifact that recorded
+  the defect as live is corrected — the target's, and the recording package's.
+- **an unread neighbour is not a clean neighbour**: "no defect found" is a result, and the
+  ledger records the checks that produced it. A run that did not look has not cleared
+  anything.
+
+Gates this section adds, carried outside the shared question-gate block:
+
+- **G6 defects** — every defect found in any package is resolved: `resolved-here`,
+  `resolved-other` (naming the directory and the date) or `withdrawn`. None is `open`. No
+  input artifact was edited. The seed divergence ledger and the defect ledger are both
+  present and well formed, and the defect ledger records the composition checks performed.
+
+Rule: G5 and G6 are both required for DONE; a run may not trade one for the other.
+Prohibition: never resolve a G6 failure by recording the defect and moving on.
+
 <!-- question-gate:begin -->
 ## Core Rule
 
@@ -214,6 +267,16 @@ generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json`
 ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (the RFC may or may not exist yet — first written at STEP 5).
 ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete the old RFC, re-run `init.js`.
 
+Resume mode carrying material: arguments that add paths to the session are a re-entry round, not a fresh read. `init.js` records the added paths beside the ones already held — in the order given, each once — and reports them in `addedMaterials`; the material list is never replaced, and an argument already recorded changes nothing. `list-files.js` below walks the whole recorded list, so the new material reaches the reading step with no second command to run.
+
+Guard — before any question is drafted and before anything is written, confirm the canon still stands alone:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/canon-state.js "$RFC_DIR"
+```
+
+exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
+
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
 ```
@@ -360,16 +423,59 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 begin once the user approves the checklist.
 write the document to `$RFC_PATH` — `$RFC_DIR/RFC.md`, the one name this command gives the RFC.
 
+Take a copy of the document being replaced before writing it:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/backup-rfc.js "$RFC_PATH"
+```
+
+The grill writes the whole RFC from the settled tree. The tree holds the decisions; it does not hold the prose or the code examples that carry them, and nothing else in this command keeps a copy. The copy taken here is what makes an unfaithful rewrite diffable by the human or by the next run instead of silent. It is not a gate: the write still replaces the file, and the copy is a second file beside it.
+
 ## RFC Hard Constraints (MUST be followed without exception)
 
 - zero occurrences of TBD, TODO, "handle in a later version", stub, or scope delegation — in any form
 - a single RFC document stands alone as a complete design fully covering the entire Design Tree
 - every design decision accompanied by a code example
 - IETF-style structure: Abstract / Motivation / Design / Implementation / Appendix
+- the document carries a **seed divergence ledger** appendix (STEP 5b)
+- the document carries a **defect ledger** appendix (STEP 7b)
+- every type, trait, constant and operation the document names is **defined in this document
+  or named with the record that defines it** — a name used and defined nowhere is a deficiency
+- every cross-package edge states its **counterpart**: the artifact on the other side and the
+  type or contract that crosses it
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state WRITING
 ```
+
+---
+
+### STEP 5b: Seed divergence ledger
+
+The RFC carries an appendix titled **Seed divergence ledger**. Its job is the precedence
+question a reader otherwise has to guess at: this document is canonical, and the three
+stage-1 artifacts beside it are inputs.
+
+It contains, in this order:
+
+1. a **precedence statement** — `RFC.md` is canonical; `RFC-SEED.md`, `INFO-RFC-SEED.md` and
+   `EXPLAIN-RFC-SEED.md` are the stage-1 inputs this run read, not authorities; where a
+   reader finds one of them disagreeing, this ledger is the index;
+2. the **reason the seed is not edited** — its header marks the reference paths, the
+   implementation order and the contract ids as machine-injected and states that "a
+   disagreement with the manifests is a gate failure", and `INFO-RFC-SEED.md` records the
+   seed's sha256, so a rewrite breaks both the gate and the chain;
+3. a **table**, one row per departure:
+   `Artifact | Location | What the artifact says | What this document decides | Ground`;
+4. a **testable form** — a `DIVERGENCES` const and a test asserting every row names one of
+   the three stage-1 artifacts and a resolvable location, so a departure cannot quietly
+   disappear.
+
+A package with **no** departure still carries the appendix, and it records the **checks**
+that establish that. "No departure" is a result, not an omission, and it must be auditable
+rather than trusted.
+
+gate: `node .claude/scripts/grill-me-for-rfc/check-divergence-ledger.js "$RFC_DIR"`
 
 ---
 
@@ -417,9 +523,54 @@ fi
 
 ---
 
+### STEP 7b: Cross-directory defect resolution
+
+Every defect this run found is resolved, including the ones no fix inside this directory
+can reach. A defect is a contradiction, a conflict or a deficiency — a place where the
+design cannot be implemented. The inspection covers the workspace: the neighbours'
+designs, not only their appendices.
+
+1. Name each defect's **class** and its **target**: the directory whose artifact is wrong.
+2. Guard the edit surface before touching it.
+   ```bash
+   node .claude/scripts/grill-me-for-rfc/guard-edit-surface.js "<TARGET_PATH>"
+   ```
+   exit 1 → the path is an input and MUST NOT be edited. Resolve the defect in the owning
+   RFC's output instead, and never in the seed.
+3. Correct the target's `RFC.md`, and settle a DesignTree node there so the fix passes that
+   package's own gate. Regenerate its `CheckList.md`, and return its `Status.json` to DONE.
+4. Correct every other artifact that recorded the defect as live — the recording package's
+   RFC and checklist included. A resolution that exists only in the target is a defect in
+   the record that still asserts it.
+5. Write the **defect ledger** appendix (format below) and return here to re-run STEP 6 →
+   STEP 8: the cross-directory fix invalidates every record that read the old text.
+
+**Defect ledger format.** The appendix title ends with `Cross-directory defect ledger`.
+One table, six columns, in this order:
+
+| Defect | Class | Target | Disposition | Evidence | Ground |
+|---|---|---|---|---|---|
+
+- `Class` — `contradiction`, `conflict` or `deficiency`. No other value.
+- `Target` — repository-relative path of the artifact that must change; it ends in `RFC.md`.
+- `Disposition` — `resolved-here`, `resolved-other` or `withdrawn`. `open` and `unresolved`
+  are not members of this vocabulary.
+- `Evidence` — `resolved-other`: `<target> @ YYYY-MM-DD`; `resolved-here`: `§<section>`;
+  `withdrawn`: the artifacts the withdrawal was recorded in.
+- `Ground` — the record that makes the disposition right. Never empty.
+
+A package with **no** defect still carries the appendix, and it carries a **composition
+check** subsection listing the neighbours whose designs were read and what was checked —
+types crossing each edge, ordering claims, contract counterparts. "No defect" is a result,
+not an omission.
+
+gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> --gate`
+
+---
+
 ### STEP 8: RFC Completion Declaration
 
-gate (all 3 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body.
+gate (all 5 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```
@@ -446,6 +597,10 @@ command handles it — the human is never asked to run anything again.
 3. A re-entry round follows the same rules as any round: it asks a new axis built from the
    added node and the still-open nodes only (W6), it never renumbers a question (W7), and it
    never overwrites an answer already written (W8). `loop-count > 3` is reported as STEP 7 says.
+4. A defect whose target is another package re-enters **that** package, not this one:
+   `guard-edit-surface.js` the target, correct its `RFC.md`, settle a node there, then
+   re-run that package's STEP 6 → STEP 8 before returning here. A cross-directory fix that
+   leaves the target's gates unrun is not a fix.
 
 Re-entry is this command's own loop. STEP 5's RFC prose is written once the grill closes
 again, so the document never carries a decision the re-entry round has not settled.

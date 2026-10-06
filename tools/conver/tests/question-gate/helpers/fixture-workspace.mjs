@@ -31,6 +31,19 @@ export const GRILL_SESSION_STATUS = join(GRILL_DIR, 'session-status.js');
 export const GRILL_UPDATE_STATUS = join(GRILL_DIR, 'update-status.js');
 export const GRILL_BACKUP_RFC = join(GRILL_DIR, 'backup-rfc.js');
 export const GRILL_CANON_STATE = join(GRILL_DIR, 'canon-state.js');
+
+/**
+ * The defect gates the grill runs over a workspace rather than over one session:
+ * one decides which paths may be written, three read the RFC's appendices, and one
+ * opens a cited section so a defect can be confirmed before it is carried.
+ */
+// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+export const GRILL_GUARD_EDIT_SURFACE = join(GRILL_DIR, 'guard-edit-surface.js');
+export const GRILL_DEFECT_REPORT = join(GRILL_DIR, 'defect-report.js');
+export const GRILL_CHECK_DIVERGENCE_LEDGER = join(GRILL_DIR, 'check-divergence-ledger.js');
+export const GRILL_SCAN_DEFECTS = join(GRILL_DIR, 'scan-defects.js');
+export const GRILL_SHOW_RECORD = join(GRILL_DIR, 'show-record.js');
+
 export const DRILL_SETTLE_RUN = join(DRILL_DIR, 'settle-run.js');
 export const DRILL_UPDATE_TREE = join(DRILL_DIR, 'update-tree.js');
 export const DRILL_PREFLIGHT = join(DRILL_DIR, 'preflight.cjs');
