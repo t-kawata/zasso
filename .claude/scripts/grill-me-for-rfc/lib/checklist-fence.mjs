@@ -103,6 +103,30 @@ function readPreservedTextOfLegacyFile(lines) {
 }
 
 /**
+ * Does this file carry text the generator did not author?
+ *
+ * The generator owns its fenced region and preserves every byte outside it, so
+ * the only content a regeneration can lose is text a human or an AI session
+ * wrote. A file holding none of that — `init.js`'s template, or a checklist
+ * nobody has touched since the last run — is not worth copying: the backup would
+ * be of a page the generator is about to write again, and nothing removes the
+ * copies afterwards.
+ *
+ * A legacy file is read at its trailing comment, the boundary migration uses:
+ * the text before it is the previous generator's own body (or init's header,
+ * which the generated body re-emits), and the text after it is what is kept.
+ */
+export function carriesHandWrittenText(text) {
+  if (typeof text !== 'string' || text.trim() === '') return false;
+
+  const read = readFencedRegions(text);
+  if (read.ok) return `${read.before}\n${read.after}`.trim() !== '';
+
+  const preserved = readPreservedTextOfLegacyFile(text.split('\n'));
+  return preserved !== null && preserved.trim() !== '';
+}
+
+/**
  * Compose a checklist file: the generated body inside a fence pair, and whatever
  * the generator did not author preserved outside it.
  *

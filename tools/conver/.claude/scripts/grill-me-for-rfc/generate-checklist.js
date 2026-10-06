@@ -4,7 +4,7 @@
  * generate-checklist.js <rfc-dir>
  *
  * Reads DesignTree.json and generates CheckList.md in a section-by-node two-tier structure.
- * Backs up the existing CheckList.md before overwriting.
+ * Backs up an existing CheckList.md that carries hand-written text, then regenerates.
  *
  * Output format:
  *   ## §N <top-level node title>
@@ -22,7 +22,7 @@
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
-import { AI_SUPPLEMENT_COMMENT, composeFencedFile } from "./lib/checklist-fence.mjs";
+import { AI_SUPPLEMENT_COMMENT, carriesHandWrittenText, composeFencedFile } from "./lib/checklist-fence.mjs";
 // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
@@ -37,14 +37,6 @@ if (!fs.existsSync(treePath)) {
 }
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
-
-// Backup existing CheckList.md (skipped when --no-backup is specified)
-if (fs.existsSync(checklistPath) && !noBackup) {
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const backup = checklistPath.replace(/\.md$/, `.${ts}.bak.md`);
-  fs.copyFileSync(checklistPath, backup);
-  console.error(`Backed up existing CheckList.md → ${path.basename(backup)}`);
-}
 
 // --- Generate Markdown from nodes ---
 
@@ -131,9 +123,10 @@ lines.push(AI_SUPPLEMENT_COMMENT);
 // an AI session appended after the trailing comment survives regeneration —
 // which is what the comment asks for and what the previous whole-file write
 // deleted on the next run.
+const existingText = fs.existsSync(checklistPath) ? fs.readFileSync(checklistPath, "utf-8") : null;
 const composed = composeFencedFile({
   generatedBody: lines.join("\n"),
-  existingText: fs.existsSync(checklistPath) ? fs.readFileSync(checklistPath, "utf-8") : null,
+  existingText,
 });
 if (!composed.ok) {
   console.error(`Refusing to write ${toHomeRelative(checklistPath)}: ${composed.reason}`);
@@ -141,6 +134,17 @@ if (!composed.ok) {
 }
 if (composed.action === "migrated") {
   console.error(`Preserved the hand-written region of ${toHomeRelative(checklistPath)} and fenced the generated one`);
+}
+
+// The backup is taken here rather than on entry because a refusal above writes
+// nothing, and because only hand-written text can be lost: the generator rewrites
+// its own fence and preserves everything outside it.
+// Skipped when --no-backup is specified.
+if (!noBackup && carriesHandWrittenText(existingText)) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = checklistPath.replace(/\.md$/, `.${timestamp}.bak.md`);
+  fs.copyFileSync(checklistPath, backupPath);
+  console.error(`Backed up existing CheckList.md → ${path.basename(backupPath)}`);
 }
 fs.writeFileSync(checklistPath, composed.text, "utf-8");
 
