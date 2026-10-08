@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:297`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:298`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -113,7 +113,7 @@ once, at `gates.mjs:114`, and each entry carries its tag, the phases it requires
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
-`phases.mjs:218` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:219` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -147,9 +147,13 @@ everything the run inherits, and re-opens the phases a reader performs so that t
 is asked again. The deterministic phases keep their verdicts, because a proof does not
 expire; the declaration and the readings stay where they are, because they are the evidence
 the artifact was built from, and a run that deleted them to recover from a refusal would
-destroy exactly what it exists for. A generation that halted is refused a new one while
-neither the text nor anything inherited from it has changed, which is what stops the loop
-limit becoming escapable by re-invoking.
+destroy exactly what it exists for. A generation that halted and is repeated while neither
+the text nor anything inherited from it has changed is reported rather than refused: the
+halt is a fact about the last attempt and re-asking the reader is how the next one finds
+what it missed, so the repeat is printed as a notice and the generation opens. What a
+refusal here would have cost is the point of §7's account — the specification is
+inviolable, so clearing one needed a human to edit the document or supply material, which
+stops an automatic run until someone acts.
 
 An edited specification is therefore inherited rather than refused. The classification of
 the inherited assets names, for each one, the primitive that decided it — the heading rule
@@ -217,6 +221,32 @@ all. The promotion a record declares becomes a proposal the command can print: t
 is marked promoted, the splice is printed with the file it must edit, and no source is
 written, because editing the rail is a change made under a ticket.
 
+What each generation produced is measured rather than judged. `coverage.mjs:51` counts
+what the artifact holds and unions the specification lines its records name, clipped to
+the document, and `rail/report.mjs:103` prints those counts beside the generation before them
+through the same helper the audit counts use. Each count carries the change from the
+generation before it, signed, because a reader judging whether another repetition is
+worth asking for should not have to subtract two numbers to see that they have stopped
+moving. The change is computed where it is printed and stored nowhere: a number that
+describes movement is the kind of number that becomes a target. A reach is a count against
+a length, so its change is withheld when the length moved — two revisions of the document
+are two spaces, and the subtraction would compare them. The predecessor is read from the
+status rather than handed in, so a caller cannot show a comparison the run never recorded. The
+measurement is a reach number and never a ratio: the denominator is the specification's
+line count, which is recorded, and not the size of the sequence space, which nothing
+inside the rail can enumerate. Nothing compares one of these to a threshold. A generation
+that merges two sequences into one is an improvement carrying a smaller number, and a
+gate on growth would refuse the work it exists to encourage.
+
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:433` still reads the
+three facts — the previous generation halted, nothing it inherits moved, the specification
+is the same revision — and `phases.mjs:362` reports them as a line of output while opening
+the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
+reader is the mechanism by which a generation finds what the last one missed, so refusing
+it refused the mechanism; and because the specification is inviolable, the only ways to
+clear the refusal were a human editing the document or a human supplying material, which
+is an automatic run stopped until someone acts.
+
 The one genuinely non-mechanical act is a defect class with no analogue in the record,
 which needs a check that has never been written. `adhoc.mjs:148` scaffolds that check and
 refuses without the defect that motivated it, and the record it leaves carries the
@@ -224,8 +254,8 @@ condition that would promote the check into the rail. The records live in the ru
 directory, at `rail-exits.jsonl` beside the checks they describe: a store inside the tool
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
-other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:90` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:285` is
+other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:140` closes the run by
+separating what was measured from what is carried by a signature, and `phase.mjs:294` is
 the command line every step of the command file runs.
 
 ## 8. What is not here

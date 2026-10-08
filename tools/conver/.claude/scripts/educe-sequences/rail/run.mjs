@@ -18,15 +18,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
+import { coverageLine } from './coverage.mjs';
 import { checkAll } from './engine.mjs';
-import { digestOf, readArtifact, readSpecification } from './load.mjs';
+import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES, applyReadings } from './reading.mjs';
 import { loadAdhocChecks } from './adhoc.mjs';
 import { railExitStoreFor } from './harness.mjs';
 import { inquestBeside } from './readings.mjs';
-import { runDirectoryFor } from './run-state.mjs';
+import { runDirectoryFor, statusPath } from './run-state.mjs';
 import { suppliedDigestOf } from './supplied.mjs';
 import { readRailExits } from './harness.mjs';
 
@@ -104,7 +105,7 @@ export async function runCommand(argv, options = {}) {
       for (const failure of failures) stderr(`refused: ${failure.check ?? failure.pin}: ${failure.reason}`);
       return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: failures };
     }
-    report(stdout, summary);
+    report(stdout, summary, previousCoverageFor(specPath));
     stdout(`artifact digest: ${digestOf(artifactPath)}`);
     return { exitCode: EXIT.OK, artifactPath, summary, verdicts: [] };
   }
@@ -143,17 +144,38 @@ export async function runCommand(argv, options = {}) {
     for (const refusal of applied.refused) stderr(`refused: ${refusal.subject} ${refusal.field}: ${refusal.why}`);
     return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: applied.refused };
   }
-
-  report(stdout, summary);
+  report(stdout, summary, previousCoverageFor(specPath));
   stdout(`artifact digest: ${digestOf(artifactPath)}`);
   stdout(`rendering: ${renderPathFor(specPath)} (run rail/render.mjs to write it)`);
   return { exitCode: EXIT.OK, artifactPath, summary, verdicts: [] };
 }
 
-/** Print the coverage block: every line is a number a reading pass moves. */
-// [::TICKET::] PX-240, PX-241, PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
-function report(stdout, summary) {
-  stdout(`rows=${summary.rows} sequences=${summary.sequences} steps=${summary.steps} operations=${summary.operations}`);
+/**
+ * The measurements of the generation before this one, or null when the run holds none.
+ *
+ * Read tolerantly: this runs while a report is being printed, and a record that cannot be
+ * parsed has the same answer here as a record that is not there — nothing to compare
+ * against. The state machine still refuses a status it cannot read, so only the
+ * comparison is given up and the run that was already verified still reports.
+ */
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+function previousCoverageFor(specPath) {
+  const recorded = readJsonOrNull(statusPath(runDirectoryFor(specPath)));
+  return recorded?.history?.at(-1)?.coverage ?? null;
+}
+
+/**
+ * Print the coverage block: every line is a number a reading pass moves.
+ *
+ * The measurements carry the generation before them when the run directory holds one, so
+ * a reader running the product path sees the same comparison the phase driver's report
+ * shows. The predecessor comes from the status rather than from a flag, because a number
+ * that could be supplied by the caller is a number that could disagree with the run.
+ */
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-245) --for-spec --no-implementation-order`.
+function report(stdout, summary, previousCoverage = null) {
+  const measured = coverageLine(summary);
+  stdout(previousCoverage === null ? measured : `${measured} (previous generation: ${coverageLine(previousCoverage)})`);
   stdout(`checksRun=${summary.checksRun} of ${summary.checksDeclared} checksAdhoc=${summary.checksAdhoc}`);
   stdout(`pinsRederived=${summary.pinsRederived} of ${summary.pinsTotal}`);
   stdout(`railExits=${summary.railExits} promotionCandidates=${summary.promotionCandidates}`);

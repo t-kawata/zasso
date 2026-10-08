@@ -12,6 +12,7 @@
 // The checks are built from the constructors in checks.mjs rather than written out,
 // so the shape of a check is declared once and a new check costs choosing a shape.
 import { agreeOn, citeFrom, coverEvery, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
+import { coverageOf } from './coverage.mjs';
 import { readArtifactSchema, validateArtifactShape } from './load.mjs';
 import { PIN_RULES, flattenPins, selectNeighbourFor } from './pins.mjs';
 import { INQUEST_ANSWERS, INQUEST_LENSES, inquestPairs, isExempt } from './readings.mjs';
@@ -353,6 +354,7 @@ export const ENGINE_DECLARED_CHECK_COUNT = CHECKS.length;
  * @returns {{verdicts: Array<object>, summary: object|null}}
  */
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 export function checkAll({ specLines, artifact, rederivePins = true, recorded = {} }) {
   // Everything the run recorded beside the artifact is one input, because the checks read
   // it as one thing: the rail exits a scaffold left, the audit a reader answered, and the
@@ -401,10 +403,9 @@ export function checkAll({ specLines, artifact, rederivePins = true, recorded = 
       checksRun: runnable.length,
       checksDeclared: declared.length,
       checksAdhoc: adhocChecks.length,
-      rows: artifact.pins.blocks.length,
-      steps: artifact.steps.length,
-      operations: artifact.operations.length,
-      sequences: artifact.sequences.length,
+      // The artifact's measurements come from one place, so the number a report prints
+      // and the number recorded in history are the same value and cannot disagree.
+      ...coverageOf(artifact),
       pinsRederived: flattenPins(artifact.pins).length,
       pinsTotal: flattenPins(artifact.pins).length,
       railExits: railExits.length,

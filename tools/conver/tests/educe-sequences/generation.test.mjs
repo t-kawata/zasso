@@ -28,7 +28,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PHASES, PHASE_TAGS, whyNotNewGeneration } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
+import { PHASES, PHASE_TAGS, unchangedRepeatReason } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
 import { digestOfTree } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
 import { assetDigestOf, INVALIDATION_PRIMITIVES, survivingAssets } from '../../.claude/scripts/educe-sequences/rail/inherit.mjs';
 import { digestOf, readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
@@ -44,6 +44,7 @@ import {
 } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 import { DECLARATION_FILE, INQUEST_FILE, writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import {
+  generationOf,
   loopsFor,
   noteDone,
   noteLoop,
@@ -271,21 +272,24 @@ test('C003 a new generation returns the budget, so a repaired declaration is rea
 // C004 — the guard against escaping the limit without changing anything
 // ---------------------------------------------------------------------------
 
-test('C004 a new generation is refused when nothing changed and the previous generation halted', () => {
+test('C001 a new generation opens when nothing changed and the previous one halted, and the repeat is reported', () => {
   const { specPath, spec, directory, context } = openBare();
   seedReadings(directory);
   haltPhaseTwo(context);
-  const before = readFileSync(statusPath(directory), 'utf8');
+  const superseded = generationOf(readStatus(directory));
 
-  const refused = beginRun({ specPath, spec });
+  const reopened = beginRun({ specPath, spec });
 
-  assert.equal(refused.ok, false);
-  assert.equal(refused.generation, null);
-  assert.match(refused.refused, /phase 2/, 'the refusal names the phase');
-  assert.match(refused.refused, /3 of 3/, 'the refusal names the loops');
-  assert.match(refused.refused, /generation/, 'the refusal names the superseded generation');
-  assert.equal(readFileSync(statusPath(directory), 'utf8'), before, 'the status is byte-identical, so no phase was entered');
-  assert.equal(nextPhase(readStatus(directory)), 2);
+  assert.equal(reopened.ok, true, 're-asking the reader is what a generation is for, so nothing refuses');
+  assert.equal(reopened.mode, 'new-generation');
+  assert.equal(reopened.generation, superseded + 1);
+  assert.equal(reopened.refused, undefined);
+  assert.match(reopened.notice, /phase 2/, 'the notice names the phase');
+  assert.match(reopened.notice, /3 of 3/, 'the notice names the loops');
+  assert.match(reopened.notice, new RegExp(`generation ${superseded}\\b`), 'the notice names the generation it supersedes');
+  const reopenedStatus = readStatus(directory);
+  assert.equal(nextPhase(reopenedStatus), 2, 'the [read] phases are re-opened, so the reader is asked again');
+  assert.equal(phaseState(reopenedStatus, 2).loops, 0, 'and the budget is returned with them');
 });
 
 test('C004 the guard does not fire when an asset changed, because a repair is what a new generation is for', () => {
@@ -312,32 +316,41 @@ test('C004 the guard does not fire when the specification itself was edited, bec
   assert.match(readStatus(directory).spec.sha256, new RegExp(`^${edited.sha256}$`));
 });
 
-test('C004 the guard is a decision a caller can read, and it names the halt it refuses', () => {
+test('C001 the repeat is a fact a caller can read, and the notice names the halt it reports', () => {
   const { specPath, spec, context } = openBare();
   haltPhaseTwo(context);
   const directory = runDirectoryFor(specPath);
   const status = readStatus(directory);
   const digest = assetDigestOf(directory);
 
-  const reason = whyNotNewGeneration(status, { assetDigest: digest, specSha256: spec.sha256 });
+  const notice = unchangedRepeatReason(status, { assetDigest: digest, specSha256: spec.sha256 });
 
-  assert.equal(typeof reason, 'string');
-  assert.match(reason, /phase 2/);
-  assert.equal(whyNotNewGeneration(status, { assetDigest: 'different', specSha256: spec.sha256 }), null);
-  assert.equal(whyNotNewGeneration(status, { assetDigest: digest, specSha256: 'different' }), null);
-  assert.equal(whyNotNewGeneration(null, { assetDigest: digest, specSha256: spec.sha256 }), null, 'a directory with nothing in it has no halt to guard');
+  assert.equal(typeof notice, 'string');
+  assert.match(notice, /phase 2/);
+  assert.equal(unchangedRepeatReason(status, { assetDigest: 'different', specSha256: spec.sha256 }), null, 'a repaired asset is why a new generation is opened');
+  assert.equal(unchangedRepeatReason(status, { assetDigest: digest, specSha256: 'different' }), null, 'an edited specification is the repair');
+  assert.equal(unchangedRepeatReason(null, { assetDigest: digest, specSha256: spec.sha256 }), null, 'a directory with nothing in it has no halt to report');
+  assert.equal(
+    unchangedRepeatReason({ phases: [], history: [], spec: { sha256: spec.sha256 }, assets: { digest } }, { assetDigest: digest, specSha256: spec.sha256 }),
+    null,
+    'a generation that halted nowhere has no repeat to report',
+  );
 });
 
-test('C004 a refusal never deletes an inherited asset', () => {
+test('C001 opening a generation over an unchanged set deletes none of the assets it inherits', () => {
   const { specPath, spec, directory, context } = openBare();
   seedReadings(directory);
   haltPhaseTwo(context);
   const before = readdirSync(directory).sort();
 
-  beginRun({ specPath, spec });
+  const reopened = beginRun({ specPath, spec });
 
+  assert.equal(reopened.mode, 'new-generation');
   const after = readdirSync(directory).sort();
-  assert.deepEqual(after, before, 'a refusal writes nothing and deletes nothing');
+  // The directory may grow — the generation files the material it was given — but an
+  // inherited asset is never deleted, which is the property the refusal used to carry.
+  assert.deepEqual(before.filter((name) => !after.includes(name)), [], 'no inherited asset is lost');
+  assert.equal(after.includes(DECLARATION_FILE), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -604,17 +617,20 @@ test('IT begin over an edited specification opens a generation and refuses nothi
   assert.equal(Number(/invalidated: (\d+) asset/.exec(second.stdout)[1]) > 0, true);
 });
 
-test('IT begin refuses a generation when the previous one halted and nothing changed', () => {
+test('IT begin opens the next generation and prints the notice when the previous one halted over an unchanged set', () => {
   const { specPath, directory } = openBare();
   for (let attempt = 0; attempt < 4; attempt += 1) begin(['through', specPath]);
   const halted = begin(['through', specPath]);
   assert.equal(halted.status, HALT_EXIT_CODE, halted.stdout);
 
-  const refused = begin(['begin', specPath]);
+  const reopened = begin(['begin', specPath]);
 
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /phase 2/);
-  assert.match(refused.stderr, /3 of 3/);
+  assert.equal(reopened.status, 0, reopened.stderr);
+  assert.match(reopened.stdout, /new generation/);
+  assert.match(reopened.stdout, /notice: /);
+  assert.match(reopened.stdout, /phase 2/);
+  assert.match(reopened.stdout, /3 of 3/);
+  assert.equal(/refused:/.test(reopened.stderr), false, 'an automatic run is never stopped by a repeat');
   assert.equal(existsSync(join(directory, DECLARATION_FILE)), true);
 });
 

@@ -192,7 +192,8 @@ export function appendHistory(status, entry) {
  * because a phase that never passed must still not satisfy the phases that require it.
  */
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
-export function beginGeneration(status, { spec, digest, inquest = null }) {
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+export function beginGeneration(status, { spec, digest, inquest = null, coverage = null }) {
   const superseded = generationOf(status);
   const carried = {
     ...status,
@@ -211,6 +212,10 @@ export function beginGeneration(status, { spec, digest, inquest = null }) {
     // generation asked. Counts rather than answers: the answers stay in the file beside
     // the specification, where a reader can open them.
     inquest,
+    // The artifact's measurements travel with it for the same reason, and carry no
+    // verdict: a row per generation is what lets a reader see the returns diminishing,
+    // and nothing reads one of these to decide whether a generation may open.
+    coverage,
     [ENTERED_FIELD]: status[ENTERED_FIELD] ?? false,
   });
 }

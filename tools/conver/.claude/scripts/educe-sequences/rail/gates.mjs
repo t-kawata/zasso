@@ -413,27 +413,29 @@ export function evaluateGate(phaseId, context) {
 }
 
 /**
- * Why a new generation may not be opened, or null when it may.
+ * Why a repeat is over an unchanged set, or null when it is not.
  *
- * Opening a generation returns the loop budget, which is what lets a repaired
- * declaration be read on the next invocation. It would also be the way to escape the
- * limit without repairing anything: run, halt, run again, and the same defective input
- * gets a fresh three attempts. The guard closes that by refusing a generation when
- * the three facts that would make it a different question all fail to change — the
- * previous generation halted, nothing it inherits has changed, and the specification
- * itself is the same revision.
+ * This used to refuse: a generation that halted and then repeated with nothing changed
+ * was stopped, on the reasoning that re-asking would put the same question. The
+ * reasoning was wrong twice over. Re-asking the reader *is* the mechanism by which a
+ * generation finds what the last one missed, so refusing it refused the mechanism. And
+ * the specification is inviolable, so the only ways to clear the refusal were a human
+ * editing the document or a human supplying material — an automatic run stopped until
+ * someone acted, which the command forbids.
  *
- * The specification is in the condition because editing it *is* the repair the halt
- * asked for, and a guard that ignored the edit would refuse the one change that helps.
+ * What remains is the observation itself. The facts are still read, because a reader
+ * who sees that a repeat changed nothing learns something the counts alone do not say;
+ * they are reported and never acted on.
  *
- * @returns {string|null} the refusal, naming the phase, its loops and the generation
+ * @returns {string|null} the notice, naming the phase, its loops and the generation
  */
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
-export function whyNotNewGeneration(status, { assetDigest, specSha256 }) {
+// [::TICKET::] PX-242, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-245) --for-spec --no-implementation-order`.
+export function unchangedRepeatReason(status, { assetDigest, specSha256 }) {
   if (status === null || status === undefined) return null;
-  // Only a recorded digest that differs clears the guard. A run that halted before any
-  // generation recorded one has nothing that changed, and treating "nothing recorded" as
-  // "something changed" would leave the limit escapable by driving the phases directly.
+  // A recorded digest that differs means the run inherits something new, which is not an
+  // unchanged repeat. A run that halted before any generation recorded one has nothing
+  // that moved, and "nothing recorded" is read as "nothing changed" for the same reason:
+  // the notice describes what is there, and an absent digest is not a change.
   const recorded = status.assets?.digest ?? null;
   if (recorded !== null && recorded !== assetDigest) return null;
   if (status.spec?.sha256 !== specSha256) return null;
@@ -442,7 +444,7 @@ export function whyNotNewGeneration(status, { assetDigest, specSha256 }) {
     const record = recordOf(status, phase.id);
     if (record === null || record.status === 'done') continue;
     if ((record.loops ?? 0) < phase.maxLoops) continue;
-    return `generation ${generationOf(status)} halted at phase ${phase.id} with ${record.loops} of ${phase.maxLoops} loops, and neither the specification nor anything the run inherits has changed; a new generation over an unchanged set would ask the same question again — the last refusal was: ${record.verdict ?? '(none recorded)'}`;
+    return `generation ${generationOf(status)} halted at phase ${phase.id} with ${record.loops} of ${phase.maxLoops} loops, and neither the specification nor anything the run inherits has changed; this generation repeats it over an unchanged set — the last refusal was: ${record.verdict ?? '(none recorded)'}`;
   }
   return null;
 }

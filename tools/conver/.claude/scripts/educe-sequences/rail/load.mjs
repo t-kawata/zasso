@@ -53,6 +53,27 @@ export function readArtifact(artifactPath) {
   return existsSync(artifactPath) ? JSON.parse(readFileSync(artifactPath, 'utf8')) : null;
 }
 
+/**
+ * Read a JSON file, or null when there is nothing usable at the path.
+ *
+ * An absent file and a file that cannot be parsed are the same answer to the question
+ * this serves — what does this file say — and that answer is "nothing". The distinction
+ * still matters to the question "may this run be resumed", which is why `readStatus` and
+ * `readArtifact` keep it and throw: a state machine that cannot read its own record must
+ * stop rather than start over. This reader is for the places that only want to report
+ * what was there, where a stop would take down a run that has nothing wrong with it.
+ * A partially written status file is reachable: `writeStatus` writes in place.
+ */
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+export function readJsonOrNull(filePath) {
+  if (!existsSync(filePath)) return null;
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /** Read the schema every artifact is validated against. */
 export function readArtifactSchema() {
   return JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));

@@ -128,21 +128,36 @@ everything after it is supplied material, which is filed under
 
 Exit 0 prints five lines — the generation and whether `begin` opened one or reported a
 verification, the digest of everything the run inherits, how many supplied files were
-filed, how many inherited assets no longer cite the text, and the next phase. It does not
-print the whole table; `phase.mjs status` prints 18 lines, one per phase, when that is what
-is wanted.
+filed, how many inherited assets no longer cite the text, and the next phase — plus up to
+two more: a `notice:` line when this generation repeats one that halted over a set nothing
+has changed, and a `superseded generation measured:` line carrying the counts and the
+specification lines the previous artifact reached. It does not print the whole table;
+`phase.mjs status` prints 18 lines, one per phase, when that is what is wanted.
 
 Gate: the generation is an integer, the mode is `new generation` or `verification`, and
-`next:` is a phase id. A refusal exits 1 with the phase, its loops and the superseded
-generation named — stop and report it. No phase reads `HALTED` here: a halted generation
-is refused before a phase is named, and a new generation returns every loop to zero.
+`next:` is a phase id. The only refusal Step 0 can produce is a run directory belonging to
+another specification, which exits 1 and names the file it belongs to — stop and report
+it. A repeat over an unchanged set is **not** a refusal: re-asking the reader is how a
+generation finds what the last one missed, and clearing a refusal would have needed a human
+to edit the inviolable specification or supply material, which would stop an automatic run
+until someone acted. The `notice:` line reports it and the generation opens. No phase reads
+`HALTED` here: a new generation returns every loop to zero.
 
 The run directory is `<dir of spec-file>/educe-sequences/`; it holds `status.json`, the
 declaration, the readings, the worklists, any scaffolded checks and the supplied material.
 An invocation deletes nothing in it. A new generation returns the loop budget, re-opens
 every `[read]` phase so the reader is asked again, and leaves the declaration and the
 readings exactly where they are; an edited specification is inherited by citation, with
-the assets that no longer cite it named by the rule that decided them.
+the assets that no longer cite it named by the rule that decided them. Each generation
+records what its artifact measured — how many sequences, steps, operations and pin rows it
+holds, and how many specification lines its records reach — and the report prints each
+number beside the generation before it, signed, so a reader can see the returns diminishing
+across repetitions and decide for themselves when another one is worth asking for. The
+change is computed where it is printed and stored nowhere, and a reach withholds its change
+when the document's length moved, because two revisions are not one space. Nothing compares
+those numbers to a threshold: the specification's true sequence space is not something the
+rail can enumerate, and a generation that merges two sequences into one is an improvement
+carrying a smaller number.
 
 ### Step 1 — identity `[det]`
 

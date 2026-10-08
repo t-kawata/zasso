@@ -1,3 +1,4 @@
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 // The closing report (PX-240, phase 18).
 //
 // The report separates two things and never adds them together. What was measured is a
@@ -41,6 +42,7 @@ export function healthLines({ summary, status, inquest = null }) {
   const vacuous = reads.filter((phase) => readingOf(status, phase.name).vacuous === true);
   return [
     `phasesDone=${done} of ${PHASES.length}`,
+    ...coverageLines(summary, status),
     // The declared count is read from the summary rather than passed beside it: a second
     // copy of it is a second thing that can disagree with the block it describes.
     `checksRun=${summary?.checksRun ?? 0} of ${summary?.checksDeclared ?? 0} checksAdhoc=${summary?.checksAdhoc ?? 0}`,
@@ -51,12 +53,24 @@ export function healthLines({ summary, status, inquest = null }) {
   ];
 }
 
-/** One audit count, with the generation before it beside it rather than added to it. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
-function againstPrevious(name, value, previous) {
-  return previous === null || previous === undefined
-    ? `${name}=${value}`
-    : `${name}=${value} (previous generation: ${previous})`;
+/** How far a count moved, spelled with its sign so a fall cannot read as a small rise. */
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+function signedChange(change) {
+  return change > 0 ? `+${change}` : `${change}`;
+}
+
+/**
+ * One measured count, with the generation before it beside it rather than added to it.
+ *
+ * The change is optional because only some callers have one to report. It is computed at
+ * the point of printing and never stored: a number describing movement is the kind of
+ * number that becomes a target, and this one exists only as a string in a report.
+ */
+// [::TICKET::] PX-243, PX-244, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
+function againstPrevious(name, value, previous, change = null) {
+  if (previous === null || previous === undefined) return `${name}=${value}`;
+  const moved = change === null ? '' : `, change ${signedChange(change)}`;
+  return `${name}=${value} (previous generation: ${previous}${moved})`;
 }
 
 /**
@@ -74,6 +88,42 @@ function inquestLines(inquest) {
     againstPrevious('inquestAsked', inquest.asked, previous?.asked),
     againstPrevious('inquestAnswered', inquest.answered, previous?.answered),
     againstPrevious('inquestExempt', inquest.exempt, previous?.exempt),
+  ];
+}
+
+/**
+ * The artifact's own measurements, each printed beside the generation before it.
+ *
+ * The predecessor is read from the status rather than handed in beside it, so a caller
+ * cannot show a comparison the run never recorded. A run with no history prints each
+ * number alone: a first generation has nothing to be measured against, and printing a
+ * zero in its place would read as a fall from a generation that never existed.
+ */
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+function coverageLines(summary, status) {
+  const previous = status?.history?.at(-1)?.coverage ?? null;
+  // A run whose checks refused is reported with a null summary, so it has no measurement
+  // at all. Subtracting from the zero that stands in for it would print a fall the run
+  // never took, which is worse than printing nothing: a missing measurement is not a zero.
+  const measured = summary === null || summary === undefined;
+  const comparable = previous === null || measured ? null : previous;
+  const changeIn = (count) => (comparable === null ? null : summary[count] ?? 0) - (comparable?.[count] ?? 0);
+  // A reach is a count against a length, so its change is withheld when the length moved:
+  // two revisions of the document are two spaces, and the subtraction would compare them.
+  const reachChange = comparable === null || comparable.specLines !== summary.specLines
+    ? null
+    : (summary.linesReached ?? 0) - comparable.linesReached;
+  return [
+    againstPrevious('sequences', summary?.sequences ?? 0, comparable?.sequences, changeIn('sequences')),
+    againstPrevious('steps', summary?.steps ?? 0, comparable?.steps, changeIn('steps')),
+    againstPrevious('operations', summary?.operations ?? 0, comparable?.operations, changeIn('operations')),
+    againstPrevious('rows', summary?.rows ?? 0, comparable?.rows, changeIn('rows')),
+    againstPrevious(
+      'linesReached',
+      `${summary?.linesReached ?? 0} of ${summary?.specLines ?? 0}`,
+      comparable === null ? null : `${comparable.linesReached} of ${comparable.specLines}`,
+      reachChange,
+    ),
   ];
 }
 

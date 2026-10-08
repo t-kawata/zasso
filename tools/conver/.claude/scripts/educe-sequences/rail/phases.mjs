@@ -13,9 +13,10 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 import { buildArtifact } from './artifact.mjs';
-import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, whyNotNewGeneration } from './gates.mjs';
+import { coverageOf } from './coverage.mjs';
+import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
 import { assetDigestOf, survivingAssets } from './inherit.mjs';
-import { readArtifact } from './load.mjs';
+import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
 import { establishPins } from './pins.mjs';
 import { applyReadings, buildWorklist } from './reading.mjs';
@@ -357,22 +358,29 @@ function observeAssets(status, directory) {
  *            assets: {digest: string}, invalidated: Array<object>}
  *          | {ok: false, refused: string, directory: string, generation: null, status: object}}
  */
+// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 export function beginRun({ specPath, spec, material = '', namedPaths = [], root = null }) {
   const opened = openRun({ specPath, spec, root });
   if (opened.kind === RESUME_KINDS.ANOTHER_SPECIFICATION) {
-    return { ok: false, refused: opened.reason, directory: opened.directory, generation: null, status: opened.status };
+    return { ok: false, refused: opened.reason, directory: opened.directory, generation: null, status: opened.status, notice: null, coverage: null };
   }
 
   const status = opened.status;
   const assetDigest = assetDigestOf(opened.directory);
-  const held = whyNotNewGeneration(status, { assetDigest, specSha256: spec.sha256 });
-  if (held !== null) {
-    return { ok: false, refused: held, directory: opened.directory, generation: null, status };
-  }
+  // A repeat over an unchanged set is reported rather than refused. Re-asking the reader
+  // is how a generation finds what the last one missed, so refusing it would refuse the
+  // mechanism; and the only ways to clear the old refusal were a human editing the
+  // inviolable specification or a human supplying material, which is an automatic run
+  // stopped until someone acts.
+  const notice = unchangedRepeatReason(status, { assetDigest, specSha256: spec.sha256 });
+  // Measured before the generation opens, so the number recorded in history is the one
+  // the superseded generation actually produced.
+  const supersededArtifact = readJsonOrNull(artifactPathFor(specPath));
+  const coverage = supersededArtifact === null ? null : coverageOf(supersededArtifact);
 
   const filed = fileSuppliedMaterial({ directory: opened.directory, material, namedPaths });
   if (!filed.ok) {
-    return { ok: false, refused: filed.problems.join('; '), directory: opened.directory, generation: null, status };
+    return { ok: false, refused: filed.problems.join('; '), directory: opened.directory, generation: null, status, notice, coverage };
   }
 
   const generation = generationOf(status);
@@ -391,6 +399,8 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
       supplied: filed.files,
       assets: { digest: assetDigest },
       invalidated: [],
+      notice,
+      coverage: null,
     };
   }
 
@@ -413,6 +423,7 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
       // next report can print the two beside each other and a reader can see whether the
       // questions moved anything.
       inquest: inquestCountsIn(opened.directory),
+      coverage,
     }),
     PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id),
   );
@@ -428,6 +439,8 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
     supplied: filed.files,
     assets: { digest: assetDigest },
     invalidated: surviving.invalidated,
+    notice,
+    coverage,
   };
 }
 

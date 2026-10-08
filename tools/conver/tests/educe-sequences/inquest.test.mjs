@@ -436,8 +436,10 @@ test('C006 the three counts print beside the previous generation and are never s
   const previous = { asked: 40, answered: 40, exempt: 0 };
   const inquest = { asked: 56, answered: 56, exempt: 0 };
 
-  const lines = healthLines({ summary, status: context.status, declaredChecks: summary.checksRun, inquest: { ...inquest, previous } });
-  const report = buildReport({ status: context.status, summary, artifact: { path: '/tmp/nothing.json', digest: 'none' }, declaredChecks: summary.checksRun, inquest: { ...inquest, previous } });
+  // Neither call takes a declared-checks argument: PX-244 made both read
+  // `summary.checksDeclared`, which is the same value and cannot disagree with it.
+  const lines = healthLines({ summary, status: context.status, inquest: { ...inquest, previous } });
+  const report = buildReport({ status: context.status, summary, artifact: { path: '/tmp/nothing.json', digest: 'none' }, inquest: { ...inquest, previous } });
 
   const printed = lines.filter((line) => line.startsWith('inquest'));
   assert.equal(printed.length, 3);

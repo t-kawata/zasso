@@ -15,6 +15,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { coverageLine } from './coverage.mjs';
 import { checkAll } from './engine.mjs';
 import { readArtifact } from './load.mjs';
 import { parseSpecArgument } from './paths.mjs';
@@ -95,7 +96,7 @@ function namedPathsIn(material) {
  * visible as a different digest), how much material was filed, how much of the inherited
  * material no longer cites the text, and which phase comes next.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
 function beginCommand(rest) {
   const { specText, material } = splitInvocation(rest.join(' '));
   const parsed = parseSpecArgument([specText]);
@@ -116,8 +117,16 @@ function beginCommand(rest) {
   }
 
   const pending = nextPhase(begun.status);
+  // The notice is a line, not an exit: a repeat over an unchanged set is reported so a
+  // reader can see that re-asking moved nothing, and the generation opens either way.
+  const noticed = begun.notice === null || begun.notice === undefined ? [] : [`notice: ${begun.notice}`];
+  const measured = begun.coverage === null || begun.coverage === undefined
+    ? []
+    : [`superseded generation measured: ${coverageLine(begun.coverage)}`];
   process.stdout.write([
     `generation ${begun.generation} (${begun.mode === 'verification' ? 'verification' : 'new generation'})`,
+    ...noticed,
+    ...measured,
     `asset digest: ${begun.assets.digest}`,
     `supplied: ${begun.supplied.length} file(s)`,
     `invalidated: ${begun.invalidated.length} asset(s)`,
