@@ -5,7 +5,7 @@
         build-conver typecheck run-conver \
         test-conver test test-all test-rfc-graph test-tickets-reverse test-grill-reverse \
         test-workspacify-reverse test-workspacify test-crystalize-readme \
-        test-drill-rfc-down test-stub-resolution \
+        test-drill-rfc-down test-stub-resolution test-educe-sequences \
         check-conventions check-bundle-fresh check-path-emission test-coverage \
         deploy stubs crimes
 
@@ -136,6 +136,14 @@ test-drill-rfc-down:
 # test-stub-resolution: batch-create-resolving-tickets の動作保証テスト（PX-1）
 test-stub-resolution:
 		node --test tests/batch-create-resolving-tickets.test.cjs
+
+# test-educe-sequences: /educe-sequences の rail ライブラリと、その凍結フィクスチャの規約検査。
+#   レシピは tests/workspacify-reverse を参照しないため HEAVY_TEST_TARGETS への登録は
+#   不要である（規約テスト makefile-test-runs.test.mjs はそのパスに到達するターゲット
+#   だけを拘束する）。ただし .PHONY への追加は必須で、このリポジトリには同名の実行
+#   ファイル ./test が存在するため、宣言が無いと make はターゲットを「最新」と判断する。
+test-educe-sequences:
+		node --test "tests/educe-sequences/*.test.mjs" tests/conventions/educe-sequences-fixture.test.mjs tests/conventions/educe-sequences-command.test.mjs
 
 # deploy: esbuild バンドルをビルドし、ターゲットディレクトリに配置する
 #   使い方: make deploy TARGET=~/shyme/star/

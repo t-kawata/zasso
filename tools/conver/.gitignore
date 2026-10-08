@@ -28,3 +28,4 @@ tests/workspacify-reverse/holdout/corpus/
 # in tests/scope-extensions.test.cjs reads `git ls-files`, so tracking three of
 # them turned `make test` red three days after that check was written.
 tmp/
+

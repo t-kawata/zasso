@@ -1,0 +1,121 @@
+{
+  "note": "Frozen evidence corpus. A difference between a file and its recorded digest fails the run; drift from the source repository is reported, never absorbed by editing a fixture.",
+  "files": {
+    "GaiaSekkeiShiyousho_v32.md": {
+      "sha256": "5ccc63af2422aaed625fcc13166209c62b2d5bcd0ac2ba38e1af27275d13ba03",
+      "bytes": 1069541
+    },
+    "check-registry.mjs": {
+      "sha256": "e5dc1351ffcb972f9ed08e3ad31ff4ecf1ccb5408e2588c469ac7c9d11619b6a",
+      "bytes": 103707
+    },
+    "procedure-registry.md": {
+      "sha256": "7617af76f9b561d1e3434be80a80943efb2625fede556f325e41d61b4811c64e",
+      "bytes": 651313
+    },
+    "registry-completeness-checks.md": {
+      "sha256": "668d5a037cc49a67015b3c16ed552cebf50988eb2089a4226817f9169bd9f505",
+      "bytes": 76052
+    },
+    "scratch/briefs/INSTRUCTIONS-2.md": {
+      "sha256": "8772b4ba14f5abeb2cdd050e6cf615aca8186abe53fcf88cce5a8da4a02be32d",
+      "bytes": 3554
+    },
+    "scratch/briefs/INSTRUCTIONS-A.md": {
+      "sha256": "4aacf786f964e9743d0974f2e59ee2f0011109e2a2e2e95fdd153ece77d88d21",
+      "bytes": 4009
+    },
+    "scratch/briefs/INSTRUCTIONS-B.md": {
+      "sha256": "68933d2cd99bc6303a15bb4020998b575109cb73a65296f0e13f3591733d81bf",
+      "bytes": 3210
+    },
+    "scratch/briefs/INSTRUCTIONS-B2.md": {
+      "sha256": "ce63aabce28d8c84f1caf95556522b6d36133cef73f52043a55758677b537e42",
+      "bytes": 3120
+    },
+    "scratch/briefs/INSTRUCTIONS-D.md": {
+      "sha256": "70c37437ece5a348d5f8e5325a7ff96c4904fc2f3c5f7487fb7fe209f3f43a53",
+      "bytes": 3574
+    },
+    "scratch/briefs/INSTRUCTIONS-E.md": {
+      "sha256": "c4f7c1fa761514abb91e9e81aa92f955992d4575ae4ee192205adb8bfa5e62c2",
+      "bytes": 5700
+    },
+    "scratch/briefs/INSTRUCTIONS-F.md": {
+      "sha256": "ec346add8390901a154b2164ef1772591f4514df255c2afc42e56cb3f5b5d064",
+      "bytes": 4425
+    },
+    "scratch/briefs/INSTRUCTIONS-R.md": {
+      "sha256": "9df346c4eff9e287c556fb1e7961440a01344f9001fb80755a3b3d8d0986c3c0",
+      "bytes": 5132
+    },
+    "scratch/briefs/INSTRUCTIONS.md": {
+      "sha256": "d356a05631b056554e1eb209fbe62456b15f846d1926eadf85390ed0c9a269d6",
+      "bytes": 4272
+    },
+    "scratch/integrators/apply-adv.cjs": {
+      "sha256": "665f730fe08367a59cf36d824aad566858d81543e99b6b2c5988adb334933a75",
+      "bytes": 7155
+    },
+    "scratch/integrators/apply-e11.cjs": {
+      "sha256": "a7c8d62978928b072dbdfeef46e13e90aa96ce0b9740b28477337c03fe99781d",
+      "bytes": 2863
+    },
+    "scratch/integrators/integrate-D.cjs": {
+      "sha256": "3501648ab6887f998b435099a889e9c9f724e3f1755dc0cd44100bcd5f2a6577",
+      "bytes": 6100
+    },
+    "scratch/integrators/integrate-e.cjs": {
+      "sha256": "36ecb511bc5edec9b87c09231f3fab86caaee79209bbf40ed4a9532b6ae9ae89",
+      "bytes": 22189
+    },
+    "scratch/integrators/integrate-r.cjs": {
+      "sha256": "f673f4ba57efcf213e89a99e7c31cf9b0d8eb01813f7771d70889a5628f7bbf5",
+      "bytes": 13853
+    },
+    "scratch/integrators/merge.mjs": {
+      "sha256": "d85ca5b43ee73c5635156ab16517442c2841b5d03726d789b26c708d4a4171e8",
+      "bytes": 8704
+    },
+    "scratch/integrators/validate.mjs": {
+      "sha256": "e2b67359de4c25f27fbbeadce143398237fd6690325059239c2f24136b6cf552",
+      "bytes": 3980
+    },
+    "scratch/splice/patch-merge.cjs": {
+      "sha256": "c72837e80fd4287ca2f7499acd5b0b42639b1ccb2e9cac54b7a73850a311ecb0",
+      "bytes": 3067
+    },
+    "scratch/splice/patch-merge2.cjs": {
+      "sha256": "7976abc9a9efb0e27f19e7424e288a2b65e55044e5bcc47b591686afadb88d3d",
+      "bytes": 914
+    },
+    "scratch/splice/patch-merge3.cjs": {
+      "sha256": "eea8c65c9ae2153959b4dbcc86d4fd55572deab68f5bd8f6430aef1d5a590840",
+      "bytes": 2103
+    },
+    "scratch/splice/s27.fragment.js": {
+      "sha256": "924eb448953cd5ca1eedcc5379dbebdf5e0ba2f1ed0f9b960e3ab887fa83ad88",
+      "bytes": 4056
+    },
+    "section-adjudications.jsonl": {
+      "sha256": "7d3583dca6174d4ae04a4bf0700b35c31e48254c100dc9a5d1efc6848eb46577",
+      "bytes": 60778
+    },
+    "sequence-adjudications.jsonl": {
+      "sha256": "e8c96454d26865d04101875cc5d104882109883b4e3dd4ec8a463e8774ded93f",
+      "bytes": 409956
+    },
+    "sequence-manifest.jsonl": {
+      "sha256": "57894b2766e613d9612a2eb658001af4c0a2636ce118e7a1e893b65a6b433e4b",
+      "bytes": 325938
+    },
+    "sequence-steps.jsonl": {
+      "sha256": "f66638d6dd2d6275e3b4ad6ff3afd816f8d621c6b9dd86a884e90655cad4775b",
+      "bytes": 290426
+    },
+    "totality-exemptions.jsonl": {
+      "sha256": "4c2b45f6c5445e35450c0b20a646e8255709952e28d4ca8a4ab14ea70493a19a",
+      "bytes": 410
+    }
+  }
+}

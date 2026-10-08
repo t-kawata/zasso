@@ -25,6 +25,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { TERMINAL_ARTEFACTS } from '../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
+import { ENGINE_DECLARED_CHECK_COUNT } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
+import { flattenPins } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
+// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
@@ -33,7 +36,6 @@ const ANALYSIS_DIRECTORY = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'a
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8');
 
 /** The text between two `###` headings, exclusive of both. */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function sectionBetween(fromHeading, toHeading) {
   const from = DESIGN_TEXT.indexOf(fromHeading);
   const to = DESIGN_TEXT.indexOf(toHeading, from + 1);
@@ -49,7 +51,6 @@ function sectionBetween(fromHeading, toHeading) {
  * Status.json` — so a reader counts three names where a literal comparison sees one.
  * Expanding is what lets the page's list and the instrument's list be compared at all.
  */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function expandBraceShorthands(text) {
   // Only a brace carrying a comma is a shorthand. A brace holding one word is part of the
   // name itself, and expanding it would rewrite that name into one nothing declares.
@@ -68,7 +69,6 @@ function expandBraceShorthands(text) {
  * `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`, and the instrument declares three names.
  * A span that is not a shorthand has a single form, and taking both costs nothing.
  */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function declaredInventories() {
   const section = sectionBetween('### 2.3', '### 2.4');
   const names = new Set();
@@ -143,7 +143,6 @@ test('§A.1 accounts for the difference between what the run published and what 
 // ---------------------------------------------------------------------------
 
 /** The fenced block §5.3 draws the command file's section order from. */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function declaredStructureBlock() {
   const section = sectionBetween('### 5.3', '### 5.4');
   const fenced = /```\n([\s\S]*?)```/.exec(section);
@@ -162,4 +161,37 @@ test('§5.3 lists every section the command file carries', () => {
     .map(([, title]) => title.trim())
     .filter((title) => !block.includes(title));
   assert.deepEqual(missing, [], `§5.3 does not list ${missing.join(', ')}, which the file carries`);
+});
+
+// ---------------------------------------------------------------------------
+// The educe-sequences design document
+// ---------------------------------------------------------------------------
+
+/**
+ * The second design document states three quantities about its own subject: how large
+ * the frozen corpus is, how many checks the engine declares, and how many pins a run
+ * re-derives. Each is held to the repository here, because a page that prints a number
+ * about a live instrument is a page that goes stale the moment the instrument changes —
+ * and the stale number reads exactly like a current one.
+ */
+const EDUCE_DESIGN_TEXT = readFileSync(join(PROJECT_ROOT, 'docs', 'EDUCE-SEQUENCES-DESIGN.md'), 'utf8');
+const EDUCE_CORPUS = join(PROJECT_ROOT, 'tests', 'educe-sequences', 'fixtures', 'gaia');
+const EDUCE_GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests', 'educe-sequences', 'fixtures', 'spec', 'ledger-sequences.json');
+
+test('the educe-sequences document states the corpus size the corpus has', () => {
+  const stated = /The corpus holds (\d+) files totalling (\d+) bytes/.exec(EDUCE_DESIGN_TEXT);
+  assert.notEqual(stated, null, 'the document states the size of the corpus it describes');
+
+  const files = Object.values(JSON.parse(readFileSync(join(EDUCE_CORPUS, 'MANIFEST.json'), 'utf8')).files);
+  assert.equal(Number(stated[1]), files.length, 'the stated file count is the manifest\'s');
+  assert.equal(Number(stated[2]), files.reduce((total, file) => total + file.bytes, 0), 'the stated byte count is the manifest\'s');
+});
+
+test('the educe-sequences document states the check and pin counts the run reports', () => {
+  const stated = /reports (\d+) checks over (\d+) pins/.exec(EDUCE_DESIGN_TEXT);
+  assert.notEqual(stated, null, 'the document states what a green run reports');
+
+  assert.equal(Number(stated[1]), ENGINE_DECLARED_CHECK_COUNT);
+  const artifact = JSON.parse(readFileSync(EDUCE_GOLDEN_ARTIFACT, 'utf8'));
+  assert.equal(Number(stated[2]), flattenPins(artifact.pins).length);
 });

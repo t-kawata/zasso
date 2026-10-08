@@ -1,0 +1,364 @@
+{
+  "schema_version": 2,
+  "spec": {
+    "path": "ledger.md",
+    "sha256": "bae3bb680783bfeb475d747a06172198b4564c1f8c5d8de908fd36f7eb3db8fa",
+    "lines": 60
+  },
+  "pins": {
+    "predicate": {
+      "line": 10,
+      "limbs": [
+        "balance change",
+        "acceptance of a signed transfer",
+        "opening of a settlement window",
+        "acceptance of an external result",
+        "finalisation",
+        "cancellation",
+        "expiry",
+        "recovery"
+      ]
+    },
+    "rowSchema": {
+      "line": 14,
+      "fields": [
+        "subject",
+        "predicate",
+        "object",
+        "contract"
+      ]
+    },
+    "enumerations": [
+      {
+        "name": "OperationStatus",
+        "members": [
+          "Pending",
+          "Settled",
+          "Cancelled",
+          "Expired",
+          "Recovered"
+        ],
+        "ranges": [
+          [
+            19,
+            19
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            35,
+            35
+          ],
+          [
+            39,
+            39
+          ],
+          [
+            44,
+            44
+          ]
+        ],
+        "closedness": "closed"
+      }
+    ],
+    "forms": [
+      {
+        "name": "numbered-section",
+        "proposes": true
+      }
+    ],
+    "blocks": [
+      {
+        "id": "s1",
+        "firstLine": 3,
+        "lastLine": 7
+      },
+      {
+        "id": "s2",
+        "firstLine": 8,
+        "lastLine": 11
+      },
+      {
+        "id": "s3",
+        "firstLine": 12,
+        "lastLine": 16
+      },
+      {
+        "id": "s4",
+        "firstLine": 17,
+        "lastLine": 21
+      },
+      {
+        "id": "s5",
+        "firstLine": 22,
+        "lastLine": 31
+      },
+      {
+        "id": "s6",
+        "firstLine": 32,
+        "lastLine": 41
+      },
+      {
+        "id": "s7",
+        "firstLine": 42,
+        "lastLine": 46
+      },
+      {
+        "id": "s8",
+        "firstLine": 47,
+        "lastLine": 51
+      },
+      {
+        "id": "s9",
+        "firstLine": 52,
+        "lastLine": 56
+      },
+      {
+        "id": "s10",
+        "firstLine": 57,
+        "lastLine": 60
+      }
+    ]
+  },
+  "sequences": [
+    {
+      "id": "admission",
+      "kind": "entry",
+      "firstLine": 24,
+      "lastLine": 26,
+      "outcome": "direct"
+    },
+    {
+      "id": "settlement",
+      "kind": "entry",
+      "firstLine": 34,
+      "lastLine": 35,
+      "outcome": "viaNeighbour",
+      "neighbour": "settlement-replays-admission"
+    },
+    {
+      "id": "settlement-replays-admission",
+      "kind": "neighbour",
+      "firstLine": 49,
+      "lastLine": 50,
+      "cites": 34,
+      "outcome": null
+    },
+    {
+      "id": "non-operation",
+      "kind": "neighbour",
+      "firstLine": 59,
+      "lastLine": 60,
+      "cites": 59,
+      "outcome": null
+    }
+  ],
+  "steps": [
+    {
+      "id": "admission-1",
+      "subject": "operator",
+      "predicate": "reads",
+      "object": "the signed instruction",
+      "contract": "the instruction is signed",
+      "reader": "span",
+      "sequence": "admission",
+      "operation": "Admit"
+    },
+    {
+      "id": "admission-2",
+      "subject": "operator",
+      "predicate": "verifies",
+      "object": "the signature against the issuer key",
+      "contract": "the signature verifies",
+      "reader": "span",
+      "sequence": "admission",
+      "operation": "Admit"
+    },
+    {
+      "id": "admission-3",
+      "subject": "operator",
+      "predicate": "writes",
+      "object": "a Pending row",
+      "contract": "the row exists",
+      "reader": "span",
+      "sequence": "admission",
+      "operation": "Admit"
+    },
+    {
+      "id": "settlement-1",
+      "subject": "settler",
+      "predicate": "debits",
+      "object": "the payer",
+      "contract": "the row is pending",
+      "reader": "span",
+      "sequence": "settlement",
+      "operation": "Settle"
+    },
+    {
+      "id": "settlement-2",
+      "subject": "settler",
+      "predicate": "credits",
+      "object": "the payee",
+      "contract": "the payer was debited",
+      "reader": "span",
+      "sequence": "settlement",
+      "operation": "Settle"
+    },
+    {
+      "id": "settlement-3",
+      "subject": "settler",
+      "predicate": "marks",
+      "object": "the row Settled",
+      "contract": "the payee was credited",
+      "reader": "span",
+      "sequence": "settlement",
+      "operation": "Settle"
+    }
+  ],
+  "operations": [
+    {
+      "id": "Admit",
+      "position": "positioned",
+      "grounding": {
+        "classification": "definition",
+        "presupposition": 24
+      },
+      "reader": "span"
+    },
+    {
+      "id": "Settle",
+      "position": "positioned",
+      "grounding": {
+        "classification": "definition",
+        "presupposition": 34
+      },
+      "reader": "span"
+    },
+    {
+      "id": "LedgerStatus",
+      "position": "suppliedRule",
+      "grounding": {
+        "classification": "designer_supplied",
+        "presupposition": 55
+      },
+      "reader": "span"
+    }
+  ],
+  "adjudications": [
+    {
+      "subject": "s1",
+      "outcome": "notASequence",
+      "category": "document_description",
+      "reason": "it says what the document specifies rather than naming an actor and an act",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s2",
+      "outcome": "notASequence",
+      "category": "predicate_statement",
+      "reason": "it states when a procedure counts as an operation rather than performing one",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s3",
+      "outcome": "notASequence",
+      "category": "row_description",
+      "reason": "it describes the fields a row carries rather than an act an operator performs",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s4",
+      "outcome": "notASequence",
+      "category": "enumeration_statement",
+      "reason": "it states the closed set of statuses rather than an act",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s7",
+      "outcome": "singleStep",
+      "category": "single_step_act",
+      "reason": "one operator cancels a pending row by writing a cancelled row, which is one act",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s8",
+      "outcome": "singleStep",
+      "category": "single_step_act",
+      "reason": "one operator recovers a row by replaying the admission, which is one act",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s9",
+      "outcome": "notASequence",
+      "category": "rule_statement",
+      "reason": "it states a rule a designer may supply rather than naming an act",
+      "reader": "adjudicate"
+    },
+    {
+      "subject": "s10",
+      "outcome": "notASequence",
+      "category": "non_sequence_prose",
+      "reason": "it describes a section rather than an ordered procedure an actor performs",
+      "reader": "adjudicate"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "firstLine": 3,
+      "lastLine": 7
+    },
+    {
+      "id": "s2",
+      "firstLine": 8,
+      "lastLine": 11
+    },
+    {
+      "id": "s3",
+      "firstLine": 12,
+      "lastLine": 16
+    },
+    {
+      "id": "s4",
+      "firstLine": 17,
+      "lastLine": 21
+    },
+    {
+      "id": "s5",
+      "firstLine": 22,
+      "lastLine": 31
+    },
+    {
+      "id": "s6",
+      "firstLine": 32,
+      "lastLine": 41
+    },
+    {
+      "id": "s7",
+      "firstLine": 42,
+      "lastLine": 46
+    },
+    {
+      "id": "s8",
+      "firstLine": 47,
+      "lastLine": 51
+    },
+    {
+      "id": "s9",
+      "firstLine": 52,
+      "lastLine": 56
+    },
+    {
+      "id": "s10",
+      "firstLine": 57,
+      "lastLine": 60
+    }
+  ],
+  "exemptions": [],
+  "verify": {
+    "command": "node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>",
+    "expected_exit": 0
+  }
+}

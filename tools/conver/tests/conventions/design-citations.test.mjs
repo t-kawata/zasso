@@ -28,6 +28,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
@@ -51,11 +52,7 @@ const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERN
  * pointer that resolves to the right line while the prose still prints the old number is
  * the same defect one reader further on.
  */
-// [::TICKET::] PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-213 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
 const ANCHORED_CITATIONS = Object.freeze([
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
   { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
   { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
@@ -89,7 +86,6 @@ const ANCHORED_CITATIONS = Object.freeze([
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
 
 /** The line at 1-indexed `line`, or null when the file is shorter than that. */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function lineOf(relativePath, line) {
   const lines = readFileSync(join(PROJECT_ROOT, relativePath), 'utf8').split('\n');
   return line >= 1 && line <= lines.length ? lines[line - 1] : null;
@@ -127,7 +123,6 @@ test('every anchored citation resolves to the line that carries the claim', () =
  * means: it cites the tool, and the copies are the drift `installed-copy-drift.test.mjs`
  * measures. Only the project's own `.claude` is indexed.
  */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function projectFiles(directory = PROJECT_ROOT, prefix = '') {
   const found = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -150,7 +145,6 @@ const PROJECT_FILES = projectFiles();
  * — so the fixed point is the path's tail. A tail matching two files is reported rather
  * than guessed at, because a citation that names either of two files names neither.
  */
-// [::TICKET::] P26-1, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-1|P25-7) --for-spec --no-implementation-order`.
 function resolveCitation(citedPath) {
   const matches = PROJECT_FILES.filter(
     (file) => file === citedPath || file.endsWith(`/${citedPath}`),
@@ -175,6 +169,81 @@ test('every file:line citation in the document resolves to exactly one file', ()
 test('every cited line is inside its file', () => {
   const outOfRange = [];
   for (const [, citedPath, start, end] of DESIGN_TEXT.matchAll(/`([^`\s]+?):(\d+)(?:-(\d+))?`/g)) {
+    const [file] = resolveCitation(citedPath);
+    if (file === undefined) continue;
+    const lineCount = readFileSync(join(PROJECT_ROOT, file), 'utf8').split('\n').length;
+    for (const cited of [start, end].filter(Boolean)) {
+      if (Number(cited) > lineCount) outOfRange.push(`${citedPath}:${cited} exceeds the file's ${lineCount} lines`);
+    }
+  }
+  assert.deepEqual(outOfRange, [], `these citations point past the end of their file:\n  ${outOfRange.join('\n  ')}`);
+});
+
+// ---------------------------------------------------------------------------
+// The second design document
+// ---------------------------------------------------------------------------
+
+/**
+ * `docs/EDUCE-SEQUENCES-DESIGN.md` rests on four pointers into the rail it describes:
+ * the declared check array, the pin re-derivation, the citation rule that selects a
+ * neighbour, and the integrator that proves a reading before it writes one. The same
+ * two questions are asked of it as of the first document, because a design document
+ * that is not held to its subject is a page about nothing in particular.
+ */
+const EDUCE_DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'EDUCE-SEQUENCES-DESIGN.md');
+const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
+
+const EDUCE_ANCHORED_CITATIONS = Object.freeze([
+  // Re-measured after the provenance annotation of PX-240 inserted one comment line per
+  // file: the citation moved with the file rather than the file being kept still for it.
+  { asWritten: 'pins.mjs:246', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 246, token: 'export function rederiveAll' },
+  { asWritten: 'pins.mjs:82', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 82, token: 'export function selectNeighbourFor' },
+  { asWritten: 'engine.mjs:213', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 213, token: 'export const CHECKS' },
+  { asWritten: 'reading.mjs:220', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 220, token: 'export function applyReadings' },
+  { asWritten: 'gates.mjs:108', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 108, token: 'export const PHASES' },
+  { asWritten: 'phases.mjs:173', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 173, token: 'export function runPhase' },
+  { asWritten: 'run-state.mjs:91', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 91, token: 'export function openRun' },
+  { asWritten: 'readings.mjs:123', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 123, token: 'export function readReadingsFile' },
+  { asWritten: 'adhoc.mjs:126', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 126, token: 'export function scaffoldCheck' },
+  // Written with its directory because `report.mjs` alone names two files in this tree,
+  // and a citation that names either of two files names neither.
+  { asWritten: 'rail/report.mjs:51', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 51, token: 'export function buildReport' },
+  { asWritten: 'phase.mjs:159', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 159, token: 'export async function main' },
+]);
+
+test('the educe-sequences document carries every citation its argument rests on', () => {
+  const absent = EDUCE_ANCHORED_CITATIONS.filter((entry) => !EDUCE_DESIGN_TEXT.includes(entry.asWritten)).map((entry) => entry.asWritten);
+  assert.deepEqual(absent, [], `the document no longer writes these citations: ${absent.join(', ')}`);
+});
+
+test('every anchored educe-sequences citation resolves to the line that carries the claim', () => {
+  const unresolved = [];
+  for (const entry of EDUCE_ANCHORED_CITATIONS) {
+    const line = lineOf(entry.path, entry.line);
+    if (line === null || !line.includes(entry.token)) {
+      unresolved.push(`${entry.asWritten} -> ${entry.path}:${entry.line} does not carry "${entry.token}"`);
+    }
+  }
+  assert.deepEqual(unresolved, [], `these citations no longer resolve:\n  ${unresolved.join('\n  ')}`);
+});
+
+test('every file:line citation in the educe-sequences document resolves to exactly one file', () => {
+  const unresolved = [];
+  const seen = new Set();
+  for (const [, citedPath] of EDUCE_DESIGN_TEXT.matchAll(/`([^`\s]+?):\d+(?:-\d+)?`/g)) {
+    if (seen.has(citedPath)) continue;
+    seen.add(citedPath);
+    const matches = resolveCitation(citedPath);
+    if (matches.length !== 1) {
+      unresolved.push(`${citedPath} -> ${matches.length} file(s): ${matches.slice(0, 3).join(', ')}`);
+    }
+  }
+  assert.deepEqual(unresolved, [], `these citations do not name one file:\n  ${unresolved.join('\n  ')}`);
+});
+
+test('every educe-sequences cited line is inside its file', () => {
+  const outOfRange = [];
+  for (const [, citedPath, start, end] of EDUCE_DESIGN_TEXT.matchAll(/`([^`\s]+?):(\d+)(?:-(\d+))?`/g)) {
     const [file] = resolveCitation(citedPath);
     if (file === undefined) continue;
     const lineCount = readFileSync(join(PROJECT_ROOT, file), 'utf8').split('\n').length;
