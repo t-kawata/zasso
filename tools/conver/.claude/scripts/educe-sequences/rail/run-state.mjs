@@ -26,7 +26,37 @@ export const RUN_DIRECTORY_NAME = 'educe-sequences';
 export const STATUS_FILE = 'status.json';
 
 /** The phases a status file tracks, so a resumed run knows what is missing. */
-export const TRACKED_PHASES = 17;
+export const TRACKED_PHASES = 18;
+
+/**
+ * The fields a generation adds to the status.
+ *
+ * Named rather than written as literals because four modules read them: the driver opens
+ * a generation, the gates ask whether one may be opened, the artifact records what was
+ * supplied, and the report names what a generation invalidated.
+ */
+export const GENERATION_FIELD = 'generation';
+export const HISTORY_FIELD = 'history';
+export const SUPPLIED_FIELD = 'supplied';
+export const INVALIDATED_FIELD = 'invalidated';
+export const ENTERED_FIELD = 'entered';
+export const ASSETS_FIELD = 'assets';
+export const ASSET_DIGEST_FIELD = 'digest';
+
+/**
+ * Why an existing status can or cannot be resumed.
+ *
+ * A decision rather than a sentence: the rail states which of the three cases holds and
+ * the caller chooses the wording, because a refusal a reader sees has to say what to do
+ * next and that depends on who asked. `edited-specification` is deliberately not a
+ * refusal here — it is the case the whole ticket exists for, and `begin` turns it into a
+ * new generation.
+ */
+export const RESUME_KINDS = Object.freeze({
+  SAME_REVISION: 'same-revision',
+  EDITED_SPECIFICATION: 'edited-specification',
+  ANOTHER_SPECIFICATION: 'another-specification',
+});
 
 /**
  * The run directory for a specification.
@@ -57,53 +87,149 @@ export function writeStatus(directory, status) {
 }
 
 /**
- * Why an existing status cannot be resumed, or null when it can.
+ * Why an existing status cannot be resumed, as a kind and a reason.
  *
  * A specification changed by one byte has a different digest, and inheriting verdicts
  * taken against the previous revision would make every line citation in them mean
- * something else without saying so. The same holds for another specification that
- * happens to share the directory: one directory holds one specification's run.
+ * something else without saying so. That case is now `edited-specification` rather than a
+ * wholesale refusal: the assets are inherited by citation instead of being destroyed,
+ * and opening a generation over them is what repairs the citations. The same holds for
+ * another specification that happens to share the directory — one directory holds one
+ * specification's run — and that case remains a refusal, because no generation can make
+ * one specification's declaration a reading of another's text.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function whyNotResumed(existing, specPath, spec) {
   if (existing.spec?.path !== basename(specPath)) {
-    return `the run directory belongs to ${existing.spec?.path}; this specification is ${basename(specPath)}`;
+    return {
+      kind: RESUME_KINDS.ANOTHER_SPECIFICATION,
+      reason: `the run directory belongs to ${existing.spec?.path}; this specification is ${basename(specPath)}`,
+    };
   }
   if (existing.spec?.sha256 !== spec.sha256) {
-    return `the recorded state is for spec sha256 ${existing.spec?.sha256} and this specification is ${spec.sha256}; remove the run directory to start again`;
+    return {
+      kind: RESUME_KINDS.EDITED_SPECIFICATION,
+      reason: `the recorded state is for spec sha256 ${existing.spec?.sha256} and this specification is ${spec.sha256}; run begin to open a new generation, which inherits every asset this state holds`,
+    };
   }
   if (existing.spec?.lines !== spec.lineCount) {
-    return `the recorded state is for a specification of ${existing.spec?.lines} lines and this one has ${spec.lineCount}`;
+    return {
+      kind: RESUME_KINDS.EDITED_SPECIFICATION,
+      reason: `the recorded state is for a specification of ${existing.spec?.lines} lines and this one has ${spec.lineCount}; run begin to open a new generation, which inherits every asset this state holds`,
+    };
   }
-  return null;
+  return { kind: RESUME_KINDS.SAME_REVISION, reason: null };
+}
+
+/**
+ * The generation a status stands in, whatever it was called when it was written.
+ *
+ * A status written before generations existed carries phase records but no number, and
+ * those records are a generation in substance: their loops are the ones an invocation
+ * has to return. A directory that has opened nothing, by contrast, stands for no
+ * generation at all, which is why the first `begin` over it returns generation 1.
+ */
+export function generationOf(status) {
+  const recorded = status?.[GENERATION_FIELD];
+  if (Number.isInteger(recorded) && recorded > 0) return recorded;
+  return (status?.phases ?? []).length > 0 ? 1 : 0;
 }
 
 /**
  * Open a run, reusing the status of a previous run over the same revision.
  *
- * Reuse matters: a resumed run must not lose the loops it has already spent, or a
- * phase that fails repeatedly would be retried for ever. A status that cannot be
- * resumed is returned with the reason rather than overwritten, because overwriting
- * would destroy the evidence that a previous run existed.
+ * Reuse matters: a run that is driven without opening a generation must not lose the
+ * loops it has already spent, or a phase that fails repeatedly would be retried for
+ * ever. The loops are returned by `beginGeneration` and by nothing else, so a Step that
+ * resumed its own run has not spent a generation.
  *
- * @returns {{directory: string, status: object, resumed: boolean, refused?: string}}
+ * @returns {{directory: string, status: object, resumed: boolean, kind: string, refused?: string}}
  */
 export function openRun({ specPath, spec, root = null }) {
   const directory = runDirectoryFor(specPath, root);
   const existing = readStatus(directory);
   if (existing !== null) {
-    const refused = whyNotResumed(existing, specPath, spec);
-    if (refused !== null) return { directory, status: existing, resumed: false, refused };
-    return { directory, status: existing, resumed: true };
+    const decision = whyNotResumed(existing, specPath, spec);
+    if (decision.kind === RESUME_KINDS.ANOTHER_SPECIFICATION) {
+      return { directory, status: existing, resumed: false, kind: decision.kind, reason: decision.reason, refused: decision.reason };
+    }
+    return { directory, status: existing, resumed: true, kind: decision.kind, reason: decision.reason };
   }
 
   const status = {
     spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
+    [GENERATION_FIELD]: 0,
+    [ENTERED_FIELD]: false,
+    [HISTORY_FIELD]: [],
+    [SUPPLIED_FIELD]: [],
+    [INVALIDATED_FIELD]: [],
+    [ASSETS_FIELD]: { [ASSET_DIGEST_FIELD]: null },
     phases: [],
     readings: {},
   };
   writeStatus(directory, status);
-  return { directory, status, resumed: false };
+  return { directory, status, resumed: false, kind: 'new-run' };
+}
+
+/**
+ * Append one superseded generation to the history.
+ *
+ * The previous generation's phases, their loops and whether it had been entered are kept
+ * as they were: a history that recorded a summary would lose exactly the evidence a
+ * reader needs to see why a phase refused, and the loops are what the halt guard reads.
+ */
+export function appendHistory(status, entry) {
+  return { ...status, [HISTORY_FIELD]: [...(status[HISTORY_FIELD] ?? []), entry] };
+}
+
+/**
+ * Open the next generation: return every loop, record the asset digest, and keep the
+ * generation that is being superseded.
+ *
+ * The phase records are carried over with their status and their verdict and only their
+ * loops reset. Resetting the verdicts as well would throw away the reason a phase
+ * refused, which is the one thing a reader needs to repair it; and the status is carried
+ * because a phase that never passed must still not satisfy the phases that require it.
+ */
+// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+export function beginGeneration(status, { spec, digest, inquest = null }) {
+  const superseded = generationOf(status);
+  const carried = {
+    ...status,
+    spec,
+    [GENERATION_FIELD]: superseded + 1,
+    [ENTERED_FIELD]: false,
+    [ASSETS_FIELD]: { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: digest },
+    phases: (status.phases ?? []).map((record) => ({ ...record, loops: 0 })),
+  };
+  if (superseded === 0) return { ...carried, [HISTORY_FIELD]: [...(status[HISTORY_FIELD] ?? [])] };
+  return appendHistory(carried, {
+    generation: superseded,
+    phases: status.phases ?? [],
+    // The audit's counts travel with the generation that produced them, so the next
+    // report can say whether the questions moved anything rather than only what this
+    // generation asked. Counts rather than answers: the answers stay in the file beside
+    // the specification, where a reader can open them.
+    inquest,
+    [ENTERED_FIELD]: status[ENTERED_FIELD] ?? false,
+  });
+}
+
+/**
+ * Re-open the phases a generation asks the reader to perform again.
+ *
+ * The records are written through `writePhase`, so it stays the only writer of
+ * `phases[]`, and `entered` is deliberately not set: re-opening a phase is the
+ * generation's own act, not evidence that a reader has done anything.
+ */
+// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+export function reopenPhases(status, ids) {
+  let next = status;
+  for (const id of ids) {
+    const current = phaseState(next, id);
+    next = writePhase(next, { id, tag: current.tag ?? null, status: 'open', verdict: null, loops: 0 });
+  }
+  return next;
 }
 
 /** One phase's recorded state, or a fresh open record. */
@@ -134,10 +260,16 @@ function writePhase(status, record) {
  * used to be derived from whether a verdict was present, so a refusal was written as a
  * completion and `requires` — the whole ordering — became satisfiable by a phase that had
  * just failed. With the status stated at each writer there is nothing left to infer.
+ *
+ * Both writers also record that the generation has been entered. That is the fact which
+ * separates a generation that was opened and left alone — nothing to do, so a second
+ * `begin` reports a verification — from one a reader has worked in, which opens the next
+ * generation. It is recorded rather than inferred: every derivable proxy either loses a
+ * carried-over refusal's verdict or reads a half-finished generation as untouched.
  */
 export function noteDone(status, id, { verdict, tag = null }) {
   const current = phaseState(status, id);
-  return writePhase(status, { id, tag: tag ?? current.tag ?? null, status: 'done', verdict, loops: current.loops });
+  return writePhase(markEntered(status), { id, tag: tag ?? current.tag ?? null, status: 'done', verdict, loops: current.loops });
 }
 
 /**
@@ -149,7 +281,14 @@ export function noteDone(status, id, { verdict, tag = null }) {
  */
 export function noteLoop(status, id, tag, verdict) {
   const current = phaseState(status, id);
-  return writePhase(status, { id, tag: tag ?? current.tag ?? null, status: 'refused', verdict, loops: current.loops + 1 });
+  return writePhase(markEntered(status), { id, tag: tag ?? current.tag ?? null, status: 'refused', verdict, loops: current.loops + 1 });
+}
+
+/** Record that a reader has done something in this generation. */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function markEntered(status) {
+  status[ENTERED_FIELD] = true;
+  return status;
 }
 
 /** The loops a phase has already spent. */

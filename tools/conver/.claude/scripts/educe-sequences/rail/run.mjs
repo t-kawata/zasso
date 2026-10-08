@@ -18,11 +18,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
-import { checkAll, ENGINE_DECLARED_CHECK_COUNT } from './engine.mjs';
+import { checkAll } from './engine.mjs';
 import { digestOf, readArtifact, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES, applyReadings } from './reading.mjs';
+import { loadAdhocChecks } from './adhoc.mjs';
+import { railExitStoreFor } from './harness.mjs';
+import { inquestBeside } from './readings.mjs';
+import { runDirectoryFor } from './run-state.mjs';
+import { suppliedDigestOf } from './supplied.mjs';
 import { readRailExits } from './harness.mjs';
 
 /** The exit codes the command contract declares. */
@@ -38,7 +43,9 @@ const UNREAD_REASON = 'the run performed the shape and read nothing; the first [
  * @param {{runInput?: {declaration: object, readings: object}, stdout?: (line: string) => void,
  *          stderr?: (line: string) => void, railExits?: unknown[]}} options
  */
-export function runCommand(argv, options = {}) {
+// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
   const runInput = options.runInput ?? null;
@@ -54,6 +61,15 @@ export function runCommand(argv, options = {}) {
   const artifactPath = artifactPathFor(specPath);
   const existing = readArtifact(artifactPath);
 
+  // The product path loads the same checks the phase driver does, so the two report the
+  // same count. A module that cannot join the set refuses the run rather than being
+  // dropped: a check missing from the count reads exactly like a check that passed.
+  const loaded = await loadAdhocChecks({ directory: runDirectoryFor(specPath) });
+  if (loaded.problems.length > 0) {
+    stderr(`refused: the ad-hoc check set could not be assembled: ${loaded.problems.join('; ')}`);
+    return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: loaded.problems.map((problem) => ({ check: 'adhoc', reason: problem })) };
+  }
+
   // A citation is meaningful only against one revision, so a recorded digest that no
   // longer matches is refused rather than re-derived silently: repairing it would
   // make every line number in the artifact mean something else without saying so.
@@ -65,8 +81,24 @@ export function runCommand(argv, options = {}) {
   }
 
   if (existing !== null && runInput === null) {
+    // The material is re-digested beside the specification rather than read from the
+    // artifact's own claim: a verification that compared the record against itself
+    // would agree with any record at all.
+    const suppliedDigest = suppliedDigestOf(runDirectoryFor(specPath));
+    if (existing.supplied !== undefined && existing.supplied.digest !== suppliedDigest) {
+      stderr(`refused: the artifact records supplied digest ${existing.supplied.digest}; the material beside this specification digests to ${suppliedDigest}`);
+      return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: [] };
+    }
     const rederived = rederiveAll(existing.pins, spec.lines);
-    const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact: existing, railExits: options.railExits ?? [] });
+    const { verdicts, summary } = checkAll({
+      specLines: spec.lines,
+      artifact: existing,
+      recorded: {
+        railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
+        inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
+        adhocChecks: loaded.checks,
+      },
+    });
     const failures = [...rederived.failures, ...verdicts];
     if (failures.length > 0) {
       for (const failure of failures) stderr(`refused: ${failure.check ?? failure.pin}: ${failure.reason}`);
@@ -82,8 +114,22 @@ export function runCommand(argv, options = {}) {
     return { exitCode: EXIT.REFUSED, artifactPath: null, summary: null, verdicts: [] };
   }
 
-  const artifact = buildArtifact({ specPath, spec, declaration: runInput.declaration, readings: runInput.readings });
-  const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact, railExits: options.railExits ?? readRailExits() });
+  const artifact = buildArtifact({
+    specPath,
+    spec,
+    declaration: runInput.declaration,
+    readings: runInput.readings,
+    supplied: suppliedDigestOf(runDirectoryFor(specPath)),
+  });
+  const { verdicts, summary } = checkAll({
+    specLines: spec.lines,
+    artifact,
+    recorded: {
+      railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
+      inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
+      adhocChecks: loaded.checks,
+    },
+  });
 
   if (verdicts.length > 0) {
     for (const verdict of verdicts) stderr(`refused: ${verdict.check}: ${verdict.reason}`);
@@ -105,10 +151,10 @@ export function runCommand(argv, options = {}) {
 }
 
 /** Print the coverage block: every line is a number a reading pass moves. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
 function report(stdout, summary) {
   stdout(`rows=${summary.rows} sequences=${summary.sequences} steps=${summary.steps} operations=${summary.operations}`);
-  stdout(`checksRun=${summary.checksRun} of ${ENGINE_DECLARED_CHECK_COUNT}`);
+  stdout(`checksRun=${summary.checksRun} of ${summary.checksDeclared} checksAdhoc=${summary.checksAdhoc}`);
   stdout(`pinsRederived=${summary.pinsRederived} of ${summary.pinsTotal}`);
   stdout(`railExits=${summary.railExits} promotionCandidates=${summary.promotionCandidates}`);
   const unread = summary.sequencesUnread ?? 0;
@@ -147,5 +193,5 @@ function readRunInputFromStdin() {
 
 // Command-line entry: `node rail/run.mjs <spec-file>`.
 if (process.argv[1] !== undefined && process.argv[1].endsWith('run.mjs')) {
-  process.exitCode = runCommand(process.argv.slice(2), { runInput: readRunInputFromStdin() }).exitCode;
+  process.exitCode = (await runCommand(process.argv.slice(2), { runInput: readRunInputFromStdin() })).exitCode;
 }

@@ -14,6 +14,7 @@
 import { agreeOn, citeFrom, coverEvery, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
 import { readArtifactSchema, validateArtifactShape } from './load.mjs';
 import { PIN_RULES, flattenPins, selectNeighbourFor } from './pins.mjs';
+import { INQUEST_ANSWERS, INQUEST_LENSES, inquestPairs, isExempt } from './readings.mjs';
 
 /**
  * The positions an operation may hold, read from the schema rather than repeated.
@@ -154,8 +155,91 @@ function entriesOf(context) {
   return context.artifact.sequences.filter((entry) => entry.kind === 'entry');
 }
 
-/** The declared partition and the section list must be the same partition. */
-const sectionsAgreeWithBlocks = agreeOn(
+/**
+ * The audit: four checks over the artifact and the answers that arrived (PX-243).
+ *
+ * The answers are handed in as a value rather than read from a directory, so a check
+ * cannot decide by looking around it. `inquest === null` says the run has no audit
+ * anywhere — the product path, verifying an artifact with nothing beside it — and the
+ * four checks are then vacuous rather than red, because "there is no audit to judge" and
+ * "an audit was opened and answered nothing" are different findings and only one of them
+ * is incompleteness. An empty array is the second.
+ */
+// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+function answersOf(context) {
+  return context.inquest ?? [];
+}
+
+/** The subjects the artifact puts to the audit: its sections and its entries. */
+// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+function inquestSubjectsOf(context) {
+  return [
+    ...context.artifact.sections.map((section) => section.id),
+    ...context.artifact.sequences.map((entry) => entry.id),
+  ];
+}
+
+/** A pair, written the way every verdict about it writes it. */
+// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+function pairLabel(pair) {
+  return `${pair.subject} · ${pair.lens}`;
+}
+
+/**
+ * Every declared subject is interrogated under every lens, and no pair is answered twice
+ * over.
+ *
+ * The sources are the pairs, so a verdict names the subject *and* the lens: "s5 is
+ * unanswered" would leave a reader to work out which of four questions is missing, and
+ * the four are different questions about the same text.
+ */
+const inquestCoversEverySubjectAndLens = coverEvery(
+  { id: 'inquest-covers-every-subject-and-lens', defect: 'an audit that interrogated the subjects it happened to think of, so a lens nobody applied looked the same as one that was applied and found nothing', refuses: 'a (subject, lens) pair the declaration puts and no answer and no exemption covers', scope: 'every artifact, over its sections and entries, against INQUEST_LENSES' },
+  {
+    sources: (context) => (context.inquest === null
+      ? []
+      : inquestPairs(inquestSubjectsOf(context)).filter((pair) => !isExempt(context.artifact.exemptions, pair))),
+    coveredBy: (pair, context) => answersOf(context).some((record) => record.subject === pair.subject && record.lens === pair.lens),
+    label: pairLabel,
+  },
+);
+
+/**
+ * Every answer is one of the declared answers.
+ *
+ * The lens is the evidence and the answer is the bucket, because the lens vocabulary is
+ * refused by the readings validator before any check sees a record — so what is left for
+ * a check to refuse is an answer outside the vocabulary, and the verdict has to name it.
+ */
+const inquestAnswersStayInVocabulary = placeEach(
+  { id: 'inquest-answers-stay-in-the-declared-vocabulary', defect: 'an answer written in prose because the closed vocabulary had no word for it, so the audit recorded a judgement nothing could compare', refuses: 'an answer outside INQUEST_ANSWERS', scope: 'every audit answer, over INQUEST_ANSWERS' },
+  {
+    members: answersOf,
+    buckets: () => INQUEST_ANSWERS,
+    bucketOf: (record) => ({ bucket: record.answer, evidence: INQUEST_LENSES.includes(record.lens) ? record.lens : '' }),
+    label: pairLabel,
+  },
+);
+
+/** Every answer is grounded in the line it names. */
+const inquestAnswersAreGrounded = groundIn(
+  { id: 'inquest-answers-are-grounded-in-their-line', defect: 'an answer whose quote was assembled from the artifact the audit was meant to interrogate, so the audit agreed with the thing it was checking', refuses: 'an answer whose cited line does not carry its quote', scope: 'every audit answer, against the specification' },
+  {
+    claims: (context) => answersOf(context).map((record) => ({ subject: pairLabel(record), line: record.line, quote: record.quote })),
+  },
+);
+
+/** Every answer cites a line the specification has. */
+const inquestAnswersCiteInsideSpecification = citeFrom(
+  { id: 'inquest-answers-cite-a-line-inside-the-specification', defect: 'an answer citing a line number that resolves to nothing, so a citation read as a reading while pointing at no text at all', refuses: 'an answer whose cited line is not one of the specification lines', scope: 'every audit answer, against the specification' },
+  {
+    claims: (context) => answersOf(context).map((record) => ({ subject: pairLabel(record), carrier: record.line })),
+    // The lines the specification has, and no others: the carrier set is the document.
+    carriers: (claim, context) => Array.from({ length: context.specLines.length }, (_, index) => index + 1),
+  },
+);
+
+/** The declared partition and the section list must be the same partition. */const sectionsAgreeWithBlocks = agreeOn(
   { id: 'sections-agree-with-blocks', defect: 'a declared section list that drifted from the partition the headings state, so the census counted a section the specification does not have', refuses: 'a section present in one partition and absent from the other, or present in both with a different range', scope: 'every artifact, over its sections and its block pin' },
   {
   left: (context) => context.artifact.sections,
@@ -249,6 +333,10 @@ export const CHECKS = Object.freeze([
   stepCarriesFourFields,
   neighbourCitesInsideSpan,
   suppliedRuleHasNoDefiningSection,
+  inquestCoversEverySubjectAndLens,
+  inquestAnswersStayInVocabulary,
+  inquestAnswersAreGrounded,
+  inquestAnswersCiteInsideSpecification,
 ]);
 
 /** The count the run must report; a run that ran fewer is incomplete even when it exits zero. */
@@ -264,7 +352,12 @@ export const ENGINE_DECLARED_CHECK_COUNT = CHECKS.length;
  *
  * @returns {{verdicts: Array<object>, summary: object|null}}
  */
-export function checkAll({ specLines, artifact, rederivePins = true, railExits = [] }) {
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function checkAll({ specLines, artifact, rederivePins = true, recorded = {} }) {
+  // Everything the run recorded beside the artifact is one input, because the checks read
+  // it as one thing: the rail exits a scaffold left, the audit a reader answered, and the
+  // ad-hoc checks that were loaded from the run directory.
+  const { railExits = [], inquest = null, adhocChecks = [] } = recorded;
   const shapeProblems = validateArtifactShape(artifact, readArtifactSchema());
   if (shapeProblems.length > 0) {
     return {
@@ -284,9 +377,15 @@ export function checkAll({ specLines, artifact, rederivePins = true, railExits =
     };
   }
 
-  const context = { specLines, artifact };
+  // The declared set is what the run promised; the run set is what it could call. They
+  // are counted separately so a check that was declared and never ran is visible as the
+  // difference rather than absorbed into a total that reads the same either way.
+  const declared = [...CHECKS, ...adhocChecks];
+  const runnable = declared.filter((check) => typeof check.run === 'function');
+
+  const context = { specLines, artifact, inquest };
   const verdicts = [];
-  for (const check of CHECKS) {
+  for (const check of runnable) {
     try {
       verdicts.push(...check.run(context));
     } catch (error) {
@@ -299,8 +398,9 @@ export function checkAll({ specLines, artifact, rederivePins = true, railExits =
   return {
     verdicts,
     summary: {
-      checksRun: CHECKS.length,
-      checksDeclared: ENGINE_DECLARED_CHECK_COUNT,
+      checksRun: runnable.length,
+      checksDeclared: declared.length,
+      checksAdhoc: adhocChecks.length,
       rows: artifact.pins.blocks.length,
       steps: artifact.steps.length,
       operations: artifact.operations.length,

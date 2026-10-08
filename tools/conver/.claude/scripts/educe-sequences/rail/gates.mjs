@@ -10,16 +10,27 @@
 //   read   — a reader performs it; the gate checks the shape and the signature of what
 //            came back, and can never check that the reading happened
 //   ad-hoc — new code is written; the gate checks the record that must accompany it
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ADHOC_DIRECTORY } from './adhoc.mjs';
-import { CHECKS, checkAll, ENGINE_DECLARED_CHECK_COUNT } from './engine.mjs';
+import { CHECKS, checkAll } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { deriveSet, readArtifact } from './load.mjs';
 import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES } from './reading.mjs';
-import { DECLARATION_FILE, readDeclarationFile, readReadingsFile, signedCount } from './readings.mjs';
+import {
+  DECLARATION_FILE,
+  INQUEST_FILE,
+  WORKLIST_FILE,
+  inquestPairs,
+  inquestSubjects,
+  isExempt,
+  readDeclarationFile,
+  readInquestFile,
+  readReadingsFile,
+  signedCount,
+} from './readings.mjs';
+import { generationOf } from './run-state.mjs';
 
 /** The three tags. Their meanings are stated above and used by the command's table. */
 export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-hoc' });
@@ -82,15 +93,9 @@ function entriesOf(artifact) {
  * the declared checks and the modules the run has scaffolded.
  */
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function declaredCheckIds(ctx) {
-  const ids = new Set(CHECKS.map((check) => check.id));
-  const adhoc = join(ctx.directory, ADHOC_DIRECTORY);
-  if (existsSync(adhoc)) {
-    for (const name of readdirSync(adhoc)) {
-      if (name.endsWith('.mjs')) ids.add(name.slice(0, -'.mjs'.length));
-    }
-  }
-  return ids;
+  return new Set([...CHECKS.map((check) => check.id), ...ctx.recorded.adhocChecks.map((check) => check.id)]);
 }
 
 /** The entries whose outcome is missing or outside the declared vocabulary. */
@@ -105,6 +110,7 @@ function entriesWithoutOutcome(artifact) {
  * `requires` is the entry gate: the phases whose verdict must already be `done`. It is
  * data rather than prose so the driver can refuse a phase that was entered out of order.
  */
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 export const PHASES = Object.freeze([
   {
     id: 1, name: 'identity', tag: PHASE_TAGS.DET, requires: [], backTo: null, maxLoops: 1,
@@ -169,7 +175,7 @@ export const PHASES = Object.freeze([
   {
     id: 7, name: 'worklist', tag: PHASE_TAGS.DET, requires: [6], backTo: 6, maxLoops: 3,
     exit: (ctx) => {
-      const path = join(ctx.directory, 'worklist.txt');
+      const path = join(ctx.directory, WORKLIST_FILE);
       if (!existsSync(path)) return refuse('no worklist was built');
       const lines = readFileSync(path, 'utf8').split('\n').filter((line) => line.trim() !== '');
       if (lines.length === 0) return refuse('the worklist is empty');
@@ -245,7 +251,39 @@ export const PHASES = Object.freeze([
     },
   },
   {
-    id: 13, name: 'checks', tag: PHASE_TAGS.DET, requires: [9], backTo: 6, maxLoops: 3,
+    id: 13, name: 'inquest', tag: PHASE_TAGS.READ, requires: [12], backTo: 12, maxLoops: 3,
+    // The audit is asked after the readings and before the checks, and the check block
+    // requires it. A run that built a green block without having asked anything would be
+    // reporting a guarantee it had already said it could not make — the idiom the weakest
+    // link uses one phase later, applied to the question rather than to the answer.
+    exit: (ctx) => {
+      const declaration = readDeclaration(ctx.directory);
+      if (!declaration.ok) return refuse(declaration.problems.join('; '));
+      const answered = readInquestFile(join(ctx.directory, INQUEST_FILE));
+      if (!answered.ok) return refuse(answered.problems.join('; '));
+      const unsigned = answered.readings.length - signedCount(answered.readings);
+      if (unsigned > 0) {
+        return refuse(`${unsigned} answer(s) carry no signature, and an answer with no signature is not a reading`);
+      }
+
+      const subjects = inquestSubjects({
+        sections: declaration.declaration.sections,
+        entries: declaration.declaration.entries,
+      });
+      const pairs = inquestPairs(subjects);
+      if (pairs.length === 0) {
+        return prove('the declaration declares no subject, so there is nothing to ask', { vacuous: true });
+      }
+      const exemptions = declaration.declaration.exemptions;
+      const unanswered = pairs.find((pair) => !answered.readings.some((record) => record.subject === pair.subject && record.lens === pair.lens)
+        && !isExempt(exemptions, pair));
+      return unanswered === undefined
+        ? prove(`${pairs.length} (subject, lens) pair(s) answered`)
+        : refuse(`no answer for ${unanswered.subject} under the ${unanswered.lens} lens, and no exemption covers it`);
+    },
+  },
+  {
+    id: 14, name: 'checks', tag: PHASE_TAGS.DET, requires: [9, 13], backTo: 6, maxLoops: 3,
     exit: (ctx) => {
       // The weakest link is closed before the checks speak. A run that named its own
       // loosest judgement and then reported a green block would be reporting a
@@ -258,17 +296,26 @@ export const PHASES = Object.freeze([
         return refuse(`the weakest link "${link.subject}" is tightened by "${link.tightenedBy}", which no declared check answers`);
       }
 
+      // A module that could not join the set is refused before the block is built: a
+      // count taken over a set that is missing a check would read as a pass.
+      const unrunnable = ctx.recorded.adhocProblems;
+      if (unrunnable.length > 0) return refuse(`the ad-hoc check set could not be assembled: ${unrunnable.join('; ')}`);
+
       const artifact = readArtifact(ctx.artifactPath);
-      const { verdicts, summary } = checkAll({ specLines: ctx.spec.lines, artifact, railExits: ctx.railExits ?? [] });
+      const { verdicts, summary } = checkAll({
+        specLines: ctx.spec.lines,
+        artifact,
+        recorded: ctx.recorded,
+      });
       if (verdicts.length > 0) return refuse(`${verdicts[0].check}: ${verdicts[0].reason}`);
       if (summary === null) return refuse('the block was not produced, so the run stopped before the checks could speak');
-      return summary.checksRun === ENGINE_DECLARED_CHECK_COUNT
-        ? prove(`${summary.checksRun} checks ran of ${ENGINE_DECLARED_CHECK_COUNT}`)
-        : refuse(`${summary.checksRun} checks ran of ${ENGINE_DECLARED_CHECK_COUNT}`);
+      return summary.checksRun === summary.checksDeclared
+        ? prove(`${summary.checksRun} checks ran of ${summary.checksDeclared}`)
+        : refuse(`${summary.checksRun} checks ran of ${summary.checksDeclared}`);
     },
   },
   {
-    id: 14, name: 're-derive', tag: PHASE_TAGS.DET, requires: [13], backTo: 6, maxLoops: 2,
+    id: 15, name: 're-derive', tag: PHASE_TAGS.DET, requires: [14], backTo: 6, maxLoops: 2,
     exit: (ctx) => {
       const artifact = readArtifact(ctx.artifactPath);
       const result = rederiveAll(artifact.pins, ctx.spec.lines);
@@ -278,7 +325,7 @@ export const PHASES = Object.freeze([
     },
   },
   {
-    id: 15, name: 'falsify', tag: PHASE_TAGS.DET, requires: [13], backTo: 13, maxLoops: 3,
+    id: 16, name: 'falsify', tag: PHASE_TAGS.DET, requires: [14], backTo: 14, maxLoops: 3,
     exit: (ctx) => {
       const artifact = readArtifact(ctx.artifactPath);
       const context = { artifact, specLines: ctx.spec.lines, fixtureRoot: ctx.fixtureRoot };
@@ -291,9 +338,9 @@ export const PHASES = Object.freeze([
     },
   },
   {
-    id: 16, name: 'rail exit', tag: PHASE_TAGS.ADHOC, requires: [], backTo: null, maxLoops: 5,
+    id: 17, name: 'rail exit', tag: PHASE_TAGS.ADHOC, requires: [], backTo: null, maxLoops: 5,
     exit: (ctx) => {
-      const records = ctx.railExits ?? [];
+      const records = ctx.recorded.railExits;
       const empty = records.filter((record) => Object.values(record).some((value) => value === '' || value === null || value === undefined));
       if (empty.length > 0) return refuse(`a rail-exit record has an empty field: ${empty[0].id}`);
       // A record must carry what an execution observed, not merely assert that one
@@ -305,7 +352,7 @@ export const PHASES = Object.freeze([
     },
   },
   {
-    id: 17, name: 'report', tag: PHASE_TAGS.DET, requires: [13], backTo: 13, maxLoops: 2,
+    id: 18, name: 'report', tag: PHASE_TAGS.DET, requires: [14], backTo: 14, maxLoops: 2,
     exit: (ctx) => (existsSync(ctx.artifactPath)
       ? prove('the artifact exists and its digest can be printed')
       : refuse('there is nothing to report, because no artifact was written')),
@@ -326,7 +373,7 @@ function recordOf(status, id) {
 /**
  * The entry gate: the phase must be in order, and it must not have spent its loop limit.
  *
- * The first half is the ordering. Entering phase 13 before phase 9 would check an
+ * The first half is the ordering. Entering phase 14 before phase 9 would check an
  * artifact that does not exist yet, and the refusal says which phase is missing rather
  * than that the order was wrong.
  *
@@ -363,6 +410,41 @@ export function evaluateGate(phaseId, context) {
   } catch (error) {
     return refuse(`the gate threw rather than returning a verdict: ${error.message}`);
   }
+}
+
+/**
+ * Why a new generation may not be opened, or null when it may.
+ *
+ * Opening a generation returns the loop budget, which is what lets a repaired
+ * declaration be read on the next invocation. It would also be the way to escape the
+ * limit without repairing anything: run, halt, run again, and the same defective input
+ * gets a fresh three attempts. The guard closes that by refusing a generation when
+ * the three facts that would make it a different question all fail to change — the
+ * previous generation halted, nothing it inherits has changed, and the specification
+ * itself is the same revision.
+ *
+ * The specification is in the condition because editing it *is* the repair the halt
+ * asked for, and a guard that ignored the edit would refuse the one change that helps.
+ *
+ * @returns {string|null} the refusal, naming the phase, its loops and the generation
+ */
+// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+export function whyNotNewGeneration(status, { assetDigest, specSha256 }) {
+  if (status === null || status === undefined) return null;
+  // Only a recorded digest that differs clears the guard. A run that halted before any
+  // generation recorded one has nothing that changed, and treating "nothing recorded" as
+  // "something changed" would leave the limit escapable by driving the phases directly.
+  const recorded = status.assets?.digest ?? null;
+  if (recorded !== null && recorded !== assetDigest) return null;
+  if (status.spec?.sha256 !== specSha256) return null;
+
+  for (const phase of PHASES) {
+    const record = recordOf(status, phase.id);
+    if (record === null || record.status === 'done') continue;
+    if ((record.loops ?? 0) < phase.maxLoops) continue;
+    return `generation ${generationOf(status)} halted at phase ${phase.id} with ${record.loops} of ${phase.maxLoops} loops, and neither the specification nor anything the run inherits has changed; a new generation over an unchanged set would ask the same question again — the last refusal was: ${record.verdict ?? '(none recorded)'}`;
+  }
+  return null;
 }
 
 /** The set a listing yields, re-exported so a gate and a caller cannot disagree about it. */

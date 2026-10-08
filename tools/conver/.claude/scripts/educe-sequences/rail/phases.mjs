@@ -10,20 +10,49 @@
 // can ask of a reading, and stating it is what turns "dispatch a brief" into an
 // instruction someone can follow.
 import { existsSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { buildArtifact } from './artifact.mjs';
-import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById } from './gates.mjs';
+import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, whyNotNewGeneration } from './gates.mjs';
+import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
 import { establishPins } from './pins.mjs';
 import { applyReadings, buildWorklist } from './reading.mjs';
-import { DECLARATION_FILE, readDeclarationFile, readReadingsFile, signedCount } from './readings.mjs';
-import { noteDone, noteLoop, noteReading, openRun, phaseState, writeStatus } from './run-state.mjs';
+import {
+  DECLARATION_FILE,
+  INQUEST_FILE,
+  PINS_FILE,
+  WORKLIST_FILE,
+  inquestBeside,
+  inquestCounts,
+  inquestRecordsIn,
+  inquestSubjects,
+  readDeclarationFile,
+  readReadingsFile,
+  signedCount,
+} from './readings.mjs';
+import {
+  ASSETS_FIELD,
+  ASSET_DIGEST_FIELD,
+  GENERATION_FIELD,
+  INVALIDATED_FIELD,
+  RESUME_KINDS,
+  SUPPLIED_FIELD,
+  beginGeneration,
+  generationOf,
+  noteDone,
+  noteLoop,
+  noteReading,
+  openRun,
+  phaseState,
+  reopenPhases,
+  writeStatus,
+} from './run-state.mjs';
+import { digestOfSupplied, fileSuppliedMaterial } from './supplied.mjs';
 
-/** The working files a run directory holds. */
-export const WORKLIST_FILE = 'worklist.txt';
-export const PINS_FILE = 'pins.json';
+/** The working files a run directory holds, named where the gates can reach them too. */
+export { PINS_FILE, WORKLIST_FILE };
 
 /** The exit code that means "stop": the phase spent its loop limit and is not a retry. */
 export const HALT_EXIT_CODE = 3;
@@ -55,6 +84,7 @@ export const PHASE_EXPECTS = Object.freeze({
   10: 'readings-adversarial.jsonl, one signed attack per ruling, each naming the weakest link',
   11: 'readings-reroute.jsonl, one signed reroute per entry bound to a window',
   12: 'readings-adjudicate.jsonl, one signed ruling per entry with no outcome',
+  13: `${INQUEST_FILE}, one signed answer per (subject, lens) pair, each naming a line and quoting it`,
 });
 
 /** What the reader is asked to do, in the words the brief is rendered with. */
@@ -67,6 +97,7 @@ export const PHASE_GUIDANCE = Object.freeze({
   10: 'Attack each ruling: name the one claim whose failure would take it down.',
   11: 'For each entry bound to a window, name the entry that should realize it instead, and the line that says so.',
   12: 'For each entry with no outcome, rule whether one named actor performs two or more ordered acts there.',
+  13: 'For each declared subject and each lens, ask the question, answer it in the closed vocabulary, and quote the line the answer rests on.',
 });
 
 /** Merge readings by subject, so a later brief's verdict replaces the earlier one. */
@@ -85,12 +116,12 @@ function optionalBrief(directory, briefName) {
 }
 
 /** The brief each `[read]` phase collects, so the count recorded is the count that arrived. */
-const BRIEF_OF_PHASE = Object.freeze({ 2: null, 3: null, 4: null, 5: null, 8: 'span', 10: 'adversarial', 11: 'reroute', 12: 'adjudicate' });
+const BRIEF_OF_PHASE = Object.freeze({ 2: null, 3: null, 4: null, 5: null, 8: 'span', 10: 'adversarial', 11: 'reroute', 12: 'adjudicate', 13: 'inquest' });
 
 /**
  * How many signed claims a `[read]` phase produced.
  *
- * The four declaration phases each read one section, so each counts one; the four brief
+ * The four declaration phases each read one section, so each counts one; the five brief
  * phases count the signed lines that arrived. A phase that passes while reporting zero
  * is the case the report calls incomplete, which is why the count is taken here rather
  * than assumed from the gate having passed.
@@ -140,6 +171,7 @@ const ACTIONS = Object.freeze({
         operations: span.flatMap((reading) => reading.operations ?? []),
         adjudications: adjudicate,
       },
+      supplied: digestOfSupplied(ctx.status[SUPPLIED_FIELD] ?? []),
     });
     return applyReadings({ artifactPath: ctx.artifactPath, readings: sequences, artifact, specLines: ctx.spec.lines });
   },
@@ -152,14 +184,27 @@ const ACTIONS = Object.freeze({
  * holding the specification, so that is the default rather than a parameter a caller can
  * forget: a falsification whose restoration is not measured is not falsification.
  */
-export function buildContext({ specPath, spec, run, railExits = [], fixtureRoot = dirname(specPath) }) {
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot = dirname(specPath) }) {
   return {
     specPath,
     spec,
     directory: run.directory,
     status: run.status,
     artifactPath: artifactPathFor(specPath),
-    railExits,
+    // What the run recorded beside the artifact, under the name `checkAll` reads it by.
+    // The scaffolded checks are carried as loaded values, so no gate reaches for a
+    // directory to load them itself: a gate that loaded its own registry could judge a
+    // different set from the one the block was built from.
+    recorded: {
+      railExits: recorded.railExits ?? [],
+      // Read here rather than at each call site: a caller that spread this value and
+      // forgot the audit would build a block that judged no audit, and the run would
+      // report a green block over a question it never asked.
+      inquest: recorded.inquest ?? inquestBeside(run.directory),
+      adhocChecks: recorded.adhocChecks ?? [],
+      adhocProblems: recorded.adhocProblems ?? [],
+    },
     fixtureRoot,
   };
 }
@@ -201,7 +246,7 @@ export function runPhase(id, ctx) {
     const performed = action(ctx);
     if (performed?.ok === false) {
       noteLoop(ctx.status, id, phase.tag, performed.problems?.join('; ') ?? 'the action refused');
-      writeStatus(ctx.directory, ctx.status);
+      writeStatus(ctx.directory, observeAssets(ctx.status, ctx.directory));
       return verdictOf({ ok: false, reason: performed.problems?.join('; ') ?? 'the action refused' });
     }
   }
@@ -215,7 +260,7 @@ export function runPhase(id, ctx) {
   } else {
     noteLoop(ctx.status, id, phase.tag, exit.reason);
   }
-  writeStatus(ctx.directory, ctx.status);
+  writeStatus(ctx.directory, observeAssets(ctx.status, ctx.directory));
   return verdictOf(exit);
 }
 
@@ -239,18 +284,150 @@ export function runThrough(ctx, lastId = PHASES.length) {
 /**
  * Open a run and build its context in one call, so a caller cannot forget the state.
  *
- * A state that cannot be resumed is returned with its reason rather than thrown: the
- * caller decides whether to stop the run, and every caller stops it, because a run
- * that continued would be recording verdicts against a revision its state is not for.
+ * A state whose specification has moved is returned with its reason rather than thrown,
+ * and this opener refuses it: the phases judge citations taken against one revision, so a
+ * Step that is not `begin` has no way to re-anchor them. `beginRun` is the opener that
+ * does, by inheriting the assets by citation and re-deriving what no longer resolves.
  */
 export function startRun({ specPath, spec, root = null }) {
   const opened = openRun({ specPath, spec, root });
+  const refusal = opened.kind === RESUME_KINDS.SAME_REVISION ? null : opened.reason;
+  // No context is returned: a context carries the loaded ad-hoc checks, and this opener
+  // cannot load them, so the value it could build here is one that is right only until
+  // someone uses it. Every caller builds its own with `buildContext`.
   return {
     directory: opened.directory,
     status: opened.status,
-    resumed: opened.resumed,
-    ...(opened.refused === undefined ? {} : { refused: opened.refused }),
-    context: buildContext({ specPath, spec, run: { directory: opened.directory, status: opened.status } }),
+    resumed: refusal === null && opened.resumed,
+    kind: opened.kind,
+    ...(refusal === null ? {} : { refused: refusal }),
+  };
+}
+
+/** How many pairs a run's declaration puts and how many its audit answered. */
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+export function inquestCountsIn(directory) {
+  const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
+  if (!declaration.ok) return { asked: 0, answered: 0, exempt: 0 };
+  return inquestCounts({
+    subjects: inquestSubjects({ sections: declaration.declaration.sections, entries: declaration.declaration.entries }),
+    records: inquestRecordsIn(directory),
+    exemptions: declaration.declaration.exemptions,
+  });
+}
+
+/** The readings a run holds, by brief name, treating an absent file as no readings. */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function readingsByBrief(directory) {
+  return Object.fromEntries(PHASES
+    .filter((phase) => phase.tag === PHASE_TAGS.READ && BRIEF_OF_PHASE[phase.id] !== null)
+    .map((phase) => [BRIEF_OF_PHASE[phase.id], optionalBrief(directory, BRIEF_OF_PHASE[phase.id])]));
+}
+
+/**
+ * Record the inherited assets as the run last saw them.
+ *
+ * The digest is the fact that says whether a later invocation is asking a new question,
+ * so it has to be as current as the record it is stored beside: a status that carried the
+ * digest of some earlier moment would report a change that had already been absorbed, and
+ * the guard against an unattended loop reads it to decide whether anything moved.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function observeAssets(status, directory) {
+  status[ASSETS_FIELD] = { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: assetDigestOf(directory) };
+  return status;
+}
+
+/**
+ * Open a generation: return the loop budget, re-open the phases a reader performs, and
+ * record what the invocation was given and what it inherited.
+ *
+ * The three outcomes are decided in the order that keeps every refusal free of writes.
+ * A refusal first, because the guard reads facts that filing material cannot change and
+ * a refusal that had already written a supplied file would be a partial act; then the
+ * material, because a named path that does not exist is refused before anything lands;
+ * then the verification, which writes nothing at all; and only then a new generation.
+ *
+ * The classification of inherited assets runs here rather than inside the phases because
+ * it is the answer to "what must the reader produce again", and `begin` is where the
+ * reader asks the question.
+ *
+ * @returns {{ok: true, mode: 'new-generation'|'verification', generation: number,
+ *            directory: string, status: object, supplied: Array<object>,
+ *            assets: {digest: string}, invalidated: Array<object>}
+ *          | {ok: false, refused: string, directory: string, generation: null, status: object}}
+ */
+export function beginRun({ specPath, spec, material = '', namedPaths = [], root = null }) {
+  const opened = openRun({ specPath, spec, root });
+  if (opened.kind === RESUME_KINDS.ANOTHER_SPECIFICATION) {
+    return { ok: false, refused: opened.reason, directory: opened.directory, generation: null, status: opened.status };
+  }
+
+  const status = opened.status;
+  const assetDigest = assetDigestOf(opened.directory);
+  const held = whyNotNewGeneration(status, { assetDigest, specSha256: spec.sha256 });
+  if (held !== null) {
+    return { ok: false, refused: held, directory: opened.directory, generation: null, status };
+  }
+
+  const filed = fileSuppliedMaterial({ directory: opened.directory, material, namedPaths });
+  if (!filed.ok) {
+    return { ok: false, refused: filed.problems.join('; '), directory: opened.directory, generation: null, status };
+  }
+
+  const generation = generationOf(status);
+  const unchanged = generation > 0
+    && status.assets?.digest === assetDigest
+    && status.spec?.sha256 === spec.sha256
+    && digestOfSupplied(status[SUPPLIED_FIELD] ?? []) === digestOfSupplied(filed.files)
+    && status.entered !== true;
+  if (unchanged) {
+    return {
+      ok: true,
+      mode: 'verification',
+      generation,
+      directory: opened.directory,
+      status,
+      supplied: filed.files,
+      assets: { digest: assetDigest },
+      invalidated: [],
+    };
+  }
+
+  // Invalidation answers what an edit broke, so it is computed only when the text moved:
+  // classifying an unchanged document would report every claim that cites no line as
+  // destroyed by an edit that never happened, which reads to a reader as lost work. An
+  // unreadable declaration has no assets to classify either; the `[read]` phase that reads
+  // it is re-opened below, and its gate is what names the repair.
+  const edited = status.spec?.sha256 !== spec.sha256 || status.spec?.lines !== spec.lineCount;
+  const declaration = readDeclarationFile(join(opened.directory, DECLARATION_FILE));
+  const surviving = edited && declaration.ok
+    ? survivingAssets({ declaration: declaration.declaration, readings: readingsByBrief(opened.directory), specLines: spec.lines })
+    : { invalidated: [] };
+
+  const carried = reopenPhases(
+    beginGeneration(status, {
+      spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
+      digest: assetDigest,
+      // The generation being superseded records what its audit asked and answered, so the
+      // next report can print the two beside each other and a reader can see whether the
+      // questions moved anything.
+      inquest: inquestCountsIn(opened.directory),
+    }),
+    PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id),
+  );
+  const next = { ...carried, [SUPPLIED_FIELD]: filed.files, [INVALIDATED_FIELD]: surviving.invalidated };
+  writeStatus(opened.directory, next);
+
+  return {
+    ok: true,
+    mode: 'new-generation',
+    generation: next[GENERATION_FIELD],
+    directory: opened.directory,
+    status: next,
+    supplied: filed.files,
+    assets: { digest: assetDigest },
+    invalidated: surviving.invalidated,
   };
 }
 

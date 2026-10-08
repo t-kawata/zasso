@@ -193,22 +193,32 @@ test('every cited line is inside its file', () => {
 const EDUCE_DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'EDUCE-SEQUENCES-DESIGN.md');
 const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
 
+// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
   // file: the citation moved with the file rather than the file being kept still for it.
   { asWritten: 'pins.mjs:246', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 246, token: 'export function rederiveAll' },
   { asWritten: 'pins.mjs:82', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 82, token: 'export function selectNeighbourFor' },
-  { asWritten: 'engine.mjs:213', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 213, token: 'export const CHECKS' },
-  { asWritten: 'reading.mjs:220', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 220, token: 'export function applyReadings' },
-  { asWritten: 'gates.mjs:108', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 108, token: 'export const PHASES' },
-  { asWritten: 'phases.mjs:173', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 173, token: 'export function runPhase' },
-  { asWritten: 'run-state.mjs:91', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 91, token: 'export function openRun' },
-  { asWritten: 'readings.mjs:123', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 123, token: 'export function readReadingsFile' },
-  { asWritten: 'adhoc.mjs:126', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 126, token: 'export function scaffoldCheck' },
+  { asWritten: 'engine.mjs:297', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 297, token: 'export const CHECKS' },
+  { asWritten: 'reading.mjs:241', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 241, token: 'export function applyReadings' },
+  // Re-measured when PX-242 opened the run into generations: five of these moved with the
+  // files that gained an import, a constant or a subcommand, and the citation followed the
+  // definition rather than the definition being kept still for it. PX-243 moved seven
+  // more, each by the lines its own change added above the definition. PX-244 moved five:
+  // the store left the tool tree, the loader arrived, and the loader is what a citation to
+  // the ad-hoc surface now resolves to. The review of all three moved five more: the audit
+  // became part of what a run recorded, in one place instead of at each call site.
+  { asWritten: 'gates.mjs:114', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 114, token: 'export const PHASES' },
+  { asWritten: 'phases.mjs:218', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 218, token: 'export function runPhase' },
+  { asWritten: 'run-state.mjs:148', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 148, token: 'export function openRun' },
+  { asWritten: 'readings.mjs:199', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 199, token: 'export function readReadingsFile' },
+  { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
-  { asWritten: 'rail/report.mjs:51', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 51, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:159', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 159, token: 'export async function main' },
+  { asWritten: 'rail/report.mjs:90', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 90, token: 'export function buildReport' },
+  { asWritten: 'phase.mjs:285', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 285, token: 'export async function main' },
 ]);
 
 test('the educe-sequences document carries every citation its argument rests on', () => {

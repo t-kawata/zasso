@@ -9,6 +9,7 @@ import { basename } from 'node:path';
 
 import { readArtifactSchema } from './load.mjs';
 import { establishPins } from './pins.mjs';
+import { digestOfSupplied } from './supplied.mjs';
 
 /** The command a reader is told to run to check the artifact later. */
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
@@ -21,9 +22,15 @@ export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs
  * artifact sits beside the specification, so its own location plus this name identifies
  * the revision, and a committed artifact that named a home directory would depend on
  * the machine that produced it as well as on its input.
+ *
+ * The supplied digest is recorded because the reproducibility guarantee is over the
+ * specification *and* the material the reading was taken with: a hint that changes the
+ * reading while leaving the text alone would otherwise leave the artifact looking
+ * reproducible when it is not. A run given nothing records the digest of nothing, which
+ * is the same value a verification computes beside a specification with no run.
  */
-export function buildArtifact({ specPath, spec, declaration, readings }) {
-// [::TICKET::] PX-240 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-240 --for-spec --no-implementation-order`.
+export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]) }) {
+// [::TICKET::] PX-240, PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242) --for-spec --no-implementation-order`.
   const pins = establishPins(spec.lines, declaration);
   const readingFor = new Map(readings.sequences.map((reading) => [reading.subject, reading]));
 
@@ -32,6 +39,7 @@ export function buildArtifact({ specPath, spec, declaration, readings }) {
     // and the artifacts it produces cannot disagree about which contract they carry.
     schema_version: readArtifactSchema().schema_version,
     spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
+    supplied: { digest: supplied },
     pins,
     sequences: declaration.entries.map((entry) => {
       const reading = readingFor.get(entry.id);

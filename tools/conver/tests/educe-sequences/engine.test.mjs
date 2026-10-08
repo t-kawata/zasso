@@ -34,8 +34,10 @@ const spec = readSpecification(SPEC_PATH);
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
 /** The recorded coverage block, so a change to it is a change to the record. */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
-  checksRun: 13,
+  checksRun: 17,
   rows: 10,
   sequences: 4,
   steps: 6,
@@ -45,7 +47,7 @@ const RECORDED_BLOCK = {
 };
 
 test('C001 the fixture run is green and prints the recorded block', () => {
-  const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact: golden, railExits: [] });
+  const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact: golden, recorded: { railExits: [] } });
 
   assert.deepEqual(verdicts, []);
   for (const [key, value] of Object.entries(RECORDED_BLOCK)) {
@@ -137,7 +139,7 @@ test('C009 the printed rail-exit count equals the records on disk', () => {
   writeRailExit(Object.fromEntries(RAIL_EXIT_FIELDS.map((field) => [field, field === 'promoted' ? false : (field === 'executed' ? { reddened: true, attributable: true, counterGreen: true } : 'recorded')])), store);
 
   const records = readRailExits(store);
-  const { summary } = checkAll({ specLines: spec.lines, artifact: golden, railExits: records });
+  const { summary } = checkAll({ specLines: spec.lines, artifact: golden, recorded: { railExits: records } });
 
   assert.equal(summary.railExits, records.length);
   assert.equal(summary.promotionCandidates, records.filter((record) => record.promoted === false).length);

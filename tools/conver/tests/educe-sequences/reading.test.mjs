@@ -255,8 +255,9 @@ test('C004 a row that keeps a defining_section the supplied rule supersedes is r
 // The fifth brief (PX-241, contract C008)
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 test('C008 the ad-hoc brief is a declared role, so a check author is dispatched with a checked brief', () => {
-  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc']);
+  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest']);
 });
 
 test('C008 the ad-hoc brief renders with exactly one question and the three other clauses', () => {

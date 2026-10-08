@@ -301,6 +301,512 @@
         "reason": "it describes a section rather than an ordered procedure an actor performs",
         "reader": "adjudicate"
       }
+    ],
+    "inquest": [
+      {
+        "subject": "s1",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement ledge",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s1",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement ledge",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s1",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement ledge",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s1",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement ledge",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s2",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 10,
+        "quote": "A procedure is a ledger operation only when",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s2",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 10,
+        "quote": "A procedure is a ledger operation only when",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s2",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 10,
+        "quote": "A procedure is a ledger operation only when",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s2",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 10,
+        "quote": "A procedure is a ledger operation only when",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s3",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 14,
+        "quote": "Every ledger row carries exactly the fields:",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s3",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 14,
+        "quote": "Every ledger row carries exactly the fields:",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s3",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 14,
+        "quote": "Every ledger row carries exactly the fields:",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s3",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 14,
+        "quote": "Every ledger row carries exactly the fields:",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s4",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 19,
+        "quote": "The status of a ledger operation is one of P",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s4",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 19,
+        "quote": "The status of a ledger operation is one of P",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s4",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 19,
+        "quote": "The status of a ledger operation is one of P",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s4",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 19,
+        "quote": "The status of a ledger operation is one of P",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s5",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s5",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s5",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s5",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s6",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s6",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s6",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s6",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s7",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 44,
+        "quote": "An operator cancels a pending row by writing",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s7",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 44,
+        "quote": "An operator cancels a pending row by writing",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s7",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 44,
+        "quote": "An operator cancels a pending row by writing",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s7",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 44,
+        "quote": "An operator cancels a pending row by writing",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s8",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s8",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s8",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s8",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s9",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at least",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s9",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at least",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s9",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at least",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s9",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at least",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s10",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s10",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s10",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "s10",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "admission",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "admission",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "admission",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "admission",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 24,
+        "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 34,
+        "quote": "A settler settles a pending row by debiting",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement-replays-admission",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement-replays-admission",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement-replays-admission",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "settlement-replays-admission",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 49,
+        "quote": "An operator recovers a row whose settlement",
+        "reader": "inquest"
+      },
+      {
+        "subject": "non-operation",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "non-operation",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "non-operation",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      },
+      {
+        "subject": "non-operation",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 59,
+        "quote": "Section 1 describes the document, and sectio",
+        "reader": "inquest"
+      }
     ]
   }
 }

@@ -15,13 +15,35 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFi
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { EXECUTION_FIELDS, RAIL_EXIT_FIELDS, readRailExits, writeRailExit } from './harness.mjs';
+import { EXECUTION_FIELDS, RAIL_EXIT_FIELDS, railExitStoreFor, readRailExits, writeRailExit, writeRailExits } from './harness.mjs';
 
 /** Where a run keeps the checks it had to write. */
 export const ADHOC_DIRECTORY = 'adhoc';
 
 /** The module a scaffolded check builds from, stated once so the writer and the reader agree. */
 export const CONSTRUCTOR_MODULE = join(import.meta.dirname, 'checks.mjs');
+
+/**
+ * Why a scaffolded module cannot join the running check set.
+ *
+ * Named once because the scaffold path and the loader refuse the same things, and two
+ * copies of a refusal are two things to drift: the executor refuses at scaffold time and
+ * the loader refuses on every later run, and a reader who meets one should be able to
+ * recognise the other.
+ *
+ * `NO_RECORD` is the one the scaffold states by its silence. A module whose two bodies
+ * are still the stubs the scaffold wrote returns no verdicts and mutates nothing, so
+ * loading it would count a check that has never falsified anything as a check that
+ * passed. The rail-exit record is the only evidence that separates never falsified from
+ * falsified and silent.
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export const ADHOC_REFUSALS = Object.freeze({
+  NOT_LOADED: 'does not load',
+  NO_CHECK: 'exports no check with a run',
+  NO_MUTATION: 'exports no mutation, so nothing falsifies it',
+  NO_RECORD: 'has no rail-exit record, so nothing shows it was ever falsified',
+});
 
 /** The four fields every scaffolded check declares, in the order they are written. */
 export const CHECK_CONTRACT_FIELDS = Object.freeze(['id', 'originatingDefect', 'refuses', 'scope']);
@@ -166,10 +188,10 @@ export async function runScaffoldCases({ directory, check, artifact, specLines }
   try {
     loaded = await import(pathToFileURL(modulePath).href);
   } catch (error) {
-    return { ok: false, problems: [`${check} does not load: ${error.message}`] };
+    return { ok: false, problems: [`${check} ${ADHOC_REFUSALS.NOT_LOADED}: ${error.message}`] };
   }
-  if (typeof loaded.check?.run !== 'function') return { ok: false, problems: [`${check} exports no check with a run`] };
-  if (typeof loaded.mutation !== 'function') return { ok: false, problems: [`${check} exports no mutation, so nothing falsifies it`] };
+  if (typeof loaded.check?.run !== 'function') return { ok: false, problems: [`${check} ${ADHOC_REFUSALS.NO_CHECK}`] };
+  if (typeof loaded.mutation !== 'function') return { ok: false, problems: [`${check} ${ADHOC_REFUSALS.NO_MUTATION}`] };
 
   const verdictsOnDefect = loaded.check.run({ specLines, artifact: loaded.mutation(structuredClone(artifact)) });
   const executed = {
@@ -182,6 +204,49 @@ export async function runScaffoldCases({ directory, check, artifact, specLines }
   if (!executed.attributable) return { ok: false, problems: [`${check} reported a verdict under another name`], executed, modulePath };
   if (!executed.counterGreen) return { ok: false, problems: [`the counter-mutation reddened ${check}: the rule is defective, not the subject`], executed, modulePath };
   return { ok: true, executed, modulePath };
+}
+
+/**
+ * Load the checks a run has scaffolded, so a caller passes values rather than a path.
+ *
+ * The engine stays synchronous and free of dynamic import, so the loading happens here
+ * and its failures are answered rather than thrown away: a module that cannot join the
+ * set is refused by name and the caller refuses the run, because a check that vanished
+ * from the count would read as a check that passed.
+ *
+ * @returns {Promise<{checks: Array<{id: string, run: Function}>, problems: string[]}>}
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export async function loadAdhocChecks({ directory }) {
+  const checks = [];
+  const problems = [];
+  const recorded = new Set(readRailExits(railExitStoreFor(directory)).map((record) => record.check));
+
+  for (const check of scaffoldedCheckNames(directory)) {
+    const modulePath = join(directory, ADHOC_DIRECTORY, `${check}.mjs`);
+    let loaded;
+    try {
+      loaded = await import(pathToFileURL(modulePath).href);
+    } catch (error) {
+      problems.push(`${check} ${ADHOC_REFUSALS.NOT_LOADED}: ${error.message}`);
+      continue;
+    }
+    if (typeof loaded.check?.run !== 'function') {
+      problems.push(`${check} ${ADHOC_REFUSALS.NO_CHECK}`);
+      continue;
+    }
+    if (typeof loaded.mutation !== 'function') {
+      problems.push(`${check} ${ADHOC_REFUSALS.NO_MUTATION}`);
+      continue;
+    }
+    if (!recorded.has(check)) {
+      problems.push(`${check} ${ADHOC_REFUSALS.NO_RECORD}`);
+      continue;
+    }
+    checks.push({ id: check, run: loaded.check.run });
+  }
+
+  return { checks, problems };
 }
 
 /** The records whose promotion condition has been met but which are still ad-hoc. */
@@ -219,4 +284,4 @@ export function readCasesFile(directory, check) {
 }
 
 /** The rail-exit records on disk, re-exported so a caller has one import. */
-export { EXECUTION_FIELDS, RAIL_EXIT_FIELDS, readRailExits, writeRailExit };
+export { EXECUTION_FIELDS, RAIL_EXIT_FIELDS, railExitStoreFor, readRailExits, writeRailExit, writeRailExits };

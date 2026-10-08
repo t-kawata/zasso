@@ -12,13 +12,42 @@
 // implementation's own claim, and the corpus is only repeatable if the tree it reads
 // is the tree it found.
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { checkAll } from './engine.mjs';
 
-/** Where the rail exits are recorded, beside the rail that produced them. */
-export const RAIL_EXIT_STORE = join(import.meta.dirname, '..', 'rail-exits.jsonl');
+/** The file a run keeps its rail-exit records in, beside the checks it had to write. */
+export const RAIL_EXIT_FILE = 'rail-exits.jsonl';
+
+/**
+ * Where a run's rail exits are recorded.
+ *
+ * This used to be a module-level constant computed from `import.meta.dirname`, which put
+ * every specification's records inside the tool tree: a run of one specification read
+ * another's ad-hoc history, and a successful scaffold wrote into the library. The store
+ * is now a function of the run directory, so the location is stated where the run is
+ * opened and a reader of the specification finds the records beside what they describe.
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function railExitStoreFor(runDirectory) {
+  requireStore(runDirectory, 'railExitStoreFor');
+  return join(runDirectory, RAIL_EXIT_FILE);
+}
+
+/**
+ * Refuse a call that did not say where the store is.
+ *
+ * There is no default, and that is the point: a default is what allowed a scaffold to write
+ * inside the tool tree. The refusal names the argument rather than the rule, because the
+ * caller has to pass something and the useful thing to say is what.
+ */
+// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+function requireStore(storePath, caller) {
+  if (typeof storePath !== 'string' || storePath.trim() === '') {
+    throw new Error(`${caller} needs the store path; the rail-exit store belongs to a run directory, and a default would write into the tool tree`);
+  }
+}
 
 /** The three things an execution observes, and the only shape a record may claim. */
 export const EXECUTION_FIELDS = Object.freeze(['reddened', 'attributable', 'counterGreen']);
@@ -37,8 +66,16 @@ export const RAIL_EXIT_FIELDS = Object.freeze([
   'executed',
 ]);
 
-/** Read the rail-exit records, oldest first. */
-export function readRailExits(storePath = RAIL_EXIT_STORE) {
+/**
+ * Read the rail-exit records, oldest first.
+ *
+ * A run with no store has no records rather than an error: a specification that has never
+ * needed an ad-hoc check has nothing to say here, and that is the same state as one whose
+ * directory was opened a moment ago.
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function readRailExits(storePath) {
+  requireStore(storePath, 'readRailExits');
   if (!existsSync(storePath)) return [];
   return readFileSync(storePath, 'utf8')
     .split('\n')
@@ -61,12 +98,33 @@ function whyUnwritable(record) {
   return missing.length > 0 ? `the rail-exit record claims no executed outcome for: ${missing.join(', ')}` : null;
 }
 
-/** Write one rail-exit record, refusing a record that claims more than was observed. */
-export function writeRailExit(record, storePath = RAIL_EXIT_STORE) {
+/**
+ * Write one rail-exit record, refusing a record that claims more than was observed.
+ *
+ * Appending is the shape a scaffold needs. A promotion rewrites a record that is already
+ * there, which is `writeRailExits` below.
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function writeRailExit(record, storePath) {
+  requireStore(storePath, 'writeRailExit');
   const problem = whyUnwritable(record);
   if (problem !== null) throw new Error(problem);
   appendFileSync(storePath, `${JSON.stringify(record)}\n`);
   return record;
+}
+
+/**
+ * Rewrite the whole store, which is what a promotion does.
+ *
+ * A promotion changes a record that is already there rather than adding one, and an
+ * appending writer cannot express that. The records are written in the order they are
+ * given, so the store keeps its history.
+ */
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function writeRailExits(records, storePath) {
+  requireStore(storePath, 'writeRailExits');
+  writeFileSync(storePath, records.map((record) => `${JSON.stringify(record)}\n`).join(''));
+  return records;
 }
 
 /**
@@ -76,7 +134,9 @@ export function writeRailExit(record, storePath = RAIL_EXIT_STORE) {
  * defect class with no analogue stays visible, and an unrecorded check is exactly the
  * silent growth the record is for.
  */
-export function spliceCheck({ contract, cases, executed, storePath = RAIL_EXIT_STORE }) {
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+export function spliceCheck({ contract, cases, executed, storePath }) {
+  requireStore(storePath, 'spliceCheck');
   const { check, defect } = contract;
   const { mutationCase, counterCase } = cases;
   if (defect === undefined || defect === '') throw new Error('the check has no originating defect');

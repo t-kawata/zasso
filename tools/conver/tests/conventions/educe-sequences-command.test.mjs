@@ -12,6 +12,11 @@ import { fileURLToPath } from 'node:url';
 
 import { BRIEF_NAMES } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
 import { PHASES } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
+import { ADHOC_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/adhoc.mjs';
+import { PHASE_EXPECTS, PINS_FILE, WORKLIST_FILE } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
+import { DECLARATION_FILE, readingsFileName } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
+import { RUN_DIRECTORY_NAME } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
+import { SUPPLIED_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const COMMAND_PATH = `${PROJECT_ROOT}.claude/commands/educe-sequences.md`;
@@ -54,6 +59,58 @@ test('C011 the brief names the file lists are the brief names the renderer accep
 
   assert.notEqual(listed, null, 'the file lists the brief names');
   assert.deepEqual([...listed[1].matchAll(/`([a-z]+)`/g)].map(([, name]) => name), [...BRIEF_NAMES]);
+});
+
+/**
+ * Where a run keeps everything it writes, named the way the argument names it.
+ *
+ * The directory name is read from the rail, so renaming it in the code without renaming
+ * it here fails this test rather than leaving the file describing the old location.
+ */
+const RUN_DIRECTORY = `<dir of spec-file>/${RUN_DIRECTORY_NAME}`;
+
+/**
+ * The working files a run holds, other than the status file.
+ *
+ * The declaration and the readings come from the phase table, because a phase that starts
+ * expecting a file brings that file into this check with it. The supplied material is
+ * named here because no phase expects it: it is filed by `begin`, from the invocation,
+ * and a run that received some has to be able to say where it put it. The status file is
+ * left out because the sentence that defines the run directory lists it there, where the
+ * directory is the subject and repeating its own path would say nothing.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function workingFiles() {
+  const expectations = Object.values(PHASE_EXPECTS).join(' ');
+  const readings = BRIEF_NAMES.map(readingsFileName).filter((name) => expectations.includes(name));
+  return [DECLARATION_FILE, WORKLIST_FILE, PINS_FILE, ...readings, ADHOC_DIRECTORY, SUPPLIED_DIRECTORY];
+}
+
+/**
+ * The backticked tokens written as paths, each split into its segments.
+ *
+ * A token is compared segment by segment rather than as a substring, so a module named
+ * `rail/adhoc.mjs` is not read as the `adhoc` working directory of a run.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function pathTokens() {
+  return [...COMMAND.matchAll(/`([^`\n]*)`/g)]
+    .map(([, token]) => token)
+    .map((token) => token.split('/'))
+    .filter((segments) => segments.length > 1);
+}
+
+test('C015 every working file of a run is named under the run directory the file defines', () => {
+  const tokens = pathTokens();
+
+  for (const name of workingFiles()) {
+    const mentioning = tokens.filter((segments) => segments.includes(name));
+    const under = mentioning.filter((segments) => segments.join('/').startsWith(`${RUN_DIRECTORY}/`));
+    const elsewhere = mentioning.filter((segments) => !segments.join('/').startsWith(`${RUN_DIRECTORY}/`));
+
+    assert.equal(under.length > 0, true, `the file names no path to ${name} under ${RUN_DIRECTORY}/`);
+    assert.deepEqual(elsewhere.map((segments) => segments.join('/')), [], `${name} is named as a path outside ${RUN_DIRECTORY}/`);
+  }
 });
 
 test('C011 the file states no count it could read from an array instead', () => {

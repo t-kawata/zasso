@@ -24,9 +24,11 @@ import { ENGINE_DECLARED_CHECK_COUNT } from '../../.claude/scripts/educe-sequenc
 import { buildContext, exitCodeFor, HALT_EXIT_CODE, nextPhase, runPhase, runThrough, startRun } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 import { isComplete, readPhaseSettled } from '../../.claude/scripts/educe-sequences/rail/report.mjs';
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
-import { writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
-import { digestOfTree } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
+import { INQUEST_FILE, writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
+import { digestOfTree, railExitStoreFor, writeRailExit } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
+import { railExitTemplate, readCasesFile, scaffoldCheck } from '../../.claude/scripts/educe-sequences/rail/adhoc.mjs';
 import { loopsFor, phaseState, readingOf, runDirectoryFor } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
+import { pathToFileURL } from 'node:url';
 
 const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
@@ -45,7 +47,7 @@ function scratch() {
 }
 
 /** Seed a run's reading files from the recorded run input. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
 function seed(run) {
   writeFileSync(join(run.directory, 'declaration.json'), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -55,6 +57,7 @@ function seed(run) {
   writeReadingsFile(join(run.directory, 'readings-adjudicate.jsonl'), RUN_INPUT.readings.adjudications);
   writeReadingsFile(join(run.directory, 'readings-reroute.jsonl'), []);
   writeReadingsFile(join(run.directory, 'readings-adversarial.jsonl'), []);
+  writeReadingsFile(join(run.directory, INQUEST_FILE), RUN_INPUT.readings.inquest);
 }
 
 /** Open a run over the scratch specification. */
@@ -67,9 +70,9 @@ function open({ seeded = true } = {}) {
   return { run, specPath, spec, context: buildContext({ specPath, spec, run: { directory: run.directory, status: run.status } }) };
 }
 
-test('the phase table declares seventeen phases, each with a tag, a back-edge and a loop limit', () => {
-  assert.equal(PHASES.length, 17);
-  assert.deepEqual(PHASES.map((phase) => phase.id), Array.from({ length: 17 }, (_, index) => index + 1));
+test('the phase table declares eighteen phases, each with a tag, a back-edge and a loop limit', () => {
+  assert.equal(PHASES.length, 18);
+  assert.deepEqual(PHASES.map((phase) => phase.id), Array.from({ length: 18 }, (_, index) => index + 1));
 
   for (const phase of PHASES) {
     assert.equal(TAGS.includes(phase.tag), true, `phase ${phase.id} has tag ${phase.tag}`);
@@ -95,7 +98,7 @@ test('the four brief phases are the [read] phases that collect signed claims', (
 test('a phase entered before its requirements are done is refused, naming the missing phase', () => {
   const { context } = open();
 
-  const result = runPhase(13, context);
+  const result = runPhase(14, context);
 
   assert.equal(result.ok, false);
   assert.match(result.reason, /phase 9 is not done/);
@@ -108,8 +111,8 @@ test('a run drives every phase to a verdict on the recorded readings', () => {
   const outcome = runThrough(context);
 
   assert.equal(outcome.ok, true, outcome.results.filter((result) => !result.ok).map((result) => result.reason).join('; '));
-  assert.equal(outcome.results.length, 17);
-  assert.equal(context.status.phases.filter((phase) => phase.status === 'done').length, 17);
+  assert.equal(outcome.results.length, 18);
+  assert.equal(context.status.phases.filter((phase) => phase.status === 'done').length, 18);
 });
 
 test('the run writes the artifact the one-argument contract derives from the specification', () => {
@@ -221,13 +224,32 @@ test('C015 the run directory is a pure function of the specification path', () =
   assert.equal(run.resumed, false);
 });
 
-test('C015 a run writes nothing beneath the tool', () => {
+// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+test('C015 a run writes nothing beneath the tool, including the run that scaffolds a check', async () => {
   const toolTree = digestOfTree(TOOL_ROOT);
   const { context } = open();
-
   runThrough(context);
 
   assert.equal(digestOfTree(TOOL_ROOT), toolTree, 'a phase wrote under the tool, so the one-argument contract covers products only');
+
+  // The scaffold is the one path that used to write into the tool tree: the rail-exit
+  // store was a module-level constant computed from the library's own location, so a
+  // successful scaffold appended to a file inside the library. The assertion above wraps
+  // `runThrough`, which never scaffolds, and therefore never reached it.
+  const written = scaffoldCheck({ directory: context.directory, check: 'ledger-drift', defect: 'an entry that carries no outcome', refuses: 'an entry carrying no outcome' });
+  assert.equal(written.ok, true, JSON.stringify(written.problems));
+  const load = await import(pathToFileURL(written.modulePath).href);
+  writeRailExit(
+    railExitTemplate({ check: 'ledger-drift', defect: 'an entry that carries no outcome', cases: readCasesFile(context.directory, 'ledger-drift'), executed: { reddened: true, attributable: true, counterGreen: true } }),
+    railExitStoreFor(context.directory),
+  );
+  assert.equal(typeof load.check.run, 'function');
+
+  runThrough(context);
+
+  assert.equal(digestOfTree(TOOL_ROOT), toolTree, 'the rail-exit store belongs to the run directory, not to the tool tree');
+  assert.equal(existsSync(join(context.directory, 'rail-exits.jsonl')), true, 'and it was written where the run keeps its state');
+  assert.equal(existsSync(join(TOOL_ROOT, 'rail-exits.jsonl')), false);
 });
 
 test('C015 a status recording another digest is refused rather than resumed', () => {
@@ -265,9 +287,11 @@ test('a run whose [read] phases are signed or vacuous is reported complete', () 
 
   const reads = PHASES.filter((phase) => phase.tag === 'read');
   assert.equal(reads.every((phase) => readPhaseSettled(context.status, phase)), true);
+  // The declared count is read from the summary it describes, so a hand-built summary
+  // carries it: a second copy passed beside the block is a second thing to disagree.
   const declared = ENGINE_DECLARED_CHECK_COUNT;
-  assert.equal(isComplete({ summary: { checksRun: declared, pinsRederived: 5, pinsTotal: 5 }, status: context.status, declaredChecks: declared }), true);
-  assert.equal(isComplete({ summary: { checksRun: declared - 1, pinsRederived: 5, pinsTotal: 5 }, status: context.status, declaredChecks: declared }), false);
+  assert.equal(isComplete({ summary: { checksRun: declared, checksDeclared: declared, pinsRederived: 5, pinsTotal: 5 }, status: context.status }), true);
+  assert.equal(isComplete({ summary: { checksRun: declared - 1, checksDeclared: declared, pinsRederived: 5, pinsTotal: 5 }, status: context.status }), false);
 });
 
 test('the next phase is the first that is not done', () => {
@@ -293,18 +317,18 @@ function declarationTightenedBy(tightenedBy) {
 }
 
 /** A run driven to phase 12 with the weakest link the test names. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
 function runUpToChecks(tightenedBy) {
   const { context } = open();
   writeFileSync(join(context.directory, 'declaration.json'), `${JSON.stringify(declarationTightenedBy(tightenedBy), null, 2)}\n`);
-  runThrough(context, 12);
+  runThrough(context, 13);
   return context;
 }
 
-test('C007 phase 13 refuses while the weakest link names no declared check', () => {
+test('C007 phase 14 refuses while the weakest link names no declared check', () => {
   const context = runUpToChecks('no-such-check');
 
-  const outcome = runPhase(13, context);
+  const outcome = runPhase(14, context);
 
   assert.equal(outcome.ok, false);
   assert.match(outcome.reason, /no-such-check/);
@@ -317,17 +341,17 @@ test('C007 the weakest link is closed before the checks speak, so a failing arti
   broken.operations.find((operation) => operation.id === 'Admit').position = 'floating';
   writeFileSync(context.artifactPath, `${JSON.stringify(broken, null, 2)}\n`);
 
-  const outcome = runPhase(13, context);
+  const outcome = runPhase(14, context);
 
   assert.equal(outcome.ok, false);
   assert.match(outcome.reason, /no-such-check/, 'a check verdict answered a question the weakest link had not closed');
   assert.equal(/every-operation-placed/.test(outcome.reason), false, 'the block was built before the weakest link was closed');
 });
 
-test('C007 phase 13 passes when the weakest link names a declared check', () => {
+test('C007 phase 14 passes when the weakest link names a declared check', () => {
   const context = runUpToChecks('neighbour-cites-inside-span');
 
-  const outcome = runPhase(13, context);
+  const outcome = runPhase(14, context);
 
   assert.equal(outcome.ok, true);
   assert.match(outcome.reason, /checks ran/);

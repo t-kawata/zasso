@@ -5,6 +5,9 @@
     "sha256": "bae3bb680783bfeb475d747a06172198b4564c1f8c5d8de908fd36f7eb3db8fa",
     "lines": 60
   },
+  "supplied": {
+    "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
   "pins": {
     "predicate": {
       "line": 10,

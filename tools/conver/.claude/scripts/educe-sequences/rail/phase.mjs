@@ -15,27 +15,29 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
-import { ENGINE_DECLARED_CHECK_COUNT } from './engine.mjs';
 import { checkAll } from './engine.mjs';
 import { readArtifact } from './load.mjs';
 import { parseSpecArgument } from './paths.mjs';
 import { renderBrief } from './reading.mjs';
-import { buildContext, exitCodeFor, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS } from './phases.mjs';
+import { buildContext, beginRun, exitCodeFor, inquestCountsIn, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS, WORKLIST_FILE } from './phases.mjs';
 import { readSpecification, digestOf } from './load.mjs';
 import { buildReport } from './report.mjs';
-import { readRailExits } from './harness.mjs';
+import { railExitStoreFor, readRailExits } from './harness.mjs';
 import { readStatus, openPhases, phaseState } from './run-state.mjs';
-import { ADHOC_DIRECTORY, railExitTemplate, readCasesFile, runScaffoldCases, scaffoldCheck, writeRailExit } from './adhoc.mjs';
+import { DECLARATION_FILE, inquestQuestions, inquestRecordsIn, readDeclarationFile } from './readings.mjs';
+import { ADHOC_DIRECTORY, loadAdhocChecks, promoteRecord, railExitTemplate, readCasesFile, runScaffoldCases, scaffoldCheck, writeRailExit, writeRailExits } from './adhoc.mjs';
 
 /** The usage every refusal ends with, so a caller learns the shape without reading code. */
 const USAGE = [
   'usage: node rail/phase.mjs <subcommand> <spec-file> [argument]',
+  '  begin                      open the next generation, or verify an unchanged one',
   '  status                     report every phase and what it is waiting for',
   '  brief <name>               render one reader brief, naming the run worklist',
   '  run <phase>                enter one phase, perform it if the library can, and gate it',
   '  through [last-phase]       run from the first unfinished phase to the last',
   '  report                     print the closing report',
   '  scaffold <check> <defect>  write a check for a defect class with no analogue',
+  '  promote <record> <spec>    propose lifting a rail exit into the declared checks',
 ].join('\n');
 
 /** Resolve the specification argument, refusing everything else. */
@@ -44,6 +46,84 @@ function resolveSpec(argv) {
   const parsed = parseSpecArgument([argv[0]]);
   if (!parsed.ok) return { ok: false, reason: parsed.reason };
   return { ok: true, specPath: parsed.specPath, spec: readSpecification(parsed.specPath) };
+}
+
+/**
+ * The invocation split into its one argument and the material that follows it.
+ *
+ * `/educe-sequences <spec-file>` takes one positional argument. Everything after the
+ * first whitespace-delimited token — guidance typed into the invocation, and paths to
+ * artifacts produced before this command existed — is material for the reading rather
+ * than an argument, so it is separated here instead of being refused as a second one.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function splitInvocation(text) {
+  const trimmed = String(text ?? '').trim();
+  const boundary = trimmed.search(/\s/);
+  if (boundary === -1) return { specText: trimmed, material: '' };
+  return { specText: trimmed.slice(0, boundary), material: trimmed.slice(boundary).trim() };
+}
+
+/**
+ * Whether a token of the material is a path rather than prose.
+ *
+ * A token is a path when it starts at a root or names a file with an extension. The
+ * test is deliberately narrow: a false negative leaves the token as prose, which costs
+ * nothing, while a false positive refuses the invocation over a word — so a relative
+ * token has to carry a dot after its last separator to qualify.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function looksLikePath(token) {
+  if (/^(~\/|\.{1,2}\/|\/)/.test(token)) return true;
+  return /^[\w.@-]+(\/[\w.@-]+)*\/[\w.@-]*\.[A-Za-z0-9]+$/.test(token);
+}
+
+/** The paths a block of material names, so `begin` can file them or refuse them by name. */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function namedPathsIn(material) {
+  return material
+    .split(/\s+/)
+    .map((token) => token.replace(/[),;]+$/, ''))
+    .filter((token) => token !== '' && looksLikePath(token));
+}
+
+/**
+ * Open the next generation and report what it inherited.
+ *
+ * Five facts, because each answers a question the reader arrives with: which generation
+ * this is and whether it opened one at all, what the run inherits (so a change is
+ * visible as a different digest), how much material was filed, how much of the inherited
+ * material no longer cites the text, and which phase comes next.
+ */
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+function beginCommand(rest) {
+  const { specText, material } = splitInvocation(rest.join(' '));
+  const parsed = parseSpecArgument([specText]);
+  if (!parsed.ok) {
+    process.stderr.write(`refused: ${parsed.reason}\n`);
+    return 2;
+  }
+
+  const begun = beginRun({
+    specPath: parsed.specPath,
+    spec: readSpecification(parsed.specPath),
+    material,
+    namedPaths: namedPathsIn(material),
+  });
+  if (begun.ok !== true) {
+    process.stderr.write(`refused: ${begun.refused}\n`);
+    return 1;
+  }
+
+  const pending = nextPhase(begun.status);
+  process.stdout.write([
+    `generation ${begun.generation} (${begun.mode === 'verification' ? 'verification' : 'new generation'})`,
+    `asset digest: ${begun.assets.digest}`,
+    `supplied: ${begun.supplied.length} file(s)`,
+    `invalidated: ${begun.invalidated.length} asset(s)`,
+    `next: ${pending ?? '(none — every phase is done)'}`,
+  ].join('\n') + '\n');
+  return 0;
 }
 
 /**
@@ -92,8 +172,22 @@ function runOne(context, id) {
   return exitCodeFor(result);
 }
 
+/**
+ * The audit's questions, each carrying what the generation before answered.
+ *
+ * Built here rather than inside the renderer, so the renderer keeps doing one thing: it
+ * is handed a list of questions and turns it into prose. A brief for any other role is
+ * handed an empty list and is untouched by the substitution.
+ */
+// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+function inquestQuestionsIn(directory) {
+  const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
+  if (!declaration.ok) return [];
+  return inquestQuestions({ declaration: declaration.declaration, previousAnswers: inquestRecordsIn(directory) });
+}
+
 /** Print the closing report for a run. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
 function report(context) {
   const status = readStatus(context.directory);
   if (status === null) {
@@ -101,16 +195,21 @@ function report(context) {
     return 1;
   }
   const artifact = readArtifact(context.artifactPath);
-  const rails = readRailExits();
-  const { summary } = artifact === null
-    ? { summary: null }
-    : checkAll({ specLines: context.spec.lines, artifact, railExits: rails });
+  const rails = readRailExits(railExitStoreFor(context.directory));
+  const { verdicts, summary } = artifact === null
+    ? { verdicts: [], summary: null }
+    // The report reads the same block the checks phase built, so it is handed the same
+    // recorded value: a report over a different set would print a count the gate never saw.
+    : checkAll({ specLines: context.spec.lines, artifact, recorded: { ...context.recorded, railExits: rails } });
+  // A block that was refused produces no summary, and "incomplete" alone leaves the reader
+  // to find out why. The verdicts are the reason, so they are named here as they are named
+  // at every other surface.
+  for (const verdict of verdicts) process.stderr.write(`refused: ${verdict.check}: ${verdict.reason}\n`);
   process.stdout.write(buildReport({
     status,
     summary,
-    artifactPath: context.artifactPath,
-    digest: artifact === null ? '(none)' : digestOf(context.artifactPath),
-    declaredChecks: ENGINE_DECLARED_CHECK_COUNT,
+    artifact: { path: context.artifactPath, digest: artifact === null ? '(none)' : digestOf(context.artifactPath) },
+    inquest: { ...inquestCountsIn(context.directory), previous: status.history?.at(-1)?.inquest ?? null },
   }));
   return summary === null ? 1 : 0;
 }
@@ -123,7 +222,7 @@ function report(context) {
  * it. The record is written only when the execution observed a red on the defect and a
  * silence on correct work, so a check that was never falsified leaves no record.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
 async function scaffold(context, [check, defect]) {
   const modulePath = join(context.directory, ADHOC_DIRECTORY, `${check}.mjs`);
   const exists = existsSync(modulePath);
@@ -150,8 +249,35 @@ async function scaffold(context, [check, defect]) {
   }
 
   const cases = readCasesFile(context.directory, check);
-  writeRailExit(railExitTemplate({ check, defect, cases, executed: executed.executed }));
+  writeRailExit(railExitTemplate({ check, defect, cases, executed: executed.executed }), railExitStoreFor(context.directory));
   process.stdout.write(`recorded rail exit ${check}#${defect.length} with executed ${JSON.stringify(executed.executed)}\n`);
+  return 0;
+}
+
+/**
+ * Propose lifting a rail exit into the declared checks.
+ *
+ * This is the one act the command performs on its own history rather than on the
+ * specification, and it is a proposal: the record is marked promoted and the splice is
+ * printed, and no source file is written, because editing the rail is a change made
+ * under a ticket rather than by a run. The file the splice must edit is named, so the
+ * reader has somewhere to take it.
+ */
+// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+function promote(context, [id, secondSpecification]) {
+  const store = railExitStoreFor(context.directory);
+  const promoted = promoteRecord(readRailExits(store), id, { secondSpecification: secondSpecification ?? '' });
+  if (promoted.ok !== true) {
+    process.stderr.write(`refused: ${promoted.problems.join('; ')}\n`);
+    return 2;
+  }
+  writeRailExits(readRailExits(store).map((held) => (held.id === promoted.record.id ? promoted.record : held)), store);
+  process.stdout.write([
+    `promoted ${promoted.record.id}`,
+    `splice into: rail/engine.mjs, in the CHECKS array`,
+    `condition: ${promoted.record.promotionCondition}`,
+    JSON.stringify(promoted.record, null, 2),
+  ].join('\n') + '\n');
   return 0;
 }
 
@@ -162,6 +288,11 @@ export async function main(argv) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
+
+  // `begin` resolves the argument itself: it is the one subcommand that takes material
+  // after the specification path, and it is the only opener that may inherit a state
+  // written against an earlier revision of the text.
+  if (subcommand === 'begin') return beginCommand(rest);
 
   const resolved = resolveSpec(rest);
   if (!resolved.ok) {
@@ -177,18 +308,28 @@ export async function main(argv) {
     process.stderr.write(`refused: ${run.refused}\n`);
     return 1;
   }
+  // Loaded once, here, because the loading can fail and the failure has to reach the
+  // checks gate rather than be discovered by it.
+  const adhoc = await loadAdhocChecks({ directory: run.directory });
   const context = buildContext({
     specPath: resolved.specPath,
     spec: resolved.spec,
     run: { directory: run.directory, status: run.status },
-    railExits: readRailExits(),
+    recorded: {
+      railExits: readRailExits(railExitStoreFor(run.directory)),
+      adhocChecks: adhoc.checks,
+      adhocProblems: adhoc.problems,
+    },
   });
 
   switch (subcommand) {
     case 'status': {
       const pending = nextPhase(run.status);
       process.stdout.write(`${statusLines(run.status).join('\n')}\n`);
-      process.stdout.write(`next: ${pending ?? '(none — every phase is done)'}\n`);
+      // "every phase is done" is not the end of a run any more: it is the state a new
+      // generation is opened over, so the line says which command opens one rather than
+      // leaving a reader to conclude there is nothing left to do.
+      process.stdout.write(`next: ${pending ?? '(none — run begin to open the next generation)'}\n`);
       process.stdout.write(`open: ${openPhases(run.status).join(', ') || '(none)'}\n`);
       return 0;
     }
@@ -197,7 +338,11 @@ export async function main(argv) {
       try {
         // The worklist path is the run's, not the caller's: a brief that named a file the
         // reader cannot open would send it looking for material that does not exist.
-        process.stdout.write(`${renderBrief({ briefName: name, worklistPath: join(context.directory, 'worklist.txt') })}\n`);
+        process.stdout.write(`${renderBrief({
+          briefName: name,
+          worklistPath: join(context.directory, WORKLIST_FILE),
+          previousAnswers: inquestQuestionsIn(context.directory),
+        })}\n`);
         return 0;
       } catch (error) {
         process.stderr.write(`refused: ${error.message}\n`);
@@ -230,6 +375,8 @@ export async function main(argv) {
       return report(context);
     case 'scaffold':
       return await scaffold(context, rest.slice(1));
+    case 'promote':
+      return promote(context, rest.slice(1));
     default:
       process.stderr.write(`refused: unknown subcommand "${subcommand}"\n${USAGE}\n`);
       return 2;

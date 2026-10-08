@@ -19,6 +19,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { digestOf, writeArtifact } from './load.mjs';
+// The reading vocabularies are declared with the files that carry them, so the driver and
+// the validator cannot hold two copies of what a reading is: the copy this module used to
+// keep beside its own `neighbour` literal was a second thing to drift.
+import { INQUEST_ANSWERS, INQUEST_LENSES, missingReadingFields } from './readings.mjs';
 // The selection rule lives with the pins because a citation inside a span is what a
 // pin is: the engine and the worklist builder must not be able to disagree about it.
 import { selectNeighbourFor } from './pins.mjs';
@@ -31,7 +35,8 @@ import { selectNeighbourFor } from './pins.mjs';
  * is a role rather than a note because the author needs the same discipline the readers
  * get: one question, the verbatim-quote clause, the no-window clause, and the worklist.
  */
-export const BRIEF_NAMES = Object.freeze(['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc']);
+// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+export const BRIEF_NAMES = Object.freeze(['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest']);
 
 /** The two clauses a brief must carry verbatim, so removing one breaks rendering. */
 export const BRIEF_CLAUSES = Object.freeze({
@@ -46,6 +51,7 @@ export const BRIEF_QUESTIONS = Object.freeze({
   adversarial: 'Where is the weakest link in this ruling, and what would have to be true for it to be wrong?',
   reroute: 'Which entry should realize this one instead, and what line of that entry says so?',
   adhoc: 'Which check constructor, applied to which subject, reddens the defect named here, and what correct work must stay green?',
+  inquest: 'For each subject under each lens, what does the line you read say, and what does it leave unsaid?',
 });
 
 export const QUESTION_PLACEHOLDER = '{{QUESTION}}';
@@ -53,11 +59,27 @@ export const VERBATIM_PLACEHOLDER = '{{VERBATIM_QUOTE}}';
 export const NO_WINDOW_PLACEHOLDER = '{{NO_LINE_WINDOW}}';
 export const WORKLIST_PLACEHOLDER = '{{WORKLIST_PATH}}';
 
+/**
+ * The three clauses only the audit brief carries.
+ *
+ * The lens and answer vocabularies are substituted from their one declaration rather than
+ * typed into the template, so a vocabulary that grew would grow in one place. The previous
+ * answers are what makes the audit a re-reading rather than a repetition.
+ */
+export const LENSES_PLACEHOLDER = '{{LENSES}}';
+export const ANSWERS_PLACEHOLDER = '{{ANSWERS}}';
+export const PREVIOUS_ANSWERS_PLACEHOLDER = '{{PREVIOUS_ANSWERS}}';
+
+/** The lines the audit brief shows for one generation's questions. */
+export function renderQuestionLines(questions) {
+  if (questions.length === 0) return '- the declaration declares no subject, so there is nothing to ask';
+  return questions
+    .map((question) => `- ${question.subject} · ${question.lens} — ${question.question} — previous: ${question.previous ?? 'not asked'}`)
+    .join('\n');
+}
+
 /** The outcomes a reading may declare. */
 export const ADJUDICATION_OUTCOMES = Object.freeze(['direct', 'viaNeighbour', 'notASequence', 'singleStep', 'exempt']);
-
-/** The fields every reading carries, whatever its outcome. */
-export const READING_FIELDS = Object.freeze(['subject', 'outcome', 'reader']);
 
 /** The fields a supplied-rule reading adds. */
 export const SUPPLIED_RULE_FIELDS = Object.freeze(['spec_name', 'presupposition', 'grounds', 'rule', 'why', 'override']);
@@ -67,15 +89,21 @@ export function countInterrogatives(text) {
   return (text.match(/\?/g) ?? []).length;
 }
 
-/** Fill a template's four placeholders; the clauses are substituted, never typed by hand. */
-export function fillBriefTemplate(template, { briefName, worklistPath }) {
+/** Fill a template's placeholders; the clauses are substituted, never typed by hand. */
+export function fillBriefTemplate(template, { briefName, worklistPath, previousAnswers = [] }) {
   const question = BRIEF_QUESTIONS[briefName];
   if (question === undefined) throw new Error(`unknown brief name: ${briefName}`);
   return template
     .replaceAll(QUESTION_PLACEHOLDER, question)
     .replaceAll(VERBATIM_PLACEHOLDER, BRIEF_CLAUSES.VERBATIM_QUOTE)
     .replaceAll(NO_WINDOW_PLACEHOLDER, BRIEF_CLAUSES.NO_LINE_WINDOW)
-    .replaceAll(WORKLIST_PLACEHOLDER, worklistPath);
+    .replaceAll(WORKLIST_PLACEHOLDER, worklistPath)
+    // The three audit clauses are replaced in every template: a brief that does not carry
+    // them is untouched by the substitution, and one that does cannot be rendered with a
+    // placeholder left standing.
+    .replaceAll(LENSES_PLACEHOLDER, INQUEST_LENSES.join(', '))
+    .replaceAll(ANSWERS_PLACEHOLDER, INQUEST_ANSWERS.join(' / '))
+    .replaceAll(PREVIOUS_ANSWERS_PLACEHOLDER, renderQuestionLines(previousAnswers));
 }
 
 /**
@@ -84,8 +112,8 @@ export function fillBriefTemplate(template, { briefName, worklistPath }) {
  * The refusals are named by clause, not by line, so the caller learns which of the
  * four broke rather than that something did.
  */
-export function renderBriefFrom({ template, briefName, worklistPath }) {
-  const text = fillBriefTemplate(template, { briefName, worklistPath });
+export function renderBriefFrom({ template, briefName, worklistPath, previousAnswers = [] }) {
+  const text = fillBriefTemplate(template, { briefName, worklistPath, previousAnswers });
 
   if (countInterrogatives(text) !== 1) {
     throw new Error(`the brief "${briefName}" carries ${countInterrogatives(text)} interrogative sentences; a brief asks exactly one question`);
@@ -103,7 +131,7 @@ export function renderBriefFrom({ template, briefName, worklistPath }) {
 }
 
 /** Render a named brief from the briefs directory beside this module. */
-export function renderBrief({ briefName, worklistPath, briefsRoot = join(import.meta.dirname, '..', 'briefs') }) {
+export function renderBrief({ briefName, worklistPath, briefsRoot = join(import.meta.dirname, '..', 'briefs'), previousAnswers = [] }) {
   // The name is checked before the directory is read, so a misspelt role is reported as
   // an unknown brief rather than as a missing file: those call for different responses,
   // and a fifth role appears only when a defect class appears that none of the four can
@@ -112,7 +140,7 @@ export function renderBrief({ briefName, worklistPath, briefsRoot = join(import.
     throw new Error(`unknown brief name: ${briefName}; the declared roles are ${BRIEF_NAMES.join(', ')}`);
   }
   const templatePath = join(briefsRoot, `${briefName}.md`);
-  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath });
+  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath, previousAnswers });
 }
 
 /** The entries a selector chooses, as worklist lines naming the span to read. */
@@ -136,13 +164,6 @@ export function neighbourIsCited(artifact, entry, namedNeighbour) {
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function refuse(refusals, subject, field, why, extra = {}) {
   refusals.push({ subject, field, why, ...extra });
-}
-
-/** Every field a reading must carry, given its outcome. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-function missingReadingFields(reading) {
-  const required = reading.outcome === 'viaNeighbour' ? [...READING_FIELDS, 'neighbour'] : READING_FIELDS;
-  return required.filter((field) => reading[field] === undefined || reading[field] === '');
 }
 
 /** Prove one reading against the artifact, the specification and the engine. */
