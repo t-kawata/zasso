@@ -36,7 +36,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 Root: `.claude/scripts/educe-sequences/rail/`.
 - every script: spec path = final argument; no second input. except `phase.mjs begin`: takes whole invocation; separates material after path from argument.
-- every run writes beside spec, under `<dir of spec-file>/educe-sequences/`: `run.mjs` → artifact, rendering; `phase.mjs` → run directory, declaration, readings, `<dir of spec-file>/educe-sequences/supplied/`, scaffolded checks.
+- every run writes beside spec, under `<dir of spec-file>/educe-sequences/`: `run.mjs` → artifact, rendering; `phase.mjs` → run directory, declaration, readings, `<dir of spec-file>/educe-sequences/supplied/`, scaffolded checks, and — when a generation opens — the readings it supersedes, moved into `<dir of spec-file>/educe-sequences/archive/`.
 - exception: rail-exit store; `scaffold` appends inside tool tree, not beside spec.
 
 | Script | Arguments | Description |
@@ -92,7 +92,7 @@ Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operati
 Step 0 opens run; performs no phase. Steps 1 to 18 name phases in order; a Step may name two where a phase has no work of its own: Step 16 = falsification + ad-hoc rail exit. Loop per Step, four moves:
 
 1. `phase.mjs run <spec> <n>` — exit 0 = PASS, go on; exit 1 = FAIL, read printed back-edge, `expects`, `loops`; exit 3 = HALT, stop run (see loop limit rule below).
-2. phase `[read]` → render brief; hand to reader; reader writes named file;
+2. phase `[read]` → render brief; hand to reader; reader writes named file (after a new generation the file is not there: it was moved to `<dir of spec-file>/educe-sequences/archive/`, where the previous answer can be read and must be written again);
 3. re-run same `run` command;
 4. repeat until PASS. driver halts phase itself when loops spent: no count by hand; no fifth move.
 
@@ -115,9 +115,9 @@ Gate: generation = integer; mode ∈ {`new generation`, `verification`}; `next:`
 - repeat over unchanged set ≠ refusal: re-asking reader is how a generation finds what last missed; clearing a refusal would need a human to edit inviolable spec or supply material ⇒ would stop automatic run. `notice:` line reports it; generation opens.
 - no phase reads `HALTED` here: new generation returns every loop to zero.
 
-Run directory `<dir of spec-file>/educe-sequences/` holds `status.json`, declaration, readings, worklists, scaffolded checks, supplied material.
+Run directory `<dir of spec-file>/educe-sequences/` holds `status.json`, declaration, readings, worklists, scaffolded checks, supplied material, and `<dir of spec-file>/educe-sequences/archive/` — what each earlier generation read.
 - invocation deletes nothing.
-- new generation: returns loop budget; re-opens every `[read]` phase (reader asked again); leaves declaration and readings where they are; edited spec inherited by citation; assets no longer citing it named by the rule that decided them.
+- new generation: returns loop budget; re-opens every `[read]` phase; moves the declaration and the readings of every `[read]` phase into `<dir of spec-file>/educe-sequences/archive/`, named for the generation that wrote them. It is a rename: nothing is deleted, the previous answers stay readable there, and the gate refuses until the reader writes them again — a reading left in place is a reading that passes without a reader. edited spec inherited by citation; assets no longer citing it named by the rule that decided them.
 - each generation records what its artifact measured: sequences, steps, operations, pin rows, spec lines reached. report prints each number beside previous generation, signed ⇒ returns diminishing across repetitions are visible; reader decides when another is worth asking for.
 - change computed where printed; stored nowhere. reach withholds its change when document length moved (two revisions ≠ one space).
 - nothing compares numbers to threshold: spec's true sequence space not enumerable by rail; merge of two sequences into one = improvement carrying smaller number.

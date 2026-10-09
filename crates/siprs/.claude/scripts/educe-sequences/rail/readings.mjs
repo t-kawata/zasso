@@ -5,7 +5,7 @@
 // what to look for, and one readings file per brief, which says what was found. Both
 // are validated line by line before anything downstream sees them, because a reading
 // file that is only mostly well formed is the failure this module exists to catch.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // The levels a partition may be taken at belong with the partition rule rather than here,
@@ -63,6 +63,56 @@ export function readingsFileName(briefName) {
 
 /** The file the audit is answered in. */
 export const INQUEST_FILE = readingsFileName('inquest');
+
+/**
+ * Where a generation puts the readings it supersedes.
+ *
+ * A new generation moves the declaration and the readings of every `[read]` phase here,
+ * which is what makes the promise that a generation asks the reader again true rather
+ * than stated: the gate a `[read]` phase already has can see only that the file it is
+ * told to read exists and is signed, so a file left in place is a file that passes. The
+ * move is a rename, so nothing is deleted and the previous generation's answers stay
+ * readable at one path, which is what a re-read is made against.
+ */
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+export const ARCHIVE_DIRECTORY = 'archive';
+
+/**
+ * The name a working file takes once a generation has moved it aside.
+ *
+ * Derived from the name rather than declared beside it, so an archived reading cannot
+ * drift from the reading it archives: the generation goes before the final extension,
+ * which is the one place in the name that is not the file's identity.
+ */
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+export function archivedFileName(fileName, generation) {
+  return fileName.replace(/(\.[^.]*)$/, `.g${generation}$1`);
+}
+
+/**
+ * Move a generation's working files aside, and answer with the names they took.
+ *
+ * A file that is not there is skipped rather than refused: the first generation and one
+ * opened after a partial run both legitimately hold fewer files than the phase table
+ * names, and a move that refused them would refuse the run that has read least.
+ *
+ * @param {{directory: string, generation: number, files: string[]}} request — the run
+ *   directory, the generation being superseded, and the files it wrote
+ * @returns {string[]} — the archived names, in the order the files were given
+ */
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+export function archiveReadings({ directory, generation, files }) {
+  const present = files.filter((name) => existsSync(join(directory, name)));
+  if (present.length === 0) return [];
+
+  const archive = join(directory, ARCHIVE_DIRECTORY);
+  mkdirSync(archive, { recursive: true });
+  return present.map((name) => {
+    const archived = archivedFileName(name, generation);
+    renameSync(join(directory, name), join(archive, archived));
+    return archived;
+  });
+}
 
 /**
  * The four lenses (PX-243).

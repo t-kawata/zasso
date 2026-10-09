@@ -21,7 +21,7 @@ import { ADHOC_DIRECTORY } from './adhoc.mjs';
 import { RAIL_EXIT_FILE } from './harness.mjs';
 import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
 import { BRIEF_NAMES } from './reading.mjs';
-import { DECLARATION_FILE, PINS_FILE, WORKLIST_FILE, readingsFileName } from './readings.mjs';
+import { ARCHIVE_DIRECTORY, DECLARATION_FILE, PINS_FILE, WORKLIST_FILE, readingsFileName } from './readings.mjs';
 
 /**
  * The primitives that may decide an invalidation.
@@ -47,22 +47,38 @@ export function inheritedFileNames() {
 }
 
 /**
- * The inherited files a run directory currently holds, with the scaffolded modules.
+ * The files one directory of a run directory holds, as paths relative to the run.
+ *
+ * A directory rather than a name, because these are the two places a run keeps a file the
+ * phase table does not name: the modules a scaffold adds, and the readings a later
+ * generation moved aside. Both are inherited, so both are part of the digest.
+ */
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+function filesInDirectory(directory, name) {
+  const held = join(directory, name);
+  return existsSync(held)
+    ? readdirSync(held)
+      .filter((entry) => statSync(join(held, entry)).isFile())
+      .map((entry) => `${name}/${entry}`)
+    : [];
+}
+
+/**
+ * The inherited files a run directory currently holds, with the scaffolded modules and the
+ * readings an earlier generation moved aside.
  *
  * A missing file is not an error: the digest answers "what is here", and a run that has
  * read nothing yet inherits nothing. The list is sorted so the digest is a function of
  * the set rather than of the directory's iteration order.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
 function inheritedFilesIn(directory) {
   const present = inheritedFileNames().filter((name) => existsSync(join(directory, name)));
-  const adhoc = join(directory, ADHOC_DIRECTORY);
-  const modules = existsSync(adhoc)
-    ? readdirSync(adhoc)
-      .filter((name) => statSync(join(adhoc, name)).isFile())
-      .map((name) => `${ADHOC_DIRECTORY}/${name}`)
-    : [];
-  return [...present, ...modules].sort();
+  return [
+    ...present,
+    ...filesInDirectory(directory, ADHOC_DIRECTORY),
+    ...filesInDirectory(directory, ARCHIVE_DIRECTORY),
+  ].sort();
 }
 
 /**
