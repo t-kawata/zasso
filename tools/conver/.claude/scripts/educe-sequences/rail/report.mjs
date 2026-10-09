@@ -6,7 +6,7 @@
 // no check measures: that a reader opened the line. A run that printed a single total
 // would make the second readable as the first, which is the confusion this file exists
 // to prevent.
-import { operationSpelling } from './coverage.mjs';
+import { NOT_MEASURED, coverageTerms, mappingNote, predecessorValueFor } from './coverage.mjs';
 import { PHASES } from './gates.mjs';
 import { phaseState, readingOf } from './run-state.mjs';
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
@@ -84,10 +84,24 @@ function signedChange(change) {
  * number that becomes a target, and this one exists only as a string in a report.
  */
 // [::TICKET::] PX-243, PX-244, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
-function againstPrevious(name, value, previous, change = null) {
-  if (previous === null || previous === undefined) return `${name}=${value}`;
+/**
+ * A spelled term with the generation before it beside it rather than added to it.
+ *
+ * The annotation is appended to a term the caller has already spelled, so the measured
+ * block and the product path's line cannot drift: both print `coverageTerms`' own text and
+ * this function only says what moved. It is the one place a `(previous generation …)` is
+ * written, so the audit lines and the measured block annotate alike.
+ */
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+function withPrevious(spelled, previous, change = null) {
+  if (previous === null || previous === undefined) return spelled;
   const moved = change === null ? '' : `, change ${signedChange(change)}`;
-  return `${name}=${value} (previous generation: ${previous}${moved})`;
+  return `${spelled} (previous generation: ${previous}${moved})`;
+}
+
+// [::TICKET::] PX-243, PX-244, PX-245, PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-245|PX-251) --for-spec --no-implementation-order`.
+function againstPrevious(name, value, previous, change = null) {
+  return withPrevious(`${name}=${value}`, previous, change);
 }
 
 /**
@@ -118,26 +132,15 @@ function inquestLines(inquest) {
  */
 // [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 /**
- * The operation line: the borrowed denominator when one was borrowed, the count alone when
- * none was.
+ * The measured block: every term of the console line, one per line, with what moved.
  *
- * Printing the artifact's own count beside a census would be printing a number that cannot
- * fall, so what is printed when a census exists is the census: how many members a step
- * realized and how many an escape excused. Without a census there is no denominator, and
- * the count is printed alone rather than against a zero nobody supplied.
+ * The terms come from `coverageTerms` rather than being written here, so the block and the
+ * product path's line are one spelling by construction and a term cannot be added to one
+ * surface alone. Each term is annotated from the stored predecessor, through the mapping
+ * `coverage` declares: a version-1 generation recorded other words, so it is read per key
+ * and the terms it never measured are named rather than silenced.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
-function operationLine(summary, comparable, changeIn) {
-  if (summary === null || summary === undefined || typeof summary.operationsEnumerated !== 'number') {
-    return againstPrevious('operations', summary?.operations ?? 0, comparable?.operations, changeIn('operations'));
-  }
-  const spelled = operationSpelling;
-  const previous = comparable === null || comparable?.operationsEnumerated === undefined ? null : spelled(comparable);
-  const movement = previous === null ? null : summary.operationsReached - (comparable.operationsReached ?? 0);
-  return againstPrevious('operations', spelled(summary), previous, movement);
-}
-
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function coverageLines(summary, status) {
   const previous = status?.history?.at(-1)?.coverage ?? null;
   // A run whose checks refused is reported with a null summary, so it has no measurement
@@ -145,24 +148,49 @@ function coverageLines(summary, status) {
   // never took, which is worse than printing nothing: a missing measurement is not a zero.
   const measured = summary === null || summary === undefined;
   const comparable = previous === null || measured ? null : previous;
-  const changeIn = (count) => (comparable === null ? null : summary[count] ?? 0) - (comparable?.[count] ?? 0);
-  // A reach is a count against a length, so its change is withheld when the length moved:
-  // two revisions of the document are two spaces, and the subtraction would compare them.
-  const reachChange = comparable === null || comparable.specLines !== summary.specLines
-    ? null
-    : (summary.linesReached ?? 0) - comparable.linesReached;
-  return [
-    againstPrevious('sequences', summary?.sequences ?? 0, comparable?.sequences, changeIn('sequences')),
-    againstPrevious('steps', summary?.steps ?? 0, comparable?.steps, changeIn('steps')),
-    operationLine(summary, comparable, changeIn),
-    againstPrevious('rows', summary?.rows ?? 0, comparable?.rows, changeIn('rows')),
-    againstPrevious(
-      'linesReached',
-      `${summary?.linesReached ?? 0} of ${summary?.specLines ?? 0}`,
-      comparable === null ? null : `${comparable.linesReached} of ${comparable.specLines}`,
-      reachChange,
-    ),
-  ];
+  const lines = coverageTerms(measured ? {} : summary).map((term) => {
+    const was = predecessorValueFor(term.key, comparable);
+    return withPrevious(term.text, predecessorDisplayFor(term.key, comparable, was), changeFor(term.key, summary, comparable, was));
+  });
+  const note = comparable === null ? null : mappingNote(comparable);
+  return note === null ? lines : [...lines, note];
+}
+
+/**
+ * What the predecessor measured for a term, as it is shown beside this generation's.
+ *
+ * A reach prints against its length, because a count of lines means nothing without the
+ * document it was counted in; a term the predecessor never measured is named rather than
+ * left blank or shown as a zero.
+ */
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+function predecessorDisplayFor(key, comparable, was) {
+  if (comparable === null) return null;
+  if (was === null) return NOT_MEASURED;
+  return key === 'linesReached' ? `${was} of ${comparable.specLines}` : was;
+}
+
+/** The counts whose movement is a plain subtraction. A reach and a census are not among them. */
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+const SUBTRACTABLE_TERMS = Object.freeze(['entries', 'sequences', 'steps', 'operations', 'placed', 'excused', 'sections']);
+
+/**
+ * How far a term moved, or null when the two generations cannot be subtracted.
+ *
+ * A reach is a count against a length, so its change is withheld when the length moved: two
+ * revisions of the document are two spaces and the subtraction would compare them. A census
+ * is a borrowed member list rather than a count of the artifact, and a term the predecessor
+ * never measured has nothing to subtract from; both answer null, which prints no change
+ * rather than a fall the run never took.
+ */
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+function changeFor(key, summary, comparable, was) {
+  if (comparable === null || was === null) return null;
+  if (key === 'linesReached') {
+    return comparable.specLines === summary?.specLines ? (summary?.linesReached ?? 0) - was : null;
+  }
+  if (!SUBTRACTABLE_TERMS.includes(key)) return null;
+  return (summary?.[key] ?? 0) - was;
 }
 
 /** Whether the run may be reported as complete. */

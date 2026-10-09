@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:629`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:626`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -279,9 +279,9 @@ all. The promotion a record declares becomes a proposal the command can print: t
 is marked promoted, the splice is printed with the file it must edit, and no source is
 written, because editing the rail is a change made under a ticket.
 
-What each generation produced is measured rather than judged. `coverage.mjs:145` counts
+What each generation produced is measured rather than judged. `coverage.mjs:239` counts
 what the artifact holds and unions the specification lines its records name, clipped to
-the document, and `rail/report.mjs:141` prints those counts beside the generation before them
+the document, and `rail/report.mjs:144` prints those counts beside the generation before them
 through the same helper the audit counts use. Each count carries the change from the
 generation before it, signed, because a reader judging whether another repetition is
 worth asking for should not have to subtract two numbers to see that they have stopped
@@ -312,7 +312,7 @@ condition that would promote the check into the rail. The records live in the ru
 directory, at `rail-exits.jsonl` beside the checks they describe: a store inside the tool
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
-other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:178` closes the run by
+other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:206` closes the run by
 separating what was measured from what is carried by a signature, and `phase.mjs:327` is
 the command line every step of the command file runs.
 
@@ -382,10 +382,38 @@ it. A run holding readings is judged by what it built and not by what it replace
 artifact it is about to overwrite would make a check added after that artifact was written a
 wall rather than a gate, since the way out of a failed generation would be refused too. Measured
 over the artifact the reader holds for the project this apparatus was built against — 375
-sequences, 663 steps — 68 sequences claim to be a sequence, 472 of the 663 steps carry no
+entries, 663 steps — 68 of them claim a sequence, 472 of the 663 steps carry no
 operation, and `every-sequence-is-drawable` accepts 1 of the 68. That artifact predates
 these checks; the next generation is what closes it, and the rendering says so by refusing
 rather than by drawing a diagram full of empty operations.
+
+An entry is not a sequence, and the measured line prints both. The rail requires every line
+of the specification to belong to an entry (`every-line-belongs-to-an-entry`), so most
+entries of most documents are regions that were read and found to hold no sequence: a
+sequence is an entry whose **outcome** claims one — `direct`, `viaNeighbour` or
+`singleStep`. The line therefore reports the ledger as `entries`, the claiming records as
+`sequences`, the heading partition as `sections`, and the operations an interface must
+implement as `placed` against the `excused` ones; `linesReached` is the one term that prints
+a count against a total, because the document's own length is the denominator there and
+nowhere else.
+
+`singleStep` names two different decisions, and the report keeps them apart. As an operation
+**position** it says the operation is performed by one step; as an entry **outcome** it says
+the single-step sequence is drawn, which is what makes a step placed inside it belong to a
+diagram. A reading that records the position and leaves the owning entry ruled
+`notASequence` has recorded half of one decision in two fields, and
+`every-step-belongs-to-a-drawn-sequence` refuses it — the brief at `briefs/uncovered.md`
+states the rule where the reading is invited.
+
+The interface's own member list is a denominator the artifact does not hold. When the
+invocation supplies a census, the line prints it as `census=<n> (reached <r>, excused <e>)`;
+when it supplies none, the line prints `census=none`. The artifact's own operation count is
+never substituted there, because it counts the records this reading declared and a record
+may say the operation must *not* be implemented. A run that prints `census=none` answers how
+many sequences the specification yields and what composes them, and does not answer how many
+operations an interface must implement: the rail cannot enumerate an interface it was not
+handed. Nor is "how much of the interface is already built" a number this command prints —
+it reads the specification, not the implementation.
 
 ### Reading a sequence at a console
 

@@ -205,7 +205,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // file: the citation moved with the file rather than the file being kept still for it.
   { asWritten: 'pins.mjs:519', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 519, token: 'export function rederiveAll' },
   { asWritten: 'pins.mjs:280', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 280, token: 'export function selectNeighbourFor' },
-  { asWritten: 'engine.mjs:629', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 629, token: 'export const CHECKS' },
+  { asWritten: 'engine.mjs:626', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 626, token: 'export const CHECKS' },
   { asWritten: 'reading.mjs:353', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 353, token: 'export function applyReadings' },
   // Re-measured when PX-242 opened the run into generations: five of these moved with the
   // files that gained an import, a constant or a subcommand, and the citation followed the
@@ -221,13 +221,18 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
-  { asWritten: 'rail/report.mjs:178', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 178, token: 'export function buildReport' },
+  { asWritten: 'rail/report.mjs:206', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 206, token: 'export function buildReport' },
   { asWritten: 'phase.mjs:327', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 327, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.
-  { asWritten: 'coverage.mjs:145', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 145, token: 'export function coverageOf' },
-  { asWritten: 'rail/report.mjs:141', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 141, token: 'function coverageLines' },
+  // Re-measured by PX-251, which moved four of these by the lines its own change added
+  // above the definition. The citation follows the definition rather than the definition
+  // being kept still for it — engine.mjs gained the vocabulary import it re-exports,
+  // coverage.mjs gained the partitions and the predecessor mapping, and report.mjs gained
+  // the per-term block and the shared annotation.
+  { asWritten: 'coverage.mjs:239', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 239, token: 'export function coverageOf' },
+  { asWritten: 'rail/report.mjs:144', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 144, token: 'function coverageLines' },
   { asWritten: 'gates.mjs:474', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 474, token: 'export function unchangedRepeatReason' },
   { asWritten: 'phases.mjs:409', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 409, token: 'export function beginRun' },
 ]);

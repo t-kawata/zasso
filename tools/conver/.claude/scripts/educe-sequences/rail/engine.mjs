@@ -13,7 +13,13 @@
 // so the shape of a check is declared once and a new check costs choosing a shape.
 import { agreeOn, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
-import { readArtifactSchema, validateArtifactShape } from './load.mjs';
+import {
+  DIAGRAMMED_OUTCOMES,
+  OPERATION_POSITIONS,
+  UNREACHED_ESCAPES,
+  readArtifactSchema,
+  validateArtifactShape,
+} from './load.mjs';
 import { PIN_RULES, blocksFromHeadings, flattenPins, selectNeighbourFor } from './pins.mjs';
 import {
   INQUEST_ANSWERS,
@@ -26,29 +32,20 @@ import {
 } from './readings.mjs';
 
 /**
- * The positions an operation may hold, read from the schema rather than repeated.
+ * The three schema-derived vocabularies this module decides with.
  *
- * A fourth position is a schema edit and not a code edit, which is what keeps the
- * placement check from carrying a second copy of the vocabulary it enforces.
+ * They are declared in `load.mjs`, beside the schema's reader, because the measurement in
+ * `coverage.mjs` counts with the same lists and `engine.mjs` imports `coverage.mjs`: a
+ * declaration here could not be read there without an import cycle. The names are imported
+ * as well as re-exported, because this module reads them below — a bare `export … from`
+ * would re-export them without binding them here.
  */
-export const OPERATION_POSITIONS = Object.freeze(readArtifactSchema().positions);
-
-/**
- * The escapes that count as reaching an operation without a step naming it.
- *
- * Read from the schema rather than written here, so the escape vocabulary has one
- * declaration and the check that excuses an escape, the coverage that counts one and the
- * phases that interrogate one cannot disagree about which positions those are.
- */
-export const UNREACHED_ESCAPES = Object.freeze(readArtifactSchema().escapes);
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+export { DIAGRAMMED_OUTCOMES, OPERATION_POSITIONS, UNREACHED_ESCAPES };
 
 /** The classes a declared column may be placed in, and what evidence each class needs. */
 export const COLUMN_DECIDERS = Object.freeze(['borrowedVocabulary', 'literalInLine', 'predicateLimb', 'unmeasured']);
 
-/** The outcomes that claim a sequence, which is the set a diagram is owed for. */
-export const DIAGRAMMED_OUTCOMES = Object.freeze(
-  readArtifactSchema().outcomes.filter((outcome) => outcome !== 'notASequence' && outcome !== 'exempt'),
-);
 
 /**
  * The fields a message on a sequence diagram is drawn from, one participant per side.

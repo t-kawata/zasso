@@ -1,3 +1,4 @@
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // The borrowed census: the artifact is told what it must account for (PX-248).
 //
@@ -364,16 +365,23 @@ test('C006 the coverage line carries the borrowed denominator, and M equals R pl
 
   assert.equal(measured.operationsEnumerated, borrowed(artifact, 'operations').members.length);
   assert.equal(measured.operationsReached + measured.operationsExcused, measured.operationsEnumerated);
-  assert.match(line, new RegExp(`operations=${measured.operationsEnumerated} enumerated, ${measured.operationsReached} reached by a step, ${measured.operationsExcused} excused`));
+  assert.equal(
+    line.includes(`census=${measured.operationsEnumerated} (reached ${measured.operationsReached}, excused ${measured.operationsExcused})`),
+    true,
+    line,
+  );
+  assert.equal(line.includes(`operations=${artifact.operations.length} `), true, 'the artifact own record ledger still prints beside the census');
 });
 
-test('C006 an artifact that borrows no census prints the count with no denominator', () => {
+test('C006 an artifact that borrows no census names the denominator as absent', () => {
   const artifact = golden();
   const withoutBorrowing = { ...artifact, pins: { ...artifact.pins, sourceEnumerations: [] } };
   const line = coverageLine(verify(withoutBorrowing).summary);
 
   assert.match(line, new RegExp(`operations=${artifact.operations.length}( |$)`));
-  assert.equal(/enumerated/.test(line), false, 'a denominator nobody supplied is not printed');
+  assert.equal(line.endsWith('census=none'), true, 'a denominator nobody supplied is named rather than replaced by the record count');
+  assert.equal(/enumerated/.test(line), false, 'a denominator nobody supplied is not spelled as a census');
+  assert.match(line, /placed=\d+ excused=\d+/, 'the placement partition prints in its own right');
 });
 
 // ---------------------------------------------------------------------------
@@ -387,7 +395,7 @@ test('IT the product path verifies the census the golden artifact records, and r
 
   const verified = spawnSync('node', [RUN_RAIL, run.specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
   assert.equal(verified.status, 0, `${verified.stdout}${verified.stderr}`);
-  assert.match(verified.stdout, /3 enumerated, 2 reached by a step, 1 excused/, 'the product path prints the borrowed denominator');
+  assert.match(verified.stdout, /census=3 \(reached 2, excused 1\)/, 'the product path prints the borrowed denominator as the census it is');
 
   const gapped = golden();
   gapped.operations = gapped.operations.filter((operation) => operation.id !== 'Admit');

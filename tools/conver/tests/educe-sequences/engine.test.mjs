@@ -1,3 +1,4 @@
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The engine, the rail-exit record, the rendering and the consumer direction
 // (PX-240, contracts C001, C009, C014, C015).
@@ -40,10 +41,11 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 // [::TICKET::] PX-247, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-247|PX-249) --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
   checksRun: 29,
-  rows: 10,
-  sequences: 8,
+  entries: 8,
+  sequences: 2,
   steps: 6,
   operations: 3,
+  sections: 10,
   pinsRederived: 5,
   pinsTotal: 5,
 };
