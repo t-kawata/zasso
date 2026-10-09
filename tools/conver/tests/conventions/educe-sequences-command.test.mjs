@@ -10,13 +10,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { BRIEF_NAMES } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
+import { BRIEF_NAMES, ADJUDICATION_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
 import { PHASES } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
 import { ADHOC_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/adhoc.mjs';
 import { PHASE_EXPECTS, PINS_FILE, WORKLIST_FILE } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 import { DECLARATION_FILE, readingsFileName } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import { RUN_DIRECTORY_NAME } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 import { SUPPLIED_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
+import { UNREACHED_ESCAPES, DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const COMMAND_PATH = `${PROJECT_ROOT}.claude/commands/educe-sequences.md`;
@@ -117,4 +118,26 @@ test('C011 the file states no count it could read from an array instead', () => 
   assert.equal(/\b\d+ checks\b/.test(COMMAND), false, 'the check count is derived from CHECKS and must not be restated');
   assert.equal(/\b\d+ pins\b/.test(COMMAND), false, 'the pin count is derived from the artifact and must not be restated');
   assert.equal(/\b\d+ briefs\b/.test(COMMAND), false, 'the brief count is derived from BRIEF_NAMES and must not be restated');
+});
+
+// ---------------------------------------------------------------------------
+// PX-253 — the vocabularies the merge section names are the ones the rail declares
+// ---------------------------------------------------------------------------
+
+test('PX-253 every vocabulary the merge section names is the one the rail declares', () => {
+  // The Merging section spells the escape positions and the outcomes, because a reader
+  // repairing a dropped name must know the words without opening the schema. That makes
+  // the section a second spelling of `UNREACHED_ESCAPES` and of `ADJUDICATION_OUTCOMES`,
+  // and a second spelling is a second thing to keep in step: this is what keeps it.
+  const mergeSection = /^## Merging[\s\S]*?(?=^## )/m.exec(COMMAND)?.[0] ?? '';
+
+  assert.notEqual(mergeSection, '', 'the command file carries the merge section');
+  // Both escapes repair a dropped operation and both non-claiming outcomes repair a dropped
+  // entry, so those are the vocabularies the section must name. The claiming outcomes are
+  // what a sequence is, and the repair is for the case where it is not one.
+  const repairing = ADJUDICATION_OUTCOMES.filter((outcome) => !DIAGRAMMED_OUTCOMES.includes(outcome));
+  const absentEscapes = UNREACHED_ESCAPES.filter((escape) => !mergeSection.includes(escape));
+  const absentOutcomes = repairing.filter((outcome) => !mergeSection.includes(outcome));
+  assert.deepEqual(absentEscapes, [], `the merge section does not name the escape(s): ${absentEscapes.join(', ')}`);
+  assert.deepEqual(absentOutcomes, [], `the merge section does not name the outcome(s): ${absentOutcomes.join(', ')}`);
 });

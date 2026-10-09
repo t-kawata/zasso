@@ -93,6 +93,42 @@ Every phase carries exactly one tag, and the tag is the determinism boundary:
 Rule: a `[read]` phase is never satisfied by the library. A run that performs the shape
 and reads nothing stops at the first `[read]` phase and exits non-zero without writing.
 
+## Merging — when two records are one
+
+A merge is an improvement, not a loss, and the measured line is built so that it can be
+read as one: a generation that merges two records into one carries a **smaller** number,
+and nothing compares those numbers to a threshold. What the measured line cannot do is
+name what left, so the run does that instead — before it writes, by name, once.
+
+Coverage here is a density and not a count. A reader who reads thinly produces many small
+records; a reader who reads well produces fewer that reach the same lines. Both are
+legitimate, and only the second is an improvement, so the run never rewards the count and
+never punishes the merge. What it refuses is the merge that **loses** a name the generation
+being replaced was held to — the operations and the entries it declared: a generation may
+move a name and may not drop one in silence. A ruling is one of the ways a name is carried
+and never a name a generation is held to, so a reader who rules fewer regions than the
+generation before is not refused.
+
+| Merged | Expressed in | The merged record must carry |
+|---|---|---|
+| an operation | the readings — the operation list a span reading declares | the name of every operation it replaces, or a ruling whose subject is the dropped name |
+| a step | the readings — the steps a span reading declares | the whole act: the merge removes a step only where the surviving step states it |
+| an entry | `<dir of spec-file>/educe-sequences/declaration.json`, `entries[]` | a partition that still covers every line exactly once, and the name of every entry it replaces, or a ruling naming the dropped one |
+
+The repair for a dropped name is one of two things, and both are readings:
+
+- **Name it.** An operation carries a declared escape position from the artifact schema's
+  escape vocabulary (`suppliedRule`, `excluded`); an entry carries a declared outcome, of
+  which `notASequence` and `exempt` are the two that say it is not a sequence. A name that
+  is still carried is not a name that left.
+- **Rule it.** A ruling whose `subject` is the dropped name — the same shape the
+  adjudication file already carries — records that the name was merged rather than missed.
+
+A merge re-opens the phases that read what it changed: an entry, Steps 2 to 9; an
+operation or a step, Steps 8 and 9; an entry that stops claiming a sequence, Steps 10 to
+12 as well, because a ruling is attacked before it is trusted. The verification is the
+same in every case and is stated at Step 9.
+
 ## Workflow
 
 Step 0 opens the run and performs no phase. Steps 1 to 18 name the phases in order, and
@@ -201,6 +237,10 @@ every later ruling is made against: a ruling that says an entry is not an operat
 the limb it fails, or `none-applies` when no limb applies.
 Refused when: no line carries every limb. That refusal means the limbs were paraphrased
 rather than quoted, and the repair is to quote the line, not to loosen the gate.
+
+An entry is declared where a sequence is claimed, and a merge of two entries into one is
+declared here: the partition still covers every line exactly once, and the entry that is
+folded away is named by a ruling rather than dropped. See **Merging**.
 
 ### Step 3 — row schema `[read]` (AI judgment)
 
@@ -328,6 +368,10 @@ FAIL: back to Step 7; max 3 loops.
 Note: a span that does not carry the operation the entry names is a **result**, not a
 failure. The reader records that verdict, and the run continues.
 
+Two operations read as one act are merged here, by declaring the one name and carrying the
+other — an escape position, or a ruling whose subject is the dropped name. A merge that
+simply omits the name is refused by Step 9 before anything is written. See **Merging**.
+
 ### Step 9 — integrate `[det]`
 
 ```bash
@@ -340,6 +384,16 @@ unproven. PASS when the artifact exists, its recorded digest matches the specifi
 every pin re-derives and every check is green.
 FAIL: back to Step 8; max 5 loops — the largest limit, because this is the phase that
 fails when a reading is wrong rather than when a reader is missing.
+
+This phase also compares the artifact it is about to write with the artifact it replaces,
+and refuses when a name the earlier one carried is named nowhere in the later one. The
+comparison happens **before** the write, so a refusal leaves the artifact byte-identical
+and the reader repairs from the state they had. It is silent when the two artifacts were
+not read from the same thing — no earlier artifact, an edited specification, or material
+whose digest moved — because two revisions are not one space. It reports names in one
+direction only: a name that **arrived** is never a finding, because refusing an addition
+would refuse the very reading a new generation exists to do. See **Merging** above for the
+two repairs a dropped name admits, and the Refusals table for the line it prints.
 
 ### Step 10 — adversarial `[read]` (AI judgment)
 
@@ -393,6 +447,9 @@ The reader rules, per entry, whether one named actor performs two or more ordere
 there, and writes `<dir of spec-file>/educe-sequences/readings-adjudicate.jsonl`. Refused
 while an entry carries no outcome or an outcome outside the declared vocabulary. FAIL: back
 to Step 11; max 3 loops.
+
+A ruling whose `subject` is a name the artifact no longer carries is written here, and it
+is what admits a merge that dropped that name. See **Merging**.
 
 ### Step 13 — inquest `[read]` (AI judgment)
 
@@ -544,6 +601,7 @@ A refusal names the offending item and exits non-zero. Nothing is written.
 | a pin that is not re-derived in the same run | Step 15 |
 | a reading missing a required field, or carrying an outcome outside the declared set | Step 9 |
 | two readings for one subject | Step 9 |
+| a name the previous generation carried that the artifact being written does not carry | Step 9 |
 | a neighbour verdict naming an entry other than the one the engine selects by citation | Step 9 |
 | a supplied rule whose presupposition is prose rather than an integer line naming it | Step 9 |
 | a row keeping a `defining_section` that a supplied rule supersedes | Step 9 |

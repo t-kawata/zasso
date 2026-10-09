@@ -426,3 +426,89 @@ export function applyReadings({ artifactPath, readings, artifact, specLines }) {
 export function artifactDigest(artifactPath) {
   return existsSync(artifactPath) ? digestOf(artifactPath) : null;
 }
+
+/**
+ * Every name an artifact carries: its operations, its entries, and its rulings.
+ *
+ * A name is an identifier and never a description of one, because comparing the rest of a
+ * record would make this module decide how an operation ought to be described — the
+ * judgement no library here may make.
+ */
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+export function subjectsNamedBy(artifact) {
+  const names = new Set();
+  for (const operation of artifact.operations ?? []) if (typeof operation.id === 'string') names.add(operation.id);
+  for (const entry of artifact.sequences ?? []) if (typeof entry.id === 'string') names.add(entry.id);
+  for (const ruling of artifact.adjudications ?? []) if (typeof ruling.subject === 'string') names.add(ruling.subject);
+  return names;
+}
+
+/**
+ * The names a generation is held to: the operations it declares and the entries it declares.
+ *
+ * A ruling is deliberately not one of them, and the difference is not a detail. A ruling is
+ * how a name is *carried*, so holding a generation to the rulings themselves would refuse a
+ * reader who rules fewer regions than the generation before — and a ruled subject is often
+ * neither an operation nor an entry, which is the case in the hundreds in the consumer
+ * artifact. Such a name has no escape position and no outcome to be named with, so the only
+ * repair would be to make the same ruling again, which is a rule that refuses the merge it
+ * exists to permit.
+ */
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+export function subjectsHeldBy(artifact) {
+  const names = new Set();
+  for (const operation of artifact.operations ?? []) if (typeof operation.id === 'string') names.add(operation.id);
+  for (const entry of artifact.sequences ?? []) if (typeof entry.id === 'string') names.add(entry.id);
+  return names;
+}
+
+/** Whether the two artifacts were read from the same specification and the same material. */
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+function sameRevision(previous, next) {
+  return previous.spec?.sha256 === next.spec?.sha256
+    && previous.spec?.lines === next.spec?.lines
+    && previous.supplied?.digest === next.supplied?.digest;
+}
+
+/**
+ * The names a generation is held to that the artifact it writes carries nowhere.
+ *
+ * A merge is an improvement carrying a smaller number, so the count of what an artifact
+ * holds cannot be what this answers — a rule with a threshold would refuse the merge it
+ * means to encourage. What it answers is which names left, and only in that direction: a
+ * name that arrived is never a finding, because reporting arrivals would refuse every new
+ * operation and every newly declared entry.
+ *
+ * Silence is the answer in three cases, and they are one case: the two artifacts were not
+ * read from the same thing. A first generation has nothing to compare; a specification
+ * edited between two generations is not the space the earlier names were read from; and
+ * material that moved between them is the same fact one step out. Two revisions are not
+ * one space, so the comparison is withheld rather than made against a moved document.
+ *
+ * @param {{previous: object|null, next: object}} artifacts — the one being replaced and
+ *   the one composed from this generation's declaration and readings
+ * @returns {string[]} — the names that left, in the order the previous artifact held them
+ */
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+export function vanishedSubjects({ previous, next }) {
+  if (previous === null || previous === undefined) return [];
+  if (!sameRevision(previous, next)) return [];
+
+  const carried = subjectsNamedBy(next);
+  return [...subjectsHeldBy(previous)].filter((name) => !carried.has(name));
+}
+
+/**
+ * The one sentence both surfaces print when a name left the artifact.
+ *
+ * It lives here rather than at either call site: the phase driver and the product path
+ * both refuse on this rule, and two spellings of one refusal would be two things to keep
+ * in step. The remedies are the closed vocabularies rather than a procedure, because the
+ * repair is a reading and a library may not write one for the reader.
+ */
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+export function vanishedRefusal(subject) {
+  return `${subject} was named by the artifact this generation replaces and is named nowhere in the one it writes;`
+    + ' name it in the artifact, with a declared escape position for an operation or a declared outcome for an entry,'
+    + ' or carry a ruling whose subject is that name';
+}

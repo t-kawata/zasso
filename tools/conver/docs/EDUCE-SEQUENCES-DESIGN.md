@@ -168,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:259` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:272` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -296,9 +296,38 @@ inside the rail can enumerate. Nothing compares one of these to a threshold. A g
 that merges two sequences into one is an improvement carrying a smaller number, and a
 gate on growth would refuse the work it exists to encourage.
 
+A merge is therefore permitted, and the one thing it may not do is lose a name in silence.
+`rail/reading.mjs` answers `vanishedSubjects({previous, next})` — the names the generation
+being replaced was held to, which are its operations and its entries, that the one being
+written carries nowhere — and both surfaces that write
+an artifact refuse on a non-empty answer before the write: the phase 9 action reads the file
+it is about to replace, so a refusal leaves the artifact byte-identical, and the product path
+compares against the artifact it read as `existing`. The answer is one-directional by
+construction and not by a guard at the call site: only names that left are returned, because
+a rule that reported arrivals would refuse every new operation and every newly declared
+entry, which is the threshold above by another route. Silence is the answer when the two
+artifacts were not read from the same thing — no earlier artifact, a specification whose
+digest or line count moved, or material whose digest moved — for the reason the reach
+withholds its change when the length moved: two revisions are not one space. A ruling is
+deliberately not a name a generation is held to, and the difference is measured rather than
+assumed: 287 of the consumer artifact's 779 rulings name a subject that is neither an
+operation nor an entry, so holding a generation to its rulings would refuse a merge of two
+ruled regions with no repair available — such a name has no escape position and no outcome
+to be named with. The repair is one of the closed vocabularies rather than a procedure: an
+operation named with a declared escape position, an entry named with a declared outcome, or
+a ruling whose subject is the dropped name. A library may not write a reading, so it may not choose the repair for the
+reader; it may only refuse, name the name, and stop.
+
+A comparison against the artifact being replaced is deliberately not a comparison against a
+stored history. `status.json` keeps one coverage row per generation, and that row is
+evidence: nothing reads it to decide whether a generation may open, and a rule that read it
+would give one fact two homes and compare counts where the artifact itself is available.
+The consequence is that a loss is refused at the generation that causes it, which is the
+earlier and the more useful refusal.
+
 A repeat over an unchanged set is noticed, not refused. `gates.mjs:474` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:409` reports them as a line of output while opening
+is the same revision — and `phases.mjs:422` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to

@@ -25,7 +25,7 @@ import { checkAll, describeRefusal } from './engine.mjs';
 import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
-import { ADJUDICATION_OUTCOMES, applyReadings } from './reading.mjs';
+import { ADJUDICATION_OUTCOMES, applyReadings, vanishedRefusal, vanishedSubjects } from './reading.mjs';
 import { loadAdhocChecks } from './adhoc.mjs';
 import { railExitStoreFor } from './harness.mjs';
 import { inquestBeside } from './readings.mjs';
@@ -40,6 +40,15 @@ export const EXIT = Object.freeze({ OK: 0, REFUSED: 1, MISUSED: 2 });
 const UNREAD_REASON = 'the run performed the shape and read nothing; the first [read] phase carries no signed reading';
 
 /**
+ * The name this rule's verdicts carry.
+ *
+ * It is not a declared check — the rule runs in the phase action, before the artifact is
+ * written, and a check reads an artifact that already exists. It is named all the same,
+ * because a verdict a caller filters by is a verdict that must answer to a name.
+ */
+const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
+
+/**
  * Run the command.
  *
  * @param {string[]} argv — the arguments after the script name
@@ -49,6 +58,7 @@ const UNREAD_REASON = 'the run performed the shape and read nothing; the first [
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -97,6 +107,17 @@ export async function runCommand(argv, options = {}) {
     supplied: suppliedDigestOf(runDirectoryFor(specPath)),
     suppliedDocuments: material,
   });
+  // A run holding readings is about to replace the artifact rather than stand by it, so the
+  // names it replaces are compared with the names it writes before either the checks or the
+  // write. A merge is an improvement and is permitted; a merge that lost a name is refused
+  // here, by name, rather than left to a check that would read an artifact already written.
+  const vanished = vanishedSubjects({ previous: ground.existing, next: artifact });
+  if (vanished.length > 0) {
+    const verdicts = vanished.map((subject) => ({ check: VANISHED_CHECK_ID, subject, reason: vanishedRefusal(subject) }));
+    for (const verdict of verdicts) stderr(`refused: ${verdict.reason}`);
+    return { exitCode: EXIT.REFUSED, artifactPath: ground.artifactPath, summary: null, verdicts };
+  }
+
   const { verdicts, summary } = checkAll({
     specLines: ground.spec.lines,
     artifact,
