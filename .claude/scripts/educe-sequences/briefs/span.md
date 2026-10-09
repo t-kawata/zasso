@@ -19,3 +19,8 @@ Rules that decide whether your answer is a reading:
 - When the span does not carry the operation the entry names, say so. A refusal is a result.
 
 Worklist: {{WORKLIST_PATH}}
+
+What the artifact already reads in this neighbourhood, for orientation and for nothing else.
+It is not evidence: the verdict is made against the line you read, quoted and signed.
+
+{{TREE}}

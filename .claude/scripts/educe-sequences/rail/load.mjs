@@ -82,6 +82,27 @@ export function readArtifactSchema() {
   return JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 }
 
+// The closed vocabularies, read from the schema rather than written here.
+//
+// They live beside the schema's reader because this is the module that owns what the
+// artifact's words mean: a check that decides with `DIAGRAMMED_OUTCOMES` and a report that
+// counts with it are asking one question, and a second copy of the list is a second thing
+// that can disagree. They sit here rather than in `engine.mjs` because `engine.mjs` imports
+// `coverage.mjs`, so a vocabulary declared there cannot be read by the measurement without
+// an import cycle.
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+
+/** The classes an operation may be placed in. */
+export const OPERATION_POSITIONS = Object.freeze(readArtifactSchema().positions);
+
+/** The classes that excuse an operation from being implemented. */
+export const UNREACHED_ESCAPES = Object.freeze(readArtifactSchema().escapes);
+
+/** The outcomes that claim a sequence, which is the set a diagram is owed for. */
+export const DIAGRAMMED_OUTCOMES = Object.freeze(
+  readArtifactSchema().outcomes.filter((outcome) => outcome !== 'notASequence' && outcome !== 'exempt'),
+);
+
 /** The keys a record is missing, given the keys it must carry. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function missingKeys(record, required) {

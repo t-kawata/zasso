@@ -61,7 +61,7 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 |---|---|---|
 | `phase.mjs` | `begin <spec> [material…]` | **Executed in Step 0**. Opens the generation: returns every loop, re-opens the phases a reader performs, files the supplied material, and reports the generation, the inherited asset digest, the supplied and invalidated counts, and the next phase. Reports a verification instead when nothing was entered and nothing changed. |
 | `phase.mjs` | `status <spec>` | **Executed when the whole table is wanted**. Opens the run, prints all 18 phases, their tag, their verdict and what each is waiting for. |
-| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
+| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path and, for the names whose question is about order, actor or reach, the tree of the artifact in hand. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
 | `phase.mjs` | `run <spec> <phase>` | **Executed in every Step's gate**. Enters one phase, performs it if the library can, and gates it. Exit 0 = PASS, 1 = FAIL, 3 = HALT. A FAIL prints the back-edge, the loops spent and the file the reader must produce; a HALT prints the loops spent and the last refusal, and means stop. |
 | `phase.mjs` | `through <spec> [last]` | **Executed in Step 17**. Runs the first unfinished phase through the last, stopping at the first refusal. |
 | `phase.mjs` | `report <spec>` | **Executed in Step 17**. Prints the closing report: measured counts, then what is carried by a signature. |
@@ -72,7 +72,9 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 Supporting modules, read rather than run: `gates.mjs` (the 18 exit gates),
 `phases.mjs` (the driver), `run-state.mjs` (the run directory), `readings.mjs` (the two
 reading files), `adhoc.mjs` (the ad-hoc surface), `report.mjs` (the closing report),
-`engine.mjs` and `harness.mjs` (the checks and the two-sided falsifier). A scaffolded
+`engine.mjs` and `harness.mjs` (the checks and the two-sided falsifier), and `text.mjs`
+(`text.mjs <artifact>.json --tree`, the tree a brief carries: `phase.mjs` reads it, no phase
+runs it). A scaffolded
 check is loaded from `<dir of spec-file>/educe-sequences/adhoc/` on every later run and
 runs beside the declared ones; the rail-exit records live in
 `<dir of spec-file>/educe-sequences/rail-exits.jsonl`, beside the specification they
@@ -281,7 +283,15 @@ Dispatch one reader per worklist line.
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span
 ```
 
-Hand the rendered brief to a reader subagent together with the worklist. The reader
+Hand the rendered brief to a reader subagent together with the worklist. The brief carries
+the tree of the artifact in hand — `text.mjs <artifact>.json --tree`: every sequence the
+artifact claims is one, and the acts that sequence performs in the order it records them.
+That tree is what the last generation read in this neighbourhood, and it is there for two
+things only: to point the reader at the span that carries the act, and to keep one actor's
+name and one operation's name across the entries of a document. It is orientation and never
+evidence. A reader who reports what the tree says, instead of reading the line and quoting
+it, has written the artifact back to itself, which is the one thing this apparatus is built
+not to do. The reader
 answers one question per entry — *is the named operation performed by the named actor
 inside the entry's own span?* — and writes
 `<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
@@ -340,6 +350,10 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adversarial
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
 ```
 
+The brief carries the tree, and its `SHARE:` lines are what ranks the rulings an attacker has
+to choose between: an operation another sequence also names is one whose misreading takes
+more than this ruling down with it, so the weakest link is worth searching for there first.
+
 The reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl` — one
 signed attack per ruling, naming the single weakest link. Refused when a ruling was never
 attacked. FAIL: back to Step 9; max 3 loops. When no entry was ruled a non-sequence the
@@ -355,6 +369,10 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" reroute
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 11
 ```
 
+The brief carries the tree, which is how a reroute sees what the other entries already hold:
+the question is which entry should realize this one instead, and the answer is an entry whose
+acts either carry the act in question or do not.
+
 The reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`, naming the
 entry that should realize it instead and the line that says so. Refused while an entry
 with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
@@ -365,6 +383,11 @@ with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adjudicate
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 12
 ```
+
+The brief carries the tree, and a block of it is the shape this question asks about: one
+actor's name, and the acts that actor performs beneath it in order. That is what the ruling is
+made about and not what it is made from — the actor and the order are read in the span, quoted
+and signed.
 
 The reader rules, per entry, whether one named actor performs two or more ordered acts
 there, and writes `<dir of spec-file>/educe-sequences/readings-adjudicate.jsonl`. Refused
@@ -499,9 +522,11 @@ node .claude/scripts/educe-sequences/rail/run.mjs "$1"
 ```
 
 The rendering beside the specification is written by `rail/render.mjs`, which draws one
-diagram per sequence the artifact claims is one: the participants are the steps' subjects
-and objects, in step order, and the check that guards it refuses a sequence whose steps do
-not carry what a diagram needs. A region ruled not a sequence is owed no diagram.
+diagram per sequence the artifact claims is one: each participant is declared by an alias
+and the messages follow the step order, so a name never stands where the diagram language
+would refuse a comma or a colon. It writes only from a verification that passed — the same
+one `run.mjs` performs — so a refused artifact is neither drawn nor reported as drawn, and
+a region ruled not a sequence is owed no diagram.
 
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.

@@ -21,3 +21,8 @@ Rules that decide whether your answer is a reroute:
 - Sign every claim with the name of this brief. A claim with no signature is not a reroute.
 
 Worklist: {{WORKLIST_PATH}}
+
+What the artifact already reads in this neighbourhood, for orientation and for nothing else.
+It is not evidence: the verdict is made against the line you read, quoted and signed.
+
+{{TREE}}

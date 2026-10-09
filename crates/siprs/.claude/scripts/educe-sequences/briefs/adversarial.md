@@ -20,3 +20,8 @@ Rules that decide whether your answer is an attack:
 - "The ruling looks right" is not an answer. If you cannot break it, say which claim you tried to break and why it held.
 
 Worklist: {{WORKLIST_PATH}}
+
+What the artifact already reads in this neighbourhood, for orientation and for nothing else.
+It is not evidence: the verdict is made against the line you read, quoted and signed.
+
+{{TREE}}

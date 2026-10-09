@@ -385,26 +385,102 @@ export function runCase(testCase, { artifact, specLines, fixtureRoot }) {
  * so a change in whitespace a reader would not notice still fails.
  */
 /**
- * One diagram for one sequence, drawn from the records the artifact already holds.
+ * The two characters the Mermaid sequence lexer will not carry literally, and the numeric
+ * character references it decodes back to them.
+ *
+ * Measured against mermaid 12.0 over every printable ASCII code point plus the Unicode
+ * whitespace and astral samples, in the alias position and in the message position: `;`
+ * fails the parse, and `#` is silently dropped together with everything that follows it.
+ * Every other character a name can hold — comma, colon, angle brackets, quotes, backticks,
+ * CJK — passes unchanged. The measurement is the rule's ground, and the table it came from
+ * is recorded in `docs/EDUCE-SEQUENCES-DESIGN.md`, so a change here is a change to a
+ * measurement rather than to a preference.
+ */
+export const MERMAID_ESCAPES = Object.freeze({ '#': '#35;', ';': '#59;' });
+
+/**
+ * Encode one field for the diagram.
+ *
+ * Whitespace collapses to a single space because a diagram message is one line, and the
+ * artifact keeps the verbatim text in `quote`, so projecting it costs nothing. The escape
+ * runs in one pass, so a `#` introduced by escaping a `;` is not escaped a second time.
+ */
+export function encodeForDiagram(text) {
+  return String(text).replace(/\s+/g, ' ').replace(/[#;]/g, (character) => MERMAID_ESCAPES[character]);
+}
+
+/**
+ * Whether a step field names a participant. A participant is a name, and a name is not empty.
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+function isParticipant(name) {
+  return typeof name === 'string' && name !== '';
+}
+
+/**
+ * The participants of one sequence, in the order they first appear.
+ *
+ * Exported because two callers must agree about which name a `P<n>` stands for: the emitter,
+ * which writes the alias into the diagram, and the console surface, which prints the legend
+ * under it. Two computations of that mapping would be two places for it to drift.
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+export function participantsOf(steps) {
+  return [...new Set(steps.flatMap((step) => [step.subject, step.object]))].filter(isParticipant);
+}
+
+/**
+ * The Mermaid source of one sequence, without the fence that carries it in Markdown.
+ *
+ * This is the one generator behind all three readings of a sequence: the rendering beside the
+ * specification wraps it in a fence, the console's raw mode prints it verbatim, and the
+ * console's drawn mode folds it to a width and hands it to a renderer. Splitting it out is
+ * what makes those three unable to disagree.
+ *
+ * `fold` receives a message and returns the text to emit for it, defaulting to the identity.
+ * It runs before the encoding, so a fold measures the characters a reader will see rather
+ * than the numeric references they are written as.
+ *
+ * `displayName` receives a participant name and its identifier and returns what the alias
+ * carries, defaulting to the name itself. A viewer with a viewport shows the names; a
+ * terminal, which cannot scroll a diagram sideways, shows the identifiers and prints the
+ * names underneath.
+ */
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
+export function sequenceDiagramSource(entry, steps, { fold = (message) => message, displayName = (name) => name } = {}) {
+  const participants = participantsOf(steps);
+  const identifierOf = new Map(participants.map((name, index) => [name, `P${index + 1}`]));
+  return [
+    'sequenceDiagram',
+    `  %% ${encodeForDiagram(entry.id)} ${entry.firstLine}-${entry.lastLine}`,
+    ...participants.map((name) => `  participant ${identifierOf.get(name)} as ${encodeForDiagram(displayName(name, identifierOf.get(name)))}`),
+    ...steps.map((step) => `  ${identifierOf.get(step.subject)}->>${identifierOf.get(step.object)}: ${encodeForDiagram(fold(`${step.predicate} [${step.operation}]`))}`),
+  ].join('\n');
+}
+
+/**
+ * One diagram for one sequence, as the fenced block a Markdown file carries.
  *
  * A sequence diagram is a projection and not a decision: every step is a message, its
  * subject and object are the participants, its predicate is what the message says and its
  * operation is what the message is an instance of. A step that names no actor is drawn as
  * what it is, and `every-sequence-is-drawable` is the check that refuses one — so the
  * renderer never has to decide whether a sequence is whole.
+ *
+ * A participant is declared by an alias, so a name never stands in the identifier
+ * position: that position is where the lexer refuses a comma and a colon, and the artifact
+ * is free to carry both. The identifier is `P<n>` assigned in the order the participants
+ * first appear, which makes the emitted text well formed for any name the artifact can
+ * hold and leaves the escaping to `encodeForDiagram`.
+ *
+ * Every name a step carries is therefore read as a key of the identifier map. That lookup
+ * is total because the step is one `every-sequence-is-drawable` has already accepted: a
+ * step naming no actor is refused there, and the product path writes a rendering only from
+ * a verification that passed.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
-function renderSequenceDiagram(entry, steps) {
-  const participants = [...new Set(steps.flatMap((step) => [step.subject, step.object]))]
-    .filter((name) => typeof name === 'string' && name !== '');
-  return [
-    '```mermaid',
-    'sequenceDiagram',
-    `  %% ${entry.id} ${entry.firstLine}-${entry.lastLine}`,
-    ...participants.map((name) => `  participant ${name}`),
-    ...steps.map((step) => `  ${step.subject}->>${step.object}: ${step.predicate} [${step.operation}]`),
-    '```',
-  ].join('\n');
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
+export function renderSequenceDiagram(entry, steps) {
+  return ['```mermaid', sequenceDiagramSource(entry, steps), '```'].join('\n');
 }
 
 export function renderArtifact(artifact) {

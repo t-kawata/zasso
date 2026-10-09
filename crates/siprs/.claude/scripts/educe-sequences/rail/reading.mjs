@@ -71,6 +71,29 @@ export const WORKLIST_PLACEHOLDER = '{{WORKLIST_PATH}}';
 export const PREDICATE_PLACEHOLDER = '{{PREDICATE}}';
 
 /**
+ * What the artifact already reads in the neighbourhood, which the briefs about order, actor
+ * and reach carry as orientation.
+ *
+ * The tree is a rendering of what a reader already wrote, so it can point a reader at the
+ * right span and keep one actor's name and one operation's name across entries — and for no
+ * other purpose. A verdict made against it rather than against the line would be the artifact
+ * agreeing with itself, which is the one thing this apparatus is built not to do.
+ */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+export const TREE_PLACEHOLDER = '{{TREE}}';
+
+/**
+ * What this run has already read, shown to a reader so it is not starting blind: the answers
+ * the previous generation gave, and the acts the artifact already records.
+ *
+ * The two are one idea — the state of the reading so far — and neither is evidence. Carrying
+ * them as two parameters put every renderer over the parameter limit for one concept, and a
+ * brief that read them as two would have two places to forget to fill.
+ */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+export const EMPTY_ORIENTATION = Object.freeze({ previousAnswers: [], tree: '' });
+
+/**
  * The predicate, rendered as the criterion it is rather than as a citation.
  *
  * The pin was re-derived on every run and reached no reader, so a ruling could not be
@@ -144,15 +167,19 @@ export function countInterrogatives(text) {
 }
 
 /** Fill a template's placeholders; the clauses are substituted, never typed by hand. */
-export function fillBriefTemplate(template, { briefName, worklistPath, predicate, previousAnswers = [] }) {
+export function fillBriefTemplate(template, { briefName, worklistPath, predicate, orientation = EMPTY_ORIENTATION }) {
   const question = BRIEF_QUESTIONS[briefName];
   if (question === undefined) throw new Error(`unknown brief name: ${briefName}`);
+  const { previousAnswers = [], tree = '' } = orientation;
   return template
     .replaceAll(QUESTION_PLACEHOLDER, question)
     .replaceAll(PREDICATE_PLACEHOLDER, renderPredicateClause(predicate))
     .replaceAll(VERBATIM_PLACEHOLDER, BRIEF_CLAUSES.VERBATIM_QUOTE)
     .replaceAll(NO_WINDOW_PLACEHOLDER, BRIEF_CLAUSES.NO_LINE_WINDOW)
     .replaceAll(WORKLIST_PLACEHOLDER, worklistPath)
+    // A brief that carries no tree is untouched by this substitution, and one that does cannot
+    // be rendered with the placeholder left standing.
+    .replaceAll(TREE_PLACEHOLDER, tree)
     // The three audit clauses are replaced in every template: a brief that does not carry
     // them is untouched by the substitution, and one that does cannot be rendered with a
     // placeholder left standing.
@@ -167,22 +194,26 @@ export function fillBriefTemplate(template, { briefName, worklistPath, predicate
  * The refusals are named by clause, not by line, so the caller learns which of the
  * four broke rather than that something did.
  */
-export function renderBriefFrom({ template, briefName, worklistPath, predicate, previousAnswers = [] }) {
+export function renderBriefFrom(options) {
+  refuseSupersededOrientation(options, 'renderBriefFrom');
+  const { template, briefName, worklistPath, predicate, orientation = EMPTY_ORIENTATION } = options;
   // A brief that lost the predicate clause would render without it and read as a brief
   // whose criterion is whatever the reader remembers, so the clause is checked on the
   // template — where its absence is a defect — rather than on the rendered text.
   if (!template.includes(PREDICATE_PLACEHOLDER)) {
     throw new Error(`the brief "${briefName}" does not carry the predicate clause`);
   }
-  const text = fillBriefTemplate(template, { briefName, worklistPath, predicate, previousAnswers });
+  const text = fillBriefTemplate(template, { briefName, worklistPath, predicate, orientation });
 
   if (text.includes(PREDICATE_PLACEHOLDER)) {
     throw new Error(`the brief "${briefName}" carries the predicate placeholder more than once`);
   }
-  // The quoted predicate is a sentence of the specification, and its own punctuation is
-  // not a question the brief asks: a specification line that happens to end in a question
-  // mark would otherwise refuse every brief that quotes it.
-  const askedByTheBrief = text.replace(renderPredicateClause(predicate), '');
+  // The quoted predicate is a sentence of the specification, and so is every act the tree
+  // quotes above it, and their own punctuation is not a question the brief asks: a
+  // specification line that happens to end in a question mark would otherwise refuse every
+  // brief that quotes it. Both blocks are subtracted before the count, for the same reason.
+  const quotedBlocks = [renderPredicateClause(predicate), orientation.tree ?? ''].filter((block) => block !== '');
+  const askedByTheBrief = quotedBlocks.reduce((remaining, block) => remaining.replaceAll(block, ''), text);
   if (countInterrogatives(askedByTheBrief) !== 1) {
     throw new Error(`the brief "${briefName}" carries ${countInterrogatives(askedByTheBrief)} interrogative sentences; a brief asks exactly one question`);
   }
@@ -198,8 +229,29 @@ export function renderBriefFrom({ template, briefName, worklistPath, predicate, 
   return text;
 }
 
+/** Where the brief templates live, computed once rather than at every render. */
+const BRIEFS_ROOT = join(import.meta.dirname, '..', 'briefs');
+
+/**
+ * Refuse a caller that still passes the orientation as two top-level options.
+ *
+ * The two were separate parameters until they were one, and a caller left behind would not
+ * fail: its `previousAnswers` would be destructured away and every pair would render as "not
+ * asked", which is a wrong brief rather than a missing one. This module refuses a flag that
+ * cannot act on the mode it was given, and for the same reason it refuses this.
+ */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+function refuseSupersededOrientation(options, caller) {
+  const superseded = ['previousAnswers', 'tree'].filter((key) => key in options);
+  if (superseded.length > 0) {
+    throw new Error(`${caller} takes the orientation as one option: pass { orientation: { previousAnswers, tree } } rather than ${superseded.join(' and ')}`);
+  }
+}
+
 /** Render a named brief from the briefs directory beside this module. */
-export function renderBrief({ briefName, worklistPath, predicate, briefsRoot = join(import.meta.dirname, '..', 'briefs'), previousAnswers = [] }) {
+export function renderBrief(options) {
+  refuseSupersededOrientation(options, 'renderBrief');
+  const { briefName, worklistPath, predicate, briefsRoot = BRIEFS_ROOT, orientation = EMPTY_ORIENTATION } = options;
   // The name is checked before the directory is read, so a misspelt role is reported as
   // an unknown brief rather than as a missing file: those call for different responses,
   // and a fifth role appears only when a defect class appears that none of the four can
@@ -208,7 +260,7 @@ export function renderBrief({ briefName, worklistPath, predicate, briefsRoot = j
     throw new Error(`unknown brief name: ${briefName}; the declared roles are ${BRIEF_NAMES.join(', ')}`);
   }
   const templatePath = join(briefsRoot, `${briefName}.md`);
-  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath, predicate, previousAnswers });
+  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath, predicate, orientation });
 }
 
 /** The entries a selector chooses, as worklist lines naming the span to read. */

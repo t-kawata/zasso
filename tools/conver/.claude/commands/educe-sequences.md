@@ -61,7 +61,7 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 |---|---|---|
 | `phase.mjs` | `begin <spec> [material…]` | **Executed in Step 0**. Opens the generation: returns every loop, re-opens the phases a reader performs, files the supplied material, and reports the generation, the inherited asset digest, the supplied and invalidated counts, and the next phase. Reports a verification instead when nothing was entered and nothing changed. |
 | `phase.mjs` | `status <spec>` | **Executed when the whole table is wanted**. Opens the run, prints all 18 phases, their tag, their verdict and what each is waiting for. |
-| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
+| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path and, for the names whose question is about order, actor or reach, the tree of the artifact in hand. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
 | `phase.mjs` | `run <spec> <phase>` | **Executed in every Step's gate**. Enters one phase, performs it if the library can, and gates it. Exit 0 = PASS, 1 = FAIL, 3 = HALT. A FAIL prints the back-edge, the loops spent and the file the reader must produce; a HALT prints the loops spent and the last refusal, and means stop. |
 | `phase.mjs` | `through <spec> [last]` | **Executed in Step 17**. Runs the first unfinished phase through the last, stopping at the first refusal. |
 | `phase.mjs` | `report <spec>` | **Executed in Step 17**. Prints the closing report: measured counts, then what is carried by a signature. |
@@ -72,7 +72,9 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 Supporting modules, read rather than run: `gates.mjs` (the 18 exit gates),
 `phases.mjs` (the driver), `run-state.mjs` (the run directory), `readings.mjs` (the two
 reading files), `adhoc.mjs` (the ad-hoc surface), `report.mjs` (the closing report),
-`engine.mjs` and `harness.mjs` (the checks and the two-sided falsifier). A scaffolded
+`engine.mjs` and `harness.mjs` (the checks and the two-sided falsifier), and `text.mjs`
+(`text.mjs <artifact>.json --tree`, the tree a brief carries: `phase.mjs` reads it, no phase
+runs it). A scaffolded
 check is loaded from `<dir of spec-file>/educe-sequences/adhoc/` on every later run and
 runs beside the declared ones; the rail-exit records live in
 `<dir of spec-file>/educe-sequences/rail-exits.jsonl`, beside the specification they
@@ -282,12 +284,14 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span
 ```
 
 Hand the rendered brief to a reader subagent together with the worklist. The brief carries
-the tree of the artifact in hand — `text.mjs <artifact>.json --tree` — which is what the last
-generation read in this neighbourhood, and it is there for two things only: to point the
-reader at the span that carries the act, and to keep one actor's name and one operation's
-name across the entries of a document. It is orientation and never evidence. A reader who
-reports what the tree says, instead of reading the line and quoting it, has written the
-artifact back to itself, which is the one thing this apparatus is built not to do. The reader
+the tree of the artifact in hand — `text.mjs <artifact>.json --tree`: every sequence the
+artifact claims is one, and the acts that sequence performs in the order it records them.
+That tree is what the last generation read in this neighbourhood, and it is there for two
+things only: to point the reader at the span that carries the act, and to keep one actor's
+name and one operation's name across the entries of a document. It is orientation and never
+evidence. A reader who reports what the tree says, instead of reading the line and quoting
+it, has written the artifact back to itself, which is the one thing this apparatus is built
+not to do. The reader
 answers one question per entry — *is the named operation performed by the named actor
 inside the entry's own span?* — and writes
 `<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
@@ -523,43 +527,6 @@ and the messages follow the step order, so a name never stands where the diagram
 would refuse a comma or a colon. It writes only from a verification that passed — the same
 one `run.mjs` performs — so a refused artifact is neither drawn nor reported as drawn, and
 a region ruled not a sequence is owed no diagram.
-
-The same artifact can be read at a console, which is a different question from writing it
-beside the specification:
-
-```bash
-node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --list
-node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --tree [--id <sequence>…] [--width <columns>]
-node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] [--ascii] [--width <columns>]
-node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] --mermaid
-```
-
-The four readings are one artifact read four ways, and two of them list what it holds:
-each line of either carries a sequence's id, its line range, its outcome and how many steps
-it has. They differ in what they cover and in what they add. `--list` names **every entry**
-the artifact holds, including the regions ruled not a sequence, one line each, which is the
-ledger. `--tree` names only the entries that **claim to be a sequence**, and under each one
-it prints the acts that sequence performs in the order the artifact records them — `WHO: `,
-`WHAT: `, `WHOSE: ` for the act's subject, predicate and object, and `SHARE: ` when another
-sequence names the same operation, which is the one place the artifact's sharing is spelled.
-It closes by counting what it did not draw, because an absence that is not counted reads as
-an absence that does not exist. `--tree --id` prints the named entries alone, whatever their
-outcome, because `--id` names an entry and not a claim; `--width` folds the act lines, and a
-heading too wide to fold is printed whole rather than withheld, the way a drawing that is
-merely wide is printed rather than withheld.
-
-`--id` draws each named sequence and prints the participant legend beneath it: the drawing
-carries `P1`…`P<n>`, because a diagram whose boxes are the artifact's noun phrases cannot be
-read in a terminal at all. There `--width` is the budget for the whole drawing, not for one
-message — the renderer widens a diagram to fit its widest message rather than breaking it, so
-the message budget is narrowed until the drawing fits, and a drawing that cannot be made to fit
-is printed with the width it reached reported on stderr. `--mermaid` prints the source instead,
-exactly the bytes the fence above carries, so it can be pasted into a viewer and read as the
-rail wrote it.
-
-The drawing needs `beautiful-mermaid`, which `install.js` installs into the `.claude` tree
-it installs. `--list`, `--tree` and `--mermaid` need nothing: they work before any dependency
-is resolved, and the drawn mode says which package is missing rather than failing obscurely.
 
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.

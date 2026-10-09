@@ -13,7 +13,13 @@
 // so the shape of a check is declared once and a new check costs choosing a shape.
 import { agreeOn, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
-import { readArtifactSchema, validateArtifactShape } from './load.mjs';
+import {
+  DIAGRAMMED_OUTCOMES,
+  OPERATION_POSITIONS,
+  UNREACHED_ESCAPES,
+  readArtifactSchema,
+  validateArtifactShape,
+} from './load.mjs';
 import { PIN_RULES, blocksFromHeadings, flattenPins, selectNeighbourFor } from './pins.mjs';
 import {
   INQUEST_ANSWERS,
@@ -26,29 +32,30 @@ import {
 } from './readings.mjs';
 
 /**
- * The positions an operation may hold, read from the schema rather than repeated.
+ * The three schema-derived vocabularies this module decides with.
  *
- * A fourth position is a schema edit and not a code edit, which is what keeps the
- * placement check from carrying a second copy of the vocabulary it enforces.
+ * They are declared in `load.mjs`, beside the schema's reader, because the measurement in
+ * `coverage.mjs` counts with the same lists and `engine.mjs` imports `coverage.mjs`: a
+ * declaration here could not be read there without an import cycle. The names are imported
+ * as well as re-exported, because this module reads them below — a bare `export … from`
+ * would re-export them without binding them here.
  */
-export const OPERATION_POSITIONS = Object.freeze(readArtifactSchema().positions);
-
-/**
- * The escapes that count as reaching an operation without a step naming it.
- *
- * Read from the schema rather than written here, so the escape vocabulary has one
- * declaration and the check that excuses an escape, the coverage that counts one and the
- * phases that interrogate one cannot disagree about which positions those are.
- */
-export const UNREACHED_ESCAPES = Object.freeze(readArtifactSchema().escapes);
+// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+export { DIAGRAMMED_OUTCOMES, OPERATION_POSITIONS, UNREACHED_ESCAPES };
 
 /** The classes a declared column may be placed in, and what evidence each class needs. */
 export const COLUMN_DECIDERS = Object.freeze(['borrowedVocabulary', 'literalInLine', 'predicateLimb', 'unmeasured']);
 
-/** The outcomes that claim a sequence, which is the set a diagram is owed for. */
-export const DIAGRAMMED_OUTCOMES = Object.freeze(
-  readArtifactSchema().outcomes.filter((outcome) => outcome !== 'notASequence' && outcome !== 'exempt'),
-);
+
+/**
+ * The fields a message on a sequence diagram is drawn from, one participant per side.
+ *
+ * Named here rather than written at the check, so the criterion and the renderer read the
+ * same vocabulary: `renderSequenceDiagram` draws exactly these and the drawability check
+ * refuses a step missing any one of them.
+ */
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+export const DIAGRAM_FIELDS = Object.freeze(['subject', 'object', 'operation']);
 
 /**
  * The operations a step does not perform and an escape covers.
@@ -187,16 +194,38 @@ const everyRequiredColumnIsMeasured = coverEvery(
  * performs an act and names no actor or no target is a gap in the record, not a rendering
  * detail. A region ruled not a sequence is owed no diagram and is not asked for one.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 const everySequenceIsDrawable = coverEvery(
   { id: 'every-sequence-is-drawable', defect: 'an artifact whose steps carried what a diagram needs while nothing ever drew one, so the sufficiency of the record was never tested', refuses: 'a sequence whose step carries no subject, no object or no operation, so the diagram would name a participant or an act that was never read', scope: 'every artifact, over the sequences that claim to be sequences' },
   {
     sources: (context) => context.artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome)),
     coveredBy: (entry, context) => {
       const steps = context.artifact.steps.filter((step) => step.sequence === entry.id);
-      return steps.length > 0 && steps.every((step) => ['subject', 'object', 'operation'].every((field) => typeof step[field] === 'string' && step[field] !== ''));
+      return steps.length > 0 && steps.every((step) => DIAGRAM_FIELDS.every((field) => typeof step[field] === 'string' && step[field] !== ''));
     },
     label: (entry) => entry.id,
+  },
+);
+
+/**
+ * Every step was given a sequence the artifact draws.
+ *
+ * The drawability check's denominator is the sequences that claim to be a sequence, so a
+ * step attached to a region ruled notASequence lies outside it and no diagram would ever
+ * carry it: the step is in the artifact and in no picture. This is the other half of the
+ * same rule — that one asks whether every drawn sequence can be drawn, this one asks
+ * whether every step was given a sequence that can — and together they say that every
+ * step appears in exactly one diagram.
+ */
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+const everyStepBelongsToADrawnSequence = coverEvery(
+  { id: 'every-step-belongs-to-a-drawn-sequence', defect: 'an artifact holding a step whose sequence was ruled not a sequence, so the record carried the step and nothing drew it', refuses: 'a step whose sequence is not one the artifact draws', scope: 'every artifact, over every step' },
+  {
+    sources: (context) => context.artifact.steps,
+    coveredBy: (step, context) => DIAGRAMMED_OUTCOMES.includes(
+      context.artifact.sequences.find((entry) => entry.id === step.sequence)?.outcome,
+    ),
+    label: (step) => step.id,
   },
 );
 
@@ -643,6 +672,7 @@ export const CHECKS = Object.freeze([
   everyDeclaredColumnHasADecider,
   everyRequiredColumnIsMeasured,
   everySequenceIsDrawable,
+  everyStepBelongsToADrawnSequence,
   stepCarriesFourFields,
   stepIsGroundedInItsLine,
   stepCitesInsideItsEntrySpan,
