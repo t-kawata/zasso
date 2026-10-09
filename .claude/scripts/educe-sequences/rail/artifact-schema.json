@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "artifact_suffix": "-sequences",
+  "artifact_extension": ".json",
+  "render_extension": ".md",
+  "required": [
+    "schema_version",
+    "spec",
+    "pins",
+    "sequences",
+    "steps",
+    "operations",
+    "adjudications",
+    "sections",
+    "exemptions",
+    "verify"
+  ],
+  "spec": {
+    "required": ["path", "sha256", "lines"]
+  },
+  "pins": {
+    "required": ["predicate", "rowSchema", "enumerations", "forms", "blocks"],
+    "predicate": { "required": ["line", "limbs"] },
+    "rowSchema": { "required": ["line", "fields"] },
+    "enumerations": { "required": ["name", "members", "ranges", "closedness"] },
+    "forms": { "required": ["name", "proposes"] },
+    "blocks": { "required": ["id", "firstLine", "lastLine"] }
+  },
+  "outcomes": ["direct", "viaNeighbour", "notASequence", "singleStep", "exempt"],
+  "positions": ["positioned", "singleStep", "suppliedRule"],
+  "steps": {
+    "required": ["id", "sequence", "operation"]
+  },
+  "verify": { "required": ["command", "expected_exit"] }
+}

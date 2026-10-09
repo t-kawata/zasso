@@ -19,6 +19,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `conver` | `module` |
 | `crystalize-readme` | `commonjs` |
 | `drill-rfc-down` | `module` |
+| `educe-sequences` | `module` |
 | `explain-seed` | `module` |
 | `grill-me-for-rfc` | `module` |
 | `hooks` | `commonjs` |

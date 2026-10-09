@@ -23,7 +23,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,7 +56,7 @@ import {
   TRACKED_PHASES,
   writeStatus,
 } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
-import { digestOfSupplied, fileSuppliedMaterial, SUPPLIED_DIRECTORY, suppliedDigestOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
+import { digestOfSupplied, fileSuppliedMaterial, MATERIAL_FILE, SUPPLIED_DIRECTORY, suppliedDigestOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
@@ -452,6 +452,72 @@ test('C006 two named paths with one basename are refused, because one would sile
 
   assert.equal(refused.ok, false);
   assert.equal(refused.problems[0].includes('prior.json'), true);
+});
+
+test('C006 a prose token that begins with a slash is material, so the invocation still opens the generation', () => {
+  const { specPath, directory } = scratchRun();
+
+  // The command is named with a leading slash wherever it is written about, so the word
+  // for it appears in the guidance a reader types. Classifying that word as a path makes
+  // the invocation unopenable for a reason that has nothing to do with the specification.
+  const opened = begin(['begin', specPath, 'このコマンドを用いずに作った成果物を利用し /educe-sequences を成功させよ。']);
+
+  assert.equal(opened.status, 0, opened.stderr);
+  assert.match(opened.stdout, /generation 1 \(new generation\)/);
+  assert.equal(
+    readFileSync(join(directory, SUPPLIED_DIRECTORY, MATERIAL_FILE), 'utf8').includes('/educe-sequences'),
+    true,
+    'the word is filed as the guidance it is',
+  );
+});
+
+test('C006 an absolute path that cannot be read is still refused by name, so the narrowing swallows no typo', () => {
+  const { specPath } = scratchRun();
+  const absent = join(tmpdir(), 'educe-absent-material.md');
+
+  const opened = begin(['begin', specPath, absent]);
+
+  assert.equal(opened.status, 1, 'a path with an extension is a path, and a missing one is still a fault');
+  assert.match(opened.stderr, /does not exist/);
+  assert.match(opened.stderr, /educe-absent-material\.md/);
+});
+
+test('C006 a rooted path with no extension is filed when it names a file, so material is never dropped in silence', () => {
+  const { specPath, root, directory } = scratchRun();
+  const script = join(root, 'preflight');
+  writeFileSync(script, '#!/bin/sh\n');
+
+  const opened = begin(['begin', specPath, script]);
+
+  // Narrowing the classifier must not turn a real file into prose: material that is not
+  // filed is material the digest does not cover, and a digest that covers less than the
+  // reader supplied is a claim about a set of files that never existed together.
+  assert.equal(opened.status, 0, opened.stderr);
+  assert.equal(existsSync(join(directory, SUPPLIED_DIRECTORY, 'preflight')), true, 'the file is filed rather than read as a word');
+});
+
+test('the status file is replaced rather than written into, so no reader can see half a record', () => {
+  const { directory } = scratchRun();
+  writeStatus(directory, { generation: 1 });
+  const first = statSync(statusPath(directory)).ino;
+
+  writeStatus(directory, { generation: 2 });
+
+  // A replacement lands as one act; an in-place write truncates first, and a reader that
+  // arrives between the truncation and the last byte parses a prefix of the record. The
+  // inode is the observable: a renamed file is a new file, an overwritten one is not.
+  assert.notEqual(statSync(statusPath(directory)).ino, first, 'the status is replaced, not overwritten');
+  assert.equal(readStatus(directory).generation, 2);
+  assert.deepEqual(readdirSync(directory), ['status.json'], 'the replacement leaves nothing behind');
+});
+
+test('a status write that cannot land leaves no temporary file and no damaged record', () => {
+  const { directory } = scratchRun();
+  mkdirSync(statusPath(directory), { recursive: true });
+
+  assert.throws(() => writeStatus(directory, { generation: 1 }));
+
+  assert.deepEqual(readdirSync(directory), ['status.json'], 'the half-made file is cleaned up rather than left beside the record');
 });
 
 test('C006 the empty material digests to one value, so a run with no material is still comparable', () => {

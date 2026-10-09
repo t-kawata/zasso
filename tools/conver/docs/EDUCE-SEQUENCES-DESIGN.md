@@ -133,13 +133,16 @@ parsing the prose.
 
 The run's working state — where it has reached, which loops it has spent, which briefs have
 reported — lives in a run directory **beside the specification**, at
-`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:148`. It is not
+`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:170`. It is not
 ignored by the tool, because the declaration and the readings in it are the evidence for
 the artifact and a reader of the specification has to be able to find them. PX-240 kept
 the state under the tool so that the one-argument contract would be a statement about
 products; the contract is stronger here, because every path a run touches is a function of
 the argument. The directory name carries no digest, so the state is stable across
-revisions of the text it cites.
+revisions of the text it cites. The status is replaced rather than written into — staged
+beside itself and renamed — because every later step reads it, including steps that only
+want to report what a generation measured, and a record that truncates first is one a
+reader can arrive in the middle of.
 
 An invocation opens a **generation**. The budget a phase spends belongs to the generation
 rather than to the directory: `begin` returns every loop to zero, records the digest of
@@ -255,7 +258,7 @@ directory, at `rail-exits.jsonl` beside the checks they describe: a store inside
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
 other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:140` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:294` is
+separating what was measured from what is carried by a signature, and `phase.mjs:300` is
 the command line every step of the command file runs.
 
 ## 8. What is not here

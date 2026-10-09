@@ -235,7 +235,9 @@ test('C002 an unreadable file answers "nothing on record" rather than stopping t
   copyFileSync(GOLDEN_ARTIFACT, join(root, 'ledger-sequences.json'));
   const runDirectory = join(root, 'educe-sequences');
   mkdirSync(runDirectory, { recursive: true });
-  // A write that was cut short, which writeStatus can leave: it is not an atomic write.
+  // A record that parses as a prefix of itself. The rail no longer writes one — the status
+  // is replaced rather than written into — so this stands for what a hand, a half-finished
+  // copy or an older run can still leave beside a specification.
   writeFileSync(join(runDirectory, 'status.json'), '{ "spec": { "path": "ledger.md"');
 
   const verified = spawnSync('node', [join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/run.mjs'), specPath], {

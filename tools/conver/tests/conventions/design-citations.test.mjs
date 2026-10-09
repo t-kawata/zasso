@@ -212,13 +212,13 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // became part of what a run recorded, in one place instead of at each call site.
   { asWritten: 'gates.mjs:114', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 114, token: 'export const PHASES' },
   { asWritten: 'phases.mjs:219', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 219, token: 'export function runPhase' },
-  { asWritten: 'run-state.mjs:148', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 148, token: 'export function openRun' },
+  { asWritten: 'run-state.mjs:170', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 170, token: 'export function openRun' },
   { asWritten: 'readings.mjs:199', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 199, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
   { asWritten: 'rail/report.mjs:140', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 140, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:294', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 294, token: 'export async function main' },
+  { asWritten: 'phase.mjs:300', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 300, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.
