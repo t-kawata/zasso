@@ -36,7 +36,7 @@ where no reader can check it.
 The artifact carries the pins: the predicate line and its limbs, the row-schema line and
 its fields, the enumerations with their ranges, the forms, and the section partition.
 Each pin is recorded together with the rule it was read by, and `rederiveAll` at
-`pins.mjs:299` re-runs that rule against the specification text in the same run that
+`pins.mjs:519` re-runs that rule against the specification text in the same run that
 consumes it.
 
 This is the property that keeps the single-input design from becoming a self-referential
@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:414`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:597`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -86,11 +86,11 @@ and the report prints how many limbs were cited and how many were not, so a pred
 nothing decided by is visible as a number rather than as an absence.
 
 A neighbour is selected by citation: the entry that cites a line inside the entry's own
-span, at `pins.mjs:126`. A neighbour that merely covers the span is not a candidate — that
+span, at `pins.mjs:280`. A neighbour that merely covers the span is not a candidate — that
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
-The integrator at `reading.mjs:351` proves every field of every reading before anything is
+The integrator at `reading.mjs:353` proves every field of every reading before anything is
 written, and a refusal leaves the artifact byte-identical to its state before the call. A
 partial write is the failure that module exists to make impossible.
 
@@ -109,7 +109,7 @@ so a hand-edited fixture fails rather than silently changing what the golden tes
 measures. Drift from the source repository is reported, never absorbed.
 
 The corpus holds 29 files totalling 3100101 bytes, and a green run of the golden
-specification reports 21 checks over 5 pins.
+specification reports 28 checks over 5 pins.
 
 `tests/educe-sequences/fixtures/spec/` holds the golden run: a small specification, the
 declaration and readings one run recorded, and the artifact and rendering that run
@@ -124,7 +124,7 @@ without recorded readings is refused at the first `[read]` phase by design.
 ## 7. The phase driver
 
 A phase table is a claim until something evaluates it. The eighteen phases are declared
-once, at `gates.mjs:116`, and each entry carries its tag, the phases it requires, the edge
+once, at `gates.mjs:129`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
@@ -168,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:221` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:259` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -229,7 +229,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:242` before anything downstream sees them. Two files are
+line by line at `readings.mjs:253` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 
@@ -279,9 +279,9 @@ all. The promotion a record declares becomes a proposal the command can print: t
 is marked promoted, the splice is printed with the file it must edit, and no source is
 written, because editing the rail is a change made under a ticket.
 
-What each generation produced is measured rather than judged. `coverage.mjs:109` counts
+What each generation produced is measured rather than judged. `coverage.mjs:145` counts
 what the artifact holds and unions the specification lines its records name, clipped to
-the document, and `rail/report.mjs:119` prints those counts beside the generation before them
+the document, and `rail/report.mjs:141` prints those counts beside the generation before them
 through the same helper the audit counts use. Each count carries the change from the
 generation before it, signed, because a reader judging whether another repetition is
 worth asking for should not have to subtract two numbers to see that they have stopped
@@ -296,9 +296,9 @@ inside the rail can enumerate. Nothing compares one of these to a threshold. A g
 that merges two sequences into one is an improvement carrying a smaller number, and a
 gate on growth would refuse the work it exists to encourage.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:449` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:474` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:364` reports them as a line of output while opening
+is the same revision — and `phases.mjs:409` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to
@@ -312,9 +312,27 @@ condition that would promote the check into the rail. The records live in the ru
 directory, at `rail-exits.jsonl` beside the checks they describe: a store inside the tool
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
-other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:156` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:324` is
+other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:178` closes the run by
+separating what was measured from what is carried by a signature, and `phase.mjs:327` is
 the command line every step of the command file runs.
+
+## 7b. What the artifact is held to, when the specification does not say
+
+A reading of one document can only be complete against something that document holds, and
+one thing it does not hold is the list of operations an interface must implement: a
+specification names operations in prose, in tables and in bare lists, and never says which
+of its names are the ones an implementer owes. Supplied material may carry that list — a
+census read by one of three generic extraction shapes (a field of every JSON row, a column
+of every table row, the remainder of every marked line), each total over the document it
+reads, so an element the extractor cannot read is refused by name rather than skipped. The
+census is a pin: the file, its digest, the shape and the parameter are recorded, and it is
+re-derived on every run, so a file that moved refuses rather than being compared with
+itself. Every member the census names must be declared by an operation and either reached
+by a step or covered by a grounded escape, and the escapes are the ones the adversarial
+phase attacks and the audit asks under every lens — an operation no step performs is the
+one reading a run could excuse and then forget. Which columns an interface needs is the
+caller's declaration and not this apparatus's knowledge: the rail names no project, no
+registry and no transport, and a check over its own modules holds that.
 
 ## 8. What is not here
 

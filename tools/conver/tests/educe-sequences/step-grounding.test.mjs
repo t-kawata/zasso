@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // A step carries the line it was read from, and the quote from that line (PX-246, C001, C002, C009).
 //
 // The apparatus could already check that a quote is a contiguous substring of the line it
@@ -193,7 +194,7 @@ test('C009 an artifact that keeps its steps but drops its operations is refused 
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C009 the declared check count is the number of checks, and this ticket is what raised it', () => {
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 21);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 28);
   assert.equal(checkAll({ specLines: spec.lines, artifact: golden() }).summary.checksDeclared, ENGINE_DECLARED_CHECK_COUNT);
 });
 

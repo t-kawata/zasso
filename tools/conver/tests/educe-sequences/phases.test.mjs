@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The phase driver (PX-240).
 //
 // @verifies C016
@@ -135,7 +136,7 @@ test('a phase that refuses spends a loop and names the file the reader must prod
   const second = runPhase(8, context);
 
   assert.equal(first.ok, false);
-  assert.equal(first.expects, 'readings-span.jsonl, one signed line per entry, each carrying the steps and operations read there');
+  assert.equal(first.expects, 'readings-span.jsonl, one signed line per entry carrying the steps and operations read there, and readings-uncovered.jsonl accounting for every operation the borrowed census names');
   assert.equal(second.loops, 2, 'a second refusal spends a second loop');
   assert.equal(loopsFor(context.status, 8), 2);
 });

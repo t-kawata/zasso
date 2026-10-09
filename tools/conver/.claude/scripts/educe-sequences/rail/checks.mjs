@@ -1,12 +1,14 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The check constructor library (PX-241, contracts C001, C002).
 //
-// Every check this rail declares is one of six shapes, and the shapes are what the
-// Gaia record reduces to when its twenty-one checks are classified: two records must
+// Every check this rail declares is one of a handful of shapes: two records must
 // agree, the apparatus output must cover its input, every member must fall in exactly
 // one declared bucket, every declared name must be reached, a claim must cite a
 // carrier, and a claim must be grounded in the line it names. Before this module the
 // shapes were fused into the checks themselves, so writing a new check meant copying
-// an old one.
+// an old one. How many checks there are is held by the registry that declares them and
+// is deliberately not repeated here: a count written into prose is a second copy that
+// drifts.
 //
 // A constructor takes two things: the **contract** — the id, the defect that produced
 // the check and the reading it refuses — and the **shape**, which is the part particular
@@ -26,7 +28,7 @@ import { PIN_RULES, flattenPins, rederivePin } from './pins.mjs';
  * copy of the pin vocabulary. The probe holds one member of each list, because a
  * list flattens to no pin at all when it is empty and a kind would go missing.
  */
-const PIN_SHAPE_PROBE = Object.freeze({ predicate: {}, rowSchema: {}, enumerations: [{}], forms: [{}], blocks: [] });
+const PIN_SHAPE_PROBE = Object.freeze({ predicate: {}, rowSchema: {}, enumerations: [{}], forms: [{}], sourceEnumerations: [{}], blocks: [] });
 export const PIN_KINDS = Object.freeze([...new Set(flattenPins(PIN_SHAPE_PROBE).map((pin) => pin.kind))]);
 
 const DEFAULT_SCOPE = 'every artifact';
@@ -83,7 +85,10 @@ export function pinCheck(id, kind, defect, refuses) {
   }
   return checkOf({ id, defect, refuses, scope: `every artifact, on the ${kind} pin` }, (context) => {
     for (const pin of flattenPins(context.artifact.pins).filter((candidate) => candidate.kind === kind)) {
-      const result = rederivePin(pin, context.specLines);
+      // The supplied documents travel with the context, because a borrowed census is
+      // re-derived from the file it was read from and a check that reached for the file
+      // itself would be deciding by looking around it.
+      const result = rederivePin(pin, context.specLines, context.supplied ?? {});
       if (!result.ok) {
         return [{ check: id, pin: result.pin, subject: result.pin, rule: result.rule, line: result.line, reason: result.reason }];
       }
@@ -99,19 +104,28 @@ export function pinCheck(id, kind, defect, refuses) {
  * left the first record and a name that joined the second are different findings and
  * one count would make them identical.
  */
-export function agreeOn(contract, { left, right, key = (record) => record.id, value = (record) => JSON.stringify(record) }) {
+export function agreeOn(contract, { left, right, key = (record) => record.id, value = (record) => JSON.stringify(record), when = () => true }) {
   requireAttribution(contract);
   return checkOf(contract, (context) => {
+    // A record nobody supplied is not a record that disagrees with everything: without this
+    // the two directions would read an absent first record as every name in the second
+    // having left it, and a check meant to be silent about a set nobody offered would
+    // refuse every artifact that holds one.
+    if (when(context) !== true) return [];
     const index = (records) => new Map(records.map((record) => [key(record), value(record)]));
     const first = index(left(context));
     const second = index(right(context));
     const verdicts = [];
+    // Each verdict carries its direction, because the two are different findings: a name
+    // that left the first record is missing work and a name that joined the second is a
+    // name bound to nothing. Reported in one shape without the direction they would be
+    // indistinguishable, and a reader would have to parse the prose to tell which is which.
     for (const [name, held] of first) {
-      if (!second.has(name)) verdicts.push(verdict(contract.id, name, 'present in the first record and absent from the second'));
-      else if (second.get(name) !== held) verdicts.push(verdict(contract.id, name, `the two records disagree: ${held} against ${second.get(name)}`));
+      if (!second.has(name)) verdicts.push({ ...verdict(contract.id, name, 'present in the first record and absent from the second'), direction: 'backward' });
+      else if (second.get(name) !== held) verdicts.push({ ...verdict(contract.id, name, `the two records disagree: ${held} against ${second.get(name)}`), direction: 'disagree' });
     }
     for (const name of second.keys()) {
-      if (!first.has(name)) verdicts.push(verdict(contract.id, name, 'present in the second record and absent from the first'));
+      if (!first.has(name)) verdicts.push({ ...verdict(contract.id, name, 'present in the second record and absent from the first'), direction: 'forward' });
     }
     return verdicts;
   });

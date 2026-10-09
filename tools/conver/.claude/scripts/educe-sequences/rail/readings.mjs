@@ -25,6 +25,17 @@ export const DECLARATION_FILE = 'declaration.json';
 export const PINS_FILE = 'pins.json';
 export const WORKLIST_FILE = 'worklist.txt';
 
+/**
+ * The worklist of borrowed census members no step has accounted for.
+ *
+ * A second file rather than a second section of the first, because the first is a list of
+ * spans and the gate that reads it refuses a line that names no span — a rule that exists
+ * so a worklist cannot select by coverage. This one is a list of names, and mixing the two
+ * would mean loosening that gate.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+export const UNCOVERED_WORKLIST_FILE = 'worklist-uncovered.txt';
+
 /** The required keys of a declaration and of one entry of it. */
 export const DECLARATION_SHAPE = Object.freeze({
   predicate: ['limbs'],
@@ -294,9 +305,19 @@ export function readInquestFile(path) {
   return readReadingsFile(path);
 }
 
-/** The subjects a declaration puts to the audit: its sections and its entries. */
-export function inquestSubjects({ sections = [], entries = [] }) {
-  return [...sections, ...entries].map((record) => record.id);
+/**
+ * The subjects the audit puts: the declaration's sections and entries, and the escapes.
+ *
+ * An escape is an operation no step performs that a grounded reason covers — the one
+ * reading in the run that nothing else interrogates, because no step carries it. It is a
+ * subject here rather than an exception at one call site so that the brief, the gate, the
+ * check and the report cannot disagree about how many questions the audit asks.
+ *
+ * @param {{sections?: Array<object>, entries?: Array<object>, escaped?: string[]}} input
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+export function inquestSubjects({ sections = [], entries = [], escaped = [] }) {
+  return [...[...sections, ...entries].map((record) => record.id), ...escaped];
 }
 
 /** Every (subject, lens) pair a set of subjects puts. */
@@ -316,9 +337,9 @@ export function isExempt(exemptions, { subject, lens }) {
  * generation never carried renders as unanswered rather than vanishing: an audit that
  * silently shrank between generations would be the one change nobody could see.
  */
-export function inquestQuestions({ declaration, previousAnswers = [] }) {
+export function inquestQuestions({ declaration, previousAnswers = [], escaped = [] }) {
   const answered = new Map(previousAnswers.map((record) => [`${record.subject}\u0000${record.lens}`, record.answer ?? null]));
-  return inquestPairs(inquestSubjects(declaration)).map((pair) => ({
+  return inquestPairs(inquestSubjects({ ...declaration, escaped })).map((pair) => ({
     ...pair,
     question: INQUEST_QUESTIONS[pair.lens],
     previous: answered.get(`${pair.subject}\u0000${pair.lens}`) ?? null,

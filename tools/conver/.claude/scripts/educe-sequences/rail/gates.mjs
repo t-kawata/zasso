@@ -14,7 +14,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { uncoveredRanges } from './coverage.mjs';
-import { CHECKS, checkAll, describeRefusal } from './engine.mjs';
+import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { deriveSet, readArtifact } from './load.mjs';
 import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
@@ -32,6 +32,7 @@ import {
   signedCount,
 } from './readings.mjs';
 import { generationOf } from './run-state.mjs';
+import { suppliedDocumentsOf } from './supplied.mjs';
 
 /** The three tags. Their meanings are stated above and used by the command's table. */
 export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-hoc' });
@@ -97,6 +98,18 @@ function entriesOf(artifact) {
 // [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function declaredCheckIds(ctx) {
   return new Set([...CHECKS.map((check) => check.id), ...ctx.recorded.adhocChecks.map((check) => check.id)]);
+}
+
+/**
+ * The supplied material beside the specification, by file name.
+ *
+ * A borrowed census is re-derived from these bytes, so every gate that re-derives a pin
+ * has to hand them over: a re-derivation against no file would refuse a run whose material
+ * is sitting where it was filed.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function suppliedBeside(ctx) {
+  return suppliedDocumentsOf(ctx.directory);
 }
 
 /** The entries whose outcome is missing or outside the declared vocabulary. */
@@ -182,7 +195,8 @@ export const PHASES = Object.freeze([
     exit: (ctx) => {
       const declaration = readDeclaration(ctx.directory);
       if (!declaration.ok) return refuse(declaration.problems.join('; '));
-      const result = rederiveAll(establishPins(ctx.spec.lines, declaration.declaration), ctx.spec.lines);
+      const supplied = suppliedBeside(ctx);
+      const result = rederiveAll(establishPins(ctx.spec.lines, declaration.declaration, supplied), ctx.spec.lines, supplied);
       return result.ok ? prove('every pin re-derives by the rule it was read by') : refuse(result.failures[0].reason);
     },
   },
@@ -218,9 +232,9 @@ export const PHASES = Object.freeze([
       const artifact = readArtifact(ctx.artifactPath);
       if (artifact === null) return refuse('no artifact was written, so nothing was proven');
       if (artifact.spec.sha256 !== ctx.spec.sha256) return refuse('the artifact was written against another revision');
-      const rederived = rederiveAll(artifact.pins, ctx.spec.lines);
+      const rederived = rederiveAll(artifact.pins, ctx.spec.lines, suppliedBeside(ctx));
       if (!rederived.ok) return refuse(rederived.failures[0].reason);
-      const { verdicts } = checkAll({ specLines: ctx.spec.lines, artifact });
+      const { verdicts } = checkAll({ specLines: ctx.spec.lines, artifact, recorded: { supplied: suppliedBeside(ctx) } });
       return verdicts.length > 0
         ? refuse(describeRefusal(verdicts[0]))
         : prove('the artifact is written and every check is green');
@@ -232,13 +246,18 @@ export const PHASES = Object.freeze([
       const readings = readBrief(ctx.directory, 'adversarial');
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const artifact = readArtifact(ctx.artifactPath);
+      // A ruling is a claim the reading made, and so is an escape: an operation no step
+      // performs and an escape covers is the reading's way of saying the operation is not
+      // there, which is exactly the claim an attack is owed for. Without this the escape
+      // would be the one reading in the run nothing ever tried to falsify.
       const adjudicated = artifact.sequences.filter((entry) => entry.outcome === 'notASequence').map((entry) => entry.id);
+      const rulings = [...adjudicated, ...escapedOperationsOf(artifact)];
       const attacked = new Set(readings.readings.map((reading) => reading.subject));
-      const unattacked = adjudicated.filter((id) => !attacked.has(id));
+      const unattacked = rulings.filter((id) => !attacked.has(id));
       if (unattacked.length > 0) return refuse(`${unattacked.length} ruling(s) were never attacked, first ${unattacked[0]}`);
-      return adjudicated.length === 0
-        ? prove('no entry was ruled a non-sequence, so there is no ruling to attack', { vacuous: true })
-        : prove(`${attacked.size} ruling(s) attacked`);
+      return rulings.length === 0
+        ? prove('nothing was ruled a non-sequence and no operation escaped, so there is no ruling to attack', { vacuous: true })
+        : prove(`${new Set(rulings.filter((id) => attacked.has(id))).size} ruling(s) attacked`);
     },
   },
   {
@@ -282,9 +301,15 @@ export const PHASES = Object.freeze([
         return refuse(`${unsigned} answer(s) carry no signature, and an answer with no signature is not a reading`);
       }
 
+      // The escapes are asked as well, and read from the artifact rather than from the
+      // declaration, because whether an operation escaped is what the artifact decided at
+      // phase 9 — and the check reads them from the same place, so neither surface can
+      // demand a pair the other never asked.
+      const artifact = readArtifact(ctx.artifactPath);
       const subjects = inquestSubjects({
         sections: declaration.declaration.sections,
         entries: declaration.declaration.entries,
+        escaped: artifact === null ? [] : escapedOperationsOf(artifact),
       });
       const pairs = inquestPairs(subjects);
       if (pairs.length === 0) {
@@ -334,7 +359,7 @@ export const PHASES = Object.freeze([
     id: 15, name: 're-derive', tag: PHASE_TAGS.DET, requires: [14], backTo: 6, maxLoops: 2,
     exit: (ctx) => {
       const artifact = readArtifact(ctx.artifactPath);
-      const result = rederiveAll(artifact.pins, ctx.spec.lines);
+      const result = rederiveAll(artifact.pins, ctx.spec.lines, suppliedBeside(ctx));
       return result.ok
         ? prove('no check consumed an underived pin')
         : refuse(`${result.failures[0].pin}: ${result.failures[0].reason}`);

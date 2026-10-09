@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The reader-facing half (PX-240, contracts C002, C003, C004, C007).
 //
 // Two rules are under test. A brief is checked by counting its four clauses, so no
@@ -261,7 +262,7 @@ test('C004 a row that keeps a defining_section the supplied rule supersedes is r
 
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 test('C008 the ad-hoc brief is a declared role, so a check author is dispatched with a checked brief', () => {
-  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest']);
+  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest', 'uncovered']);
 });
 
 test('C008 the ad-hoc brief renders with exactly one question and the three other clauses', () => {

@@ -87,14 +87,28 @@ function scratchRun() {
 
 /** The subjects a declaration puts to the audit: its sections and its entries. */
 // [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// The escapes are subjects too: an operation no step performs is the reading a run could
+// excuse and then forget, so it is asked under every lens. The set is read from the
+// fixture's own operation records rather than written here.
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+const ESCAPE_POSITIONS = ['suppliedRule', 'excluded'];
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function subjectsOf(declaration) {
-  return inquestSubjects({ sections: declaration.sections, entries: declaration.entries });
+  const escaped = RUN_INPUT.readings.operations
+    .filter((operation) => ESCAPE_POSITIONS.includes(operation.position))
+    .map((operation) => operation.id);
+  return inquestSubjects({ sections: declaration.sections, entries: declaration.entries, escaped });
 }
 
 /** The line an answer for a subject rests on, and the quote it carries. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function groundingFor(specLines, declaration, subject) {
-  const span = [...declaration.sections, ...declaration.entries].find((candidate) => candidate.id === subject);
+  // An escape is asked about as an operation, so its span is the line its own grounding
+  // names rather than a section: the declaration holds no record for an operation, and the
+  // fixture's operation records are where the line is.
+  const operation = RUN_INPUT.readings.operations.find((candidate) => candidate.id === subject);
+  const span = [...declaration.sections, ...declaration.entries].find((candidate) => candidate.id === subject)
+    ?? (operation === undefined ? undefined : { firstLine: operation.grounding.presupposition, lastLine: operation.grounding.presupposition });
   for (let line = span.firstLine; line <= span.lastLine; line += 1) {
     const text = (specLines[line - 1] ?? '').trim();
     if (text !== '' && !text.startsWith('#')) return { line, quote: text.slice(0, 40) };
@@ -220,7 +234,7 @@ test('C002 a declaration whose every pair is answered returns no verdict from th
   const declaration = RUN_INPUT.declaration;
   const answer = coveringAnswers(spec.lines, declaration);
 
-  assert.equal(inquestPairs(subjectsOf(declaration)).length, 18 * INQUEST_LENSES.length);
+  assert.equal(inquestPairs(subjectsOf(declaration)).length, subjectsOf(declaration).length * INQUEST_LENSES.length);
   assert.deepEqual(verdictsOf('inquest-covers-every-subject-and-lens', answer, spec.lines), []);
 });
 
@@ -366,9 +380,9 @@ test('C005 the questions cross the declared subjects with the lenses and carry t
   const declaration = RUN_INPUT.declaration;
   const previous = [answerFor(spec.lines, declaration, 'admission', 'omission', { answer: 'Yes' })];
 
-  const questions = inquestQuestions({ declaration, previousAnswers: previous });
+  const questions = inquestQuestions({ declaration, previousAnswers: previous, escaped: subjectsOf(declaration).slice(declaration.sections.length + declaration.entries.length) });
 
-  assert.equal(questions.length, 18 * INQUEST_LENSES.length);
+  assert.equal(questions.length, subjectsOf(declaration).length * INQUEST_LENSES.length);
   const matched = questions.find((entry) => entry.subject === 'admission' && entry.lens === 'omission');
   assert.equal(matched.previous, 'Yes');
   assert.equal(questions.filter((entry) => entry.previous !== null).length, 1);
@@ -405,7 +419,7 @@ test('C005 every declared pair renders once, and a pair the previous generation 
 });
 
 test('C005 the brief is one of the roles the renderer accepts', () => {
-  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest']);
+  assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest', 'uncovered']);
   assert.equal(BRIEF_NAMES.includes('inquest'), true);
 });
 
@@ -479,7 +493,7 @@ test('the four inquest checks run inside the block, and a missing audit is not a
 
   assert.deepEqual(without.verdicts, [], 'no audit anywhere is not a finding: the product path has nothing to judge');
   assert.equal(without.summary.checksRun, covered.summary.checksRun, 'a check runs whether or not there is an audit to judge');
-  assert.equal(covered.summary.checksRun, 21, 'the declared set grew by four across PX-246 and PX-247, and every one of them runs with or without an audit');
+  assert.equal(covered.summary.checksRun, 28, 'the declared set grew across PX-246, PX-247 and PX-248, and every one of them runs with or without an audit');
   assert.equal(empty.summary, null, 'an audit that was opened and answered nothing is a finding');
   assert.equal(new Set(empty.verdicts.map((verdict) => verdict.check)).has('inquest-covers-every-subject-and-lens'), true);
 });
@@ -510,7 +524,7 @@ test('IT through reaches every phase in order over a seeded audit, and the repor
 
   const reported = phase(['report', specPath]);
   assert.equal(reported.status, 0, reported.stderr);
-  assert.match(reported.stdout, /inquestAsked=72/);
+  assert.match(reported.stdout, new RegExp(`inquestAsked=${subjectsOf(RUN_INPUT.declaration).length * INQUEST_LENSES.length}`));
   assert.match(reported.stdout, /\*\*complete\*\*/);
 });
 
@@ -589,7 +603,7 @@ test('IT the audit is recorded in the generation history, so the next generation
 
   const read = readInquestFile(join(directory, INQUEST_FILE));
   assert.equal(read.ok, true);
-  assert.equal(read.readings.length, 72);
+  assert.equal(read.readings.length, subjectsOf(RUN_INPUT.declaration).length * INQUEST_LENSES.length);
   assert.equal(existsSync(artifactPathFor(specPath)), true);
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   assert.equal(declaration.ok, true);

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // What a generation measured (PX-245, contracts C002-C005).
 //
 // A generation used to be refused when it repeated over an unchanged set, and the only
@@ -223,7 +224,7 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.deepEqual(after.verdicts, baseline.verdicts);
   assert.equal(after.summary.checksRun, baseline.summary.checksRun);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 21, 'PX-245 added no check; PX-246 adds three and PX-247 one, and none of them is a growth gate');
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 28, 'PX-246, PX-247 and PX-248 each added checks, and none of them is a growth gate');
 });
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
@@ -276,7 +277,7 @@ test('C004 the change between generations is a printed string and never a value 
   // `coverageOf` returns, and not in the summary a check is handed.
   assert.deepEqual(
     Object.keys(coverageOf(artifact)).sort(),
-    ['linesReached', 'operations', 'rows', 'sequences', 'specLines', 'steps'],
+    ['linesReached', 'operations', 'operationsEnumerated', 'operationsExcused', 'operationsReached', 'rows', 'sequences', 'specLines', 'steps'],
   );
   const { summary } = checkAll({ specLines: spec.lines, artifact });
   assert.equal(Object.keys(summary).some((key) => /change|delta|previous/i.test(key)), false, Object.keys(summary).join(', '));

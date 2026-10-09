@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The command (PX-240, contracts C010, C011, C013, and the first integration test).
 //
 // The run happens in a throwaway directory holding one copy of the specification, so
@@ -49,7 +50,7 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
   assert.equal(existsSync(artifactPath), true);
-  assert.match(result.out, /checksRun=21 of 21/);
+  assert.match(result.out, /checksRun=28 of 28/);
   assert.match(result.out, /pinsRederived=5 of 5/);
 });
 
@@ -136,7 +137,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   const result = await quietly([specPath], null);
 
   assert.equal(result.exitCode, EXIT.OK);
-  assert.match(result.out, /checksRun=21 of 21/);
+  assert.match(result.out, /checksRun=28 of 28/);
 });
 
 test('C011 the artifact a run produces equals the committed golden record', async () => {

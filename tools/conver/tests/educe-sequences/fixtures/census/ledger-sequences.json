@@ -6,13 +6,71 @@
     "lines": 60
   },
   "supplied": {
-    "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "digest": "892a6c02e9bd019d6c06d1100236842ecbace356668c8ade3b26b8c1b31c289f"
   },
   "pins": {
-    "sourceEnumerations": [],
-    "columns": [],
-    "requiredMeasuredColumns": [],
-    "consumerFields": [],
+    "sourceEnumerations": [
+      {
+        "name": "CoreOperationKind",
+        "role": "operations",
+        "source": {
+          "file": "ledger-registry.md",
+          "sha256": "5db2b1a6affa7aed53e0565764fc9df4c0fa076e2f18dc37b2f7c0b9625f1d4c"
+        },
+        "selector": {
+          "shape": "jsonFieldRows",
+          "parameter": "kind"
+        },
+        "members": [
+          "Admit",
+          "Settle",
+          "LedgerStatus"
+        ],
+        "refusal": null
+      },
+      {
+        "name": "LedgerRegion",
+        "role": "entries",
+        "source": {
+          "file": "ledger-entries.md",
+          "sha256": "05d04a0daf5c4d31394d678f73efca31127d5064cb50ef0779edc839e1da966d"
+        },
+        "selector": {
+          "shape": "jsonFieldRows",
+          "parameter": "id"
+        },
+        "members": [
+          "front-matter",
+          "admission",
+          "rejection",
+          "settlement",
+          "cancellation",
+          "supplied-rule"
+        ],
+        "refusal": null
+      }
+    ],
+    "columns": [
+      {
+        "name": "actor",
+        "decidedBy": "literalInLine",
+        "line": 24,
+        "literal": "An operator admits"
+      },
+      {
+        "name": "route",
+        "decidedBy": "unmeasured",
+        "line": 34
+      }
+    ],
+    "requiredMeasuredColumns": [
+      "actor"
+    ],
+    "consumerFields": [
+      "id",
+      "position",
+      "grounding"
+    ],
     "predicate": {
       "line": 10,
       "limbs": [

@@ -149,7 +149,48 @@
       "why": "a neighbour is selected by citation, and a coverage relation would have accepted a neighbour that read nothing",
       "tightenedBy": "neighbour-cites-inside-span"
     },
-    "sectionLevel": 2
+    "sectionLevel": 2,
+    "sourceEnumerations": [
+      {
+        "name": "CoreOperationKind",
+        "role": "operations",
+        "source": "ledger-registry.md",
+        "selector": {
+          "shape": "jsonFieldRows",
+          "parameter": "kind"
+        }
+      },
+      {
+        "name": "LedgerRegion",
+        "role": "entries",
+        "source": "ledger-entries.md",
+        "selector": {
+          "shape": "jsonFieldRows",
+          "parameter": "id"
+        }
+      }
+    ],
+    "columns": [
+      {
+        "name": "actor",
+        "decidedBy": "literalInLine",
+        "line": 24,
+        "literal": "An operator admits"
+      },
+      {
+        "name": "route",
+        "decidedBy": "unmeasured",
+        "line": 34
+      }
+    ],
+    "requiredMeasuredColumns": [
+      "actor"
+    ],
+    "consumerFields": [
+      "id",
+      "position",
+      "grounding"
+    ]
   },
   "readings": {
     "sequences": [
@@ -1093,7 +1134,8 @@
         "outcome": "exempt",
         "weakestLink": "that no actor performs an ordered act in the title block and the definition sections",
         "why": "the span states what the document specifies and never names an actor, so there is no claim to break",
-        "reader": "adversarial"
+        "reader": "adversarial",
+        "quote": ""
       }
     ]
   }

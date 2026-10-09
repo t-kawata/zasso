@@ -17,6 +17,8 @@
 // line nobody read in any generation — categorical rather than comparative. That is why
 // the counts above are a report and that answer is a refusal.
 
+import { readArtifactSchema } from './load.mjs';
+
 /** Every integer from `first` to `last`, or none when the ends are not a range. */
 // [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function linesBetween(first, last) {
@@ -101,6 +103,40 @@ function reachedLinesIn(artifact) {
 }
 
 /**
+ * The members of the borrowed census that holds a role, or null when nothing is borrowed.
+ *
+ * The role is the caller's word for what the set is — the operations an interface must
+ * implement, the entries a reading must adjudicate — and the rail selects by role rather
+ * than by file name, so no project's registry is named anywhere in this module.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function borrowedMembersOf(artifact, role) {
+  const pin = (artifact.pins?.sourceEnumerations ?? []).find((entry) => entry.role === role);
+  return pin === undefined ? null : [...(pin.members ?? [])];
+}
+
+/**
+ * How far the artifact accounts for the borrowed operation census.
+ *
+ * Three numbers rather than one, because a census is only useful when it is visible which
+ * members were realized by a step and which were excused by a grounded escape. Null when no
+ * census is borrowed: a denominator nobody supplied must not be printed as a zero.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function operationAccountingIn(artifact) {
+  const members = borrowedMembersOf(artifact, 'operations');
+  if (members === null) return { operationsEnumerated: null, operationsReached: null, operationsExcused: null };
+  const escapes = new Set(readArtifactSchema().escapes);
+  const named = new Set((artifact.steps ?? []).map((step) => step.operation).filter((name) => typeof name === 'string' && name !== ''));
+  const excused = new Set((artifact.operations ?? []).filter((operation) => escapes.has(operation.position)).map((operation) => operation.id));
+  return {
+    operationsEnumerated: members.length,
+    operationsReached: members.filter((member) => named.has(member)).length,
+    operationsExcused: members.filter((member) => excused.has(member)).length,
+  };
+}
+
+/**
  * What the artifact holds and how much of the specification it reaches.
  *
  * @returns {{sequences: number, steps: number, operations: number, rows: number,
@@ -114,7 +150,22 @@ export function coverageOf(artifact) {
     rows: (artifact.pins?.blocks ?? []).length,
     linesReached: reachedLinesIn(artifact).size,
     specLines: artifact.spec?.lines ?? 0,
+    ...operationAccountingIn(artifact),
   };
+}
+
+/**
+ * How the operations are spelled: the borrowed census when one exists, the count alone
+ * otherwise.
+ *
+ * One function because two surfaces print it — the product path's line and the phase
+ * driver's report — and a second spelling would be a second thing to keep in step. A
+ * denominator nobody supplied is not printed as a zero.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+export function operationSpelling(coverage) {
+  if (typeof coverage?.operationsEnumerated !== 'number') return String(coverage?.operations ?? 0);
+  return `${coverage.operationsEnumerated} enumerated, ${coverage.operationsReached} reached by a step, ${coverage.operationsExcused} excused`;
 }
 
 /**
@@ -127,7 +178,7 @@ export function coverageLine(coverage) {
   return [
     `sequences=${coverage.sequences}`,
     `steps=${coverage.steps}`,
-    `operations=${coverage.operations}`,
+    `operations=${operationSpelling(coverage)}`,
     `rows=${coverage.rows}`,
     `linesReached=${coverage.linesReached} of ${coverage.specLines}`,
   ].join(' ');

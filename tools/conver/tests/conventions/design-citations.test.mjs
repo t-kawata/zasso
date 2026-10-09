@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 /**
  * design-citations — the design document's load-bearing evidence pointers resolve.
  *
@@ -201,10 +202,10 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
   // file: the citation moved with the file rather than the file being kept still for it.
-  { asWritten: 'pins.mjs:126', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 307, token: 'export function rederiveAll' },
-  { asWritten: 'pins.mjs:126', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 134, token: 'export function selectNeighbourFor' },
-  { asWritten: 'engine.mjs:414', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 414, token: 'export const CHECKS' },
-  { asWritten: 'reading.mjs:351', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 351, token: 'export function applyReadings' },
+  { asWritten: 'pins.mjs:519', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 519, token: 'export function rederiveAll' },
+  { asWritten: 'pins.mjs:280', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 280, token: 'export function selectNeighbourFor' },
+  { asWritten: 'engine.mjs:597', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 597, token: 'export const CHECKS' },
+  { asWritten: 'reading.mjs:353', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 353, token: 'export function applyReadings' },
   // Re-measured when PX-242 opened the run into generations: five of these moved with the
   // files that gained an import, a constant or a subcommand, and the citation followed the
   // definition rather than the definition being kept still for it. PX-243 moved seven
@@ -212,22 +213,22 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // the store left the tool tree, the loader arrived, and the loader is what a citation to
   // the ad-hoc surface now resolves to. The review of all three moved five more: the audit
   // became part of what a run recorded, in one place instead of at each call site.
-  { asWritten: 'gates.mjs:116', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 116, token: 'export const PHASES' },
-  { asWritten: 'phases.mjs:221', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 221, token: 'export function runPhase' },
+  { asWritten: 'gates.mjs:129', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 129, token: 'export const PHASES' },
+  { asWritten: 'phases.mjs:259', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 259, token: 'export function runPhase' },
   { asWritten: 'run-state.mjs:170', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 170, token: 'export function openRun' },
-  { asWritten: 'readings.mjs:242', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 242, token: 'export function readReadingsFile' },
+  { asWritten: 'readings.mjs:253', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 253, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
-  { asWritten: 'rail/report.mjs:119', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 156, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:324', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 324, token: 'export async function main' },
+  { asWritten: 'rail/report.mjs:178', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 178, token: 'export function buildReport' },
+  { asWritten: 'phase.mjs:327', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 327, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.
-  { asWritten: 'coverage.mjs:109', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 109, token: 'export function coverageOf' },
-  { asWritten: 'rail/report.mjs:119', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 119, token: 'function coverageLines' },
-  { asWritten: 'gates.mjs:449', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 449, token: 'export function unchangedRepeatReason' },
-  { asWritten: 'phases.mjs:364', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 364, token: 'export function beginRun' },
+  { asWritten: 'coverage.mjs:145', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 145, token: 'export function coverageOf' },
+  { asWritten: 'rail/report.mjs:141', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 141, token: 'function coverageLines' },
+  { asWritten: 'gates.mjs:474', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 474, token: 'export function unchangedRepeatReason' },
+  { asWritten: 'phases.mjs:409', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 409, token: 'export function beginRun' },
 ]);
 
 test('the educe-sequences document carries every citation its argument rests on', () => {

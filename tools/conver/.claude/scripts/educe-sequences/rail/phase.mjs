@@ -17,13 +17,12 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 import { coverageLine } from './coverage.mjs';
-import { checkAll } from './engine.mjs';
-import { readArtifact } from './load.mjs';
-import { parseSpecArgument } from './paths.mjs';
+import { checkAll, escapedOperationsOf } from './engine.mjs';
+import { parseSpecArgument, artifactPathFor } from './paths.mjs';
 import { predicateFor } from './pins.mjs';
 import { renderBrief } from './reading.mjs';
-import { buildContext, beginRun, exitCodeFor, inquestCountsIn, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS, WORKLIST_FILE } from './phases.mjs';
-import { readSpecification, digestOf } from './load.mjs';
+import { buildContext, beginRun, exitCodeFor, inquestCountsIn, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS, UNCOVERED_WORKLIST_FILE, WORKLIST_FILE } from './phases.mjs';
+import { readArtifact, readSpecification, digestOf } from './load.mjs';
 import { buildReport } from './report.mjs';
 import { railExitStoreFor, readRailExits } from './harness.mjs';
 import { readStatus, openPhases, phaseState } from './run-state.mjs';
@@ -218,15 +217,19 @@ function runOne(context, id) {
  * is handed a list of questions and turns it into prose. A brief for any other role is
  * handed an empty list and is untouched by the substitution.
  */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
-function inquestQuestionsIn(directory) {
+// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+function inquestQuestionsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return [];
-  return inquestQuestions({ declaration: declaration.declaration, previousAnswers: inquestRecordsIn(directory) });
+  return inquestQuestions({
+    declaration: declaration.declaration,
+    previousAnswers: inquestRecordsIn(directory),
+    escaped: escapedOperationsOf(readArtifact(artifactPathFor(specPath)) ?? { operations: [] }),
+  });
 }
 
 /** Print the closing report for a run. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function report(context) {
   const status = readStatus(context.directory);
   if (status === null) {
@@ -248,7 +251,7 @@ function report(context) {
     status,
     summary,
     artifact: { path: context.artifactPath, digest: artifact === null ? '(none)' : digestOf(context.artifactPath) },
-    inquest: { ...inquestCountsIn(context.directory), previous: status.history?.at(-1)?.inquest ?? null },
+    inquest: { ...inquestCountsIn(context.directory, context.specPath), previous: status.history?.at(-1)?.inquest ?? null },
   }));
   return summary === null ? 1 : 0;
 }
@@ -389,9 +392,9 @@ export async function main(argv) {
         // reader cannot open would send it looking for material that does not exist.
         process.stdout.write(`${renderBrief({
           briefName: name,
-          worklistPath: join(context.directory, WORKLIST_FILE),
+          worklistPath: join(context.directory, name === 'uncovered' ? UNCOVERED_WORKLIST_FILE : WORKLIST_FILE),
           predicate,
-          previousAnswers: inquestQuestionsIn(context.directory),
+          previousAnswers: inquestQuestionsIn(context.directory, context.specPath),
         })}\n`);
         return 0;
       } catch (error) {

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The check constructor library (PX-241, contracts C001, C002).
 // @verifies C001
 // @verifies C002
@@ -44,6 +45,7 @@ const PIN_CHECKS = [
   ['enumeration-pin-rederives', 'enumeration'],
   ['block-partition-rederives', 'blocks'],
   ['form-pin-proposes', 'form'],
+  ['source-enumeration-pin-rederives', 'sourceEnumeration'],
 ];
 
 test('C001 every constructor returns a check carrying its own defect, refusal and scope', () => {
@@ -92,7 +94,7 @@ test('C001 no constructor mutates the artifact it reads', () => {
   assert.equal(JSON.stringify(golden), before);
 });
 
-test('C002 pinCheck builds every pin check, and the five ids are the recorded ones', () => {
+test('C002 pinCheck builds every pin check, and the six ids are the recorded ones', () => {
   const built = PIN_CHECKS.map(([id, kind]) => pinCheck(id, kind, 'd', 'r'));
 
   assert.deepEqual(built.map((check) => check.id), PIN_CHECKS.map(([id]) => id));

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // the command (PX-240, contracts C010, C011, C013).
 //
 // One argument, one derived location, one artifact. Four run shapes follow from that
@@ -29,7 +30,7 @@ import { loadAdhocChecks } from './adhoc.mjs';
 import { railExitStoreFor } from './harness.mjs';
 import { inquestBeside } from './readings.mjs';
 import { runDirectoryFor, statusPath } from './run-state.mjs';
-import { suppliedDigestOf } from './supplied.mjs';
+import { suppliedDigestOf, suppliedDocumentsOf } from './supplied.mjs';
 import { readRailExits } from './harness.mjs';
 
 /** The exit codes the command contract declares. */
@@ -92,7 +93,7 @@ export async function runCommand(argv, options = {}) {
       stderr(`refused: the artifact records supplied digest ${existing.supplied.digest}; the material beside this specification digests to ${suppliedDigest}`);
       return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: [] };
     }
-    const rederived = rederiveAll(existing.pins, spec.lines);
+    const rederived = rederiveAll(existing.pins, spec.lines, suppliedDocumentsOf(runDirectoryFor(specPath)));
     const { verdicts, summary } = checkAll({
       specLines: spec.lines,
       artifact: existing,
@@ -100,6 +101,7 @@ export async function runCommand(argv, options = {}) {
         railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
         inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
         adhocChecks: loaded.checks,
+        supplied: suppliedDocumentsOf(runDirectoryFor(specPath)),
       },
     });
     const failures = [...rederived.failures, ...verdicts];
@@ -123,6 +125,7 @@ export async function runCommand(argv, options = {}) {
     declaration: runInput.declaration,
     readings: runInput.readings,
     supplied: suppliedDigestOf(runDirectoryFor(specPath)),
+    suppliedDocuments: suppliedDocumentsOf(runDirectoryFor(specPath)),
   });
   const { verdicts, summary } = checkAll({
     specLines: spec.lines,
@@ -131,6 +134,7 @@ export async function runCommand(argv, options = {}) {
       railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
       inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
       adhocChecks: loaded.checks,
+      supplied: suppliedDocumentsOf(runDirectoryFor(specPath)),
     },
   });
 

@@ -61,7 +61,7 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 |---|---|---|
 | `phase.mjs` | `begin <spec> [material…]` | **Executed in Step 0**. Opens the generation: returns every loop, re-opens the phases a reader performs, files the supplied material, and reports the generation, the inherited asset digest, the supplied and invalidated counts, and the next phase. Reports a verification instead when nothing was entered and nothing changed. |
 | `phase.mjs` | `status <spec>` | **Executed when the whole table is wanted**. Opens the run, prints all 18 phases, their tag, their verdict and what each is waiting for. |
-| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`. |
+| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
 | `phase.mjs` | `run <spec> <phase>` | **Executed in every Step's gate**. Enters one phase, performs it if the library can, and gates it. Exit 0 = PASS, 1 = FAIL, 3 = HALT. A FAIL prints the back-edge, the loops spent and the file the reader must produce; a HALT prints the loops spent and the last refusal, and means stop. |
 | `phase.mjs` | `through <spec> [last]` | **Executed in Step 17**. Runs the first unfinished phase through the last, stopping at the first refusal. |
 | `phase.mjs` | `report <spec>` | **Executed in Step 17**. Prints the closing report: measured counts, then what is carried by a signature. |
@@ -216,6 +216,16 @@ FAIL: back to Step 2; max 3 loops.
 Find every closed vocabulary, its members, and the lines those members occupy. Record
 `enumerations[].{name,members,closedness}`.
 
+When the invocation supplied material carrying a census — a registry of the operations an
+interface must implement, or of the regions that must be adjudicated — record it as
+`sourceEnumerations[].{name,source,selector,role}`: the supplied file, the generic shape
+that reads it (`jsonFieldRows` with a field, `tableColumn` with a header, `markedLines`
+with a prefix), and the role it answers for (`operations` or `entries`). The members are
+read out of the file and not written down here, which is what stops the census being
+shortened. Record beside it the `columns` an operation must carry, which of them
+`requiredMeasuredColumns` requires to be measured, and the `consumerFields` the
+implementer reads.
+
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 4
 ```
@@ -275,7 +285,10 @@ Hand the rendered brief to a reader subagent together with the worklist. The rea
 answers one question per entry — *is the named operation performed by the named actor
 inside the entry's own span?* — and writes
 `<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
-carrying the `steps` and `operations` it read there.
+carrying the `steps` and `operations` it read there, and
+`<dir of spec-file>/educe-sequences/readings-uncovered.jsonl`, one signed line per
+operation the borrowed census names and no step performs, accounting for each either by
+placing it or by naming the escape that covers it.
 
 Every step carries the act it names — `subject`, `predicate`, `object`, `contract` — and
 the line it was read from with the verbatim quote from that line, as `line` and `quote`.
@@ -289,6 +302,13 @@ absorbed is refused.
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 8
 ```
+
+The reader is also given the second worklist: the operations the borrowed census names and
+no step performs. For each, it either places the operation on the line that performs it or
+names the escape that covers it — a rule this design supplies where the specification is
+silent, or an exclusion — and quotes the line that says so. An operation the census names
+and nothing accounts for is refused by name, which is what turns the census from a document
+beside the run into a denominator the run is held to.
 
 Refused when a claim carries no signature, when a step carries no `line` or no `quote`,
 when a quote is not carried by the line it names, or when a step cites a line outside its
@@ -477,6 +497,11 @@ product path:
 ```bash
 node .claude/scripts/educe-sequences/rail/run.mjs "$1"
 ```
+
+The rendering beside the specification is written by `rail/render.mjs`, which draws one
+diagram per sequence the artifact claims is one: the participants are the steps' subjects
+and objects, in step order, and the check that guards it refuses a sequence whose steps do
+not carry what a diagram needs. A region ruled not a sequence is owed no diagram.
 
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.
