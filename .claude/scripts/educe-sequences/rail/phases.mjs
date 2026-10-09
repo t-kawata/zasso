@@ -20,7 +20,7 @@ import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
 import { establishPins } from './pins.mjs';
-import { applyReadings, buildWorklist } from './reading.mjs';
+import { applyReadings, buildWorklist, vanishedRefusal, vanishedSubjects } from './reading.mjs';
 import {
   DECLARATION_FILE,
   INQUEST_FILE,
@@ -182,9 +182,15 @@ const ACTIONS = Object.freeze({
     writeFileSync(join(ctx.directory, UNCOVERED_WORKLIST_FILE), uncovered.length === 0 ? '' : `${uncovered.join('\n')}\n`);
     return { ok: true };
   },
+// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
   9: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
+    // The artifact this generation replaces, read before it is overwritten. It is the only
+    // point in the run where both artifacts exist: the gate reads the file from disk after
+    // this action has written it, so a comparison made there would compare an artifact with
+    // itself and could never see a name leave.
+    const previous = readArtifact(ctx.artifactPath);
     const span = optionalBrief(ctx.directory, 'span');
     const reroute = optionalBrief(ctx.directory, 'reroute');
     const adjudicate = optionalBrief(ctx.directory, 'adjudicate');
@@ -202,10 +208,17 @@ const ACTIONS = Object.freeze({
       supplied: digestOfSupplied(ctx.status[SUPPLIED_FIELD] ?? []),
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
     });
-    // `applyReadings` answers in its own shape, and a caller that ignored it would let a
-    // refused write reach the gate as "no artifact was written" — a message that names
-    // nothing the reader can repair. The fields it refused are spelled out instead, because
-    // the reader's next action is to repair one of them.
+    // A merge is an improvement and is permitted; a merge that loses a name is not, so the
+    // names are compared before anything is written. Refusing here rather than at the gate
+    // is what leaves the artifact byte-identical, which is the state a reader repairs from.
+    const vanished = vanishedSubjects({ previous, next: artifact });
+    if (vanished.length > 0) {
+      return { ok: false, problems: vanished.map(vanishedRefusal) };
+    }
+    // `applyReadings` answers in its own shape, and ignoring that answer would carry a
+    // refused write to the gate as work that was never attempted — naming nothing the
+    // reader can repair. The fields it refused are spelled out instead, because the
+    // reader's next action is to repair one of them.
     const applied = applyReadings({ artifactPath: ctx.artifactPath, readings: sequences, artifact, specLines: ctx.spec.lines });
     if (applied.refused !== undefined) {
       return { ok: false, problems: applied.refused.map((refusal) => `${refusal.subject} ${refusal.field}: ${refusal.why}`) };

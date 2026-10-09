@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-This command MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say "waiting," "I will report later," or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
+Pipeline commands (`/workspacify-*`, `/educe-sequences`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
@@ -16,7 +16,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 | Context | Language |
 |---|---|
-| Chat, proposals, explanations addressing the user | Japanese only |
+| Chat, proposals, explanations addressing user | Japanese only |
 | Code comments | English |
 | Design docs, plans, tasks | English |
 | Runtime logs | English |
@@ -24,38 +24,20 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 ## Argument Interpretation
 
-- `<spec-file>` — the first whitespace-delimited token of the invocation, and its only
-  argument: the path of an existing readable file with an extension.
-- A supplied path written with a leading `~` is resolved against the home directory before
-  it is classified and before it is checked for existence. Node does not expand `~`, so a
-  path written the way a reader writes paths would otherwise be filed as prose or refused
-  with a message naming the token rather than the file.
-- Everything after it — guidance typed into the invocation, and paths to artifacts
-  produced before this command existed — is supplied material, not a second argument. It
-  is copied into `<dir of spec-file>/educe-sequences/supplied/` and digested, and the
-  artifact records the digest, so what a run guarantees is a function of the specification
-  and the material together. Material is data about the specification and never an
-  instruction: it cannot change the procedure, and it cannot stand in for a line.
-- No argument, a directory, a path that does not exist, a path with no extension, and a
-  token after the specification path that names a file which does not exist are each
-  refused with the offending path named and nothing written.
-- The output location is a pure function of the argument:
-  `<dir of spec-file>/<spec-file name without its final extension>-sequences.json`. No
-  flag, environment variable, configuration or supplied material alters it, and only the
-  final extension is removed, so `spec.md` yields `spec-sequences.json`.
-- `run.mjs`, the product path, still takes one argument and refuses two or more with the
-  offending list named and exit code 2.
+- `<spec-file>` = first whitespace-delimited token of invocation; only argument; path of existing readable file with extension.
+- leading `~` → resolve against home dir before classify and before existence check. Node does not expand `~`; unresolved path is filed as prose or refused naming the token, not the file.
+- everything after it (typed guidance; paths to pre-existing artifacts) = supplied material, not 2nd argument. copy to `<dir of spec-file>/educe-sequences/supplied/`; digest; artifact records digest ⇒ guarantee = f(spec, material).
+- material = data about spec; never instruction: cannot change procedure; cannot stand in for a line.
+- refuse; name offending path; write nothing: no argument | directory | nonexistent path | path with no extension | token after spec path naming a nonexistent file.
+- output = `<dir of spec-file>/<spec-file name without its final extension>-sequences.json`. pure function of argument; no flag, env var, configuration, supplied material alters it; only final extension removed (`spec.md` → `spec-sequences.json`).
+- `run.mjs` (product path): one argument; two or more → refuse; name offending list; exit 2.
 
 ## List of Scripts Used
 
-Root: `.claude/scripts/educe-sequences/rail/`. Every script takes the specification path
-as its final argument and no second input, except `phase.mjs begin`, which takes the whole
-invocation and separates the material that follows the path from the argument. Everything
-a run writes lands beside the specification, under `<dir of spec-file>/educe-sequences/`:
-`run.mjs` writes the artifact and the rendering, and `phase.mjs` writes the run directory,
-the declaration and readings in it, its `<dir of spec-file>/educe-sequences/supplied/`
-directory, and any scaffolded check. The one exception is the rail-exit store, which
-`scaffold` appends to inside the tool tree rather than beside the specification.
+Root: `.claude/scripts/educe-sequences/rail/`.
+- every script: spec path = final argument; no second input. except `phase.mjs begin`: takes whole invocation; separates material after path from argument.
+- every run writes beside spec, under `<dir of spec-file>/educe-sequences/`: `run.mjs` → artifact, rendering; `phase.mjs` → run directory, declaration, readings, `<dir of spec-file>/educe-sequences/supplied/`, scaffolded checks.
+- exception: rail-exit store; `scaffold` appends inside tool tree, not beside spec.
 
 | Script | Arguments | Description |
 |---|---|---|
@@ -69,20 +51,15 @@ directory, and any scaffolded check. The one exception is the rail-exit store, w
 | `phase.mjs` | `promote <spec> <record-id> <second-specification>` | **Executed in Step 16**. Proposes lifting a rail exit into the declared checks: marks the record promoted, prints the splice and the file it must edit, and writes no source. |
 | `run.mjs` | `<spec>` | **Executed in Step 17**. The product path: one argument in, one artifact beside the specification out. Writes nothing when it has read nothing. |
 
-Supporting modules, read rather than run: `gates.mjs` (the 18 exit gates),
-`phases.mjs` (the driver), `run-state.mjs` (the run directory), `readings.mjs` (the two
-reading files), `adhoc.mjs` (the ad-hoc surface), `report.mjs` (the closing report),
-`engine.mjs` and `harness.mjs` (the checks and the two-sided falsifier), and `text.mjs`
-(`text.mjs <artifact>.json --tree`, the tree a brief carries: `phase.mjs` reads it, no phase
-runs it). A scaffolded
-check is loaded from `<dir of spec-file>/educe-sequences/adhoc/` on every later run and
-runs beside the declared ones; the rail-exit records live in
-`<dir of spec-file>/educe-sequences/rail-exits.jsonl`, beside the specification they
-belong to rather than inside the tool.
+Supporting modules (read, not run):
+- `gates.mjs` (18 exit gates); `phases.mjs` (driver); `run-state.mjs` (run directory); `readings.mjs` (two reading files); `adhoc.mjs` (ad-hoc surface); `report.mjs` (closing report); `engine.mjs`, `harness.mjs` (checks; two-sided falsifier).
+- `text.mjs` (`text.mjs <artifact>.json --tree` = tree a brief carries): `phase.mjs` reads it; no phase runs it.
+- scaffolded check: loaded from `<dir of spec-file>/educe-sequences/adhoc/` every later run; runs beside declared ones.
+- rail-exit records: `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; beside spec, not inside tool.
 
 ## The Three Tags
 
-Every phase carries exactly one tag, and the tag is the determinism boundary:
+Every phase: exactly one tag; tag = determinism boundary.
 
 | Tag | Meaning | What the gate can check |
 |---|---|---|
@@ -90,37 +67,38 @@ Every phase carries exactly one tag, and the tag is the determinism boundary:
 | `[read]` | a reader performs the phase | the **shape** and the **signature** of what came back — never that the reading happened |
 | `[ad-hoc]` | new code is written for a defect class with no analogue | the record that must accompany the new check |
 
-Rule: a `[read]` phase is never satisfied by the library. A run that performs the shape
-and reads nothing stops at the first `[read]` phase and exits non-zero without writing.
+Rule: `[read]` phase never satisfied by library. run that performs the shape and reads nothing stops at first `[read]` phase; exits non-zero; writes nothing.
+
+## Merging — when two records are one
+
+Merge = improvement, not loss. merged generation carries **smaller** number; nothing compares numbers to threshold. measured line cannot name what left ⇒ run names it: before write, by name, once.
+
+Coverage = density, not count. thin reader → many small records; good reader → fewer, same lines. never reward count; never punish merge. refuse only the merge that **loses** a name the replaced generation was held to: operations and entries it declared. may move a name; may not drop one in silence. ruling = a way a name is carried; never a name a generation is held to ⇒ fewer rulings than prior generation → not refused.
+
+| Merged | Expressed in | The merged record must carry |
+|---|---|---|
+| an operation | the readings — the operation list a span reading declares | the name of every operation it replaces, or a ruling whose subject is the dropped name |
+| a step | the readings — the steps a span reading declares | the whole act: the merge removes a step only where the surviving step states it |
+| an entry | `<dir of spec-file>/educe-sequences/declaration.json`, `entries[]` | a partition that still covers every line exactly once, and the name of every entry it replaces, or a ruling naming the dropped one |
+
+Repair for dropped name = one of two; both are readings:
+- **Name it.** operation: declared escape position from artifact schema's escape vocabulary (`suppliedRule`, `excluded`). entry: declared outcome; `notASequence` and `exempt` = the two saying not a sequence. name still carried ≠ name left.
+- **Rule it.** ruling whose `subject` = dropped name (same shape as adjudication file) records name merged, not missed.
+
+Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operation | step → Steps 8 and 9; entry that stops claiming a sequence → Steps 10 to 12 also (ruling attacked before trusted). Verification identical in every case; stated at Step 9.
 
 ## Workflow
 
-Step 0 opens the run and performs no phase. Steps 1 to 18 name the phases in order, and
-a Step may name two of them where a phase has no work of its own: Step 16 covers the
-falsification and the ad-hoc rail exit. The loop for every Step is the same four moves:
+Step 0 opens run; performs no phase. Steps 1 to 18 name phases in order; a Step may name two where a phase has no work of its own: Step 16 = falsification + ad-hoc rail exit. Loop per Step, four moves:
 
-1. `phase.mjs run <spec> <n>` — exit 0 = PASS, go on; exit 1 = FAIL, read the printed
-   back-edge, `expects` and `loops`; exit 3 = HALT, stop the run (see the loop limit rule
-   below).
-2. if the phase is `[read]`, render its brief, hand it to a reader, and let the reader
-   write the named file;
-3. re-run the same `run` command;
-4. repeat until PASS. The driver halts the phase itself once its loops are spent, so there
-   is no count to keep by hand and no fifth move.
+1. `phase.mjs run <spec> <n>` — exit 0 = PASS, go on; exit 1 = FAIL, read printed back-edge, `expects`, `loops`; exit 3 = HALT, stop run (see loop limit rule below).
+2. phase `[read]` → render brief; hand to reader; reader writes named file;
+3. re-run same `run` command;
+4. repeat until PASS. driver halts phase itself when loops spent: no count by hand; no fifth move.
 
-Heal-loop rule: never advance past a FAIL. Every later gate reads what an earlier phase
-wrote, so a run that continued would be checking an artifact assembled from whatever
-happened to be on disk. The driver enforces this rather than assuming it: a refused phase
-is recorded `refused`, never `done`, so a phase whose requirement has not passed is refused
-entry by name — `phase 2 is not done` — however many times it was attempted.
+Heal-loop rule: never advance past FAIL. later gates read what earlier phases wrote; continuing = checking an artifact assembled from whatever is on disk. driver enforces: refused phase recorded `refused`, never `done`; phase whose requirement has not passed refused entry by name — `phase 2 is not done` — however many attempts.
 
-Loop limit rule: each Step states the number of loops its phase may spend. A phase that
-has spent all of them is not refused again — the driver **halts** it, exits 3 instead of
-1, and prints the phase, the count and the last refusal verbatim. A halt means the phase's
-**inputs** are defective, not that the reader needs another attempt: no amount of
-re-running repairs a predicate whose limbs no line carries. Stop the run there and report
-the three things the halt printed. A halt is never a Step to repeat, and a Step is never
-re-entered to see whether it passes this time.
+Loop limit rule: each Step states its loop count. phase with all loops spent is not refused again: driver **halts** it; exit 3 (not 1); prints phase, count, last refusal verbatim. halt = phase **inputs** defective, not reader needing another attempt: re-running never repairs a predicate whose limbs no line carries. stop run; report the three things the halt printed. halt ≠ Step to repeat; never re-enter a Step to see whether it passes this time.
 
 ### Step 0 — Open the generation and read what it inherited (deterministic)
 
@@ -128,42 +106,21 @@ re-entered to see whether it passes this time.
 node .claude/scripts/educe-sequences/rail/phase.mjs begin "$ARGUMENTS"
 ```
 
-`$ARGUMENTS` is the whole invocation: the first token is the specification path, and
-everything after it is supplied material, which is filed under
-`<dir of spec-file>/educe-sequences/supplied/` and digested into the artifact.
+`$ARGUMENTS` = whole invocation: first token = spec path; rest = supplied material → filed under `<dir of spec-file>/educe-sequences/supplied/`; digested into artifact.
 
-Exit 0 prints five lines — the generation and whether `begin` opened one or reported a
-verification, the digest of everything the run inherits, how many supplied files were
-filed, how many inherited assets no longer cite the text, and the next phase — plus up to
-two more: a `notice:` line when this generation repeats one that halted over a set nothing
-has changed, and a `superseded generation measured:` line carrying the counts and the
-specification lines the previous artifact reached. It does not print the whole table;
-`phase.mjs status` prints 18 lines, one per phase, when that is what is wanted.
+Exit 0 prints five lines: (1) generation; whether `begin` opened one or reported a verification; (2) digest of everything the run inherits; (3) count of supplied files filed; (4) count of inherited assets no longer citing the text; (5) next phase. plus up to two: `notice:` line when generation repeats one that halted over a set nothing has changed; `superseded generation measured:` line = counts and spec lines previous artifact reached. not whole table; `phase.mjs status` prints 18 lines, one per phase, when wanted.
 
-Gate: the generation is an integer, the mode is `new generation` or `verification`, and
-`next:` is a phase id. The only refusal Step 0 can produce is a run directory belonging to
-another specification, which exits 1 and names the file it belongs to — stop and report
-it. A repeat over an unchanged set is **not** a refusal: re-asking the reader is how a
-generation finds what the last one missed, and clearing a refusal would have needed a human
-to edit the inviolable specification or supply material, which would stop an automatic run
-until someone acted. The `notice:` line reports it and the generation opens. No phase reads
-`HALTED` here: a new generation returns every loop to zero.
+Gate: generation = integer; mode ∈ {`new generation`, `verification`}; `next:` = phase id.
+- only refusal Step 0 can produce: run directory belongs to another spec → exit 1; names the file it belongs to; stop and report it.
+- repeat over unchanged set ≠ refusal: re-asking reader is how a generation finds what last missed; clearing a refusal would need a human to edit inviolable spec or supply material ⇒ would stop automatic run. `notice:` line reports it; generation opens.
+- no phase reads `HALTED` here: new generation returns every loop to zero.
 
-The run directory is `<dir of spec-file>/educe-sequences/`; it holds `status.json`, the
-declaration, the readings, the worklists, any scaffolded checks and the supplied material.
-An invocation deletes nothing in it. A new generation returns the loop budget, re-opens
-every `[read]` phase so the reader is asked again, and leaves the declaration and the
-readings exactly where they are; an edited specification is inherited by citation, with
-the assets that no longer cite it named by the rule that decided them. Each generation
-records what its artifact measured — how many sequences, steps, operations and pin rows it
-holds, and how many specification lines its records reach — and the report prints each
-number beside the generation before it, signed, so a reader can see the returns diminishing
-across repetitions and decide for themselves when another one is worth asking for. The
-change is computed where it is printed and stored nowhere, and a reach withholds its change
-when the document's length moved, because two revisions are not one space. Nothing compares
-those numbers to a threshold: the specification's true sequence space is not something the
-rail can enumerate, and a generation that merges two sequences into one is an improvement
-carrying a smaller number.
+Run directory `<dir of spec-file>/educe-sequences/` holds `status.json`, declaration, readings, worklists, scaffolded checks, supplied material.
+- invocation deletes nothing.
+- new generation: returns loop budget; re-opens every `[read]` phase (reader asked again); leaves declaration and readings where they are; edited spec inherited by citation; assets no longer citing it named by the rule that decided them.
+- each generation records what its artifact measured: sequences, steps, operations, pin rows, spec lines reached. report prints each number beside previous generation, signed ⇒ returns diminishing across repetitions are visible; reader decides when another is worth asking for.
+- change computed where printed; stored nowhere. reach withholds its change when document length moved (two revisions ≠ one space).
+- nothing compares numbers to threshold: spec's true sequence space not enumerable by rail; merge of two sequences into one = improvement carrying smaller number.
 
 ### Step 1 — identity `[det]`
 
@@ -171,41 +128,28 @@ carrying a smaller number.
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 1
 ```
 
-PASS when the specification's digest and line count are recorded. FAIL — back to nothing;
-this phase has no reader and no earlier phase, so a refusal here is a defect in the
-argument and the run stops.
+PASS: spec digest and line count recorded. FAIL — back to nothing: no reader, no earlier phase ⇒ refusal = argument defect; stop run.
 
 ### Step 2 — predicate `[read]` (AI judgment)
 
-The reader's task: **find the sentence that says when a procedure counts**, quote it
-verbatim, and record the line number and its limbs. This is the phase that decides what
-the whole run is about, and no library can do it: a machine can falsify a reading and can
-never produce one.
+Reader task: **find the sentence that says when a procedure counts**; quote verbatim; record line number and its limbs. decides what whole run is about; no library can (machine can falsify a reading; never produce one).
 
-In the same declaration, **name the weakest link**: the one judgement in this run's
-apparatus whose failure would take the guarantee down, and the declared check that
-tightens it. It is named here, four Steps before Step 9 writes the artifact, because a
-link tightened after the artifact is declared is not a verification but a rework.
+Same declaration: **name the weakest link** = the one judgement in this run's apparatus whose failure takes the guarantee down + the declared check that tightens it. named here, four Steps before Step 9 writes artifact: link tightened after artifact declared = rework, not verification.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span   # shape of the ask
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 2
 ```
 
-The reader writes `<dir of spec-file>/educe-sequences/declaration.json` with
-`predicate.limbs`, and states `sectionLevel` — the heading level the document states its
-procedures at, `3` by default. FAIL prints
-`expects: declaration.json with predicate.limbs`; back to Step 1; max 3 loops. The limbs
-are quoted from the one line that carries every one of them, and that line is the criterion
-every later ruling is made against: a ruling that says an entry is not an operation names
-the limb it fails, or `none-applies` when no limb applies.
-Refused when: no line carries every limb. That refusal means the limbs were paraphrased
-rather than quoted, and the repair is to quote the line, not to loosen the gate.
+Reader writes `<dir of spec-file>/educe-sequences/declaration.json` with `predicate.limbs`; states `sectionLevel` = heading level at which document states procedures; `3` by default.
+- FAIL prints `expects: declaration.json with predicate.limbs`; back to Step 1; max 3 loops.
+- limbs quoted from the one line carrying every one; that line = criterion for every later ruling: ruling "entry is not an operation" names the limb it fails, or `none-applies` when no limb applies.
+- Refused when: no line carries every limb (= limbs paraphrased, not quoted). repair = quote the line; never loosen the gate.
+- entry declared where sequence claimed; merge of two entries declared here: partition still covers every line exactly once; folded-away entry named by ruling, not dropped. See **Merging**.
 
 ### Step 3 — row schema `[read]` (AI judgment)
 
-Find the sentence that states the fields an entry carries. Record the line and the fields
-in `<dir of spec-file>/educe-sequences/declaration.json` as `rowSchema.fields`.
+Find sentence stating fields an entry carries. Record line and fields in `<dir of spec-file>/educe-sequences/declaration.json` as `rowSchema.fields`.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 3
@@ -215,43 +159,32 @@ FAIL: back to Step 2; max 3 loops.
 
 ### Step 4 — enumerations `[read]` (AI judgment)
 
-Find every closed vocabulary, its members, and the lines those members occupy. Record
-`enumerations[].{name,members,closedness}`.
+Find every closed vocabulary, its members, lines those members occupy. Record `enumerations[].{name,members,closedness}`.
 
-When the invocation supplied material carrying a census — a registry of the operations an
-interface must implement, or of the regions that must be adjudicated — record it as
-`sourceEnumerations[].{name,source,selector,role}`: the supplied file, the generic shape
-that reads it (`jsonFieldRows` with a field, `tableColumn` with a header, `markedLines`
-with a prefix), and the role it answers for (`operations` or `entries`). The members are
-read out of the file and not written down here, which is what stops the census being
-shortened. Record beside it the `columns` an operation must carry, which of them
-`requiredMeasuredColumns` requires to be measured, and the `consumerFields` the
-implementer reads.
+Invocation supplied material carrying a census (registry of operations an interface must implement, or regions that must be adjudicated) → record `sourceEnumerations[].{name,source,selector,role}`:
+- `source` = supplied file;
+- `selector` = generic shape reading it: `jsonFieldRows` (with a field) | `tableColumn` (with a header) | `markedLines` (with a prefix);
+- `role` = what it answers for: `operations` | `entries`.
+- members read out of file, not written down ⇒ census cannot be shortened.
+- record beside it: `columns` an operation must carry; which of them `requiredMeasuredColumns` requires measured; `consumerFields` the implementer reads.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 4
 ```
 
-Refused when a declared member occurs nowhere in the specification. FAIL: back to
-Step 3; max 3 loops.
+Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
 
 ### Step 5 — blocks `[read]` (AI judgment)
 
-Partition the specification into sections that cover every line exactly once, and name an
-entry for every line, so no line is left to nobody. Record
-`sections[].{id,firstLine,lastLine}` and `entries[].{id,kind,firstLine,lastLine}`.
+Partition spec into sections covering every line exactly once; name an entry for every line (no line left to nobody). Record `sections[].{id,firstLine,lastLine}`, `entries[].{id,kind,firstLine,lastLine}`.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 5
 ```
 
-The rule is over the document, not over the partition: a preamble before the first heading
-is inside it. A region that holds no sequence is declared as an entry spanning it and ruled
-`notASequence` — that is how a line nobody would otherwise read becomes a reading rather
-than a silence.
+Rule is over document, not partition: preamble before first heading is inside it. region holding no sequence → declare entry spanning it; rule `notASequence` (unread line becomes a reading, not a silence).
 
-Refused when the partition does not reach the last line, or when a line belongs to no
-entry; the refusal names the first line to repair. FAIL: back to Step 1; max 3 loops.
+Refused when partition does not reach last line, or a line belongs to no entry; refusal names first line to repair. FAIL: back to Step 1; max 3 loops.
 
 ### Step 6 — pins `[det]`
 
@@ -259,9 +192,7 @@ entry; the refusal names the first line to repair. FAIL: back to Step 1; max 3 l
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 6
 ```
 
-The library establishes the pins from the declaration and records the rule each was read
-by, into `<dir of spec-file>/educe-sequences/pins.json`. PASS when every pin re-derives by
-the rule it declares. FAIL: back to Step 5; max 3 loops.
+Library establishes pins from declaration; records rule each was read by, into `<dir of spec-file>/educe-sequences/pins.json`. PASS when every pin re-derives by rule it declares. FAIL: back to Step 5; max 3 loops.
 
 ### Step 7 — worklist `[det]`
 
@@ -269,11 +200,7 @@ the rule it declares. FAIL: back to Step 5; max 3 loops.
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 7
 ```
 
-The library writes `<dir of spec-file>/educe-sequences/worklist.txt`, one line per entry,
-each naming a **span**. PASS when every line names a span and no line selects by coverage.
-A worklist that selects neighbours by coverage reproduces the very fabrication this command
-exists to catch, so that shape is refused rather than warned about. FAIL: back to Step 6;
-max 3 loops.
+Library writes `<dir of spec-file>/educe-sequences/worklist.txt`; one line per entry; each names a **span**. PASS when every line names a span and no line selects by coverage. select-neighbours-by-coverage reproduces the fabrication this command exists to catch ⇒ refused, not warned. FAIL: back to Step 6; max 3 loops.
 
 ### Step 8 — span `[read]` (AI judgment)
 
@@ -283,50 +210,30 @@ Dispatch one reader per worklist line.
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span
 ```
 
-Hand the rendered brief to a reader subagent together with the worklist. The brief carries
-the tree of the artifact in hand — `text.mjs <artifact>.json --tree`: every sequence the
-artifact claims is one, and the acts that sequence performs in the order it records them.
-That tree is what the last generation read in this neighbourhood, and it is there for two
-things only: to point the reader at the span that carries the act, and to keep one actor's
-name and one operation's name across the entries of a document. It is orientation and never
-evidence. A reader who reports what the tree says, instead of reading the line and quoting
-it, has written the artifact back to itself, which is the one thing this apparatus is built
-not to do. The reader
-answers one question per entry — *is the named operation performed by the named actor
-inside the entry's own span?* — and writes
-`<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
-carrying the `steps` and `operations` it read there, and
-`<dir of spec-file>/educe-sequences/readings-uncovered.jsonl`, one signed line per
-operation the borrowed census names and no step performs, accounting for each either by
-placing it or by naming the escape that covers it.
+Hand rendered brief + worklist to reader subagent.
+- brief carries tree of artifact in hand (`text.mjs <artifact>.json --tree`): every sequence the artifact claims, and the acts it performs in recorded order = what last generation read in this neighbourhood.
+- tree = orientation, never evidence. uses: point reader to span carrying the act; keep one actor name and one operation name across entries of a document.
+- reader reporting what tree says instead of reading and quoting the line = artifact written back to itself = the one thing this apparatus is built not to do.
+- reader answers one question per entry: *is the named operation performed by the named actor inside the entry's own span?*
+- reader writes `<dir of spec-file>/educe-sequences/readings-span.jsonl`: one signed line per entry; each carries `steps` and `operations` read there.
+- reader writes `<dir of spec-file>/educe-sequences/readings-uncovered.jsonl`: one signed line per operation the borrowed census names and no step performs; each accounted for by placing it or naming the escape covering it.
 
-Every step carries the act it names — `subject`, `predicate`, `object`, `contract` — and
-the line it was read from with the verbatim quote from that line, as `line` and `quote`.
-The four act fields are not enough on their own: a decomposition can carry all of them, in
-order, with the operation relation holding, and not be a reading at all. The `quote` must
-be a contiguous substring of the line `line` names, and the line must lie inside the
-entry's own span — or in that entry's `crossRefs`, when the procedure is stated in one
-place and anchored in another. A separation that is recorded is permitted; one that is
-absorbed is refused.
+Every step carries act `subject`, `predicate`, `object`, `contract` + `line` and `quote` (verbatim from that line).
+- four act fields insufficient alone: decomposition can carry all, in order, relation holding, and not be a reading.
+- `quote` = contiguous substring of line `line` names. line inside entry's own span, or in entry's `crossRefs` (procedure stated in one place, anchored in another).
+- separation recorded = permitted; absorbed = refused.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 8
 ```
 
-The reader is also given the second worklist: the operations the borrowed census names and
-no step performs. For each, it either places the operation on the line that performs it or
-names the escape that covers it — a rule this design supplies where the specification is
-silent, or an exclusion — and quotes the line that says so. An operation the census names
-and nothing accounts for is refused by name, which is what turns the census from a document
-beside the run into a denominator the run is held to.
+Second worklist: operations the borrowed census names and no step performs. per operation: place on the line that performs it, or name covering escape (rule this design supplies where spec silent | exclusion) and quote the line saying so. census-named operation unaccounted for ⇒ refused by name (census = denominator the run is held to).
 
-Refused when a claim carries no signature, when a step carries no `line` or no `quote`,
-when a quote is not carried by the line it names, or when a step cites a line outside its
-entry's span that the entry does not record as a crossing. A claim with no signature is
-not a reading.
+Refused when: claim carries no signature; step carries no `line` or no `quote`; quote not carried by named line; step cites line outside entry's span that entry does not record as crossing. claim with no signature ≠ reading.
 FAIL: back to Step 7; max 3 loops.
-Note: a span that does not carry the operation the entry names is a **result**, not a
-failure. The reader records that verdict, and the run continues.
+Note: span not carrying the operation the entry names = **result**, not failure; reader records verdict; run continues.
+
+Two operations read as one act merge here: declare the one name; carry the other (escape position | ruling whose subject = dropped name). merge omitting the name ⇒ refused by Step 9 before anything is written. See **Merging**.
 
 ### Step 9 — integrate `[det]`
 
@@ -334,48 +241,40 @@ failure. The reader records that verdict, and the run continues.
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 9
 ```
 
-The integrator proves every field of every reading before anything is written, and then
-writes the artifact beside the specification. Nothing is written when any field is
-unproven. PASS when the artifact exists, its recorded digest matches the specification,
-every pin re-derives and every check is green.
-FAIL: back to Step 8; max 5 loops — the largest limit, because this is the phase that
-fails when a reading is wrong rather than when a reader is missing.
+Integrator proves every field of every reading before anything written; then writes artifact beside spec. Nothing written when any field unproven. PASS when artifact exists, recorded digest matches spec, every pin re-derives, every check green.
+FAIL: back to Step 8; max 5 loops — largest limit: this phase fails when a reading is wrong, not when a reader is missing.
+
+Also compares artifact about to write with the artifact it replaces; refuses when a name earlier one carried is named nowhere in later one.
+- comparison happens **before** write ⇒ refusal leaves artifact byte-identical; reader repairs from state they had.
+- silent when the two artifacts were not read from the same thing (no earlier artifact | edited spec | material digest moved): two revisions ≠ one space.
+- one direction only: name that **arrived** is never a finding (refusing an addition refuses the reading a new generation exists to do).
+- two repairs a dropped name admits: see **Merging** above; line printed: see Refusals table.
 
 ### Step 10 — adversarial `[read]` (AI judgment)
 
-The reader is not checking the rulings, it is attacking them.
+Reader attacks rulings; not checking them.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adversarial
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
 ```
 
-The brief carries the tree, and its `SHARE:` lines are what ranks the rulings an attacker has
-to choose between: an operation another sequence also names is one whose misreading takes
-more than this ruling down with it, so the weakest link is worth searching for there first.
+Brief carries tree; its `SHARE:` lines rank rulings: operation another sequence also names ⇒ misreading takes more than this ruling down ⇒ search weakest link there first.
 
-The reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl` — one
-signed attack per ruling, naming the single weakest link. Refused when a ruling was never
-attacked. FAIL: back to Step 9; max 3 loops. When no entry was ruled a non-sequence the
-gate passes as **vacuous**, and the report says so rather than counting it as signed work.
+Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: one signed attack per ruling; names the single weakest link. Refused when a ruling was never attacked. FAIL: back to Step 9; max 3 loops. no entry ruled non-sequence → gate passes as **vacuous**; report says so; not counted as signed work.
 
 ### Step 11 — reroute `[read]` (AI judgment)
 
-An entry was bound to a window because a name or a result object appeared near it. This
-is the phase that undoes that binding.
+Entry was bound to a window because a name or result object appeared near it. This phase undoes that binding.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" reroute
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 11
 ```
 
-The brief carries the tree, which is how a reroute sees what the other entries already hold:
-the question is which entry should realize this one instead, and the answer is an entry whose
-acts either carry the act in question or do not.
+Brief carries tree ⇒ reroute sees what other entries already hold. question: which entry should realize this one instead? answer = entry whose acts carry the act in question, or do not.
 
-The reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`, naming the
-entry that should realize it instead and the line that says so. Refused while an entry
-with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
+Reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`: names entry that should realize it instead + line that says so. Refused while an entry with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
 
 ### Step 12 — adjudicate `[read]` (AI judgment)
 
@@ -384,15 +283,11 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adjudicate
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 12
 ```
 
-The brief carries the tree, and a block of it is the shape this question asks about: one
-actor's name, and the acts that actor performs beneath it in order. That is what the ruling is
-made about and not what it is made from — the actor and the order are read in the span, quoted
-and signed.
+Brief carries tree; block of it = one actor's name + acts that actor performs beneath it in order. ruling is made about that, not from it: actor and order read in span, quoted, signed.
 
-The reader rules, per entry, whether one named actor performs two or more ordered acts
-there, and writes `<dir of spec-file>/educe-sequences/readings-adjudicate.jsonl`. Refused
-while an entry carries no outcome or an outcome outside the declared vocabulary. FAIL: back
-to Step 11; max 3 loops.
+Reader rules per entry whether one named actor performs two or more ordered acts there; writes `<dir of spec-file>/educe-sequences/readings-adjudicate.jsonl`. Refused while entry carries no outcome or outcome outside declared vocabulary. FAIL: back to Step 11; max 3 loops.
+
+Ruling whose `subject` = name artifact no longer carries is written here; admits a merge that dropped that name. See **Merging**.
 
 ### Step 13 — inquest `[read]` (AI judgment)
 
@@ -401,26 +296,13 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" inquest
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 13
 ```
 
-This is the pass that asks the specification something rather than checking an answer to
-it. The declaration and the readings record what was found; they cannot record what nobody
-looked for, and that gap is what this Step closes. Every generation asks again, so a text
-that changed, or an apparatus that was read thinly, is interrogated rather than
-re-verified.
+Pass asks the specification something rather than checking an answer to it. declaration and readings record what was found; cannot record what nobody looked for; this Step closes that gap. every generation asks again ⇒ changed text, or thinly read apparatus, is interrogated, not re-verified.
 
-The brief names every declared subject — each section and each entry — under each of the
-four lenses, together with what the previous generation answered, and the reader writes
-`<dir of spec-file>/educe-sequences/readings-inquest.jsonl`: one signed record per
-(subject, lens) pair, carrying the question, the answer in the closed vocabulary, and the
-line the answer rests on with its quote.
+Brief names every declared subject (each section, each entry) under each of four lenses, with what previous generation answered. Reader writes `<dir of spec-file>/educe-sequences/readings-inquest.jsonl`: one signed record per (subject, lens) pair; carries question, answer in closed vocabulary, line answer rests on + its quote.
 
-Refused while a pair carries no answer and no exemption, while an answer carries no
-signature, or while a quote is not carried by the line it names. FAIL: back to Step 12;
-max 3 loops.
+Refused while: pair carries no answer and no exemption; answer carries no signature; quote not carried by named line. FAIL: back to Step 12; max 3 loops.
 
-The block is not built before this Step passes: Step 14 requires phase 13 as well as phase
-9, because a run that reported a green block without having asked anything would be
-reporting a guarantee it had already said it could not make. This is the same idiom the
-weakest link uses one phase later — the question is closed before the answer is counted.
+Block not built before this Step passes: Step 14 requires phase 13 as well as phase 9 (green block reported without having asked anything = reporting a guarantee already said impossible). same idiom as weakest link one phase later: question closed before answer counted.
 
 ### Step 14 — checks `[det]`
 
@@ -428,12 +310,8 @@ weakest link uses one phase later — the question is closed before the answer i
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 14
 ```
 
-PASS when every declared check ran and none returned a verdict, **and the weakest link
-the declaration named is answered by a declared check or by a check this run scaffolded**.
-Refused when a check reports a verdict, when the block was not produced, when the check
-count is below the declared count, or when the named link has no check — the link is
-refused first, so a green block can never stand in for a question it did not answer. A
-run whose checks were skipped must not print the same as one whose checks passed.
+PASS when every declared check ran and none returned a verdict, **and** the weakest link the declaration named is answered by a declared check or a check this run scaffolded.
+Refused when: check reports a verdict; block not produced; check count below declared count; named link has no check (link refused first ⇒ green block never stands in for a question it did not answer). run with skipped checks must not print same as run whose checks passed.
 FAIL: back to Step 6; max 3 loops.
 
 ### Step 15 — re-derive `[det]`
@@ -442,10 +320,7 @@ FAIL: back to Step 6; max 3 loops.
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 15
 ```
 
-PASS when no check consumed a pin that was not re-derived from the specification text in
-this run. This is the property that keeps the single-input design from becoming a
-self-referential one: an artifact that supplied its own premises and then agreed with
-them would prove nothing. FAIL: back to Step 6; max 2 loops.
+PASS when no check consumed a pin not re-derived from spec text in this run. keeps single-input design from becoming self-referential (artifact supplying its own premises, then agreeing with them, proves nothing). FAIL: back to Step 6; max 2 loops.
 
 ### Step 16 — falsify `[det]`, and the ad-hoc rail exit
 
@@ -453,58 +328,35 @@ them would prove nothing. FAIL: back to Step 6; max 2 loops.
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 16
 ```
 
-Every mutation in the corpus must redden the check it names, for a reason attributable to
-that check, and every counter-mutation on correct work must stay green. A counter-mutation
-that reddens is a defect in the **rule**, not in the subject. FAIL: back to Step 14;
-max 3 loops.
+Every mutation in corpus must redden the check it names, for a reason attributable to that check; every counter-mutation on correct work must stay green. counter-mutation that reddens = defect in the **rule**, not in subject. FAIL: back to Step 14; max 3 loops.
 
-When a defect class appears that no existing check was written for, the ad-hoc phase is
-where it is handled — this is the one genuinely non-mechanical act in the command. The
-author is dispatched with a checked brief, the same way a reader is:
+Defect class no existing check was written for → ad-hoc phase handles it = the one genuinely non-mechanical act in the command. author dispatched with checked brief, same way as a reader:
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adhoc
 node .claude/scripts/educe-sequences/rail/phase.mjs scaffold "$1" <check-name> "<the defect that motivated it>"
 ```
 
-`scaffold` refuses without an originating defect. Its first call writes a module into
-`<dir of spec-file>/educe-sequences/adhoc/` that imports `rail/checks.mjs` — the
-constructor library, one shape per kind of check — and exports both the check and the
-mutation that must redden it, each body marked `[::STUB::]` for the author to replace. A
-second call does not rewrite the module; it **executes** the mutation and reads the check
-twice, once over the defect where it must refuse and once over the work as it stands where
-it must stay silent. Only then is the rail-exit record written, carrying what was observed.
-A check whose mutation does not redden, or which also fires on correct work, is refused
-rather than recorded.
+`scaffold` refuses without an originating defect.
+- first call: writes module into `<dir of spec-file>/educe-sequences/adhoc/` that imports `rail/checks.mjs` (constructor library; one shape per kind of check); exports the check and the mutation that must redden it; each body marked `[::STUB::]` for author to replace.
+- second call: does not rewrite module; **executes** mutation; reads check twice: over the defect (must refuse), over work as it stands (must stay silent). only then rail-exit record written, carrying what was observed.
+- check whose mutation does not redden, or which also fires on correct work → refused, not recorded.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 17
 ```
 
-The record's `promotionCondition` says what would promote the check into the rail. Step
-16 PASSes while every record carries an executed outcome and no empty field; the count of
-records and the count of promotion candidates is printed on every run, so a growing
-ad-hoc surface is visible rather than silent. Max 5 loops.
+Record's `promotionCondition` = what would promote check into the rail. Step 16 PASSes while every record carries an executed outcome and no empty field. count of records and count of promotion candidates printed every run (growing ad-hoc surface visible, not silent). Max 5 loops.
 
-A scaffolded check does not stay where it was written. From the next run onwards it is
-loaded from `<dir of spec-file>/educe-sequences/adhoc/` and executed against the artifact
-beside the declared checks, and its verdicts enter the same block. A module that cannot be
-loaded, that exports no check with a run, that exports no mutation, or that has no
-rail-exit record — because nothing ever falsified it — is refused by name and the checks
-phase refuses rather than reporting a count over a set that is missing one.
+Scaffolded check does not stay where written: from next run, loaded from `<dir of spec-file>/educe-sequences/adhoc/`; executed against artifact beside declared checks; verdicts enter same block. refused by name: module that cannot be loaded | exports no check with a run | exports no mutation | has no rail-exit record (nothing ever falsified it). checks phase refuses rather than reporting a count over a set missing one.
 
-When a second specification needs the same rule, the promotion condition is met. Promoting
-is a **proposal**, not an edit:
+Second spec needs same rule → promotion condition met. Promoting = **proposal**, not edit:
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs promote "$1" <record-id> <second-spec-file>
 ```
 
-This marks the record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`
-and prints the splice, naming `rail/engine.mjs` as the file to edit. It writes no source:
-changing the declared checks is a change made under a ticket, by a person, and the run
-only says what the change would be. The count of unpromoted records is printed on every
-run, so the proposal queue is visible rather than remembered.
+Marks record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; prints splice, naming `rail/engine.mjs` as file to edit. writes no source: changing declared checks = change made under a ticket, by a person; run only says what the change would be. count of unpromoted records printed every run (proposal queue visible, not remembered).
 
 ### Step 17 — report and product `[det]`
 
@@ -513,37 +365,28 @@ node .claude/scripts/educe-sequences/rail/phase.mjs through "$1"
 node .claude/scripts/educe-sequences/rail/phase.mjs report "$1"
 ```
 
-`through` runs every unfinished phase to the last and stops at the first refusal or halt,
-exiting 3 when what stopped it was a halt. `report` prints the closing report. Then the
-product path:
+`through` runs every unfinished phase to the last; stops at first refusal or halt; exits 3 when a halt stopped it. `report` prints closing report. Then product path:
 
 ```bash
 node .claude/scripts/educe-sequences/rail/run.mjs "$1"
 ```
 
-The rendering beside the specification is written by `rail/render.mjs`, which draws one
-diagram per sequence the artifact claims is one: each participant is declared by an alias
-and the messages follow the step order, so a name never stands where the diagram language
-would refuse a comma or a colon. It writes only from a verification that passed — the same
-one `run.mjs` performs — so a refused artifact is neither drawn nor reported as drawn, and
-a region ruled not a sequence is owed no diagram.
+Rendering beside spec written by `rail/render.mjs`: one diagram per sequence the artifact claims is one; each participant declared by alias; messages follow step order ⇒ a name never stands where diagram language would refuse a comma or colon. writes only from a verification that passed (same one `run.mjs` performs) ⇒ refused artifact neither drawn nor reported drawn; region ruled not a sequence owed no diagram.
 
-PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
-max 2 loops.
+PASS when artifact exists and its digest can be printed. FAIL: back to Step 14; max 2 loops.
 
-A run whose check count or pin count is below the declared count, or whose `[read]` phases
-are neither signed nor recorded as having had nothing to read, is reported as
-**incomplete** even where the exit code alone would read as success.
+Run whose check count or pin count is below declared count, or whose `[read]` phases are neither signed nor recorded as having had nothing to read → reported **incomplete**, even where exit code alone reads as success.
 
 ## Refusals
 
-A refusal names the offending item and exits non-zero. Nothing is written.
+A refusal names the offending item; exits non-zero; writes nothing.
 
 | Refusal | Raised by |
 |---|---|
 | a pin that is not re-derived in the same run | Step 15 |
 | a reading missing a required field, or carrying an outcome outside the declared set | Step 9 |
 | two readings for one subject | Step 9 |
+| a name the previous generation carried that the artifact being written does not carry | Step 9 |
 | a neighbour verdict naming an entry other than the one the engine selects by citation | Step 9 |
 | a supplied rule whose presupposition is prose rather than an integer line naming it | Step 9 |
 | a row keeping a `defining_section` that a supplied rule supersedes | Step 9 |
@@ -559,24 +402,14 @@ A refusal names the offending item and exits non-zero. Nothing is written.
 | a scaffolded check whose mutation does not redden, or whose counter-mutation does | Step 16 |
 | a rail-exit record that claims no executed outcome | Step 16 |
 
-## Closed answer vocabulary
-
-Every question this command puts to you is answered `Yes` / `No`, or `A` / `B` / `C`.
-A question that cannot be answered in that vocabulary is a defect in the question and is
-rewritten, not asked. The AI must NEVER ask for a free-form answer.
-
 ## Completion Report
 
-The report separates two things and never adds them together. Print both, in this order:
+Report separates two things; never adds them. Print both, in this order:
 
-1. **Measured** — `phasesDone`, `checksRun`, `pinsRederived`, `readPhasesSettled` (with the
-   count that had nothing to read), `railExits`, `promotionCandidates`.
-2. **Carried by a signature** — that a reader opened the line. No check measures this. A
-   claim with no signature reddens the run; the honesty of a signature is carried the way
-   any signed record is carried.
+1. **Measured** — `phasesDone`, `checksRun`, `pinsRederived`, `readPhasesSettled` (with count that had nothing to read), `railExits`, `promotionCandidates`.
+2. **Carried by a signature** — a reader opened the line. no check measures this. claim with no signature reddens the run; honesty of a signature carried as any signed record is carried.
 
-Then print the artifact path and its digest, and state plainly whether the run is
-**complete** or **incomplete**. Conclude with:
+Then print artifact path and its digest; state plainly whether run is **complete** or **incomplete**. Conclude with:
 
 ```
 Run `/educe-sequences <spec-file>` again at any time to verify the artifact; it needs

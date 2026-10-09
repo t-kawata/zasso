@@ -465,7 +465,7 @@ test('C006 a prose token that begins with a slash is material, so the invocation
   assert.equal(opened.status, 0, opened.stderr);
   assert.match(opened.stdout, /generation 1 \(new generation\)/);
   assert.equal(
-    readFileSync(join(directory, SUPPLIED_DIRECTORY, MATERIAL_FILE), 'utf8').includes('/educe-sequences'),
+    readFileSync(join(directory, SUPPLIED_DIRECTORY, MATERIAL_FILE), 'utf8').includes(`/educe-sequences`),
     true,
     'the word is filed as the guidance it is',
   );
