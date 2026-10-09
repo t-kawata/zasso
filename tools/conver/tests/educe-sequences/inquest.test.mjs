@@ -1,3 +1,4 @@
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // The inquest (PX-243, contracts C001-C006).
 //
 // The loop-back edges push a declaration and its readings until the checks are quiet, and
@@ -493,7 +494,7 @@ test('the four inquest checks run inside the block, and a missing audit is not a
 
   assert.deepEqual(without.verdicts, [], 'no audit anywhere is not a finding: the product path has nothing to judge');
   assert.equal(without.summary.checksRun, covered.summary.checksRun, 'a check runs whether or not there is an audit to judge');
-  assert.equal(covered.summary.checksRun, 28, 'the declared set grew across PX-246, PX-247 and PX-248, and every one of them runs with or without an audit');
+  assert.equal(covered.summary.checksRun, 29, 'the declared set grew across PX-246 to PX-249, and every one of them runs with or without an audit');
   assert.equal(empty.summary, null, 'an audit that was opened and answered nothing is a finding');
   assert.equal(new Set(empty.verdicts.map((verdict) => verdict.check)).has('inquest-covers-every-subject-and-lens'), true);
 });

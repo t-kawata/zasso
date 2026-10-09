@@ -51,6 +51,16 @@ export const DIAGRAMMED_OUTCOMES = Object.freeze(
 );
 
 /**
+ * The fields a message on a sequence diagram is drawn from, one participant per side.
+ *
+ * Named here rather than written at the check, so the criterion and the renderer read the
+ * same vocabulary: `renderSequenceDiagram` draws exactly these and the drawability check
+ * refuses a step missing any one of them.
+ */
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+export const DIAGRAM_FIELDS = Object.freeze(['subject', 'object', 'operation']);
+
+/**
  * The operations a step does not perform and an escape covers.
  *
  * These are the readings a run could excuse and then forget, so the phases that attack a
@@ -187,16 +197,38 @@ const everyRequiredColumnIsMeasured = coverEvery(
  * performs an act and names no actor or no target is a gap in the record, not a rendering
  * detail. A region ruled not a sequence is owed no diagram and is not asked for one.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 const everySequenceIsDrawable = coverEvery(
   { id: 'every-sequence-is-drawable', defect: 'an artifact whose steps carried what a diagram needs while nothing ever drew one, so the sufficiency of the record was never tested', refuses: 'a sequence whose step carries no subject, no object or no operation, so the diagram would name a participant or an act that was never read', scope: 'every artifact, over the sequences that claim to be sequences' },
   {
     sources: (context) => context.artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome)),
     coveredBy: (entry, context) => {
       const steps = context.artifact.steps.filter((step) => step.sequence === entry.id);
-      return steps.length > 0 && steps.every((step) => ['subject', 'object', 'operation'].every((field) => typeof step[field] === 'string' && step[field] !== ''));
+      return steps.length > 0 && steps.every((step) => DIAGRAM_FIELDS.every((field) => typeof step[field] === 'string' && step[field] !== ''));
     },
     label: (entry) => entry.id,
+  },
+);
+
+/**
+ * Every step was given a sequence the artifact draws.
+ *
+ * The drawability check's denominator is the sequences that claim to be a sequence, so a
+ * step attached to a region ruled notASequence lies outside it and no diagram would ever
+ * carry it: the step is in the artifact and in no picture. This is the other half of the
+ * same rule — that one asks whether every drawn sequence can be drawn, this one asks
+ * whether every step was given a sequence that can — and together they say that every
+ * step appears in exactly one diagram.
+ */
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+const everyStepBelongsToADrawnSequence = coverEvery(
+  { id: 'every-step-belongs-to-a-drawn-sequence', defect: 'an artifact holding a step whose sequence was ruled not a sequence, so the record carried the step and nothing drew it', refuses: 'a step whose sequence is not one the artifact draws', scope: 'every artifact, over every step' },
+  {
+    sources: (context) => context.artifact.steps,
+    coveredBy: (step, context) => DIAGRAMMED_OUTCOMES.includes(
+      context.artifact.sequences.find((entry) => entry.id === step.sequence)?.outcome,
+    ),
+    label: (step) => step.id,
   },
 );
 
@@ -643,6 +675,7 @@ export const CHECKS = Object.freeze([
   everyDeclaredColumnHasADecider,
   everyRequiredColumnIsMeasured,
   everySequenceIsDrawable,
+  everyStepBelongsToADrawnSequence,
   stepCarriesFourFields,
   stepIsGroundedInItsLine,
   stepCitesInsideItsEntrySpan,

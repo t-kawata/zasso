@@ -1,3 +1,4 @@
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // What a generation measured (PX-245, contracts C002-C005).
 //
@@ -224,7 +225,7 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.deepEqual(after.verdicts, baseline.verdicts);
   assert.equal(after.summary.checksRun, baseline.summary.checksRun);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 28, 'PX-246, PX-247 and PX-248 each added checks, and none of them is a growth gate');
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29, 'PX-246 through PX-249 each added checks, and none of them is a growth gate');
 });
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.

@@ -42,25 +42,25 @@
 ```mermaid
 sequenceDiagram
   %% admission 24-26
-  participant operator
-  participant the signed instruction
-  participant the signature against the issuer key
-  participant a Pending row
-  operator->>the signed instruction: reads [Admit]
-  operator->>the signature against the issuer key: verifies [Admit]
-  operator->>a Pending row: writes [Admit]
+  participant P1 as operator
+  participant P2 as the signed instruction
+  participant P3 as the signature against the issuer key
+  participant P4 as a Pending row
+  P1->>P2: reads [Admit]
+  P1->>P3: verifies [Admit]
+  P1->>P4: writes [Admit]
 ```
 
 ```mermaid
 sequenceDiagram
   %% settlement 34-35
-  participant settler
-  participant the payer
-  participant the payee
-  participant the row Settled
-  settler->>the payer: debits [Settle]
-  settler->>the payee: credits [Settle]
-  settler->>the row Settled: marks [Settle]
+  participant P1 as settler
+  participant P2 as the payer
+  participant P3 as the payee
+  participant P4 as the row Settled
+  P1->>P2: debits [Settle]
+  P1->>P3: credits [Settle]
+  P1->>P4: marks [Settle]
 ```
 
 

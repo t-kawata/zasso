@@ -1,3 +1,4 @@
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // Every line of the specification belongs to an entry (PX-247, C001, C002, C003, C004).
 //
@@ -205,7 +206,7 @@ test('C003 an artifact with no verdict covers every line, and the check count fo
   assert.deepEqual(verdicts, []);
   assert.equal(coveredLines(tiled.sequences).size, spec.lineCount);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 28);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29);
 });
 
 test('C003 the product path refuses a gapped artifact, names the range, and leaves it byte-identical', () => {

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The ad-hoc surface, after the run that produced it (PX-244, contracts C001-C006).
 //
@@ -204,7 +205,7 @@ test('C001 the engine stays a function of values: no dynamic import, and its cou
 
   assert.equal(/await import|import\(/.test(source), false, 'the caller loads the modules, not the engine');
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 28);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29);
 });
 
 // ---------------------------------------------------------------------------
@@ -498,7 +499,10 @@ test('IT a scaffolded check that reddens an artifact refuses the checks phase', 
   const { verdicts, summary } = checkAll({ specLines: readSpecification(specPath).lines, artifact: drained, recorded: { adhocChecks: loaded.checks } });
 
   assert.equal(summary, null);
-  assert.equal(verdicts[0].check, CHECK_NAME);
+  // Membership rather than first place: the declared set runs before the ad-hoc set, and
+  // withdrawing a step's sequence is a defect a declared check answers first — this one is
+  // about the scaffolded module joining the set and refusing the run, not about the order.
+  assert.equal(verdicts.some((verdict) => verdict.check === CHECK_NAME), true);
 });
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
@@ -508,5 +512,5 @@ test('IT the golden run still writes the golden artifact, and its counts are the
 
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8')), golden);
-  assert.match(run.stdout, /checksRun=28 of 28/);
+  assert.match(run.stdout, /checksRun=29 of 29/);
 });

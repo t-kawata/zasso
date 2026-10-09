@@ -499,9 +499,11 @@ node .claude/scripts/educe-sequences/rail/run.mjs "$1"
 ```
 
 The rendering beside the specification is written by `rail/render.mjs`, which draws one
-diagram per sequence the artifact claims is one: the participants are the steps' subjects
-and objects, in step order, and the check that guards it refuses a sequence whose steps do
-not carry what a diagram needs. A region ruled not a sequence is owed no diagram.
+diagram per sequence the artifact claims is one: each participant is declared by an alias
+and the messages follow the step order, so a name never stands where the diagram language
+would refuse a comma or a colon. It writes only from a verification that passed — the same
+one `run.mjs` performs — so a refused artifact is neither drawn nor reported as drawn, and
+a region ruled not a sequence is owed no diagram.
 
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { checkRenderFreshness, renderArtifact } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
-import { checkAll } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
+import { DIAGRAMMED_OUTCOMES, checkAll } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 
@@ -43,10 +43,15 @@ function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
-/** The sequences that claim to be sequences, which are the ones a diagram is owed for. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+/** The sequences that claim to be sequences, which are the ones a diagram is owed for.
+ *
+ * The set is read from the engine rather than restated here: a suite that keeps its own
+ * copy of the diagrammed outcomes is a second place to edit when the vocabulary moves,
+ * and the two would drift without either being wrong on its own.
+ */
+// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 function drawable(artifact) {
-  return artifact.sequences.filter((entry) => ['direct', 'viaNeighbour', 'singleStep'].includes(entry.outcome));
+  return artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
 }
 
 test('C005 one diagram is drawn per sequence that claims to be a sequence', () => {
@@ -64,8 +69,11 @@ test('C005 every participant a step names is declared, and the messages follow t
   for (const entry of drawable(artifact)) {
     const steps = artifact.steps.filter((step) => step.sequence === entry.id);
     for (const step of steps) {
-      assert.equal(rendered.includes(`participant ${step.subject}`), true, `${step.subject} is a participant`);
-      assert.equal(rendered.includes(`participant ${step.object}`), true, `${step.object} is a participant`);
+      // A participant is declared by an alias, so the name is what the alias carries and
+      // never what stands in the identifier position (PX-249, C002).
+      assert.equal(rendered.includes(` as ${step.subject}\n`), true, `${step.subject} is declared`);
+      assert.equal(rendered.includes(` as ${step.object}\n`), true, `${step.object} is declared`);
+      assert.equal(rendered.includes(`participant ${step.subject}`), false, `${step.subject} is not an identifier`);
     }
     const positions = steps.map((step) => rendered.indexOf(`${step.predicate}`)).filter((index) => index !== -1);
     assert.deepEqual(positions, [...positions].sort((left, right) => left - right), 'the messages are drawn in step order');

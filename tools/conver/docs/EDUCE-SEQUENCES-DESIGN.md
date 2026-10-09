@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:597`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:629`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -109,7 +109,7 @@ so a hand-edited fixture fails rather than silently changing what the golden tes
 measures. Drift from the source repository is reported, never absorbed.
 
 The corpus holds 29 files totalling 3100101 bytes, and a green run of the golden
-specification reports 28 checks over 5 pins.
+specification reports 29 checks over 5 pins.
 
 `tests/educe-sequences/fixtures/spec/` holds the golden run: a small specification, the
 declaration and readings one run recorded, and the artifact and rendering that run
@@ -333,6 +333,59 @@ phase attacks and the audit asks under every lens — an operation no step perfo
 one reading a run could excuse and then forget. Which columns an interface needs is the
 caller's declaration and not this apparatus's knowledge: the rail names no project, no
 registry and no transport, and a check over its own modules holds that.
+
+## 7c. Drawing the artifact, and what the drawing is held to
+
+An artifact is complete enough to plan an interface from when every sequence it declares
+can be drawn into a diagram carrying every step, and the drawing is the cheapest test of
+that: a message needs a participant on each side of it, so a step naming one actor and no
+other is a gap in the record rather than a rendering detail. Two checks say it, and they
+are the two halves of one rule. `every-sequence-is-drawable` asks whether every sequence
+that claims to be one can be drawn — its steps carry a subject, an object and an operation,
+and there is at least one. `every-step-belongs-to-a-drawn-sequence` asks whether every step
+was given a sequence that can be: the first check's denominator is the sequences that claim
+to be a sequence, so a step attached to a region ruled `notASequence` lies outside it and no
+diagram would ever carry it. Together they say every step appears in exactly one diagram.
+
+A name cannot be allowed to break the drawing, and the artifact is free to carry any name —
+`Payment-Service, その2`, `claim signature: a; b#c`, a name with a newline in it. What the
+emitter may put where is therefore a measurement rather than a preference. Measured against
+mermaid 12.0 with `mermaid.parse` and `mermaid.render`, over every printable ASCII code
+point (U+0020 to U+007E) plus U+00A0, U+00E9, U+200B, U+2028, U+2029, U+3000, U+FEFF and
+U+1F600:
+
+| Position | Fails the parse | Parses but alters the label |
+|---|---|---|
+| bare `participant <name>`, `<name>->>` | `,` `:` `;` `+` `>` `<` `@` | — |
+| `participant <id> as <name>` | `;`, newline | `#`, which drops everything after it |
+| message text after the colon | `;`, newline | `#`, which drops everything after it |
+
+The alias position and the message position are therefore almost free, and the two
+characters they are not free about are escaped as numeric character references — `#` as
+`#35;`, `;` as `#59;` — which the renderer decodes back to the character it stands for. So
+the emitter declares every participant as `participant P<n> as <name>` with `P<n>` assigned
+in first-appearance order, and a name never reaches the identifier position. Whitespace
+collapses to a single space, because a message is one line and the artifact keeps the
+verbatim text in `quote`; the projection loses nothing.
+
+The rule is a measurement against one version and not a guarantee, and it is stated as a
+measurement for that reason: a later release changing its lexer would not be caught by this
+repository's suite, which parses no Mermaid. What pins the rule is the encoding table in
+`tests/educe-sequences/diagram-encoding.test.mjs`, and what makes the emitted text well
+formed is the structural half — every identifier is `P<n>`, every other value is encoded
+exactly once.
+
+The rendering is written only from a verification that passed. `run.mjs` without readings
+and `render.mjs` share one implementation of that verification, so a picture cannot be
+drawn from records no check has read; a refusal writes nothing and leaves the artifact as it found
+it. A run holding readings is judged by what it built and not by what it replaces: judging the
+artifact it is about to overwrite would make a check added after that artifact was written a
+wall rather than a gate, since the way out of a failed generation would be refused too. Measured
+over the artifact the reader holds for the project this apparatus was built against — 375
+sequences, 663 steps — 68 sequences claim to be a sequence, 472 of the 663 steps carry no
+operation, and `every-sequence-is-drawable` accepts 1 of the 68. That artifact predates
+these checks; the next generation is what closes it, and the rendering says so by refusing
+rather than by drawing a diagram full of empty operations.
 
 ## 8. What is not here
 

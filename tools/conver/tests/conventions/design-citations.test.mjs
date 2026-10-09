@@ -198,13 +198,14 @@ const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[â€“â
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
   // file: the citation moved with the file rather than the file being kept still for it.
   { asWritten: 'pins.mjs:519', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 519, token: 'export function rederiveAll' },
   { asWritten: 'pins.mjs:280', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 280, token: 'export function selectNeighbourFor' },
-  { asWritten: 'engine.mjs:597', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 597, token: 'export const CHECKS' },
+  { asWritten: 'engine.mjs:629', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 629, token: 'export const CHECKS' },
   { asWritten: 'reading.mjs:353', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 353, token: 'export function applyReadings' },
   // Re-measured when PX-242 opened the run into generations: five of these moved with the
   // files that gained an import, a constant or a subcommand, and the citation followed the

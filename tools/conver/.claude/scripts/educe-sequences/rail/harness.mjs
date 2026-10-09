@@ -385,6 +385,31 @@ export function runCase(testCase, { artifact, specLines, fixtureRoot }) {
  * so a change in whitespace a reader would not notice still fails.
  */
 /**
+ * The two characters the Mermaid sequence lexer will not carry literally, and the numeric
+ * character references it decodes back to them.
+ *
+ * Measured against mermaid 12.0 over every printable ASCII code point plus the Unicode
+ * whitespace and astral samples, in the alias position and in the message position: `;`
+ * fails the parse, and `#` is silently dropped together with everything that follows it.
+ * Every other character a name can hold — comma, colon, angle brackets, quotes, backticks,
+ * CJK — passes unchanged. The measurement is the rule's ground, and the table it came from
+ * is recorded in `docs/EDUCE-SEQUENCES-DESIGN.md`, so a change here is a change to a
+ * measurement rather than to a preference.
+ */
+export const MERMAID_ESCAPES = Object.freeze({ '#': '#35;', ';': '#59;' });
+
+/**
+ * Encode one field for the diagram.
+ *
+ * Whitespace collapses to a single space because a diagram message is one line, and the
+ * artifact keeps the verbatim text in `quote`, so projecting it costs nothing. The escape
+ * runs in one pass, so a `#` introduced by escaping a `;` is not escaped a second time.
+ */
+export function encodeForDiagram(text) {
+  return String(text).replace(/\s+/g, ' ').replace(/[#;]/g, (character) => MERMAID_ESCAPES[character]);
+}
+
+/**
  * One diagram for one sequence, drawn from the records the artifact already holds.
  *
  * A sequence diagram is a projection and not a decision: every step is a message, its
@@ -392,17 +417,29 @@ export function runCase(testCase, { artifact, specLines, fixtureRoot }) {
  * operation is what the message is an instance of. A step that names no actor is drawn as
  * what it is, and `every-sequence-is-drawable` is the check that refuses one — so the
  * renderer never has to decide whether a sequence is whole.
+ *
+ * A participant is declared by an alias, so a name never stands in the identifier
+ * position: that position is where the lexer refuses a comma and a colon, and the artifact
+ * is free to carry both. The identifier is `P<n>` assigned in the order the participants
+ * first appear, which makes the emitted text well formed for any name the artifact can
+ * hold and leaves the escaping to `encodeForDiagram`.
+ *
+ * Every name a step carries is therefore read as a key of the identifier map. That lookup
+ * is total because the step is one `every-sequence-is-drawable` has already accepted: a
+ * step naming no actor is refused there, and the product path writes a rendering only from
+ * a verification that passed.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
-function renderSequenceDiagram(entry, steps) {
+// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+export function renderSequenceDiagram(entry, steps) {
   const participants = [...new Set(steps.flatMap((step) => [step.subject, step.object]))]
     .filter((name) => typeof name === 'string' && name !== '');
+  const identifierOf = new Map(participants.map((name, index) => [name, `P${index + 1}`]));
   return [
     '```mermaid',
     'sequenceDiagram',
-    `  %% ${entry.id} ${entry.firstLine}-${entry.lastLine}`,
-    ...participants.map((name) => `  participant ${name}`),
-    ...steps.map((step) => `  ${step.subject}->>${step.object}: ${step.predicate} [${step.operation}]`),
+    `  %% ${encodeForDiagram(entry.id)} ${entry.firstLine}-${entry.lastLine}`,
+    ...participants.map((name) => `  participant ${identifierOf.get(name)} as ${encodeForDiagram(name)}`),
+    ...steps.map((step) => `  ${identifierOf.get(step.subject)}->>${identifierOf.get(step.object)}: ${encodeForDiagram(step.predicate)} [${encodeForDiagram(step.operation)}]`),
     '```',
   ].join('\n');
 }
