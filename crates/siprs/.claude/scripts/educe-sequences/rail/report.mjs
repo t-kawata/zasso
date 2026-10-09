@@ -47,10 +47,26 @@ export function healthLines({ summary, status, inquest = null }) {
     // copy of it is a second thing that can disagree with the block it describes.
     `checksRun=${summary?.checksRun ?? 0} of ${summary?.checksDeclared ?? 0} checksAdhoc=${summary?.checksAdhoc ?? 0}`,
     `pinsRederived=${summary?.pinsRederived ?? 0} of ${summary?.pinsTotal ?? 0}`,
+    ...limbCensusLines(summary),
     `readPhasesSettled=${settled.length} of ${reads.length} (${vacuous.length} had nothing to read)`,
     `railExits=${summary?.railExits ?? 0} promotionCandidates=${summary?.promotionCandidates ?? 0}`,
     ...inquestLines(inquest),
   ];
+}
+
+/**
+ * How many of the declared limbs a ruling cited, and how many it did not.
+ *
+ * Printed and compared to nothing. A census answers "which lens keeps finding things" and
+ * "is the predicate deciding anything"; a census a run could fail would be a target, and
+ * the number that matters here is the one that does not move between generations.
+ * A run with no measurement prints no census, because an absent measurement is not a zero.
+ */
+export function limbCensusLines(summary) {
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+  if (summary === null || summary === undefined) return [];
+  if (typeof summary.predicateLimbs !== 'number') return [];
+  return [`predicateLimbs=${summary.predicateLimbs} cited=${summary.limbsCited ?? 0} unused=${summary.limbsUnused ?? 0}`];
 }
 
 /** How far a count moved, spelled with its sign so a fall cannot read as a small rise. */

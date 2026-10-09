@@ -8,6 +8,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The levels a partition may be taken at belong with the partition rule rather than here,
+// so a declaration cannot be validated against a vocabulary the partitioner does not hold.
+import { SECTION_LEVELS } from './pins.mjs';
+
 /** The declaration a run reads at phase 2. */
 export const DECLARATION_FILE = 'declaration.json';
 
@@ -82,6 +86,36 @@ export const INQUEST_FIELDS = Object.freeze(['subject', 'lens', 'question', 'ans
 export const READING_FIELDS = Object.freeze(['subject', 'outcome', 'reader']);
 export const NEIGHBOUR_FIELD = 'neighbour';
 
+/**
+ * The limb a ruling that something is not an operation must name.
+ *
+ * Required of `notASequence` and `excluded` readings and of no others, because those are
+ * the rulings that apply the predicate. The value is either one of the declared limbs or
+ * the literal below: no limb applying is a finding, and a vocabulary that had no word for
+ * it would force the reader to invent one.
+ */
+export const PREDICATE_LIMB_FIELD = 'predicateLimb';
+export const NO_LIMB_APPLIES = 'none-applies';
+export const LIMB_RULING_OUTCOMES = Object.freeze(['notASequence', 'excluded']);
+
+/**
+ * The fields a step must carry to be grounded in the document it was read from.
+ *
+ * `line` and `quote` are the pair the check `step-is-grounded-in-its-line` compares, and
+ * the pair the campaign identified as the only thing that makes a decomposition
+ * detectable: 1178 steps carrying the four act fields, in order, with the bijection
+ * holding, and none of them a reading. A step that carries the fields and not the line is
+ * a step no check can ask about, so the integrator refuses the reading rather than
+ * recording one.
+ */
+export const STEP_GROUNDING_FIELDS = Object.freeze(['line', 'quote']);
+
+/** The grounding fields one step leaves absent or empty, by field name. */
+export function missingStepFields(step) {
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+  return absentFields(step, STEP_GROUNDING_FIELDS);
+}
+
 /** Parse a JSON file, reporting a parse failure rather than throwing. */
 export function readJsonFile(path) {
   if (!existsSync(path)) return { ok: false, problems: [`${path} does not exist`] };
@@ -108,6 +142,15 @@ function missingFrom(record, required) {
 export function validateDeclaration(declaration) {
   const problems = [];
   if (declaration === null || typeof declaration !== 'object') return ['the declaration is not an object'];
+
+  // The section level is a scalar rather than a section: it says how the document is
+  // partitioned, not what to look for in it. A level the apparatus cannot partition at is
+  // refused here rather than quietly replaced by the default, because a declaration that
+  // asked for one level and partitioned at another would be read at a level nobody chose.
+  const sectionLevel = declaration.sectionLevel;
+  if (sectionLevel !== undefined && !SECTION_LEVELS.includes(sectionLevel)) {
+    problems.push(`sectionLevel ${JSON.stringify(sectionLevel)} is not one of ${SECTION_LEVELS.join(', ')}`);
+  }
 
   for (const [section, required] of Object.entries(DECLARATION_SHAPE)) {
     const value = declaration[section];

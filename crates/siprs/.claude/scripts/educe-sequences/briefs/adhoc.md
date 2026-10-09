@@ -12,6 +12,10 @@ Answer this one question.
 
 {{QUESTION}}
 
+The sentence this specification decides by:
+
+{{PREDICATE}}
+
 Rules that decide whether your answer is a check:
 
 - {{VERBATIM_QUOTE}}

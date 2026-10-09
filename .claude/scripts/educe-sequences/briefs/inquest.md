@@ -10,6 +10,10 @@ Answer this one question.
 
 {{QUESTION}}
 
+The sentence this specification decides by:
+
+{{PREDICATE}}
+
 The four lenses are {{LENSES}}. An answer is {{ANSWERS}} — the vocabulary is closed, and
 a question you cannot answer in it is a defect in the question rather than an invitation
 to write prose.

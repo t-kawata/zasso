@@ -12,6 +12,7 @@
 // directory named for this tool, so that a reader of the specification can find the
 // declaration and the readings the artifact was built from.
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 
@@ -19,6 +20,7 @@ import { coverageLine } from './coverage.mjs';
 import { checkAll } from './engine.mjs';
 import { readArtifact } from './load.mjs';
 import { parseSpecArgument } from './paths.mjs';
+import { predicateFor } from './pins.mjs';
 import { renderBrief } from './reading.mjs';
 import { buildContext, beginRun, exitCodeFor, inquestCountsIn, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS, WORKLIST_FILE } from './phases.mjs';
 import { readSpecification, digestOf } from './load.mjs';
@@ -79,19 +81,41 @@ function splitInvocation(text) {
  */
 // [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function looksLikePath(token) {
-  const relative = /^[\w.@-]+(\/[\w.@-]+)*\/[\w.@-]*\.[A-Za-z0-9]+$/.test(token);
-  if (relative) return true;
-  if (!/^(~\/|\.{1,2}\/|\/)/.test(token)) return false;
-  return /^.*\.[A-Za-z0-9]+$/.test(token) || existsSync(token);
+  // Written like a file: the last segment carries an extension, and the token either starts
+  // at a root or goes somewhere. A letter class would have made every path in a script the
+  // reader's own language writes a word of prose, and a dropped path is material the digest
+  // does not cover — a silence, which is the failure this classifier exists to avoid.
+  const writtenLikeAPath = /\.[A-Za-z0-9]+$/.test(token);
+  const goesSomewhere = /^(~\/|\.{1,2}\/|\/)/.test(token) || token.includes('/');
+  // A bare name is a path only when it names a file: "v1.2" and "e.g." are written like
+  // paths and are words, and refusing an invocation over one would trade a silence for a
+  // false alarm.
+  return (writtenLikeAPath && goesSomewhere) || existsSync(expandHome(token));
+}
+
+/**
+ * A token written with a leading `~`, resolved against the home directory.
+ *
+ * Node does not expand `~` — the shell does, and an argument written into an invocation is
+ * not the shell's to expand once it is one token of a string. So a path written the way a
+ * reader writes paths was classified as a path and then reported as not existing, which
+ * named the symptom and hid the cause.
+ */
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+function expandHome(token) {
+  if (!token.startsWith('~/')) return token;
+  return join(homedir(), token.slice(2));
 }
 
 /** The paths a block of material names, so `begin` can file them or refuse them by name. */
 // [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function namedPathsIn(material) {
   return material
     .split(/\s+/)
     .map((token) => token.replace(/[),;]+$/, ''))
-    .filter((token) => token !== '' && looksLikePath(token));
+    .filter((token) => token !== '' && looksLikePath(token))
+    .map(expandHome);
 }
 
 /**
@@ -351,11 +375,22 @@ export async function main(argv) {
     case 'brief': {
       const name = rest[1];
       try {
+        // The predicate is read from the declaration and the specification here, because a
+        // brief is the one place a reader meets the criterion: rendering it without one
+        // would hand over a question whose answer nothing can check. A declaration that is
+        // missing is named rather than defaulted, for the same reason.
+        // A declaration that is absent or not yet whole is the state the phase that asks
+        // for one runs in, so it is not a refusal: the brief states what to declare. A
+        // declaration that is present is used, because a generation inherits the previous
+        // one's criterion until its reader states another.
+        const declared = readDeclarationFile(join(context.directory, DECLARATION_FILE));
+        const predicate = declared.ok ? predicateFor(declared.declaration.predicate.limbs, context.spec.lines) : undefined;
         // The worklist path is the run's, not the caller's: a brief that named a file the
         // reader cannot open would send it looking for material that does not exist.
         process.stdout.write(`${renderBrief({
           briefName: name,
           worklistPath: join(context.directory, WORKLIST_FILE),
+          predicate,
           previousAnswers: inquestQuestionsIn(context.directory),
         })}\n`);
         return 0;

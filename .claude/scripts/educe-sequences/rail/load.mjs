@@ -132,6 +132,20 @@ export function validateArtifactShape(artifact, schema) {
       problems.push({ pin: `blocks[${index}].${key}`, reason: `block ${block.id ?? index} has no ${key}` });
     }
   }
+  // A sequence states the span every one of its steps is read against, and the crossings
+  // it records for the steps that lie beyond it. A crossing without a line records the
+  // separation in a way no check can read, which is the same as not recording it.
+  for (const [index, sequence] of artifact.sequences.entries()) {
+    for (const key of missingKeys(sequence, schema.sequences.required)) {
+      problems.push({ pin: `sequences[${index}].${key}`, reason: `sequence ${sequence.id ?? index} has no ${key}` });
+    }
+    for (const [position, crossing] of (sequence.crossRefs ?? []).entries()) {
+      for (const key of missingKeys(crossing, schema.sequences.crossRefs.required)) {
+        problems.push({ pin: `sequences[${index}].crossRefs[${position}].${key}`, reason: `crossing ${position} of sequence ${sequence.id ?? index} has no ${key}` });
+      }
+    }
+  }
+
   // A step is the carrier of both relations the artifact is checked for: which entry
   // realizes it and which operation it is an instance of. A step missing either field
   // would make the totality check read an absence as work that was never done, so the

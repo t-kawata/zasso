@@ -7,6 +7,10 @@ Answer this one question.
 
 {{QUESTION}}
 
+The sentence this specification decides by:
+
+{{PREDICATE}}
+
 Rules that decide whether your answer is an attack:
 
 - {{VERBATIM_QUOTE}}

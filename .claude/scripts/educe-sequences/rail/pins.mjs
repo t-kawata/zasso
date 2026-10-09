@@ -19,8 +19,58 @@ export const PIN_RULES = Object.freeze({
   FORM_PROPOSES: 'form-proposes-only',
 });
 
-/** The heading a section block is delimited by. */
-export const SECTION_HEADING = /^## /;
+/**
+ * The heading level a partition is taken at when the declaration states none.
+ *
+ * Three, because that is the level a specification states its procedures at: a chapter
+ * names a subject and a subsection names a procedure. The level is declared rather than
+ * inferred, because inferring it would be a guess about the document of exactly the kind
+ * a reading is supposed to replace — and it is not a constant of the apparatus, because
+ * the golden fixture is a document that states its sections with two hashes.
+ */
+export const DEFAULT_SECTION_LEVEL = 3;
+
+/**
+ * The levels a partition may be taken at.
+ *
+ * The heading depths markdown has, because a document states its sections at whatever depth
+ * it uses and the apparatus reads documents. A narrower vocabulary would not make a
+ * declaration more precise; it would make a specification written with four hashes
+ * unrunnable, which is the apparatus refusing a shape instead of reading it. A level the
+ * format does not have is still not a level, and the default still stands behind it.
+ */
+export const SECTION_LEVELS = Object.freeze([1, 2, 3, 4, 5, 6]);
+
+/**
+ * The level a declaration partitions at, or the default.
+ *
+ * A level the apparatus cannot partition at is not a partition, so it is answered with the
+ * default rather than with an empty partition that would read as a document with no
+ * sections. The declaration's own shape gate names the field for the reader who wants to
+ * be told instead.
+ */
+export function sectionLevelOf(declaration) {
+  const level = declaration?.sectionLevel;
+  return SECTION_LEVELS.includes(level) ? level : DEFAULT_SECTION_LEVEL;
+}
+
+/**
+ * The predicate as a reader meets it: the line it is on, its text, and its limbs.
+ *
+ * The line is found here by the same rule the pin is established and re-derived by, rather
+ * than read off the declaration: a declaration states the limbs, and the line is what the
+ * rule finds for them. Reading a line off the declaration would have a brief print "line
+ * undefined" — and would let the reader name the line instead of finding it.
+ */
+export function predicateFor(limbs, specLines) {
+  const declared = [...(limbs ?? [])];
+  const line = findLineContainingAll(specLines, declared);
+  return {
+    line,
+    text: Number.isInteger(line) ? (specLines[line - 1] ?? '') : '',
+    limbs: declared,
+  };
+}
 
 /**
  * The first 1-based line containing every token, or null.
@@ -59,9 +109,11 @@ function compressRanges(lineNumbers) {
 }
 
 /** The section blocks a specification's headings delimit, ending at its last line. */
-export function blocksFromHeadings(specLines) {
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+export function blocksFromHeadings(specLines, level = DEFAULT_SECTION_LEVEL) {
+  const heading = new RegExp(`^#{${level}} `);
   const headings = specLines
-    .map((line, index) => (SECTION_HEADING.test(line) ? index + 1 : null))
+    .map((line, index) => (heading.test(line) ? index + 1 : null))
     .filter((line) => line !== null);
   return headings.map((firstLine, position) => ({
     id: `s${position + 1}`,
@@ -99,6 +151,7 @@ export function selectNeighbourFor(artifact, entry) {
  *          forms: Array<{name: string, proposes: boolean}>}} declaration
  */
 export function establishPins(specLines, declaration) {
+  const sectionLevel = sectionLevelOf(declaration);
   return {
     predicate: {
       line: findLineContainingAll(specLines, declaration.predicate.limbs),
@@ -115,7 +168,8 @@ export function establishPins(specLines, declaration) {
       closedness: enumeration.closedness,
     })),
     forms: declaration.forms.map((form) => ({ name: form.name, proposes: form.proposes })),
-    blocks: blocksFromHeadings(specLines),
+    sectionLevel,
+    blocks: blocksFromHeadings(specLines, sectionLevel),
   };
 }
 
@@ -165,8 +219,8 @@ function rederiveEnumeration(pin, specLines) {
 }
 
 /** Re-derive the block partition: contiguous, gapless to the last line, one block per heading. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-function rederiveBlocks(blocks, specLines) {
+// [::TICKET::] PX-240, PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246) --for-spec --no-implementation-order`.
+function rederiveBlocks(blocks, specLines, sectionLevel) {
   const rule = PIN_RULES.BLOCK_PARTITION;
   if (blocks.length === 0) return verdict('blocks', rule, 'the partition is empty, so no line is covered');
 
@@ -182,7 +236,7 @@ function rederiveBlocks(blocks, specLines) {
     return verdict('blocks', rule, `the partition ends on line ${last.lastLine} and the specification has ${specLines.length} lines`, last.lastLine);
   }
 
-  const headingLines = blocksFromHeadings(specLines).map((block) => block.firstLine);
+  const headingLines = blocksFromHeadings(specLines, sectionLevel).map((block) => block.firstLine);
   const starts = new Set(ordered.map((block) => block.firstLine));
   for (const heading of headingLines) {
     if (!starts.has(heading)) {
@@ -219,20 +273,27 @@ export function rederivePin(pin, specLines) {
     case 'form':
       return rederiveForm(pin.value);
     case 'blocks':
-      return rederiveBlocks(pin.value, specLines);
+      return rederiveBlocks(pin.value, specLines, pin.sectionLevel);
     default:
       return verdict(pin.kind, 'unknown-pin-kind', `no rule is declared for pin kind "${pin.kind}"`);
   }
 }
 
-/** Every pin in an artifact, flattened into one list a caller can iterate. */
+/**
+ * Every pin in an artifact, flattened into one list a caller can iterate.
+ *
+ * The section level travels with the block partition rather than as a pin kind of its own:
+ * it is not a finding, it is the rule the partition was taken by, and `rederivePin`
+ * receives one pin at a time — so a level kept anywhere else could not reach the rule that
+ * needs it.
+ */
 export function flattenPins(pins) {
   return [
     { kind: 'predicate', value: pins.predicate },
     { kind: 'rowSchema', value: pins.rowSchema },
     ...pins.enumerations.map((value) => ({ kind: 'enumeration', value })),
     ...pins.forms.map((value) => ({ kind: 'form', value })),
-    { kind: 'blocks', value: pins.blocks },
+    { kind: 'blocks', value: pins.blocks, sectionLevel: pins.sectionLevel },
   ];
 }
 

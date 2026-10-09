@@ -172,6 +172,7 @@ function movePinLine(artifact, kind, line) {
 
 /** The specification mutations: each must redden the check it names. */
 export const SPEC_MUTATION_CORPUS = Object.freeze([
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   {
     name: 'predicate-line-moved',
     check: 'predicate-pin-rederives',
@@ -241,8 +242,11 @@ export const SPEC_MUTATION_CORPUS = Object.freeze([
     name: 'operation-position-outside-the-declared-set',
     check: 'every-operation-placed',
     mutate: ({ artifact, specLines }) => {
+      // The row that carries the defect is the artifact's own first operation. Naming a row
+      // from this file would make the case unrunnable on any specification whose operations
+      // are named otherwise, which is the whole of them but the fixture.
       const next = structuredClone(artifact);
-      next.operations.find((operation) => operation.id === 'Admit').position = 'floating';
+      next.operations[0].position = 'floating';
       return { artifact: next, specLines };
     },
   },
@@ -259,6 +263,7 @@ export const SPEC_MUTATION_CORPUS = Object.freeze([
 
 /** The counter-mutations: edits that are correct but different, and must stay green. */
 export const COUNTER_MUTATION_CORPUS = Object.freeze([
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   {
     name: 'predicate-limbs-reordered',
     mutate: ({ artifact, specLines }) => {
@@ -302,9 +307,28 @@ export const COUNTER_MUTATION_CORPUS = Object.freeze([
   {
     name: 'step-rebound-to-another-declared-operation',
     mutate: ({ artifact, specLines }) => {
+      // Two steps that already carry an operation exchange theirs. What each step reaches
+      // changes and the set of reached operations does not, so the run stays correct — and
+      // the pair is drawn from the artifact, so no name is written into this file.
       const next = structuredClone(artifact);
-      next.steps[0].operation = 'Settle';
-      return { artifact: next, specLines };
+      const bearing = next.steps.filter((step) => typeof step.operation === 'string' && step.operation !== '');
+      if (bearing.length >= 2) {
+        [bearing[0].operation, bearing[1].operation] = [bearing[1].operation, bearing[0].operation];
+        return { artifact: next, specLines };
+      }
+      if (bearing.length === 1) {
+        // A document that binds one step has only one relation to preserve, so the exchange
+        // has nothing to exchange. Renaming the operation in both places is correct and
+        // different on any artifact: every step still names a declared operation, and the
+        // vocabulary is one no case in this file wrote down.
+        const [only] = bearing;
+        const operation = next.operations.find((candidate) => candidate.id === only.operation);
+        if (operation === undefined) throw new Error(`the only bound step names ${only.operation}, which the artifact does not declare`);
+        only.operation = `${operation.id}Rebound`;
+        operation.id = only.operation;
+        return { artifact: next, specLines };
+      }
+      throw new Error('the artifact binds no step to an operation, so the relation this case preserves does not exist');
     },
   },
 ]);

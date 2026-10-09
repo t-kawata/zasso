@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { CHECKS, checkAll } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { deriveSet, readArtifact } from './load.mjs';
-import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll } from './pins.mjs';
+import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES } from './reading.mjs';
 import {
   DECLARATION_FILE,
@@ -154,8 +154,11 @@ export const PHASES = Object.freeze([
   },
   {
     id: 5, name: 'blocks', tag: PHASE_TAGS.READ, requires: [1], backTo: 1, maxLoops: 3,
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
     exit: (ctx) => {
-      const blocks = blocksFromHeadings(ctx.spec.lines);
+      const declared = readDeclaration(ctx.directory);
+      if (!declared.ok) return refuse(declared.problems.join('; '));
+      const blocks = blocksFromHeadings(ctx.spec.lines, sectionLevelOf(declared.declaration));
       if (blocks.length === 0) return refuse('the specification states no sections, so nothing can be partitioned');
       const last = blocks.at(-1);
       return last.lastLine !== ctx.spec.lineCount

@@ -26,6 +26,10 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 - `<spec-file>` — the first whitespace-delimited token of the invocation, and its only
   argument: the path of an existing readable file with an extension.
+- A supplied path written with a leading `~` is resolved against the home directory before
+  it is classified and before it is checked for existence. Node does not expand `~`, so a
+  path written the way a reader writes paths would otherwise be filed as prose or refused
+  with a message naming the token rather than the file.
 - Everything after it — guidance typed into the invocation, and paths to artifacts
   produced before this command existed — is supplied material, not a second argument. It
   is copied into `<dir of spec-file>/educe-sequences/supplied/` and digested, and the
@@ -187,8 +191,12 @@ node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 2
 ```
 
 The reader writes `<dir of spec-file>/educe-sequences/declaration.json` with
-`predicate.limbs`. FAIL prints `expects: declaration.json with predicate.limbs`; back to
-Step 1; max 3 loops.
+`predicate.limbs`, and states `sectionLevel` — the heading level the document states its
+procedures at, `3` by default. FAIL prints
+`expects: declaration.json with predicate.limbs`; back to Step 1; max 3 loops. The limbs
+are quoted from the one line that carries every one of them, and that line is the criterion
+every later ruling is made against: a ruling that says an entry is not an operation names
+the limb it fails, or `none-applies` when no limb applies.
 Refused when: no line carries every limb. That refusal means the limbs were paraphrased
 rather than quoted, and the repair is to quote the line, not to loosen the gate.
 
@@ -262,11 +270,23 @@ inside the entry's own span?* — and writes
 `<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
 carrying the `steps` and `operations` it read there.
 
+Every step carries the act it names — `subject`, `predicate`, `object`, `contract` — and
+the line it was read from with the verbatim quote from that line, as `line` and `quote`.
+The four act fields are not enough on their own: a decomposition can carry all of them, in
+order, with the operation relation holding, and not be a reading at all. The `quote` must
+be a contiguous substring of the line `line` names, and the line must lie inside the
+entry's own span — or in that entry's `crossRefs`, when the procedure is stated in one
+place and anchored in another. A separation that is recorded is permitted; one that is
+absorbed is refused.
+
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 8
 ```
 
-Refused when a claim carries no signature. A claim with no signature is not a reading.
+Refused when a claim carries no signature, when a step carries no `line` or no `quote`,
+when a quote is not carried by the line it names, or when a step cites a line outside its
+entry's span that the entry does not record as a crossing. A claim with no signature is
+not a reading.
 FAIL: back to Step 7; max 3 loops.
 Note: a span that does not carry the operation the entry names is a **result**, not a
 failure. The reader records that verdict, and the run continues.

@@ -11,11 +11,18 @@
 //
 // The checks are built from the constructors in checks.mjs rather than written out,
 // so the shape of a check is declared once and a new check costs choosing a shape.
-import { agreeOn, citeFrom, coverEvery, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
+import { agreeOn, citeFrom, citeInside, coverEvery, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
 import { readArtifactSchema, validateArtifactShape } from './load.mjs';
-import { PIN_RULES, flattenPins, selectNeighbourFor } from './pins.mjs';
-import { INQUEST_ANSWERS, INQUEST_LENSES, inquestPairs, isExempt } from './readings.mjs';
+import { PIN_RULES, blocksFromHeadings, flattenPins, selectNeighbourFor } from './pins.mjs';
+import {
+  INQUEST_ANSWERS,
+  INQUEST_LENSES,
+  LIMB_RULING_OUTCOMES,
+  NO_LIMB_APPLIES,
+  inquestPairs,
+  isExempt,
+} from './readings.mjs';
 
 /**
  * The positions an operation may hold, read from the schema rather than repeated.
@@ -126,7 +133,7 @@ const suppliedRuleHasNoDefiningSection = {
 };
 
 /** Where an operation stands, and the evidence its position rests on. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-246) --for-spec --no-implementation-order`.
 function placementOf(operation, context) {
   if (operation.position === 'positioned') {
     const carrier = context.artifact.steps.find((step) => step.operation === operation.id);
@@ -140,6 +147,14 @@ function placementOf(operation, context) {
     const line = operation.grounding?.presupposition;
     const text = Number.isInteger(line) ? context.specLines[line - 1] ?? '' : '';
     return { bucket: 'suppliedRule', evidence: text.includes(operation.id) ? String(line) : '' };
+  }
+  if (operation.position === 'excluded') {
+    // An exclusion is a boundary rather than a silence: the row stays, and the line that
+    // excludes it is what places it. A row excused from the reach check on a reason that
+    // cites nothing is the escape the census exists to close.
+    const line = operation.grounding?.line;
+    const inside = Number.isInteger(line) && line >= 1 && line <= context.specLines.length;
+    return { bucket: 'excluded', evidence: inside ? String(line) : '' };
   }
   return { bucket: operation.position, evidence: '' };
 }
@@ -244,7 +259,10 @@ const inquestAnswersCiteInsideSpecification = citeFrom(
   { id: 'sections-agree-with-blocks', defect: 'a declared section list that drifted from the partition the headings state, so the census counted a section the specification does not have', refuses: 'a section present in one partition and absent from the other, or present in both with a different range', scope: 'every artifact, over its sections and its block pin' },
   {
   left: (context) => context.artifact.sections,
-  right: (context) => context.artifact.pins.blocks,
+  // The headings themselves at the level the artifact declares, not the pin: the pin is a
+  // claim, this check is about whether the declared list drifted from the document. A
+  // section list taken at one level while the artifact says another is the drift.
+  right: (context) => blocksFromHeadings(context.specLines, context.artifact.pins.sectionLevel),
   value: (record) => `${record.firstLine}-${record.lastLine}`,
 });
 
@@ -263,6 +281,77 @@ const censusEverySectionExplained = coverEvery(
     && entry.firstLine >= section.firstLine && entry.firstLine <= section.lastLine)
     || context.artifact.adjudications.some((row) => row.subject === section.id),
 });
+
+/**
+ * Every step is grounded in the line it names.
+ *
+ * The device is the one the audit answers already use and the steps did not: the quote
+ * must be a contiguous substring of the line it cites, after whitespace is normalised,
+ * because a quote assembled from two places is the fabrication this asks about. Without
+ * it a decomposition can carry every act field, in order, with the bijection holding, and
+ * not be a reading — which is a measured failure rather than an imagined one.
+ */
+const stepIsGroundedInItsLine = groundIn(
+  { id: 'step-is-grounded-in-its-line', defect: 'a step whose quote was assembled rather than read, so a decomposition passed every structural check without being a reading', refuses: 'a step whose cited line does not carry its quote', scope: 'every artifact, over its steps' },
+  {
+    claims: (context) => context.artifact.steps.map((step) => ({ line: step.line, quote: step.quote, subject: step.id })),
+  },
+);
+
+/**
+ * Every step cites a line inside its entry's span, or one the entry records as a crossing.
+ *
+ * The span is the currency the census and the neighbour relation are counted in, so an
+ * absorbed distance makes both of them a rubber stamp; a recorded crossing keeps the
+ * separation visible instead of hiding it inside a range.
+ */
+const stepCitesInsideItsEntrySpan = citeInside(
+  { id: 'step-cites-a-line-inside-its-entry-span', defect: 'a span wide enough to absorb the distance between a procedure and its anchor, so the census counted lines nobody read', refuses: 'a step citing a line outside its entry span that the entry does not record as a crossing', scope: 'every artifact, over its steps and its sequences' },
+  {
+    claims: (context) => context.artifact.steps,
+    spanOf: (step, context) => context.artifact.sequences.find((sequence) => sequence.id === step.sequence) ?? null,
+    crossings: (span) => span.crossRefs ?? [],
+  },
+);
+
+/**
+ * Every ruling that applies the predicate names a limb of it, or says that none applies.
+ *
+ * This is what makes the predicate a criterion rather than a citation: the pin is
+ * re-derived every run, and until a ruling has to point at a limb, a declaration whose
+ * limbs are the chosen line's own words satisfies the re-derivation by quoting itself.
+ */
+const adjudicationCitesADeclaredLimb = coverEvery(
+  { id: 'adjudication-cites-a-declared-limb', defect: 'a ruling that applies the predicate without naming the limb it fails, so the criterion was never used by the reading it decides', refuses: 'a ruling outside the declared limbs, and a ruling that names no limb and does not say none applies', scope: 'every artifact, over its adjudications' },
+  {
+    sources: (context) => context.artifact.adjudications.filter((row) => LIMB_RULING_OUTCOMES.includes(row.outcome)),
+    coveredBy: (row, context) => {
+      const limbs = context.artifact.pins?.predicate?.limbs ?? [];
+      return row.predicateLimb === NO_LIMB_APPLIES || limbs.includes(row.predicateLimb);
+    },
+    label: (row) => row.subject,
+  },
+);
+
+/**
+ * How many of the declared limbs a ruling cited, and how many it did not.
+ *
+ * A count of what the artifact holds, so it lives beside the other measurements and in
+ * the summary a report prints — and, like them, it is compared to no threshold. What it
+ * makes visible is a predicate nothing decided by: every ruling saying no limb applies is
+ * a reading of the document, and every ruling saying so while no limb was ever cited is a
+ * declaration that is not being used.
+ */
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+function limbCensus(artifact) {
+  const limbs = artifact.pins?.predicate?.limbs ?? [];
+  const cited = new Set(
+    (artifact.adjudications ?? [])
+      .map((row) => row.predicateLimb)
+      .filter((limb) => limbs.includes(limb)),
+  );
+  return { predicateLimbs: limbs.length, limbsCited: cited.size, limbsUnused: limbs.length - cited.size };
+}
 
 /** Every operation names where it stands, and that place carries its evidence. */
 const everyOperationPlaced = placeEach(
@@ -332,6 +421,9 @@ export const CHECKS = Object.freeze([
   everyOperationPlaced,
   everyOperationReached,
   stepCarriesFourFields,
+  stepIsGroundedInItsLine,
+  stepCitesInsideItsEntrySpan,
+  adjudicationCitesADeclaredLimb,
   neighbourCitesInsideSpan,
   suppliedRuleHasNoDefiningSection,
   inquestCoversEverySubjectAndLens,
@@ -406,6 +498,7 @@ export function checkAll({ specLines, artifact, rederivePins = true, recorded = 
       // The artifact's measurements come from one place, so the number a report prints
       // and the number recorded in history are the same value and cannot disagree.
       ...coverageOf(artifact),
+      ...limbCensus(artifact),
       pinsRederived: flattenPins(artifact.pins).length,
       pinsTotal: flattenPins(artifact.pins).length,
       railExits: railExits.length,
