@@ -158,6 +158,31 @@ export function placeEach(contract, { members, buckets, bucketOf, label }) {
 }
 
 /**
+ * A check that every claim cites a line inside the span it belongs to, or one the span
+ * records as a crossing.
+ *
+ * Coverage is not the relation this asks about: a span that contains a line has not read
+ * it, and an apparatus that accepted coverage counted a claim as realized by an entry that
+ * cited none of its lines. A separation is permitted once it is recorded, because a
+ * procedure may be stated in one place and anchored in another — what is refused is the
+ * absorption, which would make a span of a third of the document read as one reading.
+ */
+export function citeInside(contract, { claims, spanOf, crossings, label }) {
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+  requireAttribution(contract);
+  return checkOf(contract, (context) =>
+    (claims(context) ?? []).flatMap((claim) => {
+      const subject = labelOf(claim, label);
+      const span = spanOf(claim, context);
+      if (span === null || span === undefined) return [verdict(contract.id, subject, `no span: ${contract.refuses}`)];
+      if (!Number.isInteger(claim.line)) return [verdict(contract.id, subject, `the citation carries no integer line: ${contract.refuses}`)];
+      if (claim.line >= span.firstLine && claim.line <= span.lastLine) return [];
+      const recorded = (crossings(span, context) ?? []).some((crossing) => crossing.line === claim.line);
+      return recorded ? [] : [verdict(contract.id, subject, `line ${claim.line} is outside ${span.id} ${span.firstLine}-${span.lastLine} and is not recorded as a crossing`)];
+    }));
+}
+
+/**
  * A check that every declared name is reached, in both directions.
  *
  * The two directions are different findings — a claimed name nobody declares is a

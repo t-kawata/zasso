@@ -740,3 +740,65 @@ test('IT the artifact records the supplied digest, and verification compares it'
 function mkdirIfNeeded(path) {
   mkdirSync(path, { recursive: true });
 }
+
+// ---------------------------------------------------------------------------
+// C008 — a supplied path written the way a reader writes it
+// ---------------------------------------------------------------------------
+
+/** A throwaway home directory holding a specification and one file to supply. */
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+function scratchHome() {
+  const root = mkdtempSync(join(tmpdir(), 'px246-home-'));
+  const specPath = join(root, 'ledger.md');
+  copyFileSync(SPEC_SOURCE, specPath);
+  writeFileSync(join(root, 'prior.md'), 'section 5 names the acts\n');
+  return { root, specPath };
+}
+
+test('C008 a supplied path written with a tilde is filed when the file is under the home directory', () => {
+  const { root, specPath } = scratchHome();
+
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, 'use ~/prior.md as a hint'],
+    { cwd: PROJECT_ROOT, encoding: 'utf8', env: { ...process.env, HOME: root } });
+
+  assert.equal(opened.status, 0, opened.stderr);
+  assert.equal(
+    existsSync(join(root, 'educe-sequences', SUPPLIED_DIRECTORY, 'prior.md')),
+    true,
+    'the token is a path, so it is filed rather than left as prose',
+  );
+});
+
+test('C008 a tilde path that does not exist is refused by the name it resolves to', () => {
+  const { root, specPath } = scratchHome();
+
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, 'use ~/absent.md as a hint'],
+    { cwd: PROJECT_ROOT, encoding: 'utf8', env: { ...process.env, HOME: root } });
+
+  assert.equal(opened.status, 1);
+  assert.match(opened.stderr, /does not exist/);
+  assert.equal(opened.stderr.includes('~/absent.md'), false, 'the unexpanded token is what hid the cause');
+  assert.match(opened.stderr, new RegExp(join(root, 'absent.md')));
+});
+
+test('C006 a supplied path is filed whatever its characters, and a word that only looks like one is not', () => {
+  const { specPath, root } = scratchRun();
+  mkdirSync(join(root, '資料'), { recursive: true });
+  writeFileSync(join(root, '資料', '仕様メモ.md'), 'the previous campaign\n');
+  writeFileSync(join(root, 'ascii-note.md'), 'a bare relative name\n');
+  mkdirSync(join(root, 'nested'), { recursive: true });
+  writeFileSync(join(root, 'nested', 'deep.json'), '{"prior":true}\n');
+
+  const invocation = [
+    'use 資料/仕様メモ.md and ascii-note.md and nested/deep.json as hints',
+    'this sentence mentions v1.2 and e.g. as prose',
+  ].join(' ');
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, invocation],
+    { cwd: root, encoding: 'utf8' });
+
+  assert.equal(opened.status, 0, opened.stderr);
+  const filed = readdirSync(join(root, 'educe-sequences', SUPPLIED_DIRECTORY)).sort();
+  // Material that is not filed is material the digest does not cover, and the reader is
+  // never told: a path-shaped token dropped in silence is the failure this guards.
+  assert.deepEqual(filed, ['ascii-note.md', 'deep.json', 'material.md', '仕様メモ.md']);
+});

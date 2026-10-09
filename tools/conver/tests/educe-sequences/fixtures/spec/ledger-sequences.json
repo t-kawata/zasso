@@ -123,7 +123,8 @@
         "firstLine": 57,
         "lastLine": 60
       }
-    ]
+    ],
+    "sectionLevel": 2
   },
   "sequences": [
     {
@@ -167,7 +168,9 @@
       "contract": "the instruction is signed",
       "reader": "span",
       "sequence": "admission",
-      "operation": "Admit"
+      "operation": "Admit",
+      "line": 24,
+      "quote": "reading the signed instruction"
     },
     {
       "id": "admission-2",
@@ -177,7 +180,9 @@
       "contract": "the signature verifies",
       "reader": "span",
       "sequence": "admission",
-      "operation": "Admit"
+      "operation": "Admit",
+      "line": 25,
+      "quote": "signature against the issuer key"
     },
     {
       "id": "admission-3",
@@ -187,7 +192,9 @@
       "contract": "the row exists",
       "reader": "span",
       "sequence": "admission",
-      "operation": "Admit"
+      "operation": "Admit",
+      "line": 25,
+      "quote": "writing a Pending row"
     },
     {
       "id": "settlement-1",
@@ -197,7 +204,9 @@
       "contract": "the row is pending",
       "reader": "span",
       "sequence": "settlement",
-      "operation": "Settle"
+      "operation": "Settle",
+      "line": 34,
+      "quote": "debiting the payer"
     },
     {
       "id": "settlement-2",
@@ -207,7 +216,9 @@
       "contract": "the payer was debited",
       "reader": "span",
       "sequence": "settlement",
-      "operation": "Settle"
+      "operation": "Settle",
+      "line": 34,
+      "quote": "crediting the payee"
     },
     {
       "id": "settlement-3",
@@ -217,7 +228,9 @@
       "contract": "the payee was credited",
       "reader": "span",
       "sequence": "settlement",
-      "operation": "Settle"
+      "operation": "Settle",
+      "line": 35,
+      "quote": "marking the row Settled"
     }
   ],
   "operations": [
@@ -255,28 +268,32 @@
       "outcome": "notASequence",
       "category": "document_description",
       "reason": "it says what the document specifies rather than naming an actor and an act",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     },
     {
       "subject": "s2",
       "outcome": "notASequence",
       "category": "predicate_statement",
       "reason": "it states when a procedure counts as an operation rather than performing one",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     },
     {
       "subject": "s3",
       "outcome": "notASequence",
       "category": "row_description",
       "reason": "it describes the fields a row carries rather than an act an operator performs",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     },
     {
       "subject": "s4",
       "outcome": "notASequence",
       "category": "enumeration_statement",
       "reason": "it states the closed set of statuses rather than an act",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     },
     {
       "subject": "s7",
@@ -297,14 +314,16 @@
       "outcome": "notASequence",
       "category": "rule_statement",
       "reason": "it states a rule a designer may supply rather than naming an act",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     },
     {
       "subject": "s10",
       "outcome": "notASequence",
       "category": "non_sequence_prose",
       "reason": "it describes a section rather than an ordered procedure an actor performs",
-      "reader": "adjudicate"
+      "reader": "adjudicate",
+      "predicateLimb": "none-applies"
     }
   ],
   "sections": [

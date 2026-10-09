@@ -222,7 +222,7 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.deepEqual(after.verdicts, baseline.verdicts);
   assert.equal(after.summary.checksRun, baseline.summary.checksRun);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 17, 'a growth gate would have to be a check, and this ticket adds none');
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 20, 'PX-245 added no check; PX-246 adds three, and none of them is a growth gate');
 });
 
 test('C002 an unreadable file answers "nothing on record" rather than stopping the run', () => {

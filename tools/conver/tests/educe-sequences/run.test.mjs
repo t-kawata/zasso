@@ -48,7 +48,7 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
   assert.equal(existsSync(artifactPath), true);
-  assert.match(result.out, /checksRun=17 of 17/);
+  assert.match(result.out, /checksRun=20 of 20/);
   assert.match(result.out, /pinsRederived=5 of 5/);
 });
 
@@ -118,7 +118,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   const result = await quietly([specPath], null);
 
   assert.equal(result.exitCode, EXIT.OK);
-  assert.match(result.out, /checksRun=17 of 17/);
+  assert.match(result.out, /checksRun=20 of 20/);
 });
 
 test('C011 the artifact a run produces equals the committed golden record', async () => {

@@ -36,7 +36,7 @@ where no reader can check it.
 The artifact carries the pins: the predicate line and its limbs, the row-schema line and
 its fields, the enumerations with their ranges, the forms, and the section partition.
 Each pin is recorded together with the rule it was read by, and `rederiveAll` at
-`pins.mjs:246` re-runs that rule against the specification text in the same run that
+`pins.mjs:299` re-runs that rule against the specification text in the same run that
 consumes it.
 
 This is the property that keeps the single-input design from becoming a self-referential
@@ -53,10 +53,17 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:298`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:387`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
+
+Three of the twenty are the ones this apparatus needed before it could claim to have
+read rather than assembled: a step is grounded in the line it names, a step cites a line
+inside its entry's span or one the entry records as a crossing, and a ruling that applies
+the predicate names a limb of it. Each of the three is a device the campaign reached by
+measuring its own failures — a decomposition of 1178 steps carried every act field, in
+order, with the bijection holding, and none of it was a reading.
 
 The block is produced only after every check has run, so a null summary means the run
 stopped before the checks could speak. "No verdicts" and "no checks" must never print the
@@ -67,15 +74,23 @@ list.
 
 Six briefs — span, adjudicate, adversarial, reroute, adhoc, inquest — and each renders only when
 it carries exactly one interrogative sentence, the verbatim-quote requirement, the
-no-line-window rule and the worklist path. The six are counted rather than searched for,
-so a template that merely mentions them does not render.
+no-line-window rule, the worklist path and the predicate. The six are counted rather than
+searched for, so a template that merely mentions them does not render.
+
+The predicate is carried in full — the line it is on, the sentence itself, and the limbs —
+because a criterion a reader has to remember is a criterion the artifact cannot be traced
+to. A pin that is re-derived every run and reaches nobody decides nothing: the declaration
+could satisfy its own re-derivation by quoting the line it chose, and no ruling had to
+point at a limb. The brief now states it, a ruling that applies it names the limb it fails,
+and the report prints how many limbs were cited and how many were not, so a predicate that
+nothing decided by is visible as a number rather than as an absence.
 
 A neighbour is selected by citation: the entry that cites a line inside the entry's own
-span, at `pins.mjs:82`. A neighbour that merely covers the span is not a candidate — that
+span, at `pins.mjs:126`. A neighbour that merely covers the span is not a candidate — that
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
-The integrator at `reading.mjs:241` proves every field of every reading before anything is
+The integrator at `reading.mjs:351` proves every field of every reading before anything is
 written, and a refusal leaves the artifact byte-identical to its state before the call. A
 partial write is the failure that module exists to make impossible.
 
@@ -94,7 +109,7 @@ so a hand-edited fixture fails rather than silently changing what the golden tes
 measures. Drift from the source repository is reported, never absorbed.
 
 The corpus holds 29 files totalling 3100101 bytes, and a green run of the golden
-specification reports 17 checks over 5 pins.
+specification reports 20 checks over 5 pins.
 
 `tests/educe-sequences/fixtures/spec/` holds the golden run: a small specification, the
 declaration and readings one run recorded, and the artifact and rendering that run
@@ -112,6 +127,30 @@ A phase table is a claim until something evaluates it. The eighteen phases are d
 once, at `gates.mjs:114`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
+
+A step carries the line it was read from and the verbatim quote from that line, and the
+integrator refuses a reading whose step omits either before anything is written. The pair
+is what makes a decomposition checkable at all, and it is compared as a contiguous
+substring after whitespace is normalised rather than checked for presence: a quote
+assembled from two places is the shape the campaign found, and presence would not see it.
+A step also cites a line inside its entry's own span, or one the entry records in
+`crossRefs` — a separation is permitted once it is named, because a procedure may be
+stated in one place and anchored in another, and what is refused is the absorption that
+would let a span of a third of the document read as one reading.
+
+An operation stands in one of four positions. `excluded` is the fourth, and it is the one
+that made a boundary impossible to record: the reach check named it as an escape while the
+schema did not declare it and the placement check had no evidence to ask it for, so a row
+the specification excludes could be excused from one check and never satisfy the other. It
+now carries the line that excludes it, which is what the campaign's exclusions have and
+what makes them boundaries rather than deletions.
+
+The section partition is taken at the level the declaration names, defaulting to three,
+because that is the level a specification states its procedures at and a single-step
+operation has to name the section that defines it. The level is declared rather than
+inferred — inferring it would be a guess about the document of exactly the kind a reading
+is meant to replace — and it travels with the block partition, because how a partition was
+taken is not a finding about the text.
 
 `phases.mjs:219` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
@@ -174,7 +213,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:199` before anything downstream sees them. Two files are
+line by line at `readings.mjs:242` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 
@@ -226,7 +265,7 @@ written, because editing the rail is a change made under a ticket.
 
 What each generation produced is measured rather than judged. `coverage.mjs:51` counts
 what the artifact holds and unions the specification lines its records name, clipped to
-the document, and `rail/report.mjs:103` prints those counts beside the generation before them
+the document, and `rail/report.mjs:119` prints those counts beside the generation before them
 through the same helper the audit counts use. Each count carries the change from the
 generation before it, signed, because a reader judging whether another repetition is
 worth asking for should not have to subtract two numbers to see that they have stopped
@@ -241,7 +280,7 @@ inside the rail can enumerate. Nothing compares one of these to a threshold. A g
 that merges two sequences into one is an improvement carrying a smaller number, and a
 gate on growth would refuse the work it exists to encourage.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:433` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:436` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
 is the same revision — and `phases.mjs:362` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
@@ -257,8 +296,8 @@ condition that would promote the check into the rail. The records live in the ru
 directory, at `rail-exits.jsonl` beside the checks they describe: a store inside the tool
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
-other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:140` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:300` is
+other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:156` closes the run by
+separating what was measured from what is carried by a signature, and `phase.mjs:324` is
 the command line every step of the command file runs.
 
 ## 8. What is not here

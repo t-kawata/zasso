@@ -19,7 +19,7 @@ import { join } from 'node:path';
 
 import { ADHOC_DIRECTORY } from './adhoc.mjs';
 import { RAIL_EXIT_FILE } from './harness.mjs';
-import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll } from './pins.mjs';
+import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
 import { BRIEF_NAMES } from './reading.mjs';
 import { DECLARATION_FILE, PINS_FILE, WORKLIST_FILE, readingsFileName } from './readings.mjs';
 
@@ -131,8 +131,12 @@ function invalidated(asset, name, primitive, why) {
  * @returns {{kept: {declaration: object, readings: object}, invalidated: Array<{asset: string, name: string, primitive: string, why: string}>}}
  */
 export function survivingAssets({ declaration, readings = {}, specLines }) {
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   const invalidations = [];
-  const blocks = blocksFromHeadings(specLines);
+  // The level the declaration partitions at, not the default: a section that survives an
+  // edit is one the same rule still delimits, and taking the partition at another level
+  // would invalidate every section of a document that had not changed.
+  const blocks = blocksFromHeadings(specLines, sectionLevelOf(declaration));
   const spans = new Set(blocks.map((block) => `${block.firstLine}-${block.lastLine}`));
 
   const sections = (declaration.sections ?? []).filter((section) => {

@@ -19,7 +19,7 @@
     "required": ["path", "sha256", "lines"]
   },
   "pins": {
-    "required": ["predicate", "rowSchema", "enumerations", "forms", "blocks"],
+    "required": ["predicate", "rowSchema", "enumerations", "forms", "sectionLevel", "blocks"],
     "predicate": { "required": ["line", "limbs"] },
     "rowSchema": { "required": ["line", "fields"] },
     "enumerations": { "required": ["name", "members", "ranges", "closedness"] },
@@ -27,9 +27,13 @@
     "blocks": { "required": ["id", "firstLine", "lastLine"] }
   },
   "outcomes": ["direct", "viaNeighbour", "notASequence", "singleStep", "exempt"],
-  "positions": ["positioned", "singleStep", "suppliedRule"],
+  "positions": ["positioned", "singleStep", "suppliedRule", "excluded"],
+  "sequences": {
+    "required": ["id", "kind", "firstLine", "lastLine"],
+    "crossRefs": { "required": ["line", "note"] }
+  },
   "steps": {
-    "required": ["id", "sequence", "operation"]
+    "required": ["id", "sequence", "operation", "line", "quote"]
   },
   "verify": { "required": ["command", "expected_exit"] }
 }

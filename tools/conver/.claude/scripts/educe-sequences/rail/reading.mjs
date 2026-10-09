@@ -22,7 +22,15 @@ import { digestOf, writeArtifact } from './load.mjs';
 // The reading vocabularies are declared with the files that carry them, so the driver and
 // the validator cannot hold two copies of what a reading is: the copy this module used to
 // keep beside its own `neighbour` literal was a second thing to drift.
-import { INQUEST_ANSWERS, INQUEST_LENSES, missingReadingFields } from './readings.mjs';
+import {
+  INQUEST_ANSWERS,
+  INQUEST_LENSES,
+  LIMB_RULING_OUTCOMES,
+  missingReadingFields,
+  missingStepFields,
+  NO_LIMB_APPLIES,
+  PREDICATE_LIMB_FIELD,
+} from './readings.mjs';
 // The selection rule lives with the pins because a citation inside a span is what a
 // pin is: the engine and the worklist builder must not be able to disagree about it.
 import { selectNeighbourFor } from './pins.mjs';
@@ -58,6 +66,50 @@ export const QUESTION_PLACEHOLDER = '{{QUESTION}}';
 export const VERBATIM_PLACEHOLDER = '{{VERBATIM_QUOTE}}';
 export const NO_WINDOW_PLACEHOLDER = '{{NO_LINE_WINDOW}}';
 export const WORKLIST_PLACEHOLDER = '{{WORKLIST_PATH}}';
+export const PREDICATE_PLACEHOLDER = '{{PREDICATE}}';
+
+/**
+ * The predicate, rendered as the criterion it is rather than as a citation.
+ *
+ * The pin was re-derived on every run and reached no reader, so a ruling could not be
+ * traced to the sentence that decides it and a declaration whose limbs were the chosen
+ * line's own words satisfied the re-derivation by quoting itself. The limbs are listed
+ * because a ruling has to name the one it fails, and the line number is given because the
+ * reader opens the sentence rather than remembering it.
+ */
+export function renderPredicateClause(predicate) {
+  // Before the declaration exists there is no sentence to quote, and that is the state the
+  // phase that produces one runs in: the brief asking for the predicate cannot require it.
+  // The clause states the requirement either way, so a brief always tells the reader what
+  // a ruling is decided by — the text when the declaration has it, and what to declare when
+  // it does not.
+  const limbsAreDeclared = predicate !== undefined && predicate !== null && Array.isArray(predicate.limbs) && predicate.limbs.length > 0;
+  if (!limbsAreDeclared) {
+    return [
+      'The declaration states no predicate yet.',
+      '',
+      'A procedure is an operation only when it effects one of the limbs of the single line that says when a procedure counts. The declaration must name that line, quote it, and list its limbs; every ruling made against this specification is decided by them, and a ruling that says an entry is not an operation names the limb it fails or says none applies.',
+    ].join('\n');
+  }
+  const limbs = predicate.limbs.map((limb) => `"${limb}"`).join(', ');
+  // The limbs are declared and the line is what the rule finds for them. When no line
+  // carries every one of them the phase gate refuses, and the brief says which fact is
+  // missing rather than quoting a line that does not hold them.
+  if (!Number.isInteger(predicate.line)) {
+    return [
+      `No line carries every declared limb: ${limbs}.`,
+      '',
+      'The predicate line is what the rule finds, not what the declaration names; a declaration whose limbs are paraphrases rather than quotes is refused when the phase runs.',
+    ].join('\n');
+  }
+  return [
+    `The predicate is on line ${predicate.line}:`,
+    '',
+    `  ${predicate.text}`,
+    '',
+    `A procedure is an operation only when it effects one of: ${limbs}. A ruling that says this is not an operation names the limb it fails, or "${NO_LIMB_APPLIES}" when no limb applies.`,
+  ].join('\n');
+}
 
 /**
  * The three clauses only the audit brief carries.
@@ -90,11 +142,12 @@ export function countInterrogatives(text) {
 }
 
 /** Fill a template's placeholders; the clauses are substituted, never typed by hand. */
-export function fillBriefTemplate(template, { briefName, worklistPath, previousAnswers = [] }) {
+export function fillBriefTemplate(template, { briefName, worklistPath, predicate, previousAnswers = [] }) {
   const question = BRIEF_QUESTIONS[briefName];
   if (question === undefined) throw new Error(`unknown brief name: ${briefName}`);
   return template
     .replaceAll(QUESTION_PLACEHOLDER, question)
+    .replaceAll(PREDICATE_PLACEHOLDER, renderPredicateClause(predicate))
     .replaceAll(VERBATIM_PLACEHOLDER, BRIEF_CLAUSES.VERBATIM_QUOTE)
     .replaceAll(NO_WINDOW_PLACEHOLDER, BRIEF_CLAUSES.NO_LINE_WINDOW)
     .replaceAll(WORKLIST_PLACEHOLDER, worklistPath)
@@ -112,11 +165,24 @@ export function fillBriefTemplate(template, { briefName, worklistPath, previousA
  * The refusals are named by clause, not by line, so the caller learns which of the
  * four broke rather than that something did.
  */
-export function renderBriefFrom({ template, briefName, worklistPath, previousAnswers = [] }) {
-  const text = fillBriefTemplate(template, { briefName, worklistPath, previousAnswers });
+export function renderBriefFrom({ template, briefName, worklistPath, predicate, previousAnswers = [] }) {
+  // A brief that lost the predicate clause would render without it and read as a brief
+  // whose criterion is whatever the reader remembers, so the clause is checked on the
+  // template — where its absence is a defect — rather than on the rendered text.
+  if (!template.includes(PREDICATE_PLACEHOLDER)) {
+    throw new Error(`the brief "${briefName}" does not carry the predicate clause`);
+  }
+  const text = fillBriefTemplate(template, { briefName, worklistPath, predicate, previousAnswers });
 
-  if (countInterrogatives(text) !== 1) {
-    throw new Error(`the brief "${briefName}" carries ${countInterrogatives(text)} interrogative sentences; a brief asks exactly one question`);
+  if (text.includes(PREDICATE_PLACEHOLDER)) {
+    throw new Error(`the brief "${briefName}" carries the predicate placeholder more than once`);
+  }
+  // The quoted predicate is a sentence of the specification, and its own punctuation is
+  // not a question the brief asks: a specification line that happens to end in a question
+  // mark would otherwise refuse every brief that quotes it.
+  const askedByTheBrief = text.replace(renderPredicateClause(predicate), '');
+  if (countInterrogatives(askedByTheBrief) !== 1) {
+    throw new Error(`the brief "${briefName}" carries ${countInterrogatives(askedByTheBrief)} interrogative sentences; a brief asks exactly one question`);
   }
   if (!text.includes(BRIEF_CLAUSES.VERBATIM_QUOTE)) {
     throw new Error(`the brief "${briefName}" does not carry the verbatim-quote clause`);
@@ -131,7 +197,7 @@ export function renderBriefFrom({ template, briefName, worklistPath, previousAns
 }
 
 /** Render a named brief from the briefs directory beside this module. */
-export function renderBrief({ briefName, worklistPath, briefsRoot = join(import.meta.dirname, '..', 'briefs'), previousAnswers = [] }) {
+export function renderBrief({ briefName, worklistPath, predicate, briefsRoot = join(import.meta.dirname, '..', 'briefs'), previousAnswers = [] }) {
   // The name is checked before the directory is read, so a misspelt role is reported as
   // an unknown brief rather than as a missing file: those call for different responses,
   // and a fifth role appears only when a defect class appears that none of the four can
@@ -140,7 +206,7 @@ export function renderBrief({ briefName, worklistPath, briefsRoot = join(import.
     throw new Error(`unknown brief name: ${briefName}; the declared roles are ${BRIEF_NAMES.join(', ')}`);
   }
   const templatePath = join(briefsRoot, `${briefName}.md`);
-  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath, previousAnswers });
+  return renderBriefFrom({ template: readFileSync(templatePath, 'utf8'), briefName, worklistPath, predicate, previousAnswers });
 }
 
 /** The entries a selector chooses, as worklist lines naming the span to read. */
@@ -166,8 +232,49 @@ function refuse(refusals, subject, field, why, extra = {}) {
   refusals.push({ subject, field, why, ...extra });
 }
 
+/**
+ * Prove that every step of a reading carries the line it was read from and a quote from it.
+ *
+ * The refusal names the step rather than the reading, because the repair is one step's
+ * line rather than the whole reading, and a refusal that named the reading would send the
+ * reader back over steps that were already grounded.
+ */
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+function proveStepsGroundThemselves({ reading, subject, refusals }) {
+  for (const step of reading.steps ?? []) {
+    for (const field of missingStepFields(step)) {
+      refuse(refusals, step.id ?? subject, field, `the step carries no ${field}, so nothing can check that it was read`);
+    }
+    if (Number.isInteger(step.line) && step.line < 1) {
+      refuse(refusals, step.id ?? subject, 'line', `the step cites line ${step.line}; lines are numbered from one`);
+    }
+  }
+}
+
+/**
+ * Prove that a ruling which applies the predicate names a limb the declaration states.
+ *
+ * The predicate decides what an operation is, so a ruling that something is not one is
+ * applying it — and a ruling that does not say which limb it fails has not said why. The
+ * declaration is read from the artifact rather than from the reading, because the limbs
+ * are the declaration's and a reading cannot narrow them to the ones it can answer.
+ */
+// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+function proveRulingAppliesThePredicate({ reading, subject, artifact, refusals }) {
+  if (!LIMB_RULING_OUTCOMES.includes(reading.outcome)) return;
+  const limbs = artifact.pins?.predicate?.limbs ?? [];
+  const named = reading[PREDICATE_LIMB_FIELD];
+  if (named === undefined || named === '') {
+    refuse(refusals, subject, PREDICATE_LIMB_FIELD, `a ruling that applies the predicate names the limb it fails, or "${NO_LIMB_APPLIES}"`);
+    return;
+  }
+  if (named !== NO_LIMB_APPLIES && !limbs.includes(named)) {
+    refuse(refusals, subject, PREDICATE_LIMB_FIELD, `"${named}" is not one of the declared limbs: ${limbs.join(', ')}`);
+  }
+}
+
 /** Prove one reading against the artifact, the specification and the engine. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246) --for-spec --no-implementation-order`.
 function proveReading({ reading, artifact, specLines, refusals }) {
   const subject = reading.subject ?? '(unnamed)';
 
@@ -198,6 +305,9 @@ function proveReading({ reading, artifact, specLines, refusals }) {
       refuse(refusals, subject, 'neighbour', `the reading names ${reading.neighbour}; the engine selects ${selected}`);
     }
   }
+
+  proveStepsGroundThemselves({ reading, subject, refusals });
+  proveRulingAppliesThePredicate({ reading, subject, artifact, refusals });
 
   if (reading.spec_name !== undefined) proveSuppliedRule({ reading, artifact, specLines, refusals, subject });
 }

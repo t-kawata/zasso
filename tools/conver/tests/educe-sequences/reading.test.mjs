@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { predicateFor } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 import {
   BRIEF_CLAUSES,
   BRIEF_NAMES,
@@ -33,6 +34,9 @@ const WORKLIST = 'ledger-worklist.txt';
 const spec = readSpecification(SPEC_PATH);
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
+/** The predicate as a brief receives it, so a clause test refuses for its own clause. */
+const PREDICATE = predicateFor(golden.pins.predicate.limbs, spec.lines);
+
 /** A throwaway artifact path holding the golden artifact, so a write cannot touch the fixture. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function scratchArtifact() {
@@ -46,7 +50,7 @@ const digestOf = (path) => createHash('sha256').update(readFileSync(path)).diges
 
 test('C007 each of the four briefs renders with its four clauses', () => {
   for (const briefName of BRIEF_NAMES) {
-    const text = renderBrief({ briefName, worklistPath: WORKLIST, briefsRoot: BRIEFS_ROOT });
+    const text = renderBrief({ briefName, worklistPath: WORKLIST, briefsRoot: BRIEFS_ROOT, predicate: PREDICATE });
 
     assert.equal(countInterrogatives(text), 1, `${briefName} asks exactly one question`);
     assert.equal(text.includes(BRIEF_CLAUSES.VERBATIM_QUOTE), true, briefName);
@@ -56,19 +60,19 @@ test('C007 each of the four briefs renders with its four clauses', () => {
 });
 
 test('C007 an unknown brief name does not render', () => {
-  assert.throws(() => renderBrief({ briefName: 'fifth-role', worklistPath: WORKLIST, briefsRoot: BRIEFS_ROOT }), /unknown brief name/);
+  assert.throws(() => renderBrief({ briefName: 'fifth-role', worklistPath: WORKLIST, briefsRoot: BRIEFS_ROOT, predicate: PREDICATE }), /unknown brief name/);
 });
 
 test('C007 a template that lost the verbatim-quote clause does not render and names the clause', () => {
   const template = readFileSync(join(BRIEFS_ROOT, 'span.md'), 'utf8').replace('- {{VERBATIM_QUOTE}}', '');
 
-  assert.throws(() => renderBriefFrom({ template, briefName: 'span', worklistPath: WORKLIST }), /verbatim-quote/);
+  assert.throws(() => renderBriefFrom({ template, briefName: 'span', worklistPath: WORKLIST, predicate: PREDICATE }), /verbatim-quote/);
 });
 
 test('C007 a template that lost the no-line-window clause does not render and names the clause', () => {
   const template = readFileSync(join(BRIEFS_ROOT, 'span.md'), 'utf8').replace('- {{NO_LINE_WINDOW}}', '');
 
-  assert.throws(() => renderBriefFrom({ template, briefName: 'span', worklistPath: WORKLIST }), /no-line-window/);
+  assert.throws(() => renderBriefFrom({ template, briefName: 'span', worklistPath: WORKLIST, predicate: PREDICATE }), /no-line-window/);
 });
 
 test('C003 the engine selects the neighbour that cites a line inside the entry span', () => {
@@ -261,7 +265,7 @@ test('C008 the ad-hoc brief is a declared role, so a check author is dispatched 
 });
 
 test('C008 the ad-hoc brief renders with exactly one question and the three other clauses', () => {
-  const text = renderBrief({ briefName: 'adhoc', worklistPath: '/tmp/a-worklist.txt' });
+  const text = renderBrief({ briefName: 'adhoc', worklistPath: '/tmp/a-worklist.txt', predicate: PREDICATE });
 
   assert.equal(countInterrogatives(text), 1);
   assert.equal(text.includes(BRIEF_CLAUSES.VERBATIM_QUOTE), true);
@@ -270,7 +274,7 @@ test('C008 the ad-hoc brief renders with exactly one question and the three othe
 });
 
 test('C008 the ad-hoc brief names the constructor library rather than listing it, so it cannot go stale', () => {
-  const text = renderBrief({ briefName: 'adhoc', worklistPath: '/tmp/a-worklist.txt' });
+  const text = renderBrief({ briefName: 'adhoc', worklistPath: '/tmp/a-worklist.txt', predicate: PREDICATE });
 
   assert.match(text, /rail\/checks\.mjs/);
   for (const constructor of ['pinCheck', 'agreeOn', 'coverEvery', 'placeEach', 'reachEvery', 'citeFrom', 'groundIn']) {
@@ -281,5 +285,5 @@ test('C008 the ad-hoc brief names the constructor library rather than listing it
 test('C008 removing a clause from the ad-hoc template makes it refuse by clause name', () => {
   const template = readFileSync(ADHOC_BRIEF_PATH, 'utf8').replace('- {{NO_LINE_WINDOW}}', '');
 
-  assert.throws(() => renderBriefFrom({ template, briefName: 'adhoc', worklistPath: '/tmp/w.txt' }), /no-line-window/);
+  assert.throws(() => renderBriefFrom({ template, briefName: 'adhoc', worklistPath: '/tmp/w.txt', predicate: PREDICATE }), /no-line-window/);
 });

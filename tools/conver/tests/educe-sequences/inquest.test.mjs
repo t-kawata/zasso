@@ -30,6 +30,7 @@ import { PHASES, PHASE_TAGS, phaseById } from '../../.claude/scripts/educe-seque
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { artifactPathFor } from '../../.claude/scripts/educe-sequences/rail/paths.mjs';
 import { buildContext, PHASE_EXPECTS, PHASE_GUIDANCE, runPhase, runThrough, startRun } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
+import { predicateFor } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 import { BRIEF_NAMES, renderBrief } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
 import {
   DECLARATION_FILE,
@@ -57,6 +58,9 @@ const BRIEF_PATH = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/briefs/in
 const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
+
+/** The predicate as a brief receives it, so the audit renders with its criterion. */
+const PREDICATE = predicateFor(golden.pins.predicate.limbs, readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname).lines);
 
 /** Whitespace collapsed, which is how a quote broken across a line break is compared. */
 // [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
@@ -376,7 +380,7 @@ test('C005 the rendered brief names each subject, each lens and the previous ans
   const declaration = RUN_INPUT.declaration;
   const questions = inquestQuestions({ declaration, previousAnswers: [answerFor(spec.lines, declaration, 'admission', 'omission', { answer: 'Yes' })] });
 
-  const rendered = renderBrief({ briefName: 'inquest', worklistPath: join(scratchRun().directory, 'worklist.txt'), previousAnswers: questions });
+  const rendered = renderBrief({ briefName: 'inquest', worklistPath: join(scratchRun().directory, 'worklist.txt'), previousAnswers: questions, predicate: PREDICATE });
 
   assert.match(rendered, /admission/);
   assert.match(rendered, /omission/);
@@ -390,7 +394,7 @@ test('C005 every declared pair renders once, and a pair the previous generation 
   const declaration = RUN_INPUT.declaration;
   const questions = inquestQuestions({ declaration, previousAnswers: [] });
 
-  const rendered = renderBrief({ briefName: 'inquest', worklistPath: 'worklist.txt', previousAnswers: questions });
+  const rendered = renderBrief({ briefName: 'inquest', worklistPath: 'worklist.txt', previousAnswers: questions, predicate: PREDICATE });
 
   assert.equal(questions.every((entry) => entry.previous === null), true);
   assert.equal(rendered.includes('not asked'), true, 'an unanswered pair says so rather than vanishing');
@@ -475,7 +479,7 @@ test('the four inquest checks run inside the block, and a missing audit is not a
 
   assert.deepEqual(without.verdicts, [], 'no audit anywhere is not a finding: the product path has nothing to judge');
   assert.equal(without.summary.checksRun, covered.summary.checksRun, 'a check runs whether or not there is an audit to judge');
-  assert.equal(covered.summary.checksRun, 17);
+  assert.equal(covered.summary.checksRun, 20, 'the declared set grew by three in PX-246, and every one of them runs with or without an audit');
   assert.equal(empty.summary, null, 'an audit that was opened and answered nothing is a finding');
   assert.equal(new Set(empty.verdicts.map((verdict) => verdict.check)).has('inquest-covers-every-subject-and-lens'), true);
 });

@@ -37,7 +37,7 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
-  checksRun: 17,
+  checksRun: 20,
   rows: 10,
   sequences: 4,
   steps: 6,
@@ -211,7 +211,9 @@ test('C012 every step records the entry that realizes it and the operation it is
 test('C012 the schema states the fields a step must carry, and no step may omit them', () => {
   const schema = readArtifactSchema();
 
-  assert.deepEqual(schema.steps.required, ['id', 'sequence', 'operation']);
+  // A step carries the act fields and the grounding pair: a step that names what was done
+  // and not the line it was read from is a step no check can ask about.
+  assert.deepEqual(schema.steps.required, ['id', 'sequence', 'operation', 'line', 'quote']);
 
   const broken = structuredClone(golden);
   delete broken.steps[0].operation;
