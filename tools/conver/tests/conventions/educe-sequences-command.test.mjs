@@ -14,7 +14,7 @@ import { BRIEF_NAMES, ADJUDICATION_OUTCOMES } from '../../.claude/scripts/educe-
 import { PHASES } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
 import { ADHOC_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/adhoc.mjs';
 import { PHASE_EXPECTS, PINS_FILE, WORKLIST_FILE } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
-import { DECLARATION_FILE, readingsFileName } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
+import { ARCHIVE_DIRECTORY, DECLARATION_FILE, readingsFileName } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import { RUN_DIRECTORY_NAME } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 import { SUPPLIED_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 import { UNREACHED_ESCAPES, DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
@@ -80,11 +80,11 @@ const RUN_DIRECTORY = `<dir of spec-file>/${RUN_DIRECTORY_NAME}`;
  * left out because the sentence that defines the run directory lists it there, where the
  * directory is the subject and repeating its own path would say nothing.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
 function workingFiles() {
   const expectations = Object.values(PHASE_EXPECTS).join(' ');
   const readings = BRIEF_NAMES.map(readingsFileName).filter((name) => expectations.includes(name));
-  return [DECLARATION_FILE, WORKLIST_FILE, PINS_FILE, ...readings, ADHOC_DIRECTORY, SUPPLIED_DIRECTORY];
+  return [DECLARATION_FILE, WORKLIST_FILE, PINS_FILE, ...readings, ADHOC_DIRECTORY, SUPPLIED_DIRECTORY, ARCHIVE_DIRECTORY];
 }
 
 /**

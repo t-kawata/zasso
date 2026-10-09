@@ -31,8 +31,10 @@ import {
   inquestCounts,
   inquestRecordsIn,
   inquestSubjects,
+  archiveReadings,
   readDeclarationFile,
   readReadingsFile,
+  readingsFileName,
   signedCount,
 } from './readings.mjs';
 import {
@@ -183,6 +185,7 @@ const ACTIONS = Object.freeze({
     return { ok: true };
   },
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
   9: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -475,17 +478,43 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
     ? survivingAssets({ declaration: declaration.declaration, readings: readingsByBrief(opened.directory), specLines: spec.lines })
     : { invalidated: [] };
 
+  // What the superseded generation's audit asked and answered, read while the declaration
+  // and the inquest file are still in the run directory: both are read from, and both are
+  // moved by the archive below.
+  const asked = inquestCountsIn(opened.directory, specPath);
+
+  // Every `[read]` phase is asked again, and the files it is asked for are moved aside
+  // first. The gate a `[read]` phase has can see only that the file it is told to read
+  // exists and is signed, so a reading left in place is a reading that passes without a
+  // reader ever being called - which is how a fifth generation over an unchanged
+  // specification read nothing and reported a pass. The move is a rename into
+  // `archive/`, named for the generation that wrote the file, so nothing is deleted and
+  // the previous answers remain where a re-read can be made against them. It happens
+  // after every read of these files above, and before the digest below.
+  const readPhases = PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ);
+  const archived = archiveReadings({
+    directory: opened.directory,
+    generation,
+    files: [
+      DECLARATION_FILE,
+      ...readPhases.flatMap((phase) => (BRIEFS_OF_PHASE[phase.id] ?? []).map(readingsFileName)),
+    ],
+  });
+  // The digest the generation inherits, measured after the move, so the record describes
+  // the set this generation holds and not the set the run found.
+  const inheritedDigest = assetDigestOf(opened.directory);
+
   const carried = reopenPhases(
     beginGeneration(status, {
       spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
-      digest: assetDigest,
+      digest: inheritedDigest,
       // The generation being superseded records what its audit asked and answered, so the
       // next report can print the two beside each other and a reader can see whether the
       // questions moved anything.
-      inquest: inquestCountsIn(opened.directory, specPath),
+      inquest: asked,
       coverage,
     }),
-    PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id),
+    readPhases.map((phase) => phase.id),
   );
   const next = { ...carried, [SUPPLIED_FIELD]: filed.files, [INVALIDATED_FIELD]: surviving.invalidated };
   writeStatus(opened.directory, next);
@@ -497,7 +526,8 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
     directory: opened.directory,
     status: next,
     supplied: filed.files,
-    assets: { digest: assetDigest },
+    assets: { digest: inheritedDigest },
+    archived,
     invalidated: surviving.invalidated,
     notice,
     coverage,

@@ -217,14 +217,14 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // the ad-hoc surface now resolves to. The review of all three moved five more: the audit
   // became part of what a run recorded, in one place instead of at each call site.
   { asWritten: 'gates.mjs:129', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 129, token: 'export const PHASES' },
-  { asWritten: 'phases.mjs:272', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 272, token: 'export function runPhase' },
+  { asWritten: 'phases.mjs:275', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 275, token: 'export function runPhase' },
   { asWritten: 'run-state.mjs:170', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 170, token: 'export function openRun' },
-  { asWritten: 'readings.mjs:253', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 253, token: 'export function readReadingsFile' },
+  { asWritten: 'readings.mjs:303', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 303, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
   { asWritten: 'rail/report.mjs:206', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 206, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:329', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 329, token: 'export async function main' },
+  { asWritten: 'phase.mjs:330', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 330, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.
@@ -239,7 +239,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // Re-measured by PX-253, which moved two of these by the lines its own change added
   // above the definition: the phase 9 action reads the artifact it replaces before
   // composing, so `runPhase` and `beginRun` both sit below the comparison it now holds.
-  { asWritten: 'phases.mjs:422', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 422, token: 'export function beginRun' },
+  { asWritten: 'phases.mjs:425', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 425, token: 'export function beginRun' },
 ]);
 
 test('the educe-sequences document carries every citation its argument rests on', () => {

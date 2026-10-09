@@ -42,7 +42,7 @@ import {
   runThrough,
   startRun,
 } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
-import { DECLARATION_FILE, INQUEST_FILE, writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
+import { ARCHIVE_DIRECTORY, DECLARATION_FILE, INQUEST_FILE, archivedFileName, writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import {
   generationOf,
   loopsFor,
@@ -251,6 +251,7 @@ test('C003 the loop budget still halts inside one generation', () => {
   assert.equal(halted.reason.includes(`spent ${phase.maxLoops} of its ${phase.maxLoops} loops`), true);
 });
 
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
 test('C003 a new generation returns the budget, so a repaired declaration is read rather than refused for ever', () => {
   const { specPath, spec, directory, context } = openBare();
   haltPhaseTwo(context);
@@ -261,7 +262,12 @@ test('C003 a new generation returns the budget, so a repaired declaration is rea
   const begun = beginRun({ specPath, spec });
   assert.equal(begun.mode, 'new-generation');
   assert.equal(loopsFor(begun.status, 2), 0);
+  // The declaration that was refused is moved aside rather than carried, so the generation
+  // asks for it again: a repair is made against the generation that asks for it.
+  assert.equal(existsSync(join(directory, DECLARATION_FILE)), false);
+  assert.equal(existsSync(join(directory, ARCHIVE_DIRECTORY, archivedFileName(DECLARATION_FILE, 1))), true);
 
+  writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   const repaired = runPhase(2, buildContext({ specPath, spec, run: { directory: begun.directory, status: begun.status } }));
 
   assert.equal(repaired.ok, true, repaired.reason);
@@ -343,14 +349,23 @@ test('C001 opening a generation over an unchanged set deletes none of the assets
   haltPhaseTwo(context);
   const before = readdirSync(directory).sort();
 
+  const declaration = readFileSync(join(directory, DECLARATION_FILE), 'utf8');
   const reopened = beginRun({ specPath, spec });
 
   assert.equal(reopened.mode, 'new-generation');
   const after = readdirSync(directory).sort();
+  const archived = readdirSync(join(directory, ARCHIVE_DIRECTORY)).map((name) => `${ARCHIVE_DIRECTORY}/${name}`);
   // The directory may grow — the generation files the material it was given — but an
-  // inherited asset is never deleted, which is the property the refusal used to carry.
-  assert.deepEqual(before.filter((name) => !after.includes(name)), [], 'no inherited asset is lost');
-  assert.equal(after.includes(DECLARATION_FILE), true);
+  // inherited asset is never deleted, which is the property the refusal used to carry. A
+  // working file a new generation asks for again is moved, not removed: it is still here
+  // under its archived name, and its content is the same byte for byte.
+  const lost = before.filter((name) => !after.includes(name) && !archived.includes(`${ARCHIVE_DIRECTORY}/${archivedFileName(name, 1)}`));
+  assert.deepEqual(lost, [], 'no inherited asset is lost');
+  assert.equal(
+    readFileSync(join(directory, ARCHIVE_DIRECTORY, archivedFileName(DECLARATION_FILE, 1)), 'utf8'),
+    declaration,
+    'the declaration the refused generation wrote is still readable',
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -546,7 +561,11 @@ test('C007 an edited specification invalidates by citation, names the primitive,
   assert.equal(begun.invalidated.every((entry) => INVALIDATION_PRIMITIVES.includes(entry.primitive)), true);
   assert.equal(begun.invalidated.some((entry) => entry.primitive === 'blocksFromHeadings'), true, 'the appended heading breaks the partition');
   assert.equal(begun.invalidated.some((entry) => entry.primitive === 'findLineContainingAll'), false, 'the limbs still occur on their line');
-  assert.equal(readFileSync(join(directory, DECLARATION_FILE), 'utf8'), before, 'nothing is deleted to recover from an edit');
+  assert.equal(
+    readFileSync(join(directory, ARCHIVE_DIRECTORY, archivedFileName(DECLARATION_FILE, 1)), 'utf8'),
+    before,
+    'nothing is deleted to recover from an edit: the declaration is moved aside and readable',
+  );
 });
 
 test('C007 a new generation over an unchanged text invalidates nothing, because no citation moved', () => {
@@ -669,10 +688,14 @@ test('IT begin opens a generation, then reports a verification over an unchanged
 });
 
 test('IT begin over an edited specification opens a generation and refuses nothing', () => {
-  const { specPath, spec } = seededRun();
+  const { specPath, spec, directory } = seededRun();
   const first = begin(['begin', specPath]);
   assert.equal(first.status, 0, first.stderr);
   assert.equal(spec.sha256, readSpecification(specPath).sha256);
+  // The generation that just opened asked for the declaration and the readings again, so the
+  // reader answers it in full: an asset is invalidated by an edit only while it is in the
+  // run directory, and the classification reads the declaration before it reads anything.
+  seed(directory);
   appendFileSync(specPath, '\n## 11. Added later\n\nAn operator audits the ledger.\n');
 
   const second = begin(['begin', specPath]);
@@ -697,7 +720,8 @@ test('IT begin opens the next generation and prints the notice when the previous
   assert.match(reopened.stdout, /phase 2/);
   assert.match(reopened.stdout, /3 of 3/);
   assert.equal(/refused:/.test(reopened.stderr), false, 'an automatic run is never stopped by a repeat');
-  assert.equal(existsSync(join(directory, DECLARATION_FILE)), true);
+  assert.equal(existsSync(join(directory, DECLARATION_FILE)), false, 'the refused declaration is asked for again');
+  assert.equal(existsSync(join(directory, ARCHIVE_DIRECTORY, archivedFileName(DECLARATION_FILE, 1))), true);
 });
 
 test('IT the product path keeps its one-argument contract', () => {

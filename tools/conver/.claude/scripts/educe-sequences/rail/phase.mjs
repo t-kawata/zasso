@@ -126,7 +126,7 @@ function namedPathsIn(material) {
  * visible as a different digest), how much material was filed, how much of the inherited
  * material no longer cites the text, and which phase comes next.
  */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-245, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-245|PX-254) --for-spec --no-implementation-order`.
 function beginCommand(rest) {
   const { specText, material } = splitInvocation(rest.join(' '));
   const parsed = parseSpecArgument([specText]);
@@ -158,6 +158,7 @@ function beginCommand(rest) {
     ...noticed,
     ...measured,
     `asset digest: ${begun.assets.digest}`,
+    `readings archived: ${(begun.archived ?? []).length}`,
     `supplied: ${begun.supplied.length} file(s)`,
     `invalidated: ${begun.invalidated.length} asset(s)`,
     `next: ${pending ?? '(none — every phase is done)'}`,

@@ -168,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:272` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:275` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -229,7 +229,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:253` before anything downstream sees them. Two files are
+line by line at `readings.mjs:303` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 
@@ -327,12 +327,32 @@ earlier and the more useful refusal.
 
 A repeat over an unchanged set is noticed, not refused. `gates.mjs:474` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:422` reports them as a line of output while opening
+is the same revision — and `phases.mjs:425` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to
 clear the refusal were a human editing the document or a human supplying material, which
 is an automatic run stopped until someone acts.
+
+That mechanism needed teeth, because a `[read]` gate can see only that the file it is told
+to read exists and is signed. A generation that re-opened every `[read]` phase therefore
+passed every one of them on the readings it had inherited, and a fifth invocation over an
+unchanged specification wrote an artifact whose nine measured terms were identical to the
+fourth while reading nothing — with nothing in the output to say so. A new generation now
+moves the declaration and the readings of every `[read]` phase into `archive/`, under names
+carrying the generation that wrote them, and the existence predicate the gate already has
+comes to mean written this generation. It is a rename, so nothing is deleted and the
+previous generation's answers stay readable at one path, which is what a re-read is made
+against; and it is not a check on the reader, because a gate that judged a reader rather
+than a record is satisfied by touching a file, which is the class of check this apparatus
+refuses everywhere.
+
+Two digests follow from the move and they are different facts. The one `unchangedRepeatReason`
+compares is measured before it, and describes what the run found; the one recorded for the
+new generation is measured after it, and describes what that generation inherits. A single
+measured value serving both would record a state the generation never held. The archive is
+part of what a run inherits, so `inherit.mjs` lists it with the fixed working files and the
+scaffolded modules, and the guard against an unattended loop keeps seeing the readings.
 
 The one genuinely non-mechanical act is a defect class with no analogue in the record,
 which needs a check that has never been written. `adhoc.mjs:148` scaffolds that check and
@@ -342,7 +362,7 @@ directory, at `rail-exits.jsonl` beside the checks they describe: a store inside
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
 other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:206` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:329` is
+separating what was measured from what is carried by a signature, and `phase.mjs:330` is
 the command line every step of the command file runs.
 
 ## 7b. What the artifact is held to, when the specification does not say

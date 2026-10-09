@@ -306,10 +306,18 @@ test('C003 an answer outside the declared set is refused by the placement check,
   assert.equal(new RegExp(INQUEST_ANSWERS.join(', ')).test(verdicts[0].reason), true);
 });
 
+// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
 test('C003 the two vocabularies have one source, and neither the command file nor the brief restates them', () => {
   assert.deepEqual([...INQUEST_LENSES], ['omission', 'contradiction', 'deficiency', 'risk']);
   assert.deepEqual([...INQUEST_ANSWERS], ['Yes', 'No', 'A', 'B', 'C']);
-  assert.equal(/omission/.test(COMMAND), false, 'the command file restates a lens');
+  // The check is scoped to the inquest Step rather than to the whole file: every pipeline
+  // command carries the same preamble, whose list of command names contains
+  // `find-omissions`, and a check over the file would read another command's name as a
+  // restated lens. All four lenses are checked here, which one word could not do.
+  const inquestStep = /^### Step 13[^\n]*\n[\s\S]*?(?=^### )/m.exec(COMMAND)?.[0] ?? '';
+  assert.notEqual(inquestStep, '', 'the file states the inquest Step');
+  const restated = INQUEST_LENSES.filter((lens) => inquestStep.includes(lens));
+  assert.deepEqual(restated, [], `the inquest Step restates the lens(es): ${restated.join(', ')}`);
   assert.equal(/omission/.test(readFileSync(BRIEF_PATH, 'utf8')), false, 'the brief restates a lens rather than substituting it');
 });
 
