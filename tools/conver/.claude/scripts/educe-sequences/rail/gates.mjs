@@ -13,7 +13,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CHECKS, checkAll } from './engine.mjs';
+import { uncoveredRanges } from './coverage.mjs';
+import { CHECKS, checkAll, describeRefusal } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { deriveSet, readArtifact } from './load.mjs';
 import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
@@ -111,6 +112,7 @@ function entriesWithoutOutcome(artifact) {
  * data rather than prose so the driver can refuse a phase that was entered out of order.
  */
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASES = Object.freeze([
   {
     id: 1, name: 'identity', tag: PHASE_TAGS.DET, requires: [], backTo: null, maxLoops: 1,
@@ -161,9 +163,18 @@ export const PHASES = Object.freeze([
       const blocks = blocksFromHeadings(ctx.spec.lines, sectionLevelOf(declared.declaration));
       if (blocks.length === 0) return refuse('the specification states no sections, so nothing can be partitioned');
       const last = blocks.at(-1);
-      return last.lastLine !== ctx.spec.lineCount
-        ? refuse(`the partition ends on line ${last.lastLine} and the specification has ${ctx.spec.lineCount} lines`)
-        : prove(`${blocks.length} section(s) partition the specification`);
+      if (last.lastLine !== ctx.spec.lineCount) {
+        return refuse(`the partition ends on line ${last.lastLine} and the specification has ${ctx.spec.lineCount} lines`);
+      }
+      // The partition says every line belongs to a section; it does not say anyone read
+      // one, and an entry that starts inside a section satisfies the census however little
+      // of the section it spans. The rule is stated over the document rather than over the
+      // partition, because a preamble before the first heading lies outside the partition
+      // and inside the document.
+      const unread = uncoveredRanges({ spans: declared.declaration.entries, lineCount: ctx.spec.lineCount });
+      return unread.length > 0
+        ? refuse(`line ${unread[0].first} belongs to no entry, so nothing was read there`)
+        : prove(`${blocks.length} section(s) partition the specification and its entries cover every line`);
     },
   },
   {
@@ -210,7 +221,9 @@ export const PHASES = Object.freeze([
       const rederived = rederiveAll(artifact.pins, ctx.spec.lines);
       if (!rederived.ok) return refuse(rederived.failures[0].reason);
       const { verdicts } = checkAll({ specLines: ctx.spec.lines, artifact });
-      return verdicts.length > 0 ? refuse(`${verdicts[0].check}: ${verdicts[0].reason}`) : prove('the artifact is written and every check is green');
+      return verdicts.length > 0
+        ? refuse(describeRefusal(verdicts[0]))
+        : prove('the artifact is written and every check is green');
     },
   },
   {

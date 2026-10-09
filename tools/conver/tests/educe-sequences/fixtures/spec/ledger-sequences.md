@@ -13,9 +13,13 @@
 
 ## Sequences
 
+- front-matter 1-23 notASequence
 - admission 24-26 direct
+- rejection 27-33 notASequence
 - settlement 34-35 viaNeighbour
+- cancellation 36-48 notASequence
 - settlement-replays-admission 49-50 unread
+- supplied-rule 51-58 notASequence
 - non-operation 59-60 unread
 
 ## Steps

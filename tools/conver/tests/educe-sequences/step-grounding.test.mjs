@@ -191,20 +191,22 @@ test('C009 an artifact that keeps its steps but drops its operations is refused 
   assert.equal(verdicts.some((verdict) => verdict.check === 'every-operation-reached'), true);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C009 the declared check count is the number of checks, and this ticket is what raised it', () => {
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 20);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 21);
   assert.equal(checkAll({ specLines: spec.lines, artifact: golden() }).summary.checksDeclared, ENGINE_DECLARED_CHECK_COUNT);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C002 a crossing without a line or a note is refused by the shape gate, naming the sequence', () => {
   const artifact = golden();
-  const entry = artifact.sequences.find((sequence) => sequence.id === 'admission');
-  entry.crossRefs = [{ note: 'no line' }];
+  const index = artifact.sequences.findIndex((sequence) => sequence.id === 'admission');
+  artifact.sequences[index].crossRefs = [{ note: 'no line' }];
 
   const { verdicts } = checkAll({ specLines: spec.lines, artifact });
 
   assert.equal(verdicts[0].check, 'artifact-shape');
-  assert.equal(verdicts[0].pin, 'sequences[0].crossRefs[0].line');
+  assert.equal(verdicts[0].pin, `sequences[${index}].crossRefs[0].line`);
   assert.equal(verdicts[0].reason.includes('admission'), true, 'the sequence is named, not only its index');
 });
 

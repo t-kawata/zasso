@@ -225,14 +225,21 @@ Step 3; max 3 loops.
 
 ### Step 5 — blocks `[read]` (AI judgment)
 
-Partition the specification into sections that cover every line exactly once. Record
-`sections[].{id,firstLine,lastLine}`.
+Partition the specification into sections that cover every line exactly once, and name an
+entry for every line, so no line is left to nobody. Record
+`sections[].{id,firstLine,lastLine}` and `entries[].{id,kind,firstLine,lastLine}`.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 5
 ```
 
-Refused when the partition does not reach the last line. FAIL: back to Step 1; max 3 loops.
+The rule is over the document, not over the partition: a preamble before the first heading
+is inside it. A region that holds no sequence is declared as an entry spanning it and ruled
+`notASequence` — that is how a line nobody would otherwise read becomes a reading rather
+than a silence.
+
+Refused when the partition does not reach the last line, or when a line belongs to no
+entry; the refusal names the first line to repair. FAIL: back to Step 1; max 3 loops.
 
 ### Step 6 — pins `[det]`
 

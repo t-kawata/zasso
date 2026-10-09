@@ -41,10 +41,22 @@
     ],
     "entries": [
       {
+        "id": "front-matter",
+        "kind": "entry",
+        "firstLine": 1,
+        "lastLine": 23
+      },
+      {
         "id": "admission",
         "kind": "entry",
         "firstLine": 24,
         "lastLine": 26
+      },
+      {
+        "id": "rejection",
+        "kind": "entry",
+        "firstLine": 27,
+        "lastLine": 33
       },
       {
         "id": "settlement",
@@ -53,11 +65,23 @@
         "lastLine": 35
       },
       {
+        "id": "cancellation",
+        "kind": "entry",
+        "firstLine": 36,
+        "lastLine": 48
+      },
+      {
         "id": "settlement-replays-admission",
         "kind": "neighbour",
         "firstLine": 49,
         "lastLine": 50,
         "cites": 34
+      },
+      {
+        "id": "supplied-rule",
+        "kind": "entry",
+        "firstLine": 51,
+        "lastLine": 58
       },
       {
         "id": "non-operation",
@@ -152,6 +176,34 @@
         "rule": "at least five members",
         "why": "the sentence admits a shorter list than the specification states",
         "override": null
+      },
+      {
+        "subject": "front-matter",
+        "outcome": "notASequence",
+        "predicateLimb": "none-applies",
+        "reader": "span",
+        "why": "it titles the document and states the predicate, the row schema and the status vocabulary rather than performing an act"
+      },
+      {
+        "subject": "rejection",
+        "outcome": "notASequence",
+        "predicateLimb": "none-applies",
+        "reader": "span",
+        "why": "it says when a submission is rejected rather than naming an actor who rejects one"
+      },
+      {
+        "subject": "cancellation",
+        "outcome": "notASequence",
+        "predicateLimb": "none-applies",
+        "reader": "span",
+        "why": "it describes partial settlement and cancellation as conditions on a row rather than as ordered acts"
+      },
+      {
+        "subject": "supplied-rule",
+        "outcome": "notASequence",
+        "predicateLimb": "none-applies",
+        "reader": "span",
+        "why": "it states which rule an operator supplies rather than performing the act the rule governs"
       }
     ],
     "steps": [
@@ -683,6 +735,42 @@
         "reader": "inquest"
       },
       {
+        "subject": "front-matter",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "front-matter",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "front-matter",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "front-matter",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 5,
+        "quote": "This document specifies the settlement l",
+        "reader": "inquest"
+      },
+      {
         "subject": "admission",
         "lens": "omission",
         "question": "Is a required act absent from this subject?",
@@ -716,6 +804,42 @@
         "answer": "No",
         "line": 24,
         "quote": "An operator admits a transfer by reading the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "rejection",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 30,
+        "quote": "An operator rejects a transfer whose sig",
+        "reader": "inquest"
+      },
+      {
+        "subject": "rejection",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 30,
+        "quote": "An operator rejects a transfer whose sig",
+        "reader": "inquest"
+      },
+      {
+        "subject": "rejection",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 30,
+        "quote": "An operator rejects a transfer whose sig",
+        "reader": "inquest"
+      },
+      {
+        "subject": "rejection",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 30,
+        "quote": "An operator rejects a transfer whose sig",
         "reader": "inquest"
       },
       {
@@ -755,6 +879,42 @@
         "reader": "inquest"
       },
       {
+        "subject": "cancellation",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 39,
+        "quote": "An operator marks a row Expired when the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "cancellation",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 39,
+        "quote": "An operator marks a row Expired when the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "cancellation",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 39,
+        "quote": "An operator marks a row Expired when the",
+        "reader": "inquest"
+      },
+      {
+        "subject": "cancellation",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 39,
+        "quote": "An operator marks a row Expired when the",
+        "reader": "inquest"
+      },
+      {
         "subject": "settlement-replays-admission",
         "lens": "omission",
         "question": "Is a required act absent from this subject?",
@@ -791,6 +951,42 @@
         "reader": "inquest"
       },
       {
+        "subject": "supplied-rule",
+        "lens": "omission",
+        "question": "Is a required act absent from this subject?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "supplied-rule",
+        "lens": "contradiction",
+        "question": "Does this subject contradict another line of the specification?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "supplied-rule",
+        "lens": "deficiency",
+        "question": "Is a required property of this subject left unstated?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at l",
+        "reader": "inquest"
+      },
+      {
+        "subject": "supplied-rule",
+        "lens": "risk",
+        "question": "Could this subject fail in a way no line of the specification covers?",
+        "answer": "No",
+        "line": 54,
+        "quote": "The status list in section 4 states at l",
+        "reader": "inquest"
+      },
+      {
         "subject": "non-operation",
         "lens": "omission",
         "question": "Is a required act absent from this subject?",
@@ -825,6 +1021,36 @@
         "line": 59,
         "quote": "Section 1 describes the document, and sectio",
         "reader": "inquest"
+      }
+    ],
+    "adversarial": [
+      {
+        "subject": "front-matter",
+        "outcome": "notASequence",
+        "weakestLink": "that no actor performs an ordered act in the title block and the definition sections",
+        "why": "the span states what the document specifies and never names an actor, so there is no claim to break",
+        "reader": "adversarial"
+      },
+      {
+        "subject": "rejection",
+        "outcome": "notASequence",
+        "weakestLink": "that a rejection is a condition on a submission rather than an act",
+        "why": "searching for a second ordered act inside the span found only the condition, which is one act at most",
+        "reader": "adversarial"
+      },
+      {
+        "subject": "cancellation",
+        "outcome": "notASequence",
+        "weakestLink": "that cancellation is stated as a status a row takes rather than as two ordered acts",
+        "why": "the acts named there belong to the operator of the cancelled row and are described, not ordered",
+        "reader": "adversarial"
+      },
+      {
+        "subject": "supplied-rule",
+        "outcome": "notASequence",
+        "weakestLink": "that the supplied rule is a rule about an act rather than an act",
+        "why": "the span states which rule applies and never performs it",
+        "reader": "adversarial"
       }
     ]
   }

@@ -11,7 +11,7 @@
 //
 // The checks are built from the constructors in checks.mjs rather than written out,
 // so the shape of a check is declared once and a new check costs choosing a shape.
-import { agreeOn, citeFrom, citeInside, coverEvery, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
+import { agreeOn, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
 import { readArtifactSchema, validateArtifactShape } from './load.mjs';
 import { PIN_RULES, blocksFromHeadings, flattenPins, selectNeighbourFor } from './pins.mjs';
@@ -283,6 +283,27 @@ const censusEverySectionExplained = coverEvery(
 });
 
 /**
+ * Every line of the document belongs to an entry.
+ *
+ * The census counts sections and the reach check counts operations, and neither counts
+ * lines: a section is satisfied by an entry that starts at its first line however little
+ * of the section it spans, so the union of entry spans could cover a fraction of the
+ * document while every gate passed. Measured on the golden fixture at 51 of 60 lines
+ * belonging to nobody, which is the defect this check exists to name.
+ */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+const everyLineBelongsToAnEntry = coverEveryLine(
+  { id: 'every-line-belongs-to-an-entry', defect: 'a document that was partitioned and adjudicated while its body was never read, so a run could finish with most of the specification belonging to no entry', refuses: 'a line of the specification that no entry spans, so nothing was read there', scope: 'every artifact, over its sequences and its specification line count' },
+  {
+    // The document rather than the artifact's own record of its size: what is verified is
+    // the file the run was pointed at, and an artifact cannot be the authority on how many
+    // lines that file has.
+    spans: (context) => (context.artifact.sequences ?? []).map(({ firstLine, lastLine }) => ({ firstLine, lastLine })),
+    lineCount: (context) => context.specLines.length,
+  },
+);
+
+/**
  * Every step is grounded in the line it names.
  *
  * The device is the one the audit answers already use and the steps did not: the quote
@@ -370,6 +391,7 @@ const everyOperationPlaced = placeEach(
  * work. An entry whose steps derive no operation is a third finding, because an entry
  * that realizes nothing is not a sequence.
  */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 const everyOperationReached = reachEvery(
   { id: 'every-operation-reached', defect: 'a sequence to operation surjection that did not exist, so an entry could name an operation no step performed and an operation could be reached by nothing', refuses: 'a step naming an operation the artifact does not declare, an operation no step reaches and no escape covers, or an entry that derives no operation', scope: 'every artifact, over its steps and its operations' },
   {
@@ -381,6 +403,11 @@ const everyOperationReached = reachEvery(
   },
   entries: entriesOf,
   derivedBy: derivedOperations,
+  // An entry that claims a sequence must realize one, and an entry a reader ruled not a
+  // sequence claims none: requiring it to derive an operation would require a rejected
+  // claim to hold. A region that holds no sequence has to be declareable, because the
+  // line-coverage rule above needs exactly that declaration to name the lines it read.
+  mustRealize: (entry) => entry.outcome !== 'notASequence',
 });
 
 /** The checks, in the order the run reports them. */
@@ -418,6 +445,7 @@ export const CHECKS = Object.freeze([
   ),
   sectionsAgreeWithBlocks,
   censusEverySectionExplained,
+  everyLineBelongsToAnEntry,
   everyOperationPlaced,
   everyOperationReached,
   stepCarriesFourFields,
@@ -431,6 +459,20 @@ export const CHECKS = Object.freeze([
   inquestAnswersAreGrounded,
   inquestAnswersCiteInsideSpecification,
 ]);
+
+/**
+ * Describe a refusal so a reader knows what to repair.
+ *
+ * A verdict names its subject — the line, the section, the step — and its reason is the
+ * rule that refused it. Printing the rule alone tells a reader that something is wrong
+ * and not where, so the subject travels with it. The two shapes are the two the engine
+ * produces: a check's verdict, and a re-derivation failure, which carries the line it
+ * failed on inside its reason and has no check to name.
+ */
+export function describeRefusal({ check, pin, subject, reason }) {
+  if (check === undefined) return `${pin}: ${reason}`;
+  return `${check}: ${subject} — ${reason}`;
+}
 
 /** The count the run must report; a run that ran fewer is incomplete even when it exits zero. */
 export const ENGINE_DECLARED_CHECK_COUNT = CHECKS.length;

@@ -132,7 +132,7 @@ function writeInquest(directory, records) {
 }
 
 /** Seed a run directory with the fixture's declaration, readings and audit. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seed(directory, specLines, declaration, { omit = null } = {}) {
   writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -141,7 +141,7 @@ function seed(directory, specLines, declaration, { omit = null } = {}) {
   writeReadingsFile(join(directory, 'readings-span.jsonl'), span);
   writeReadingsFile(join(directory, 'readings-adjudicate.jsonl'), RUN_INPUT.readings.adjudications);
   writeReadingsFile(join(directory, 'readings-reroute.jsonl'), []);
-  writeReadingsFile(join(directory, 'readings-adversarial.jsonl'), []);
+  writeReadingsFile(join(directory, 'readings-adversarial.jsonl'), RUN_INPUT.readings.adversarial);
   writeInquest(directory, coveringAnswers(specLines, declaration, { omit }));
 }
 
@@ -220,7 +220,7 @@ test('C002 a declaration whose every pair is answered returns no verdict from th
   const declaration = RUN_INPUT.declaration;
   const answer = coveringAnswers(spec.lines, declaration);
 
-  assert.equal(inquestPairs(subjectsOf(declaration)).length, 14 * INQUEST_LENSES.length);
+  assert.equal(inquestPairs(subjectsOf(declaration)).length, 18 * INQUEST_LENSES.length);
   assert.deepEqual(verdictsOf('inquest-covers-every-subject-and-lens', answer, spec.lines), []);
 });
 
@@ -368,7 +368,7 @@ test('C005 the questions cross the declared subjects with the lenses and carry t
 
   const questions = inquestQuestions({ declaration, previousAnswers: previous });
 
-  assert.equal(questions.length, 14 * INQUEST_LENSES.length);
+  assert.equal(questions.length, 18 * INQUEST_LENSES.length);
   const matched = questions.find((entry) => entry.subject === 'admission' && entry.lens === 'omission');
   assert.equal(matched.previous, 'Yes');
   assert.equal(questions.filter((entry) => entry.previous !== null).length, 1);
@@ -479,7 +479,7 @@ test('the four inquest checks run inside the block, and a missing audit is not a
 
   assert.deepEqual(without.verdicts, [], 'no audit anywhere is not a finding: the product path has nothing to judge');
   assert.equal(without.summary.checksRun, covered.summary.checksRun, 'a check runs whether or not there is an audit to judge');
-  assert.equal(covered.summary.checksRun, 20, 'the declared set grew by three in PX-246, and every one of them runs with or without an audit');
+  assert.equal(covered.summary.checksRun, 21, 'the declared set grew by four across PX-246 and PX-247, and every one of them runs with or without an audit');
   assert.equal(empty.summary, null, 'an audit that was opened and answered nothing is a finding');
   assert.equal(new Set(empty.verdicts.map((verdict) => verdict.check)).has('inquest-covers-every-subject-and-lens'), true);
 });
@@ -510,7 +510,7 @@ test('IT through reaches every phase in order over a seeded audit, and the repor
 
   const reported = phase(['report', specPath]);
   assert.equal(reported.status, 0, reported.stderr);
-  assert.match(reported.stdout, /inquestAsked=56/);
+  assert.match(reported.stdout, /inquestAsked=72/);
   assert.match(reported.stdout, /\*\*complete\*\*/);
 });
 
@@ -589,7 +589,7 @@ test('IT the audit is recorded in the generation history, so the next generation
 
   const read = readInquestFile(join(directory, INQUEST_FILE));
   assert.equal(read.ok, true);
-  assert.equal(read.readings.length, 56);
+  assert.equal(read.readings.length, 72);
   assert.equal(existsSync(artifactPathFor(specPath)), true);
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   assert.equal(declaration.ok, true);

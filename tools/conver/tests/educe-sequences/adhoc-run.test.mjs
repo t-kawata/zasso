@@ -178,9 +178,14 @@ test('C001 a check object whose run is not a function is declared but never run,
   assert.equal(summary.checksRun < summary.checksDeclared, true, 'a declared check that did not run is visible as the difference');
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C001 a scaffolded check runs against the artifact, so its verdict reaches the block', () => {
   const { spec } = scratchRun();
-  const drained = { ...golden, sequences: golden.sequences.map((entry) => (entry.kind === 'entry' ? { ...entry, outcome: null } : entry)) };
+  // The outcomes withdrawn are the ones a step realized. An entry a reader ruled not a
+  // sequence carries a ruling rather than a claim, and withdrawing it would ask the
+  // artifact to derive an operation for a region the reading says holds none.
+  const realized = new Set(golden.steps.map((step) => step.sequence));
+  const drained = { ...golden, sequences: golden.sequences.map((entry) => (realized.has(entry.id) ? { ...entry, outcome: null } : entry)) };
 
   const { verdicts, summary } = checkAll({
     specLines: spec.lines,
@@ -192,12 +197,13 @@ test('C001 a scaffolded check runs against the artifact, so its verdict reaches 
   assert.equal(verdicts.some((verdict) => verdict.check === CHECK_NAME), true);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C001 the engine stays a function of values: no dynamic import, and its count is its own', () => {
   const source = readFileSync(ENGINE_PATH, 'utf8');
 
   assert.equal(/await import|import\(/.test(source), false, 'the caller loads the modules, not the engine');
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 20);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 21);
 });
 
 // ---------------------------------------------------------------------------
@@ -477,9 +483,14 @@ test('C006 the product path refuses while an ad-hoc module cannot be loaded', as
   assert.match(refused.verdicts.map((verdict) => verdict.reason ?? '').join(' '), /broken/);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('IT a scaffolded check that reddens an artifact refuses the checks phase', async () => {
   const { specPath, directory } = scaffoldedRun();
-  const drained = { ...golden, sequences: golden.sequences.map((entry) => (entry.kind === 'entry' ? { ...entry, outcome: null } : entry)) };
+  // The outcomes withdrawn are the ones a step realized. An entry a reader ruled not a
+  // sequence carries a ruling rather than a claim, and withdrawing it would ask the
+  // artifact to derive an operation for a region the reading says holds none.
+  const realized = new Set(golden.steps.map((step) => step.sequence));
+  const drained = { ...golden, sequences: golden.sequences.map((entry) => (realized.has(entry.id) ? { ...entry, outcome: null } : entry)) };
   writeFileSync(artifactPathFor(specPath), `${JSON.stringify(drained, null, 2)}\n`);
 
   const loaded = await loadAdhocChecks({ directory });
@@ -489,11 +500,12 @@ test('IT a scaffolded check that reddens an artifact refuses the checks phase', 
   assert.equal(verdicts[0].check, CHECK_NAME);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('IT the golden run still writes the golden artifact, and its counts are the engine own', () => {
   const { specPath } = scratchRun();
   const run = spawnSync('node', [join(RAIL_DIRECTORY, 'run.mjs'), specPath], { cwd: PROJECT_ROOT, encoding: 'utf8', input: JSON.stringify(RUN_INPUT) });
 
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8')), golden);
-  assert.match(run.stdout, /checksRun=20 of 20/);
+  assert.match(run.stdout, /checksRun=21 of 21/);
 });

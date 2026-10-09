@@ -72,6 +72,7 @@
         "proposes": true
       }
     ],
+    "sectionLevel": 2,
     "blocks": [
       {
         "id": "s1",
@@ -123,16 +124,29 @@
         "firstLine": 57,
         "lastLine": 60
       }
-    ],
-    "sectionLevel": 2
+    ]
   },
   "sequences": [
+    {
+      "id": "front-matter",
+      "kind": "entry",
+      "firstLine": 1,
+      "lastLine": 23,
+      "outcome": "notASequence"
+    },
     {
       "id": "admission",
       "kind": "entry",
       "firstLine": 24,
       "lastLine": 26,
       "outcome": "direct"
+    },
+    {
+      "id": "rejection",
+      "kind": "entry",
+      "firstLine": 27,
+      "lastLine": 33,
+      "outcome": "notASequence"
     },
     {
       "id": "settlement",
@@ -143,12 +157,26 @@
       "neighbour": "settlement-replays-admission"
     },
     {
+      "id": "cancellation",
+      "kind": "entry",
+      "firstLine": 36,
+      "lastLine": 48,
+      "outcome": "notASequence"
+    },
+    {
       "id": "settlement-replays-admission",
       "kind": "neighbour",
       "firstLine": 49,
       "lastLine": 50,
       "cites": 34,
       "outcome": null
+    },
+    {
+      "id": "supplied-rule",
+      "kind": "entry",
+      "firstLine": 51,
+      "lastLine": 58,
+      "outcome": "notASequence"
     },
     {
       "id": "non-operation",

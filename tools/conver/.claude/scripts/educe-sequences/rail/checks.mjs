@@ -16,6 +16,7 @@
 // reason, and never treats a name appearing near a region, a plain span intersection or
 // a coverage relation as evidence about what a line says.
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+import { uncoveredRanges } from './coverage.mjs';
 import { PIN_RULES, flattenPins, rederivePin } from './pins.mjs';
 
 /**
@@ -116,6 +117,28 @@ export function agreeOn(contract, { left, right, key = (record) => record.id, va
   });
 }
 
+/** How a run of lines is named in a verdict, so a refusal points at what to repair. */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+function lineRangeLabel({ first, last }) {
+  return first === last ? String(first) : `${first}-${last}`;
+}
+
+/**
+ * A check that every line of the document belongs to a span.
+ *
+ * This is the shape for the unit the other coverage checks are counted in: the census
+ * counts sections and the reach check counts operations, and neither counts lines, so a
+ * document could be partitioned and adjudicated while the body of it was never read. The
+ * verdicts are one per uncovered run rather than one per uncovered line, because a gap of
+ * fourteen thousand lines is one finding and not fourteen thousand.
+ */
+export function coverEveryLine(contract, { spans, lineCount, label = lineRangeLabel }) {
+  requireAttribution(contract);
+  return checkOf(contract, (context) =>
+    uncoveredRanges({ spans: spans(context) ?? [], lineCount: lineCount(context) })
+      .map((range) => verdict(contract.id, label(range), contract.refuses)));
+}
+
 /**
  * A check that the apparatus output covers the apparatus input.
  *
@@ -191,7 +214,7 @@ export function citeInside(contract, { claims, spanOf, crossings, label }) {
  * derive no operation is a third finding, because an entry that realizes nothing is
  * not a sequence.
  */
-export function reachEvery(contract, { claimed, declared, exempt = () => false, entries, derivedBy, label }) {
+export function reachEvery(contract, { claimed, declared, exempt = () => false, entries, derivedBy, mustRealize = () => true, label }) {
   requireAttribution(contract);
   return checkOf(contract, (context) => {
     const declaredNames = new Set(declared(context) ?? []);
@@ -211,6 +234,7 @@ export function reachEvery(contract, { claimed, declared, exempt = () => false, 
     }
     if (typeof entries === 'function' && typeof derivedBy === 'function') {
       for (const entry of entries(context) ?? []) {
+        if (mustRealize(entry, context) !== true) continue;
         if ((derivedBy(entry, context) ?? []).length === 0) {
           verdicts.push({ ...verdict(contract.id, labelOf(entry, label), 'no step derives an operation for this entry'), direction: 'unrealized' });
         }

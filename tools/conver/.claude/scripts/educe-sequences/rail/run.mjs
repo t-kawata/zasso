@@ -20,7 +20,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
 import { coverageLine } from './coverage.mjs';
 import { limbCensusLines } from './report.mjs';
-import { checkAll } from './engine.mjs';
+import { checkAll, describeRefusal } from './engine.mjs';
 import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
@@ -47,6 +47,7 @@ const UNREAD_REASON = 'the run performed the shape and read nothing; the first [
  */
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -103,7 +104,7 @@ export async function runCommand(argv, options = {}) {
     });
     const failures = [...rederived.failures, ...verdicts];
     if (failures.length > 0) {
-      for (const failure of failures) stderr(`refused: ${failure.check ?? failure.pin}: ${failure.reason}`);
+      for (const failure of failures) stderr(`refused: ${describeRefusal(failure)}`);
       return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: failures };
     }
     report(stdout, summary, previousCoverageFor(specPath));
@@ -134,7 +135,7 @@ export async function runCommand(argv, options = {}) {
   });
 
   if (verdicts.length > 0) {
-    for (const verdict of verdicts) stderr(`refused: ${verdict.check}: ${verdict.reason}`);
+    for (const verdict of verdicts) stderr(`refused: ${describeRefusal(verdict)}`);
     return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts };
   }
 

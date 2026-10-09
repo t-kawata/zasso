@@ -36,10 +36,11 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 /** The recorded coverage block, so a change to it is a change to the record. */
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
-  checksRun: 20,
+  checksRun: 21,
   rows: 10,
-  sequences: 4,
+  sequences: 8,
   steps: 6,
   operations: 3,
   pinsRederived: 5,

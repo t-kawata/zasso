@@ -47,7 +47,7 @@ function scratch() {
 }
 
 /** Seed a run's reading files from the recorded run input. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seed(run) {
   writeFileSync(join(run.directory, 'declaration.json'), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -56,7 +56,7 @@ function seed(run) {
   writeReadingsFile(join(run.directory, 'readings-span.jsonl'), span);
   writeReadingsFile(join(run.directory, 'readings-adjudicate.jsonl'), RUN_INPUT.readings.adjudications);
   writeReadingsFile(join(run.directory, 'readings-reroute.jsonl'), []);
-  writeReadingsFile(join(run.directory, 'readings-adversarial.jsonl'), []);
+  writeReadingsFile(join(run.directory, 'readings-adversarial.jsonl'), RUN_INPUT.readings.adversarial);
   writeReadingsFile(join(run.directory, INQUEST_FILE), RUN_INPUT.readings.inquest);
 }
 
@@ -185,7 +185,7 @@ test('a re-entered phase that now passes records what the reader reported', () =
   runThrough(context, 8);
 
   const record = readingOf(context.status, 'span');
-  assert.equal(record.claims, 3);
+  assert.equal(record.claims, 7);
   assert.equal(record.vacuous, false);
 });
 
@@ -194,7 +194,9 @@ test('a phase with nothing to read is recorded as vacuous rather than as unsigne
 
   runThrough(context);
 
-  assert.equal(readingOf(context.status, 'adversarial').vacuous, true);
+  // The fixture rules four regions not sequences, so the adversarial pass has rulings to
+  // attack and is no longer the example; the reroute pass has no window-bound entry and is.
+  assert.equal(readingOf(context.status, 'adversarial').vacuous, false);
   assert.equal(readingOf(context.status, 'reroute').vacuous, true);
   assert.equal(readingOf(context.status, 'span').vacuous, false);
 });

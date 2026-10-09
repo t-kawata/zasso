@@ -77,7 +77,7 @@ function scratchRun() {
 }
 
 /** Seed a run's reading files from the recorded run input, without a declaration. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seedReadings(directory) {
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
   span[0].steps = RUN_INPUT.readings.steps;
@@ -85,7 +85,7 @@ function seedReadings(directory) {
   writeReadingsFile(join(directory, 'readings-span.jsonl'), span);
   writeReadingsFile(join(directory, 'readings-adjudicate.jsonl'), RUN_INPUT.readings.adjudications);
   writeReadingsFile(join(directory, 'readings-reroute.jsonl'), []);
-  writeReadingsFile(join(directory, 'readings-adversarial.jsonl'), []);
+  writeReadingsFile(join(directory, 'readings-adversarial.jsonl'), RUN_INPUT.readings.adversarial);
   writeReadingsFile(join(directory, INQUEST_FILE), RUN_INPUT.readings.inquest);
 }
 

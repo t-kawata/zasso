@@ -40,6 +40,7 @@ async function quietly(argv, runInput) {
 const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C010 a run with one argument writes the artifact beside the specification', async () => {
   const { specPath, artifactPath } = scratchSpec();
 
@@ -48,8 +49,24 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
   assert.equal(existsSync(artifactPath), true);
-  assert.match(result.out, /checksRun=20 of 20/);
+  assert.match(result.out, /checksRun=21 of 21/);
   assert.match(result.out, /pinsRederived=5 of 5/);
+});
+
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+test('C011 a pin that no longer re-derives is refused by its pin, and a check names its subject', async () => {
+  const { specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  const tampered = JSON.parse(readFileSync(artifactPath, 'utf8'));
+  tampered.pins.predicate.line = 1;
+  writeFileSync(artifactPath, `${JSON.stringify(tampered, null, 2)}\n`);
+
+  const result = await quietly([specPath]);
+
+  assert.equal(result.exitCode, EXIT.REFUSED);
+  assert.match(result.err, /^refused: predicate: line 1 does not carry every limb/m);
+  assert.match(result.err, /^refused: predicate-pin-rederives: predicate \u2014 /m);
 });
 
 test('IT1 a run that has read nothing is refused at the first [read] phase and writes nothing', async () => {
@@ -111,6 +128,7 @@ test('C013 a verification whose specification digest no longer matches is refuse
   assert.match(result.err, /no signed reading|records spec sha256/);
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C013 a verification of an existing artifact needs only the specification path', async () => {
   const { specPath } = scratchSpec();
   await quietly([specPath], RUN_INPUT);
@@ -118,7 +136,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   const result = await quietly([specPath], null);
 
   assert.equal(result.exitCode, EXIT.OK);
-  assert.match(result.out, /checksRun=20 of 20/);
+  assert.match(result.out, /checksRun=21 of 21/);
 });
 
 test('C011 the artifact a run produces equals the committed golden record', async () => {

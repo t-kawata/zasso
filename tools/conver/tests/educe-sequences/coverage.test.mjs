@@ -211,6 +211,7 @@ test('C003 a generation that measured less than the one before it prints the sma
 // C004 — the checks never decide on coverage
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   const spec = readSpecification(GOLDEN_SPEC);
   const artifact = goldenArtifact();
@@ -222,9 +223,10 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.deepEqual(after.verdicts, baseline.verdicts);
   assert.equal(after.summary.checksRun, baseline.summary.checksRun);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 20, 'PX-245 added no check; PX-246 adds three, and none of them is a growth gate');
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 21, 'PX-245 added no check; PX-246 adds three and PX-247 one, and none of them is a growth gate');
 });
 
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C002 an unreadable file answers "nothing on record" rather than stopping the run', () => {
   // Both reads this ticket added ask the same kind of question — what does this file
   // say — and for that question a file that cannot be read and a file that is not there
@@ -246,7 +248,7 @@ test('C002 an unreadable file answers "nothing on record" rather than stopping t
   });
 
   assert.equal(verified.status, 0, verified.stderr);
-  assert.match(verified.stdout, /sequences=4/);
+  assert.match(verified.stdout, /sequences=8/);
   assert.equal(/previous generation/.test(verified.stdout), false, 'an unreadable record yields no comparison and no crash');
 });
 

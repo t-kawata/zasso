@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:387`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:414`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -109,7 +109,7 @@ so a hand-edited fixture fails rather than silently changing what the golden tes
 measures. Drift from the source repository is reported, never absorbed.
 
 The corpus holds 29 files totalling 3100101 bytes, and a green run of the golden
-specification reports 20 checks over 5 pins.
+specification reports 21 checks over 5 pins.
 
 `tests/educe-sequences/fixtures/spec/` holds the golden run: a small specification, the
 declaration and readings one run recorded, and the artifact and rendering that run
@@ -124,7 +124,7 @@ without recorded readings is refused at the first `[read]` phase by design.
 ## 7. The phase driver
 
 A phase table is a claim until something evaluates it. The eighteen phases are declared
-once, at `gates.mjs:114`, and each entry carries its tag, the phases it requires, the edge
+once, at `gates.mjs:116`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
@@ -137,6 +137,22 @@ A step also cites a line inside its entry's own span, or one the entry records i
 `crossRefs` — a separation is permitted once it is named, because a procedure may be
 stated in one place and anchored in another, and what is refused is the absorption that
 would let a span of a third of the document read as one reading.
+
+Every line of the specification belongs to an entry. The census counts sections and the
+reach check counts operations, and neither counts lines: a section is satisfied by an entry
+that starts at its first line however little of the section it spans, so the union of entry
+spans could cover a fraction of the document while every gate passed. The golden fixture is
+the measurement — four entries over sixty lines, fifty-one of them belonging to nobody, and
+every gate green. The rule is stated over the document rather than over the partition,
+because a preamble before the first heading lies outside the partition and inside the
+document, and it is enforced on both surfaces at once: the phase-5 gate refuses with the
+first line to repair, and `every-line-belongs-to-an-entry` refuses the same artifact on the
+product path. A region that holds no sequence is declareable, which is what the rule needs:
+an entry whose span is that region and whose ruling is `notASequence` names the lines its
+reader read, and `mustRealize` keeps the reach check from asking a rejected claim to derive
+an operation. The rule makes an unread line impossible to leave silent; it does not make one
+impossible to claim, and the width at which a single entry's span stops being credible
+remains undecided.
 
 An operation stands in one of four positions. `excluded` is the fourth, and it is the one
 that made a boundary impossible to record: the reach check named it as an escape while the
@@ -152,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:219` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:221` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -263,7 +279,7 @@ all. The promotion a record declares becomes a proposal the command can print: t
 is marked promoted, the splice is printed with the file it must edit, and no source is
 written, because editing the rail is a change made under a ticket.
 
-What each generation produced is measured rather than judged. `coverage.mjs:51` counts
+What each generation produced is measured rather than judged. `coverage.mjs:109` counts
 what the artifact holds and unions the specification lines its records name, clipped to
 the document, and `rail/report.mjs:119` prints those counts beside the generation before them
 through the same helper the audit counts use. Each count carries the change from the
@@ -280,9 +296,9 @@ inside the rail can enumerate. Nothing compares one of these to a threshold. A g
 that merges two sequences into one is an improvement carrying a smaller number, and a
 gate on growth would refuse the work it exists to encourage.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:436` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:449` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:362` reports them as a line of output while opening
+is the same revision — and `phases.mjs:364` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to

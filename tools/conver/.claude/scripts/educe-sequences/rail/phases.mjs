@@ -76,11 +76,12 @@ export function exitCodeFor(outcome) {
  * Four phases fill one declaration, each its own section, because a single reader asked
  * for all four at once answers three of them from the first and calls it reading.
  */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASE_EXPECTS = Object.freeze({
   2: `${DECLARATION_FILE} with predicate.limbs`,
   3: `${DECLARATION_FILE} with rowSchema.fields`,
   4: `${DECLARATION_FILE} with enumerations[].{name,members,closedness}`,
-  5: `${DECLARATION_FILE} with sections[].{id,firstLine,lastLine}`,
+  5: `${DECLARATION_FILE} with sections[].{id,firstLine,lastLine} and entries[] whose spans cover every line`,
   8: 'readings-span.jsonl, one signed line per entry, each carrying the steps and operations read there',
   10: 'readings-adversarial.jsonl, one signed attack per ruling, each naming the weakest link',
   11: 'readings-reroute.jsonl, one signed reroute per entry bound to a window',
@@ -89,11 +90,12 @@ export const PHASE_EXPECTS = Object.freeze({
 });
 
 /** What the reader is asked to do, in the words the brief is rendered with. */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASE_GUIDANCE = Object.freeze({
   2: 'Find the sentence that says when a procedure counts, quote it verbatim, and record the line and its limbs.',
   3: 'Find the sentence that states the fields an entry carries, and record the line and the fields.',
   4: 'Find every closed vocabulary, its members, and the lines those members occupy.',
-  5: 'Partition the specification into sections that cover every line exactly once.',
+  5: 'Partition the specification into sections that cover every line exactly once, and name an entry for every line, so no line is left to nobody.',
   8: 'For each worklist entry, read its span and answer whether the named operation is performed there.',
   10: 'Attack each ruling: name the one claim whose failure would take it down.',
   11: 'For each entry bound to a window, name the entry that should realize it instead, and the line that says so.',
