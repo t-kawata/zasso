@@ -281,7 +281,13 @@ Dispatch one reader per worklist line.
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span
 ```
 
-Hand the rendered brief to a reader subagent together with the worklist. The reader
+Hand the rendered brief to a reader subagent together with the worklist. The brief carries
+the tree of the artifact in hand — `text.mjs <artifact>.json --tree` — which is what the last
+generation read in this neighbourhood, and it is there for two things only: to point the
+reader at the span that carries the act, and to keep one actor's name and one operation's
+name across the entries of a document. It is orientation and never evidence. A reader who
+reports what the tree says, instead of reading the line and quoting it, has written the
+artifact back to itself, which is the one thing this apparatus is built not to do. The reader
 answers one question per entry — *is the named operation performed by the named actor
 inside the entry's own span?* — and writes
 `<dir of spec-file>/educe-sequences/readings-span.jsonl`, one signed line per entry, each
@@ -340,6 +346,10 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adversarial
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
 ```
 
+The brief carries the tree, and its `SHARE:` lines are what ranks the rulings an attacker has
+to choose between: an operation another sequence also names is one whose misreading takes
+more than this ruling down with it, so the weakest link is worth searching for there first.
+
 The reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl` — one
 signed attack per ruling, naming the single weakest link. Refused when a ruling was never
 attacked. FAIL: back to Step 9; max 3 loops. When no entry was ruled a non-sequence the
@@ -355,6 +365,10 @@ node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" reroute
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 11
 ```
 
+The brief carries the tree, which is how a reroute sees what the other entries already hold:
+the question is which entry should realize this one instead, and the answer is an entry whose
+acts either carry the act in question or do not.
+
 The reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`, naming the
 entry that should realize it instead and the line that says so. Refused while an entry
 with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
@@ -365,6 +379,11 @@ with no outcome is unrouted. FAIL: back to Step 10; max 3 loops.
 node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adjudicate
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 12
 ```
+
+The brief carries the tree, and a block of it is the shape this question asks about: one
+actor's name, and the acts that actor performs beneath it in order. That is what the ruling is
+made about and not what it is made from — the actor and the order are read in the span, quoted
+and signed.
 
 The reader rules, per entry, whether one named actor performs two or more ordered acts
 there, and writes `<dir of spec-file>/educe-sequences/readings-adjudicate.jsonl`. Refused
@@ -510,23 +529,37 @@ beside the specification:
 
 ```bash
 node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --list
+node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --tree [--id <sequence>…] [--width <columns>]
 node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] [--ascii] [--width <columns>]
 node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] --mermaid
 ```
 
-`--list` names every sequence with its line range, its outcome and how many steps it
-carries. `--id` draws each named sequence and prints the participant legend beneath it:
-the drawing carries `P1`…`P<n>`, because a diagram whose boxes are the artifact's noun
-phrases cannot be read in a terminal at all. `--width` is the budget for the whole drawing,
-not for one message — the renderer widens a diagram to fit its widest message rather than
-breaking it, so the message budget is narrowed until the drawing fits, and a drawing that
-cannot be made to fit is printed with the width it reached reported on stderr. `--mermaid`
-prints the source instead, exactly the bytes the fence above carries, so it can be pasted
-into a viewer and read as the rail wrote it.
+The four readings are one artifact read four ways, and two of them list what it holds:
+each line of either carries a sequence's id, its line range, its outcome and how many steps
+it has. They differ in what they cover and in what they add. `--list` names **every entry**
+the artifact holds, including the regions ruled not a sequence, one line each, which is the
+ledger. `--tree` names only the entries that **claim to be a sequence**, and under each one
+it prints the acts that sequence performs in the order the artifact records them — `WHO: `,
+`WHAT: `, `WHOSE: ` for the act's subject, predicate and object, and `SHARE: ` when another
+sequence names the same operation, which is the one place the artifact's sharing is spelled.
+It closes by counting what it did not draw, because an absence that is not counted reads as
+an absence that does not exist. `--tree --id` prints the named entries alone, whatever their
+outcome, because `--id` names an entry and not a claim; `--width` folds the act lines, and a
+heading too wide to fold is printed whole rather than withheld, the way a drawing that is
+merely wide is printed rather than withheld.
+
+`--id` draws each named sequence and prints the participant legend beneath it: the drawing
+carries `P1`…`P<n>`, because a diagram whose boxes are the artifact's noun phrases cannot be
+read in a terminal at all. There `--width` is the budget for the whole drawing, not for one
+message — the renderer widens a diagram to fit its widest message rather than breaking it, so
+the message budget is narrowed until the drawing fits, and a drawing that cannot be made to fit
+is printed with the width it reached reported on stderr. `--mermaid` prints the source instead,
+exactly the bytes the fence above carries, so it can be pasted into a viewer and read as the
+rail wrote it.
 
 The drawing needs `beautiful-mermaid`, which `install.js` installs into the `.claude` tree
-it installs. `--list` and `--mermaid` need nothing: they work before any dependency is
-resolved, and the drawn mode says which package is missing rather than failing obscurely.
+it installs. `--list`, `--tree` and `--mermaid` need nothing: they work before any dependency
+is resolved, and the drawn mode says which package is missing rather than failing obscurely.
 
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.

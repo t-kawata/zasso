@@ -16,17 +16,21 @@
 // @verifies C005
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { sequenceDiagramSource, renderSequenceDiagram, renderArtifact } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
 import { DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
-import { DEFAULT_WIDTH, FOLD_SEPARATOR, MIN_WIDTH, textCommand, foldMessage } from '../../.claude/scripts/educe-sequences/rail/text.mjs';
+import { coverageOf, coverageTerms } from '../../.claude/scripts/educe-sequences/rail/coverage.mjs';
+import { countInterrogatives, renderBrief, renderBriefFrom } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
+import { DEFAULT_WIDTH, FOLD_SEPARATOR, MIN_WIDTH, displayColumns, foldToBreak, textCommand, foldMessage } from '../../.claude/scripts/educe-sequences/rail/text.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
+const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
 const ARTIFACT = join(FIXTURE, 'ledger-sequences.json');
 const RENDER_PATH = join(FIXTURE, 'ledger-sequences.md');
 
@@ -429,4 +433,462 @@ test('C005 the width budget is a named constant, taken from the terminal when th
   assert.equal(DEFAULT_WIDTH > 0, true);
   assert.equal(Number.isInteger(MIN_WIDTH), true);
   assert.equal(MIN_WIDTH > 0 && MIN_WIDTH <= DEFAULT_WIDTH, true, 'a floor below the default, so the default is reachable');
+});
+
+// ---------------------------------------------------------------------------
+// C001-C007 — the fourth reading: what a sequence's acts are, in the order they
+// are performed, and who does what to whose
+// ---------------------------------------------------------------------------
+// The tree is rooted where the drawing is rooted — the sequences that claim to be one — so a
+// reader meets the same set in both readings and the two cannot disagree. It draws nothing,
+// so it reaches no library; it writes nothing, so it cannot damage an artifact; and it is a
+// rendering of what a reader already wrote, so it is orientation and never evidence.
+//
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// @verifies C004
+// @verifies C005
+// @verifies C006
+// @verifies C007
+
+/** A header line opens with the sequence mark; a branch line carries an ordinal and a name. */
+const HEADER = /^▸ /;
+const BRANCH = /^\s+[├└]─ \d\d  /;
+
+/** The sequence an id names, which is what a header line's first word must be. */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+function headerIds(output) {
+  return output.split('\n').filter((line) => HEADER.test(line)).map((line) => line.slice(2).split(' ')[0]);
+}
+
+/** Build an artifact in a temporary directory, read it, then remove the directory. */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+async function withArtifact(document, read) {
+  const root = mkdtempSync(join(tmpdir(), 'px252-tree-'));
+  const path = join(root, 'artifact.json');
+  writeFileSync(path, JSON.stringify(document));
+  try {
+    return await read(path);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** One step of a synthetic artifact, carrying only what the schema requires plus the acts. */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+function stepAct(id, sequence, operation, line) {
+  return { id, sequence, operation, subject: 'an actor', predicate: 'performs', object: 'an act', line, quote: 'the act' };
+}
+
+test('C001 the tree roots at exactly the sequences that claim to be one, in artifact order', async () => {
+  const artifact = golden();
+  const claiming = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
+  const tree = await textCommand([ARTIFACT, '--tree'], { render: absentRenderer });
+
+  assert.equal(claiming.length > 0, true, 'the fixture claims a sequence, so this is not vacuous');
+  assert.equal(tree.exitCode, 0);
+  assert.deepEqual(headerIds(tree.output), claiming.map((entry) => entry.id), 'in the artifact array order');
+  const owed = artifact.steps.filter((step) => claiming.some((entry) => entry.id === step.sequence));
+  assert.equal(tree.output.split('\n').filter((line) => BRANCH.test(line)).length, owed.length, 'one branch line per owed step');
+});
+
+test('C001 the entries the tree does not draw are counted rather than left silent', async () => {
+  const artifact = golden();
+  const claiming = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
+  const named = new Set(artifact.steps.map((step) => step.operation));
+  const tree = await textCommand([ARTIFACT, '--tree'], { render: absentRenderer });
+  const tail = tree.output.trimEnd().split('\n').at(-1);
+
+  assert.match(tail, new RegExp(`${artifact.sequences.length - claiming.length} entries`), 'the regions ruled not a sequence');
+  assert.match(tail, new RegExp(`${artifact.operations.filter((operation) => !named.has(operation.id)).length} operation`), 'the operations no step names');
+});
+
+test('C001 a named entry is printed alone, whatever its outcome', async () => {
+  const named = await textCommand([ARTIFACT, '--tree', '--id', 'admission', '--id', 'settlement'], { render: absentRenderer });
+
+  assert.equal(named.exitCode, 0);
+  assert.deepEqual(headerIds(named.output), ['admission', 'settlement'], 'the argument order decides');
+  assert.equal(named.output.includes('front-matter'), false, 'an entry not asked for is not printed');
+  // An entry the artifact holds but never adjudicated is still an entry it holds, so `--id`
+  // shows it with the outcome it carries: `--id` names an entry, not a claim.
+  const unruled = await textCommand([ARTIFACT, '--tree', '--id', 'settlement-replays-admission'], { render: absentRenderer });
+  assert.equal(unruled.exitCode, 0);
+  assert.deepEqual(headerIds(unruled.output), ['settlement-replays-admission']);
+  assert.match(unruled.output, /unread|not a sequence/);
+});
+
+test('C001 an artifact whose entries claim nothing prints a counted line and not silence', async () => {
+  const tree = await withArtifact({
+    sequences: [
+      { id: 'first', kind: 'entry', firstLine: 1, lastLine: 4, outcome: 'notASequence' },
+      { id: 'second', kind: 'entry', firstLine: 5, lastLine: 8, outcome: 'exempt' },
+    ],
+    steps: [],
+    operations: [{ id: 'Never', position: 'excluded' }],
+  }, (path) => textCommand([path, '--tree'], { render: absentRenderer }));
+
+  assert.equal(tree.exitCode, 0, 'an artifact with nothing to draw is a reading, not a refusal');
+  assert.notEqual(tree.output.trim(), '', 'silence would be indistinguishable from a run that failed');
+  assert.match(tree.output, /2 entries/, 'the entries ruled not a sequence are counted');
+  assert.match(tree.output, /1 operation/, 'the operations no step names are counted');
+});
+
+test('C002 every act field reaches the block as the artifact carries it', async () => {
+  const artifact = golden();
+  const claiming = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
+  const owed = artifact.steps.filter((step) => claiming.some((entry) => entry.id === step.sequence));
+  const tree = await textCommand([ARTIFACT, '--tree'], { render: absentRenderer });
+
+  assert.equal(owed.length > 0, true, 'the fixture owes steps, so this is not vacuous');
+  for (const step of owed) {
+    assert.equal(tree.output.includes(`WHO: ${step.subject}`), true, `${step.id} carries its subject`);
+    assert.equal(tree.output.includes(`WHAT: ${step.predicate}`), true, `${step.id} carries its predicate`);
+    assert.equal(tree.output.includes(`WHOSE: ${step.object}`), true, `${step.id} carries its object`);
+  }
+});
+
+test('C002 a step the schema does not require the act fields of prints the absence', async () => {
+  // artifact-schema.json requires of a step only id, sequence, operation, line and quote, so
+  // a step with no subject, predicate or object is a step the schema allows.
+  const tree = await withArtifact({
+    sequences: [{ id: 'solo', kind: 'entry', firstLine: 1, lastLine: 2, outcome: 'direct' }],
+    steps: [{ id: 'solo-1', sequence: 'solo', operation: 'Act', line: 1, quote: 'the act' }],
+    operations: [{ id: 'Act', position: 'positioned' }],
+  }, (path) => textCommand([path, '--tree'], { render: absentRenderer }));
+
+  assert.equal(tree.exitCode, 0);
+  assert.match(tree.output, /WHO: \(not stated\)/, 'an absent field is named as absent, not omitted');
+  assert.match(tree.output, /WHAT: \(not stated\)/);
+  assert.match(tree.output, /WHOSE: \(not stated\)/);
+});
+
+test('C003 the fold is total, lossless and holds the budget at every width', () => {
+  const mixed = '通常のroot issuance条件に加えて申請者のValidForumEkycParticipationProofをissued_at時点で完全オフライン検証する';
+
+  assert.equal(foldToBreak('a message that fits', 40).length, 1, 'the identity when the text already fits');
+  // The budget is honoured from the width of one character upward. Below that no fold can
+  // keep it: a character is drawn whole, so the narrowest line the text admits is one
+  // character wide, and the fold is total rather than refusing.
+  for (let budget = 2; budget <= 60; budget += 1) {
+    const folded = foldToBreak(mixed, budget);
+
+    assert.equal(folded.length >= 1, true, `the fold is total at ${budget}`);
+    assert.equal(folded.every((line) => displayColumns(line) <= budget), true, `a line over ${budget}`);
+    assert.equal(
+      folded.join('').replace(/\s/g, ''),
+      mixed.replace(/\s/g, ''),
+      `the fold is lossless at ${budget}: every character survives, in order`,
+    );
+  }
+  assert.deepEqual(foldToBreak('申請', 1), ['申', '請'], 'a budget under one character yields one character per line');
+});
+
+test('C003 a cut falls only where a reader of the text expects one', () => {
+  const mixed = '通常のroot issuance条件に加えて申請者のValidForumEkycParticipationProofをissued_at時点で完全オフライン検証する';
+  const folded = foldToBreak(mixed, 40);
+
+  assert.equal(folded.length > 1, true, 'this text needs folding at 40, so what follows is not vacuous');
+  for (const line of folded) {
+    assert.equal(/^[）」』】〉》、。，．：；！？]/.test(line), false, `a line opens with a closing mark: ${line}`);
+    assert.equal(/[（「『【〈《]$/.test(line), false, `a line closes with an opening mark: ${line}`);
+  }
+  // A Latin token that fits on a line of its own is never split, at any budget it fits.
+  const latin = 'the operator verifies the signature against the issuer key';
+  for (let budget = 20; budget <= 48; budget += 1) {
+    for (const line of foldToBreak(latin, budget)) {
+      assert.equal(/[A-Za-z]-$/.test(line), false, `a Latin token was split at ${budget}: ${line}`);
+    }
+  }
+  assert.equal(foldToBreak(latin, 24).join('').includes('signature'), true, 'the token survived whole');
+});
+
+test('C004 columns are counted as a reader sees them', () => {
+  assert.equal(displayColumns('申請者'), 6, 'two columns per CJK character');
+  assert.equal(displayColumns('abc'), 3);
+  assert.equal(displayColumns(''), 0);
+  assert.equal(displayColumns('A申'), 3, 'mixed script is summed, not counted by code point');
+});
+
+test('C004 no rendered line exceeds the budget, over the whole golden artifact', async () => {
+  const tree = await textCommand([ARTIFACT, '--tree', '--width', '120'], { render: absentRenderer });
+
+  assert.equal(tree.exitCode, 0);
+  assert.equal(headerIds(tree.output).length > 1, true, 'the fixture claims more than one sequence, so the separator is exercised');
+  for (const line of tree.output.split('\n')) {
+    assert.equal(displayColumns(line) <= 120, true, `${displayColumns(line)} columns: ${line}`);
+  }
+  // A blank line separates two sequences and never sits inside one, so the block a step
+  // belongs to is readable without counting the lines above it.
+  assert.equal(/\n\n\n/.test(tree.output), false, 'one blank line between two sequences, never two');
+  assert.equal(tree.output.split('\n').some((line) => line !== '' && line.trim() === ''), false, 'no line is whitespace that is not blank');
+});
+
+test('C004 an object wider than the budget is folded rather than allowed to overflow', async () => {
+  const wide = golden();
+  wide.steps[0] = { ...wide.steps[0], object: 'x'.repeat(400) };
+  const tree = await withArtifact(wide, (path) => textCommand([path, '--tree', '--width', '60'], { render: absentRenderer }));
+
+  assert.equal(tree.exitCode, 0);
+  assert.equal(tree.output.split('\n').every((line) => displayColumns(line) <= 60), true);
+  assert.equal(tree.output.includes('x'.repeat(400)), false, 'the object is folded, not dropped');
+  assert.equal(tree.output.includes('xxxxxx'), true);
+});
+
+test('C005 SHARE counts other sequences, and is absent when there are none', async () => {
+  const tree = await withArtifact({
+    sequences: [1, 2, 3].map((n) => ({ id: `s${n}`, kind: 'entry', firstLine: n, lastLine: n, outcome: 'direct' })),
+    steps: [
+      stepAct('s1-1', 's1', 'Shared', 1), stepAct('s1-2', 's1', 'Paired', 1), stepAct('s1-3', 's1', 'Solo', 1),
+      stepAct('s1-4', 's1', 'Twice', 1), stepAct('s1-5', 's1', 'Twice', 2),
+      stepAct('s2-1', 's2', 'Shared', 2), stepAct('s2-2', 's2', 'Paired', 2),
+      stepAct('s3-1', 's3', 'Shared', 3),
+    ],
+    operations: ['Shared', 'Paired', 'Solo', 'Twice'].map((id) => ({ id, position: 'positioned' })),
+  }, (path) => textCommand([path, '--tree', '--id', 's1'], { render: absentRenderer }));
+
+  assert.equal(tree.exitCode, 0);
+  assert.match(tree.output, /SHARE: also named by 2 other sequences/, 'Shared is named in three sequences');
+  assert.match(tree.output, /SHARE: also named by 1 other sequence\b/, 'the singular for two sequences');
+  assert.equal(tree.output.includes('SHARE: also named by 0'), false, 'Solo is named here alone');
+  assert.equal((tree.output.match(/SHARE:/g) ?? []).length, 2, 'Twice is named twice in one sequence and adds no share');
+});
+
+test('C005 the nine measured terms are unchanged: sharing is spelled by the tree and nowhere else', () => {
+  assert.deepEqual(
+    coverageTerms(coverageOf(golden())).map((term) => term.key),
+    ['entries', 'sequences', 'steps', 'operations', 'placed', 'excused', 'sections', 'linesReached', 'census'],
+    'a second spelling of one fact is a second thing to keep in step',
+  );
+});
+
+test('C006 the fourth reading accepts the budget the list refuses', async () => {
+  const withWidth = await textCommand([ARTIFACT, '--tree', '--width', '40'], { render: absentRenderer });
+
+  assert.equal(withWidth.exitCode, 0, 'the tree has a budget to spend');
+  const labelled = withWidth.output.split('\n').filter((line) => /(?:WHO|WHAT|WHOSE|SHARE): /.test(line));
+  assert.equal(labelled.length > 0, true, 'there are act lines for the budget to hold');
+  for (const line of labelled) {
+    assert.equal(displayColumns(line) <= 40, true, `${displayColumns(line)} columns: ${line}`);
+  }
+  // A heading names a sequence, a range and a count, and folding an identifier is worse than
+  // a wide line: the reading is scrolled rather than withheld, the rule the drawn mode keeps.
+  assert.equal(withWidth.output.split('\n').some((line) => line.startsWith('▸ ') && displayColumns(line) > 40), true);
+
+  const listed = await textCommand([ARTIFACT, '--list', '--width', '40'], { render: absentRenderer });
+  assert.notEqual(listed.exitCode, 0, 'the list has none, so the flag is still refused there');
+  assert.match(listed.reason, /--width/);
+});
+
+test('C006 an id the artifact does not hold, and a flag that cannot act on the mode', async () => {
+  const unknown = await textCommand([ARTIFACT, '--tree', '--id', 'no-such-sequence'], { render: absentRenderer });
+
+  assert.equal(unknown.exitCode, 1, 'a statement about the artifact');
+  assert.equal(unknown.output, '', 'a refusal is never a partial rendering');
+  assert.match(unknown.reason, /no-such-sequence/);
+
+  for (const inert of ['--mermaid', '--ascii']) {
+    const refused = await textCommand([ARTIFACT, '--tree', inert], { render: absentRenderer });
+
+    assert.equal(refused.exitCode, 2, `${inert} is a statement about the invocation`);
+    assert.equal(refused.output, '');
+    assert.match(refused.reason, new RegExp(inert));
+  }
+
+  const both = await textCommand([ARTIFACT, '--tree', '--list'], { render: absentRenderer });
+  assert.notEqual(both.exitCode, 0, 'one names what the artifact holds, the other what to read from it');
+});
+
+test('C006 the fourth reading reaches no library', async () => {
+  const neverCalled = {
+    render: () => {
+      throw new Error('the tree must reach no renderer');
+    },
+  };
+  const tree = await textCommand([ARTIFACT, '--tree'], { render: neverCalled.render });
+
+  assert.equal(tree.exitCode, 0, 'a machine that has never run install.js can read a tree');
+  assert.equal(tree.reason, '');
+});
+
+test('C007 a brief carrying the tree still asks exactly one question', () => {
+  const template = [
+    '# Brief: adjudicate',
+    '{{QUESTION}}',
+    '{{PREDICATE}}',
+    '- {{VERBATIM_QUOTE}}',
+    '- {{NO_LINE_WINDOW}}',
+    '{{TREE}}',
+    'Worklist: {{WORKLIST_PATH}}',
+  ].join('\n');
+  // The tree quotes acts out of the specification, and a specification sentence may end in a
+  // question mark. Those are not questions the brief asks, so they are subtracted from the
+  // count exactly as the predicate clause already is.
+  const tree = '▸ s1  direct\n  ├─ 01  Act  WHO: who does it?\n  │             WHAT: acts?  WHOSE: it?';
+  const rendered = renderBriefFrom({
+    template,
+    briefName: 'adjudicate',
+    worklistPath: '/run/educe-sequences/worklist.txt',
+    predicate: { line: 10, limbs: ['a limb'], text: 'a procedure counts when it effects a limb' },
+    orientation: { tree },
+  });
+
+  assert.equal(rendered.includes('who does it?'), true, 'the tree reached the brief');
+  assert.equal(countInterrogatives(rendered), 4, 'the brief asks one and the tree quotes three');
+});
+
+test('C007 the tree travels to the phases whose question is about order, actor or reach', () => {
+  const worklistPath = '/run/educe-sequences/worklist.txt';
+  const predicate = { line: 10, limbs: ['a limb'], text: 'a procedure counts when it effects a limb' };
+
+  for (const briefName of ['span', 'uncovered', 'reroute', 'adversarial', 'adjudicate']) {
+    const rendered = renderBrief({ briefName, worklistPath, predicate, orientation: { tree: 'TREE-MARK' } });
+
+    assert.equal(rendered.includes('TREE-MARK'), true, `${briefName} carries the tree`);
+  }
+  for (const briefName of ['inquest', 'adhoc']) {
+    const rendered = renderBrief({ briefName, worklistPath, predicate, orientation: { tree: 'TREE-MARK' } });
+
+    assert.equal(rendered.includes('TREE-MARK'), false, `${briefName} does not carry the tree`);
+  }
+  // A generation with no artifact in hand renders without the block, so a first generation's
+  // briefs are exactly as long as they are today.
+  for (const briefName of ['span', 'adjudicate']) {
+    const rendered = renderBrief({ briefName, worklistPath, predicate, orientation: { tree: '' } });
+
+    assert.equal(rendered.includes('{{TREE}}'), false, 'no placeholder is left standing');
+  }
+});
+
+test('C006 every byte the three existing readings write is unchanged', async () => {
+  const artifact = golden();
+  const claiming = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
+
+  assert.equal(claiming.length > 0, true, 'the fixture claims a sequence, so this is not vacuous');
+  for (const entry of claiming) {
+    const recorder = recordingRenderer();
+    const drawn = await textCommand([ARTIFACT, '--id', entry.id], { render: recorder.render });
+    const raw = await textCommand([ARTIFACT, '--id', entry.id, '--mermaid'], { render: absentRenderer });
+
+    assert.match(raw.output, /^sequenceDiagram\n/, `${entry.id} still prints the source`);
+    assert.equal(raw.output.includes('<br/>'), false, 'the raw mode is unfolded, as before');
+    assert.equal(drawn.output.includes(`P1 = `), true, `${entry.id} still prints its legend`);
+    assert.equal(recorder.handed.length >= 1, true, `${entry.id} still reaches the renderer`);
+  }
+});
+
+test('C007 the driver renders a brief that carries the tree of the artifact in hand', () => {
+  // The unit cases above hand the renderer a tree. The command file does not: Step 8 runs
+  // `phase.mjs brief <spec> <role>`, and the tree is built there, from whatever artifact the
+  // run directory holds. A defect only the entry point can see is one every unit test misses.
+  const root = mkdtempSync(join(tmpdir(), 'px252-driver-'));
+  const specPath = join(root, 'ledger.md');
+  const specFixture = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec');
+  copyFileSync(join(specFixture, 'ledger.md'), specPath);
+  copyFileSync(join(specFixture, 'ledger-sequences.json'), join(root, 'ledger-sequences.json'));
+  mkdirSync(join(root, 'educe-sequences'), { recursive: true });
+
+  try {
+    const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', specPath, 'span'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+
+    assert.equal(rendered.status, 0, rendered.stderr);
+    assert.equal(rendered.stdout.includes('▸ admission'), true, 'the brief carries the tree the run has');
+    assert.equal(rendered.stdout.includes('WHO: operator'), true, 'and the acts it read');
+    assert.equal(rendered.stdout.includes('{{TREE}}'), false, 'no placeholder is left standing');
+    assert.equal(rendered.stdout.includes(join(root, 'educe-sequences', 'worklist.txt')), true, 'and still its worklist path');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C001 an artifact carrying no operations is refused by name rather than by a stack trace', async () => {
+  // `operations` is required by the artifact schema, so a document without it is not a
+  // sequence artifact — and the tree counts the operations no step names, so it is the one
+  // reading that reads the array. Refusing by name is the module's contract for every mode.
+  const refused = await withArtifact({
+    sequences: [{ id: 's', kind: 'entry', firstLine: 1, lastLine: 2, outcome: 'direct' }],
+    steps: [{ id: 's-1', sequence: 's', operation: 'Act', line: 1, quote: 'q' }],
+  }, (path) => textCommand([path, '--tree'], { render: absentRenderer }));
+
+  assert.notEqual(refused.exitCode, 0);
+  assert.equal(refused.output, '', 'a refusal writes nothing to stdout');
+  assert.match(refused.reason, /is not a sequence artifact/);
+  assert.match(refused.reason, /operations/);
+  assert.equal(refused.reason.includes('TypeError'), false, 'and never by a stack trace');
+  assert.equal(refused.reason.includes(' at '), false, 'nor by a frame of one');
+});
+
+test('C004 the width table carries the planes outside the basic one', () => {
+  assert.equal(displayColumns('〿'), 1, 'an ideographic half fill space is Narrow');
+  assert.equal(displayColumns('\u{1F600}'), 2, 'a pictograph is Wide');
+  assert.equal(displayColumns('\u{20000}'), 2, 'an ideograph outside the basic plane is Wide');
+  assert.equal(displayColumns('\u{1B000}'), 2, 'a kana supplement is Wide');
+});
+
+test('C004 a lead wider than the budget is printed rather than degenerating', async () => {
+  // An operation name and a column wider than the budget leave the value no room. The reading
+  // is printed rather than withheld, the way a drawing too wide to fit is — but the value must
+  // not be folded to one character per line, which reads as a defect rather than as a reading.
+  const tree = await withArtifact({
+    sequences: [{ id: 's', kind: 'entry', firstLine: 1, lastLine: 2, outcome: 'direct' }],
+    steps: [{
+      id: 's-1', sequence: 's', operation: 'ValidForumEkycParticipationProof',
+      subject: 'operator', predicate: 'verifies', object: 'the proof', line: 1, quote: 'q',
+    }],
+    operations: [{ id: 'ValidForumEkycParticipationProof', position: 'positioned' }],
+  }, (path) => textCommand([path, '--tree', '--width', '40'], { render: absentRenderer }));
+
+  assert.equal(tree.exitCode, 0);
+  const labelled = tree.output.split('\n').filter((line) => /(?:WHO|WHAT|WHOSE): /.test(line));
+  assert.equal(tree.output.includes('WHO: operator'), true, 'the acts are printed rather than withheld');
+  assert.equal(tree.output.includes('WHAT: verifies'), true);
+  assert.equal(tree.output.includes('WHOSE: the'), true);
+  assert.equal(tree.output.split('\n').some((line) => line.trim() === 'proof'), true, 'the object wrapped rather than being dropped');
+  assert.equal(labelled.length, 3, 'one labelled line per act');
+  // The degenerate fold gave every character a line of its own and 29 lines for one step. The
+  // reading is a heading, a spine, three acts with one wrap, and the tail.
+  const written = tree.output.split('\n').length;
+  assert.equal(written <= 14, true, `the reading took ${written} lines`);
+});
+
+test('C004 a sequence of a hundred steps aligns its labels as one of ten does', async () => {
+  // The ordinal grows a column at a hundred, and the label column is what the body lines are
+  // indented to: a column counted from a constant rather than from the ordinal leaves the
+  // labels one column out and the reading unreadable exactly where it is longest.
+  const steps = Array.from({ length: 105 }, (unused, index) => stepAct(`s-${index + 1}`, 's', 'Act', index + 1));
+  const tree = await withArtifact({
+    sequences: [{ id: 's', kind: 'entry', firstLine: 1, lastLine: 200, outcome: 'direct' }],
+    steps,
+    operations: [{ id: 'Act', position: 'positioned' }],
+  }, (path) => textCommand([path, '--tree'], { render: absentRenderer }));
+
+  const labelColumns = tree.output.split('\n')
+    .map((line) => /^(.*?)(?:WHO|WHAT|WHOSE): /.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => displayColumns(match[1]));
+
+  assert.equal(labelColumns.length, 105 * 3, 'every act line is measured');
+  assert.equal(new Set(labelColumns).size, 1, `the labels begin in one column, not ${[...new Set(labelColumns)].join(', ')}`);
+});
+
+test('C006 a repeated id is printed twice, because it was asked for twice', async () => {
+  const tree = await textCommand([ARTIFACT, '--tree', '--id', 'admission', '--id', 'admission'], { render: absentRenderer });
+
+  assert.equal(tree.exitCode, 0);
+  assert.deepEqual(headerIds(tree.output), ['admission', 'admission']);
+});
+
+test('C007 a brief asked for with the superseded option is refused rather than silently emptied', () => {
+  // The two orientation inputs are one option now. A caller that still passes the old key would
+  // otherwise render every pair as "not asked" and be told nothing, which is the silent failure
+  // this module refuses a flag it cannot act on for.
+  assert.throws(
+    () => renderBrief({
+      briefName: 'inquest',
+      worklistPath: '/run/educe-sequences/worklist.txt',
+      predicate: { line: 10, limbs: ['a limb'], text: 'a procedure counts when it effects a limb' },
+      previousAnswers: [],
+    }),
+    /orientation/,
+  );
 });

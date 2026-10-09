@@ -25,3 +25,8 @@ The worklist is {{WORKLIST_PATH}}.
 {{VERBATIM_QUOTE}}
 
 {{NO_LINE_WINDOW}}
+
+What the artifact already reads in this neighbourhood, for orientation and for nothing else.
+It is not evidence: the verdict is made against the line you read, quoted and signed.
+
+{{TREE}}

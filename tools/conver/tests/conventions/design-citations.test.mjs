@@ -199,6 +199,7 @@ const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[â€“â
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
@@ -206,7 +207,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'pins.mjs:519', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 519, token: 'export function rederiveAll' },
   { asWritten: 'pins.mjs:280', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 280, token: 'export function selectNeighbourFor' },
   { asWritten: 'engine.mjs:626', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 626, token: 'export const CHECKS' },
-  { asWritten: 'reading.mjs:353', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 353, token: 'export function applyReadings' },
+  { asWritten: 'reading.mjs:405', path: '.claude/scripts/educe-sequences/rail/reading.mjs', line: 405, token: 'export function applyReadings' },
   // Re-measured when PX-242 opened the run into generations: five of these moved with the
   // files that gained an import, a constant or a subcommand, and the citation followed the
   // definition rather than the definition being kept still for it. PX-243 moved seven
@@ -222,7 +223,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
   { asWritten: 'rail/report.mjs:206', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 206, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:327', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 327, token: 'export async function main' },
+  { asWritten: 'phase.mjs:329', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 329, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.

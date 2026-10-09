@@ -22,10 +22,11 @@ import { parseSpecArgument, artifactPathFor } from './paths.mjs';
 import { predicateFor } from './pins.mjs';
 import { renderBrief } from './reading.mjs';
 import { buildContext, beginRun, exitCodeFor, inquestCountsIn, nextPhase, runPhase, runThrough, startRun, PHASES, PHASE_GUIDANCE, PHASE_EXPECTS, UNCOVERED_WORKLIST_FILE, WORKLIST_FILE } from './phases.mjs';
-import { readArtifact, readSpecification, digestOf } from './load.mjs';
+import { readArtifact, readJsonOrNull, readSpecification, digestOf } from './load.mjs';
 import { buildReport } from './report.mjs';
 import { railExitStoreFor, readRailExits } from './harness.mjs';
 import { readStatus, openPhases, phaseState } from './run-state.mjs';
+import { DEFAULT_WIDTH, treeReading } from './text.mjs';
 import { DECLARATION_FILE, inquestQuestions, inquestRecordsIn, readDeclarationFile } from './readings.mjs';
 import { ADHOC_DIRECTORY, loadAdhocChecks, promoteRecord, railExitTemplate, readCasesFile, runScaffoldCases, scaffoldCheck, writeRailExit, writeRailExits } from './adhoc.mjs';
 
@@ -324,6 +325,7 @@ function promote(context, [id, secondSpecification]) {
 }
 
 /** The entry point. */
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export async function main(argv) {
   const [subcommand, ...rest] = argv;
   if (subcommand === undefined) {
@@ -390,11 +392,21 @@ export async function main(argv) {
         const predicate = declared.ok ? predicateFor(declared.declaration.predicate.limbs, context.spec.lines) : undefined;
         // The worklist path is the run's, not the caller's: a brief that named a file the
         // reader cannot open would send it looking for material that does not exist.
+        // The tree is what the artifact in hand already reads, and it is empty before one
+        // exists: a first generation's briefs are exactly as long as they were without it.
+        // The lenient reader, because a brief is not the run's own state machine: before this
+        // ticket it never opened the artifact at all, and a half-written copy beside the
+        // specification is no reason to refuse a reader the shape of its question. Absent and
+        // unparseable are the same answer here — there is no tree to show.
+        const artifact = readJsonOrNull(context.artifactPath);
         process.stdout.write(`${renderBrief({
           briefName: name,
           worklistPath: join(context.directory, name === 'uncovered' ? UNCOVERED_WORKLIST_FILE : WORKLIST_FILE),
           predicate,
-          previousAnswers: inquestQuestionsIn(context.directory, context.specPath),
+          orientation: {
+            previousAnswers: inquestQuestionsIn(context.directory, context.specPath),
+            tree: artifact === null ? '' : treeReading(artifact, [], DEFAULT_WIDTH),
+          },
         })}\n`);
         return 0;
       } catch (error) {

@@ -390,12 +390,13 @@ test('C005 the questions cross the declared subjects with the lenses and carry t
   assert.equal(typeof matched.question, 'string');
 });
 
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
 test('C005 the rendered brief names each subject, each lens and the previous answer', () => {
   const { spec } = scratchRun();
   const declaration = RUN_INPUT.declaration;
   const questions = inquestQuestions({ declaration, previousAnswers: [answerFor(spec.lines, declaration, 'admission', 'omission', { answer: 'Yes' })] });
 
-  const rendered = renderBrief({ briefName: 'inquest', worklistPath: join(scratchRun().directory, 'worklist.txt'), previousAnswers: questions, predicate: PREDICATE });
+  const rendered = renderBrief({ briefName: 'inquest', worklistPath: join(scratchRun().directory, 'worklist.txt'), orientation: { previousAnswers: questions }, predicate: PREDICATE });
 
   assert.match(rendered, /admission/);
   assert.match(rendered, /omission/);
@@ -404,12 +405,13 @@ test('C005 the rendered brief names each subject, each lens and the previous ans
   assert.equal(rendered.includes(INQUEST_ANSWERS.join(' / ')), true);
 });
 
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
 test('C005 every declared pair renders once, and a pair the previous generation never answered is not dropped', () => {
   const { spec } = scratchRun();
   const declaration = RUN_INPUT.declaration;
   const questions = inquestQuestions({ declaration, previousAnswers: [] });
 
-  const rendered = renderBrief({ briefName: 'inquest', worklistPath: 'worklist.txt', previousAnswers: questions, predicate: PREDICATE });
+  const rendered = renderBrief({ briefName: 'inquest', worklistPath: 'worklist.txt', orientation: { previousAnswers: questions }, predicate: PREDICATE });
 
   assert.equal(questions.every((entry) => entry.previous === null), true);
   assert.equal(rendered.includes('not asked'), true, 'an unanswered pair says so rather than vanishing');

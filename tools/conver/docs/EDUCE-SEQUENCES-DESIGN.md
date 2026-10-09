@@ -90,7 +90,7 @@ span, at `pins.mjs:280`. A neighbour that merely covers the span is not a candid
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
-The integrator at `reading.mjs:353` proves every field of every reading before anything is
+The integrator at `reading.mjs:405` proves every field of every reading before anything is
 written, and a refusal leaves the artifact byte-identical to its state before the call. A
 partial write is the failure that module exists to make impossible.
 
@@ -313,7 +313,7 @@ directory, at `rail-exits.jsonl` beside the checks they describe: a store inside
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
 other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:206` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:327` is
+separating what was measured from what is carried by a signature, and `phase.mjs:329` is
 the command line every step of the command file runs.
 
 ## 7b. What the artifact is held to, when the specification does not say
@@ -418,12 +418,54 @@ it reads the specification, not the implementation.
 ### Reading a sequence at a console
 
 The rendering above is a file beside the specification. `rail/text.mjs` is the same artifact
-read at a console instead, and it has three readings: `--list` says what the artifact holds,
-`--id` draws a chosen sequence, and `--mermaid` prints the source the drawing was made from.
-All three come from one generator — `sequenceDiagramSource` — with the fence applied by
+read at a console instead, and it has four readings: `--list` says what the artifact holds,
+`--tree` prints each sequence's acts in the order they are performed, `--id` draws a chosen
+sequence, and `--mermaid` prints the source the drawing was made from. The drawn and raw
+readings come from one generator — `sequenceDiagramSource` — with the fence applied by
 `renderSequenceDiagram`, so a printed drawing and a printed Mermaid cannot disagree about a
 sequence. `--mermaid` prints exactly the bytes the fence carries, unfolded: folding is a
 property of a drawing, and a viewer does its own layout.
+
+`--list` and `--tree` are the two readings that list rather than draw, and they answer
+different questions, so neither replaces the other. `--list` is the ledger: one line per entry
+the artifact holds, including the regions ruled not a sequence. `--tree` is rooted where the
+drawing is rooted — at the entries whose outcome claims a sequence, read from
+`DIAGRAMMED_OUTCOMES` rather than restated here — so a reader comparing the drawing and the
+tree is not comparing two different sets. Under each sequence it prints the acts in the order
+`artifact.steps` records them, each as `WHO:`, `WHAT:` and `WHOSE:` for the act's subject,
+predicate and object, and `SHARE:` when another sequence names the same operation. Sharing is
+spelled here and nowhere else: `coverageTerms` prints nine measured terms and none of them
+counts it, because one fact spelled on two surfaces is one thing too many to keep in step. The
+reading closes by counting what it did not draw, because an absence that is not counted reads
+as an absence that does not exist.
+
+The tree holds a column budget, and its fold is its own. `foldMessage` folds to the message
+budget of a drawing and measures in code points; the tree measures in display columns, where an
+East Asian Wide character is two, because the acts of a real specification are written in its
+own language and a budget measured in code points lets a line of Japanese overrun the terminal
+it was folded for. The two measures are deliberately not one: the drawn mode is fitted by
+`foldMessage`, and measuring it differently would move every diagram this command has printed.
+The fold cuts only where a reader expects a line to end — after a space, after the punctuation
+that closes a clause, and at a script boundary — never inside a Latin token that fits on a line
+of its own, and never leaving a line that opens with a closing bracket or ends with an opening
+one. An act's value is folded into the room the name and the column above it leave; where that
+room is narrower than `MIN_ACT_COLUMNS` the value keeps that floor and the line is printed
+wider than the budget rather than withheld, which is the rule the drawn mode keeps for a
+drawing that is merely wide. Without the floor a long operation name folds every act to one
+character per line — a reading that looks like a defect, which is worse than a wide one.
+Measured over the fixture artifacts this repository carries, the tree is 29 lines for its
+2 claiming sequences and 6 steps, the widest line 62 columns at a budget of 120.
+
+The same tree is what the briefs of phases 8, 10, 11 and 12 carry, as orientation and never as
+evidence: it points a reader at the span that carries the act and keeps one actor's name and one
+operation's name across the entries of a document, and a verdict made against it rather than
+against the line would be the artifact agreeing with itself. `renderBriefFrom` subtracts the
+tree block from the text it counts interrogatives over, exactly as it already subtracts the
+predicate clause: the tree quotes acts out of the specification, and a sentence of the
+specification that ends in a question mark is not a question the brief asks. The phase 13 brief
+carries no tree — it already carries what the previous generation answered, and its own rules
+refuse an answer grounded in the artifact — and neither does the ad hoc brief, whose question is
+about a check rather than about a sequence.
 
 Three measurements decide the rest, all taken through the library the drawn mode uses.
 
@@ -450,7 +492,7 @@ sideways, so the drawing carries `P1`…`P<n>` and the names are printed beneath
 surface writes the legend, and one mapping serves both.
 
 The library is reached by the drawn mode alone, through an import that happens when that mode
-runs, so `--list` and `--mermaid` work on a machine that has never run `install.js`. That
+runs, so `--list`, `--tree` and `--mermaid` work on a machine that has never run `install.js`. That
 matters because the rail's own suite parses and imports no Mermaid and no renderer: what
 `tests/educe-sequences/text-render.test.mjs` holds is the text the drawn mode hands over,
 against a renderer injected for the purpose, and the measured renderings above are recorded

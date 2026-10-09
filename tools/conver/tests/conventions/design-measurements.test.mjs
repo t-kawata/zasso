@@ -27,6 +27,8 @@ import { fileURLToPath } from 'node:url';
 import { TERMINAL_ARTEFACTS } from '../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
 import { ENGINE_DECLARED_CHECK_COUNT } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
 import { flattenPins } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
+import { DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
+import { displayColumns, treeReading } from '../../.claude/scripts/educe-sequences/rail/text.mjs';
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -194,4 +196,21 @@ test('the educe-sequences document states the check and pin counts the run repor
   assert.equal(Number(stated[1]), ENGINE_DECLARED_CHECK_COUNT);
   const artifact = JSON.parse(readFileSync(EDUCE_GOLDEN_ARTIFACT, 'utf8'));
   assert.equal(Number(stated[2]), flattenPins(artifact.pins).length);
+});
+
+// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+test('the educe-sequences document states the size of the tree the artifact renders', () => {
+  const stated = /the tree is (\d+) lines for its\s+(\d+) claiming sequences and (\d+) steps, the widest line (\d+) columns at a budget of (\d+)/.exec(EDUCE_DESIGN_TEXT);
+  assert.notEqual(stated, null, 'the document states what the fourth reading renders');
+
+  const artifact = JSON.parse(readFileSync(EDUCE_GOLDEN_ARTIFACT, 'utf8'));
+  const claiming = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
+  const owed = artifact.steps.filter((step) => claiming.some((entry) => entry.id === step.sequence));
+  const budget = Number(stated[5]);
+  const rendered = treeReading(artifact, [], budget).replace(/\n$/, '').split('\n');
+
+  assert.equal(Number(stated[2]), claiming.length, 'the stated claiming count is the artifact\'s');
+  assert.equal(Number(stated[3]), owed.length, 'the stated step count is the steps those sequences own');
+  assert.equal(Number(stated[1]), rendered.length, 'the stated line count is what the reading writes');
+  assert.equal(Number(stated[4]), Math.max(...rendered.map((line) => displayColumns(line))), 'the stated width is the widest line');
 });
