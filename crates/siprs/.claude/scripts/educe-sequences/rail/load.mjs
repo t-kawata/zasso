@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // reading the specification, the artifact and the schema (PX-240, contracts C001, C008, C013).
 //
 // Two rules are load-bearing here. A specification is read as bytes so the digest is
@@ -120,6 +121,16 @@ export function validateArtifactShape(artifact, schema) {
   for (const [index, enumeration] of artifact.pins.enumerations.entries()) {
     for (const key of missingKeys(enumeration, schema.pins.enumerations.required)) {
       problems.push({ pin: `enumerations[${index}].${key}`, reason: `enumeration ${enumeration.name ?? index} has no ${key}` });
+    }
+  }
+  // A borrowed census is the one pin whose subject lives outside the specification, so a
+  // malformed one is named by the file it was read from rather than by an index.
+  for (const [index, borrowed] of (artifact.pins.sourceEnumerations ?? []).entries()) {
+    for (const key of missingKeys(borrowed, schema.pins.sourceEnumerations.required)) {
+      problems.push({ pin: `sourceEnumerations[${index}].${key}`, reason: `borrowed census ${borrowed.name ?? index} has no ${key}` });
+    }
+    for (const key of missingKeys(borrowed.source ?? {}, schema.pins.sourceEnumerations.source.required)) {
+      problems.push({ pin: `sourceEnumerations[${index}].source.${key}`, reason: `borrowed census ${borrowed.name ?? index} names no ${key}` });
     }
   }
   for (const [index, form] of artifact.pins.forms.entries()) {

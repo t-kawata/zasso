@@ -1,3 +1,4 @@
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // the command (PX-240, contracts C010, C011, C013).
 //
 // One argument, one derived location, one artifact. Four run shapes follow from that
@@ -20,7 +21,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
 import { coverageLine } from './coverage.mjs';
 import { limbCensusLines } from './report.mjs';
-import { checkAll } from './engine.mjs';
+import { checkAll, describeRefusal } from './engine.mjs';
 import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
@@ -29,7 +30,7 @@ import { loadAdhocChecks } from './adhoc.mjs';
 import { railExitStoreFor } from './harness.mjs';
 import { inquestBeside } from './readings.mjs';
 import { runDirectoryFor, statusPath } from './run-state.mjs';
-import { suppliedDigestOf } from './supplied.mjs';
+import { suppliedDigestOf, suppliedDocumentsOf } from './supplied.mjs';
 import { readRailExits } from './harness.mjs';
 
 /** The exit codes the command contract declares. */
@@ -47,6 +48,7 @@ const UNREAD_REASON = 'the run performed the shape and read nothing; the first [
  */
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -91,7 +93,7 @@ export async function runCommand(argv, options = {}) {
       stderr(`refused: the artifact records supplied digest ${existing.supplied.digest}; the material beside this specification digests to ${suppliedDigest}`);
       return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: [] };
     }
-    const rederived = rederiveAll(existing.pins, spec.lines);
+    const rederived = rederiveAll(existing.pins, spec.lines, suppliedDocumentsOf(runDirectoryFor(specPath)));
     const { verdicts, summary } = checkAll({
       specLines: spec.lines,
       artifact: existing,
@@ -99,11 +101,12 @@ export async function runCommand(argv, options = {}) {
         railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
         inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
         adhocChecks: loaded.checks,
+        supplied: suppliedDocumentsOf(runDirectoryFor(specPath)),
       },
     });
     const failures = [...rederived.failures, ...verdicts];
     if (failures.length > 0) {
-      for (const failure of failures) stderr(`refused: ${failure.check ?? failure.pin}: ${failure.reason}`);
+      for (const failure of failures) stderr(`refused: ${describeRefusal(failure)}`);
       return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts: failures };
     }
     report(stdout, summary, previousCoverageFor(specPath));
@@ -122,6 +125,7 @@ export async function runCommand(argv, options = {}) {
     declaration: runInput.declaration,
     readings: runInput.readings,
     supplied: suppliedDigestOf(runDirectoryFor(specPath)),
+    suppliedDocuments: suppliedDocumentsOf(runDirectoryFor(specPath)),
   });
   const { verdicts, summary } = checkAll({
     specLines: spec.lines,
@@ -130,11 +134,12 @@ export async function runCommand(argv, options = {}) {
       railExits: options.railExits ?? readRailExits(railExitStoreFor(runDirectoryFor(specPath))),
       inquest: options.inquest ?? inquestBeside(runDirectoryFor(specPath)),
       adhocChecks: loaded.checks,
+      supplied: suppliedDocumentsOf(runDirectoryFor(specPath)),
     },
   });
 
   if (verdicts.length > 0) {
-    for (const verdict of verdicts) stderr(`refused: ${verdict.check}: ${verdict.reason}`);
+    for (const verdict of verdicts) stderr(`refused: ${describeRefusal(verdict)}`);
     return { exitCode: EXIT.REFUSED, artifactPath, summary: null, verdicts };
   }
 

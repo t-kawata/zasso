@@ -44,7 +44,8 @@ import { selectNeighbourFor } from './pins.mjs';
  * get: one question, the verbatim-quote clause, the no-window clause, and the worklist.
  */
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-export const BRIEF_NAMES = Object.freeze(['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest']);
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+export const BRIEF_NAMES = Object.freeze(['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest', 'uncovered']);
 
 /** The two clauses a brief must carry verbatim, so removing one breaks rendering. */
 export const BRIEF_CLAUSES = Object.freeze({
@@ -60,6 +61,7 @@ export const BRIEF_QUESTIONS = Object.freeze({
   reroute: 'Which entry should realize this one instead, and what line of that entry says so?',
   adhoc: 'Which check constructor, applied to which subject, reddens the defect named here, and what correct work must stay green?',
   inquest: 'For each subject under each lens, what does the line you read say, and what does it leave unsaid?',
+  uncovered: 'For each operation the census names and no step performs, is it performed by a named actor inside the span you read, or does an escape cover it?',
 });
 
 export const QUESTION_PLACEHOLDER = '{{QUESTION}}';

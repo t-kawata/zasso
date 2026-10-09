@@ -49,6 +49,25 @@ export function suppliedFilesOf(directory) {
 }
 
 /**
+ * The content of everything a run directory's supplied/ directory holds, by file name.
+ *
+ * The digest says a run was given the same material twice; it does not let a check read
+ * anything. A borrowed census needs the content, because the artifact must be held to a set
+ * that lives outside it — and the set is re-extracted from these bytes on every run, so a
+ * file that moved is caught rather than compared with itself.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+export function suppliedDocumentsOf(directory) {
+  const supplied = join(directory, SUPPLIED_DIRECTORY);
+  if (!existsSync(supplied)) return {};
+  const documents = {};
+  for (const name of readdirSync(supplied).sort()) {
+    if (statSync(join(supplied, name)).isFile()) documents[name] = readFileSync(join(supplied, name), 'utf8');
+  }
+  return documents;
+}
+
+/**
  * The digest of a supplied-material list.
  *
  * One rule, so that the digest `begin` records and the digest `run.mjs` re-computes

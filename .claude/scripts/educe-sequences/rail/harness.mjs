@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { checkAll } from './engine.mjs';
+import { DIAGRAMMED_OUTCOMES, checkAll } from './engine.mjs';
 
 /** The file a run keeps its rail-exit records in, beside the checks it had to write. */
 export const RAIL_EXIT_FILE = 'rail-exits.jsonl';
@@ -384,7 +384,31 @@ export function runCase(testCase, { artifact, specLines, fixtureRoot }) {
  * freshness check re-renders and compares bytes rather than comparing parsed fields,
  * so a change in whitespace a reader would not notice still fails.
  */
+/**
+ * One diagram for one sequence, drawn from the records the artifact already holds.
+ *
+ * A sequence diagram is a projection and not a decision: every step is a message, its
+ * subject and object are the participants, its predicate is what the message says and its
+ * operation is what the message is an instance of. A step that names no actor is drawn as
+ * what it is, and `every-sequence-is-drawable` is the check that refuses one — so the
+ * renderer never has to decide whether a sequence is whole.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function renderSequenceDiagram(entry, steps) {
+  const participants = [...new Set(steps.flatMap((step) => [step.subject, step.object]))]
+    .filter((name) => typeof name === 'string' && name !== '');
+  return [
+    '```mermaid',
+    'sequenceDiagram',
+    `  %% ${entry.id} ${entry.firstLine}-${entry.lastLine}`,
+    ...participants.map((name) => `  participant ${name}`),
+    ...steps.map((step) => `  ${step.subject}->>${step.object}: ${step.predicate} [${step.operation}]`),
+    '```',
+  ].join('\n');
+}
+
 export function renderArtifact(artifact) {
+  const drawn = artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
   const lines = [
     `# ${artifact.spec.path.split('/').at(-1)} — sequences`,
     '',
@@ -410,6 +434,13 @@ export function renderArtifact(artifact) {
     '## Operations',
     '',
     ...artifact.operations.map((operation) => `- ${operation.id} ${operation.position} ${operation.grounding.classification}`),
+    '',
+    '## Diagrams',
+    '',
+    // One block per sequence that claims to be one, in the order the artifact orders them.
+    // A region ruled not a sequence is owed no diagram, so the diagram set follows the
+    // rulings rather than the section list.
+    ...drawn.flatMap((entry) => [renderSequenceDiagram(entry, artifact.steps.filter((step) => step.sequence === entry.id)), '']),
     '',
     '## Verify',
     '',

@@ -6,6 +6,7 @@
 // no check measures: that a reader opened the line. A run that printed a single total
 // would make the second readable as the first, which is the confusion this file exists
 // to prevent.
+import { operationSpelling } from './coverage.mjs';
 import { PHASES } from './gates.mjs';
 import { phaseState, readingOf } from './run-state.mjs';
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
@@ -116,6 +117,27 @@ function inquestLines(inquest) {
  * zero in its place would read as a fall from a generation that never existed.
  */
 // [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+/**
+ * The operation line: the borrowed denominator when one was borrowed, the count alone when
+ * none was.
+ *
+ * Printing the artifact's own count beside a census would be printing a number that cannot
+ * fall, so what is printed when a census exists is the census: how many members a step
+ * realized and how many an escape excused. Without a census there is no denominator, and
+ * the count is printed alone rather than against a zero nobody supplied.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function operationLine(summary, comparable, changeIn) {
+  if (summary === null || summary === undefined || typeof summary.operationsEnumerated !== 'number') {
+    return againstPrevious('operations', summary?.operations ?? 0, comparable?.operations, changeIn('operations'));
+  }
+  const spelled = operationSpelling;
+  const previous = comparable === null || comparable?.operationsEnumerated === undefined ? null : spelled(comparable);
+  const movement = previous === null ? null : summary.operationsReached - (comparable.operationsReached ?? 0);
+  return againstPrevious('operations', spelled(summary), previous, movement);
+}
+
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function coverageLines(summary, status) {
   const previous = status?.history?.at(-1)?.coverage ?? null;
   // A run whose checks refused is reported with a null summary, so it has no measurement
@@ -132,7 +154,7 @@ function coverageLines(summary, status) {
   return [
     againstPrevious('sequences', summary?.sequences ?? 0, comparable?.sequences, changeIn('sequences')),
     againstPrevious('steps', summary?.steps ?? 0, comparable?.steps, changeIn('steps')),
-    againstPrevious('operations', summary?.operations ?? 0, comparable?.operations, changeIn('operations')),
+    operationLine(summary, comparable, changeIn),
     againstPrevious('rows', summary?.rows ?? 0, comparable?.rows, changeIn('rows')),
     againstPrevious(
       'linesReached',

@@ -9,6 +9,14 @@
 //
 // A form detector is the one pin kind that is deliberately weaker than the others:
 // it proposes candidates and is refused if it claims to decide any of them.
+//
+// The borrowed census is the second thing this file reads that the specification does not
+// state: a set of names a run must account for, read out of supplied material. It is a pin
+// like any other — the rule that found it is recorded and re-run — and it carries the
+// supplied file's digest, because a census read from a file that has since moved is a
+// census about a document nobody has. The extraction shapes are the rail's own and name no
+// project; the file, the field, the column and the prefix are the declaration's.
+import { digestOfBytes, splitLines } from './load.mjs';
 
 /** The rule each pin kind is re-derived by. */
 export const PIN_RULES = Object.freeze({
@@ -17,7 +25,145 @@ export const PIN_RULES = Object.freeze({
   ENUMERATION_RANGE: 'enumeration-member-inside-range',
   BLOCK_PARTITION: 'block-partition-covers-once',
   FORM_PROPOSES: 'form-proposes-only',
+  SOURCE_ENUMERATION: 'source-enumeration-members-match-source',
 });
+
+/**
+ * The shapes a borrowed census may be read with.
+ *
+ * Three shapes rather than one, each taking its parameter from the declaration: a project
+ * that keeps its census in a table or in marked lines runs the same code as one that keeps
+ * it in fenced JSON. Naming a project's own format here would make the rail that project's
+ * instrument; naming the shape and leaving the parameter to the caller does not.
+ */
+export const SOURCE_SHAPES = Object.freeze(['jsonFieldRows', 'tableColumn', 'markedLines']);
+
+/**
+ * What a borrowed census may answer for.
+ *
+ * The role is how a check finds the census it is about — the operations an interface must
+ * implement, the entries a reading must adjudicate — and it is a closed vocabulary for the
+ * reason the rest of them are: a misspelled role would leave every check that selects by
+ * role silent while the census still looked borrowed, which is a way to disarm the very
+ * check that exists to make an omission loud. A census with no role answers for nothing and
+ * is permitted; a census with a role outside this list is refused.
+ */
+export const SOURCE_ROLES = Object.freeze(['operations', 'entries']);
+
+/** The bodies of every fenced block in a document, as arrays of lines. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function fencedBlockBodies(lines) {
+  const bodies = [];
+  let open = null;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      if (open === null) open = [];
+      else {
+        bodies.push(open);
+        open = null;
+      }
+      continue;
+    }
+    if (open !== null) open.push(line);
+  }
+  return bodies;
+}
+
+/** Whether a line opens a table's data, which is a row beneath a separator row. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function isSeparatorRow(line) {
+  return /^\s*\|[\s:|-]+\|\s*$/.test(line);
+}
+
+/** The cells of a table row, or null when the line is not one. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function tableCellsOf(line) {
+  if (!/^\s*\|/.test(line)) return null;
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+}
+
+/**
+ * The members a document holds in the shape and at the parameter the declaration names.
+ *
+ * Every shape is total over the elements it claims: an element it cannot read is refused by
+ * name rather than skipped, because a skipped element is a member that leaves the census
+ * without anything failing — which is the one way a denominator can shrink in silence.
+ *
+ * @returns {{members: string[]} | {refused: string}}
+ */
+export function extractMembers({ lines, shape, parameter }) {
+  if (!SOURCE_SHAPES.includes(shape)) {
+    return { refused: `shape "${shape}" is not one of ${SOURCE_SHAPES.join(', ')}` };
+  }
+  if (typeof parameter !== 'string' || parameter === '') {
+    return { refused: `the ${shape} shape needs a parameter naming what to read` };
+  }
+  if (shape === 'jsonFieldRows') return extractJsonFieldRows(lines, parameter);
+  if (shape === 'tableColumn') return extractTableColumn(lines, parameter);
+  return extractMarkedLines(lines, parameter);
+}
+
+/** A field of every JSON row in every fenced block that holds rows. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function extractJsonFieldRows(lines, field) {
+  const members = [];
+  for (const body of fencedBlockBodies(lines)) {
+    const rows = body.filter((line) => line.trim() !== '');
+    // Only a block whose first row is an object is a row block; a block of prose or code is
+    // not this shape's business and is left to whichever shape claims it.
+    if (rows.length === 0 || !rows[0].trim().startsWith('{')) continue;
+    for (const row of rows) {
+      let parsed;
+      try {
+        parsed = JSON.parse(row);
+      } catch {
+        return { refused: `the row "${row.slice(0, 60)}" is not readable as JSON` };
+      }
+      if (parsed === null || typeof parsed !== 'object' || !(field in parsed)) {
+        return { refused: `the row "${row.slice(0, 60)}" does not carry ${field}` };
+      }
+      members.push(String(parsed[field]));
+    }
+  }
+  return { members };
+}
+
+/** A column of every row beneath the header that names it. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function extractTableColumn(lines, header) {
+  const members = [];
+  let column = null;
+  for (const [index, line] of lines.entries()) {
+    const cells = tableCellsOf(line);
+    if (cells === null) continue;
+    if (isSeparatorRow(line)) continue;
+    if (isSeparatorRow(lines[index + 1] ?? '')) {
+      column = cells.indexOf(header);
+      continue;
+    }
+    if (column === null) continue;
+    if (cells.length <= column) return { refused: `the row "${line.slice(0, 60)}" carries no ${header} column` };
+    members.push(cells[column]);
+  }
+  return { members };
+}
+
+/** The remainder of every line of a document that is a list and nothing else. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function extractMarkedLines(lines, prefix) {
+  const members = [];
+  let insideFence = false;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      insideFence = !insideFence;
+      continue;
+    }
+    if (insideFence || line.trim() === '') continue;
+    if (!line.startsWith(prefix)) return { refused: `the line "${line.slice(0, 60)}" does not begin with ${prefix}` };
+    members.push(line.slice(prefix.length).trim());
+  }
+  return { members };
+}
 
 /**
  * The heading level a partition is taken at when the declaration states none.
@@ -150,9 +296,35 @@ export function selectNeighbourFor(artifact, entry) {
  *          enumerations: Array<{name: string, members: string[], closedness: string}>,
  *          forms: Array<{name: string, proposes: boolean}>}} declaration
  */
-export function establishPins(specLines, declaration) {
+export function establishPins(specLines, declaration, supplied = {}) {
   const sectionLevel = sectionLevelOf(declaration);
   return {
+    // The borrowed census: a set of names read out of supplied material rather than out of
+    // the specification, so the artifact can be held to something it does not hold itself.
+    // What is recorded is the file, its digest, the shape and parameter that were used, and
+    // the members the extraction found — or the refusal, when the file could not be read.
+    sourceEnumerations: (declaration.sourceEnumerations ?? []).map((entry) => {
+      const document = supplied?.[entry.source];
+      const readable = typeof document === 'string';
+      const extracted = readable
+        ? extractMembers({ lines: splitLines(document), shape: entry.selector?.shape, parameter: entry.selector?.parameter })
+        : { refused: `the supplied file ${entry.source} is not beside this run` };
+      return {
+        name: entry.name,
+        role: entry.role ?? null,
+        source: { file: entry.source, sha256: readable ? digestOfBytes(Buffer.from(document, 'utf8')) : null },
+        selector: { shape: entry.selector?.shape ?? null, parameter: entry.selector?.parameter ?? null },
+        members: extracted.members ?? [],
+        refusal: extracted.refused ?? null,
+      };
+    }),
+    // The columns the caller wants an operation record to carry, which of them must be
+    // measured, and which fields the consumer of the artifact reads. All three are the
+    // caller's: which columns an interface needs is a property of the project, and a rail
+    // that named them would be that project's rail.
+    columns: (declaration.columns ?? []).map((column) => ({ ...column })),
+    requiredMeasuredColumns: [...(declaration.requiredMeasuredColumns ?? [])],
+    consumerFields: [...(declaration.consumerFields ?? [])],
     predicate: {
       line: findLineContainingAll(specLines, declaration.predicate.limbs),
       limbs: [...declaration.predicate.limbs],
@@ -246,6 +418,43 @@ function rederiveBlocks(blocks, specLines, sectionLevel) {
   return { ok: true, pin: 'blocks', rule, line: ordered.length };
 }
 
+/**
+ * Re-derive a borrowed census: the supplied file is the one it was read from, and the
+ * members are what that file holds now.
+ *
+ * The file is re-read and re-extracted rather than the members being compared with
+ * themselves, and the digest is checked first, because a file that moved makes every later
+ * comparison a comparison against a document nobody has.
+ */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function rederiveSourceEnumeration(pin, supplied) {
+  const rule = PIN_RULES.SOURCE_ENUMERATION;
+  const subject = `sourceEnumerations.${pin.name}`;
+  // Read from the pin rather than decided when it was established: the artifact is data
+  // under verification, so a role edited after the fact is exactly the case this refuses.
+  if (pin.role !== null && pin.role !== undefined && !SOURCE_ROLES.includes(pin.role)) {
+    return verdict(subject, rule, `role "${pin.role}" is not one of ${SOURCE_ROLES.join(', ')}, so no check can find this census`);
+  }
+  const document = supplied?.[pin.source?.file];
+  if (typeof document !== 'string') {
+    return verdict(subject, rule, `the supplied file ${pin.source?.file} is not beside this run`);
+  }
+  const digest = digestOfBytes(Buffer.from(document, 'utf8'));
+  if (digest !== pin.source?.sha256) {
+    return verdict(subject, rule, `${pin.source.file} digests to ${digest}; the pin records ${pin.source.sha256}`);
+  }
+  const extracted = extractMembers({ lines: splitLines(document), shape: pin.selector?.shape, parameter: pin.selector?.parameter });
+  if (extracted.refused !== undefined) return verdict(subject, rule, extracted.refused);
+
+  const found = new Set(extracted.members);
+  const declared = new Set(pin.members);
+  const absent = [...declared].filter((member) => !found.has(member));
+  if (absent.length > 0) return verdict(subject, rule, `member "${absent[0]}" occurs in no row of ${pin.source.file}`);
+  const extra = [...found].filter((member) => !declared.has(member));
+  if (extra.length > 0) return verdict(subject, rule, `${pin.source.file} carries "${extra[0]}", which the pin does not list`);
+  return { ok: true, pin: subject, rule, line: null };
+}
+
 /** Re-derive a form entry: a detector proposes candidates and decides none of them. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function rederiveForm(pin) {
@@ -262,8 +471,10 @@ function rederiveForm(pin) {
  * @returns {{ok: true, pin: string, rule: string, line: number|null}
  *          | {ok: false, pin: string, rule: string, line: number|null, reason: string}}
  */
-export function rederivePin(pin, specLines) {
+export function rederivePin(pin, specLines, supplied = {}) {
   switch (pin.kind) {
+    case 'sourceEnumeration':
+      return rederiveSourceEnumeration(pin.value, supplied);
     case 'predicate':
       return rederivePredicate(pin.value, specLines);
     case 'rowSchema':
@@ -293,6 +504,7 @@ export function flattenPins(pins) {
     { kind: 'rowSchema', value: pins.rowSchema },
     ...pins.enumerations.map((value) => ({ kind: 'enumeration', value })),
     ...pins.forms.map((value) => ({ kind: 'form', value })),
+    ...(pins.sourceEnumerations ?? []).map((value) => ({ kind: 'sourceEnumeration', value })),
     { kind: 'blocks', value: pins.blocks, sectionLevel: pins.sectionLevel },
   ];
 }
@@ -304,9 +516,9 @@ export function flattenPins(pins) {
  * artifact with four wrong pins take four runs to reject, and the reader would
  * learn the shape of the problem only by iterating.
  */
-export function rederiveAll(pins, specLines) {
+export function rederiveAll(pins, specLines, supplied = {}) {
   const failures = flattenPins(pins)
-    .map((pin) => rederivePin(pin, specLines))
+    .map((pin) => rederivePin(pin, specLines, supplied))
     .filter((result) => !result.ok);
   return { ok: failures.length === 0, failures };
 }

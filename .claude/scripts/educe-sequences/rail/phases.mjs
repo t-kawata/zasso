@@ -15,6 +15,7 @@ import { basename, dirname, join } from 'node:path';
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
 import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
+import { escapedOperationsOf } from './engine.mjs';
 import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
@@ -24,6 +25,7 @@ import {
   DECLARATION_FILE,
   INQUEST_FILE,
   PINS_FILE,
+  UNCOVERED_WORKLIST_FILE,
   WORKLIST_FILE,
   inquestBeside,
   inquestCounts,
@@ -50,10 +52,10 @@ import {
   reopenPhases,
   writeStatus,
 } from './run-state.mjs';
-import { digestOfSupplied, fileSuppliedMaterial } from './supplied.mjs';
+import { digestOfSupplied, fileSuppliedMaterial, suppliedDocumentsOf } from './supplied.mjs';
 
 /** The working files a run directory holds, named where the gates can reach them too. */
-export { PINS_FILE, WORKLIST_FILE };
+export { PINS_FILE, UNCOVERED_WORKLIST_FILE, WORKLIST_FILE };
 
 /** The exit code that means "stop": the phase spent its loop limit and is not a retry. */
 export const HALT_EXIT_CODE = 3;
@@ -76,12 +78,13 @@ export function exitCodeFor(outcome) {
  * Four phases fill one declaration, each its own section, because a single reader asked
  * for all four at once answers three of them from the first and calls it reading.
  */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASE_EXPECTS = Object.freeze({
   2: `${DECLARATION_FILE} with predicate.limbs`,
   3: `${DECLARATION_FILE} with rowSchema.fields`,
   4: `${DECLARATION_FILE} with enumerations[].{name,members,closedness}`,
-  5: `${DECLARATION_FILE} with sections[].{id,firstLine,lastLine}`,
-  8: 'readings-span.jsonl, one signed line per entry, each carrying the steps and operations read there',
+  5: `${DECLARATION_FILE} with sections[].{id,firstLine,lastLine} and entries[] whose spans cover every line`,
+  8: 'readings-span.jsonl, one signed line per entry carrying the steps and operations read there, and readings-uncovered.jsonl accounting for every operation the borrowed census names',
   10: 'readings-adversarial.jsonl, one signed attack per ruling, each naming the weakest link',
   11: 'readings-reroute.jsonl, one signed reroute per entry bound to a window',
   12: 'readings-adjudicate.jsonl, one signed ruling per entry with no outcome',
@@ -89,12 +92,13 @@ export const PHASE_EXPECTS = Object.freeze({
 });
 
 /** What the reader is asked to do, in the words the brief is rendered with. */
+// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASE_GUIDANCE = Object.freeze({
   2: 'Find the sentence that says when a procedure counts, quote it verbatim, and record the line and its limbs.',
   3: 'Find the sentence that states the fields an entry carries, and record the line and the fields.',
-  4: 'Find every closed vocabulary, its members, and the lines those members occupy.',
-  5: 'Partition the specification into sections that cover every line exactly once.',
-  8: 'For each worklist entry, read its span and answer whether the named operation is performed there.',
+  4: 'Find every closed vocabulary, its members, and the lines those members occupy. When the invocation supplied material carrying a census, also record `sourceEnumerations[]` naming the file, the shape, the parameter and the role it answers for.',
+  5: 'Partition the specification into sections that cover every line exactly once, and name an entry for every line, so no line is left to nobody.',
+  8: 'For each worklist entry, read its span and answer whether the named operation is performed there; for each operation the census names and no step performs, either place it or name the escape that covers it. A record read here also carries the columns the declaration lists, and a column the declaration requires measured carries its evidence.',
   10: 'Attack each ruling: name the one claim whose failure would take it down.',
   11: 'For each entry bound to a window, name the entry that should realize it instead, and the line that says so.',
   12: 'For each entry with no outcome, rule whether one named actor performs two or more ordered acts there.',
@@ -117,7 +121,12 @@ function optionalBrief(directory, briefName) {
 }
 
 /** The brief each `[read]` phase collects, so the count recorded is the count that arrived. */
-const BRIEF_OF_PHASE = Object.freeze({ 2: null, 3: null, 4: null, 5: null, 8: 'span', 10: 'adversarial', 11: 'reroute', 12: 'adjudicate', 13: 'inquest' });
+// Phase 8 carries two briefs: the entries to read and the borrowed census members to
+// account for. They are the same act on two subjects — a span of the document and a name
+// the document must perform — so they are one phase with two questions rather than a
+// nineteenth phase, which would make the phase count a moving number.
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+const BRIEFS_OF_PHASE = Object.freeze({ 8: ['span', 'uncovered'], 10: ['adversarial'], 11: ['reroute'], 12: ['adjudicate'], 13: ['inquest'] });
 
 /**
  * How many signed claims a `[read]` phase produced.
@@ -127,10 +136,19 @@ const BRIEF_OF_PHASE = Object.freeze({ 2: null, 3: null, 4: null, 5: null, 8: 's
  * is the case the report calls incomplete, which is why the count is taken here rather
  * than assumed from the gate having passed.
  */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-248) --for-spec --no-implementation-order`.
 function claimedBy(directory, id) {
-  const brief = BRIEF_OF_PHASE[id];
-  if (brief === undefined) return 0;
+  const briefs = BRIEFS_OF_PHASE[id];
+  // A phase with no brief is one of the four that fill the declaration, and each of them
+  // counted one claim before this phase table carried arrays: the declaration existing is
+  // what those phases produced.
+  if (briefs === undefined) return existsSync(join(directory, DECLARATION_FILE)) ? 1 : 0;
+  return briefs.reduce((total, brief) => total + claimedInBrief(directory, brief), 0);
+}
+
+/** How many signed claims one brief produced. */
+// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+function claimedInBrief(directory, brief) {
   if (brief === null) return existsSync(join(directory, DECLARATION_FILE)) ? 1 : 0;
   return signedCount(optionalBrief(directory, brief));
 }
@@ -145,7 +163,7 @@ const ACTIONS = Object.freeze({
   6: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
-    writeFileSync(join(ctx.directory, PINS_FILE), `${JSON.stringify(establishPins(ctx.spec.lines, declaration.declaration), null, 2)}\n`);
+    writeFileSync(join(ctx.directory, PINS_FILE), `${JSON.stringify(establishPins(ctx.spec.lines, declaration.declaration, suppliedDocumentsOf(ctx.directory)), null, 2)}\n`);
     return { ok: true };
   },
   7: (ctx) => {
@@ -153,6 +171,15 @@ const ACTIONS = Object.freeze({
     if (!declaration.ok) return declaration;
     const worklist = buildWorklist({ artifact: { sequences: declaration.declaration.entries }, select: () => true });
     writeFileSync(join(ctx.directory, WORKLIST_FILE), `${worklist.join('\n')}\n`);
+    // The second worklist: the operations a borrowed census names, which the reader is
+    // asked to account for one at a time. It is written here rather than after the artifact
+    // is assembled because it is what the reading phase is dispatched with — a list handed
+    // out after the reading would be a report, not an instruction.
+    const pins = establishPins(ctx.spec.lines, declaration.declaration, suppliedDocumentsOf(ctx.directory));
+    const uncovered = pins.sourceEnumerations
+      .filter((borrowed) => borrowed.role === 'operations')
+      .flatMap((borrowed) => borrowed.members.map((member) => `${member} account-for`));
+    writeFileSync(join(ctx.directory, UNCOVERED_WORKLIST_FILE), uncovered.length === 0 ? '' : `${uncovered.join('\n')}\n`);
     return { ok: true };
   },
   9: (ctx) => {
@@ -173,8 +200,17 @@ const ACTIONS = Object.freeze({
         adjudications: adjudicate,
       },
       supplied: digestOfSupplied(ctx.status[SUPPLIED_FIELD] ?? []),
+      suppliedDocuments: suppliedDocumentsOf(ctx.directory),
     });
-    return applyReadings({ artifactPath: ctx.artifactPath, readings: sequences, artifact, specLines: ctx.spec.lines });
+    // `applyReadings` answers in its own shape, and a caller that ignored it would let a
+    // refused write reach the gate as "no artifact was written" — a message that names
+    // nothing the reader can repair. The fields it refused are spelled out instead, because
+    // the reader's next action is to repair one of them.
+    const applied = applyReadings({ artifactPath: ctx.artifactPath, readings: sequences, artifact, specLines: ctx.spec.lines });
+    if (applied.refused !== undefined) {
+      return { ok: false, problems: applied.refused.map((refusal) => `${refusal.subject} ${refusal.field}: ${refusal.why}`) };
+    }
+    return applied;
   },
 });
 
@@ -205,6 +241,10 @@ export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot =
       inquest: recorded.inquest ?? inquestBeside(run.directory),
       adhocChecks: recorded.adhocChecks ?? [],
       adhocProblems: recorded.adhocProblems ?? [],
+      // Read here for the same reason the audit is: a caller that spread this value and
+      // forgot the material would re-derive a borrowed census against no file at all and
+      // refuse a run whose material is sitting beside it.
+      supplied: recorded.supplied ?? suppliedDocumentsOf(run.directory),
     },
     fixtureRoot,
   };
@@ -307,22 +347,29 @@ export function startRun({ specPath, spec, root = null }) {
 
 /** How many pairs a run's declaration puts and how many its audit answered. */
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-export function inquestCountsIn(directory) {
+export function inquestCountsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return { asked: 0, answered: 0, exempt: 0 };
   return inquestCounts({
-    subjects: inquestSubjects({ sections: declaration.declaration.sections, entries: declaration.declaration.entries }),
+    subjects: inquestSubjects({
+      sections: declaration.declaration.sections,
+      entries: declaration.declaration.entries,
+      // Read from the artifact, because whether an operation escaped is what the artifact
+      // decided; a count taken from the declaration alone would disagree with the gate.
+      escaped: escapedOperationsOf(readArtifact(artifactPathFor(specPath)) ?? { operations: [] }),
+    }),
     records: inquestRecordsIn(directory),
     exemptions: declaration.declaration.exemptions,
   });
 }
 
 /** The readings a run holds, by brief name, treating an absent file as no readings. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function readingsByBrief(directory) {
-  return Object.fromEntries(PHASES
-    .filter((phase) => phase.tag === PHASE_TAGS.READ && BRIEF_OF_PHASE[phase.id] !== null)
-    .map((phase) => [BRIEF_OF_PHASE[phase.id], optionalBrief(directory, BRIEF_OF_PHASE[phase.id])]));
+  const briefs = PHASES
+    .filter((phase) => phase.tag === PHASE_TAGS.READ)
+    .flatMap((phase) => BRIEFS_OF_PHASE[phase.id] ?? []);
+  return Object.fromEntries(briefs.map((brief) => [brief, optionalBrief(directory, brief)]));
 }
 
 /**
@@ -422,7 +469,7 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
       // The generation being superseded records what its audit asked and answered, so the
       // next report can print the two beside each other and a reader can see whether the
       // questions moved anything.
-      inquest: inquestCountsIn(opened.directory),
+      inquest: inquestCountsIn(opened.directory, specPath),
       coverage,
     }),
     PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id),

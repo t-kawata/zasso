@@ -29,9 +29,9 @@ export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs
  * reproducible when it is not. A run given nothing records the digest of nothing, which
  * is the same value a verification computes beside a specification with no run.
  */
-export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]) }) {
-// [::TICKET::] PX-240, PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242) --for-spec --no-implementation-order`.
-  const pins = establishPins(spec.lines, declaration);
+// [::TICKET::] PX-240, PX-242, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242|PX-248) --for-spec --no-implementation-order`.
+export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]), suppliedDocuments = {} }) {
+  const pins = establishPins(spec.lines, declaration, suppliedDocuments);
   const readingFor = new Map(readings.sequences.map((reading) => [reading.subject, reading]));
 
   return {
