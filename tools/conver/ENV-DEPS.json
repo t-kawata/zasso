@@ -7,7 +7,7 @@
       "path": ".claude",
       "requiredFor": "forward",
       "providedBy": null,
-      "description": "The installed .claude tree: ajv for schema validation, sql.js for the state store."
+      "description": "The installed .claude tree: ajv for schema validation, sql.js for the state store, beautiful-mermaid for drawing a sequence at a console (rail/text.mjs)."
     },
     {
       "id": "conver-tool",

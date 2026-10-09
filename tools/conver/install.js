@@ -195,8 +195,12 @@ function showSummary({ counts, preservedNames, targetDir }) {
 /**
  * Resolve the declared dependencies of the installed `.claude`, without
  * destroying anything that was already there.
+ *
+ * The sentence is the resolver's to write: it is the only code that knows which case was
+ * met, and a table here mapping statuses to sentences would be a second place for the two
+ * to drift apart.
  */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-1|PX-250) --for-spec --no-implementation-order`.
 async function resolveDependenciesForTarget(sourceClaudeDir, targetDir) {
   const manifestPath = path.join(sourceClaudeDir, 'package.json');
   const dependencyEntries = Object.keys(installDeps.readManifestDependencies(manifestPath));
@@ -206,20 +210,13 @@ async function resolveDependenciesForTarget(sourceClaudeDir, targetDir) {
     commandRunner: installDeps.defaultCommandRunner,
   });
 
-  const summaryByStatus = {
-    'no-dependencies': 'no dependencies are declared, so none were installed',
-    resolved: 'every declared dependency already resolves; nothing was installed',
-    'skipped-existing': 'an existing node_modules was left untouched; resolve its dependencies manually',
-    installed: 'dependencies installed into the target .claude',
-  };
-
   if (result.status === 'install-failed') {
-    printError(`error: dependency installation failed and was rolled back: ${result.error}`);
+    printError(`error: ${result.message} ${result.error}`);
     printError('use --no-install-deps to skip dependency resolution');
     process.exit(1);
   }
 
-  print(summaryByStatus[result.status]);
+  print(result.message);
 }
 
 /**

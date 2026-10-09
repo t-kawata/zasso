@@ -505,6 +505,29 @@ would refuse a comma or a colon. It writes only from a verification that passed 
 one `run.mjs` performs — so a refused artifact is neither drawn nor reported as drawn, and
 a region ruled not a sequence is owed no diagram.
 
+The same artifact can be read at a console, which is a different question from writing it
+beside the specification:
+
+```bash
+node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --list
+node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] [--ascii] [--width <columns>]
+node .claude/scripts/educe-sequences/rail/text.mjs "$1-sequences.json" --id <sequence> [--id <sequence>…] --mermaid
+```
+
+`--list` names every sequence with its line range, its outcome and how many steps it
+carries. `--id` draws each named sequence and prints the participant legend beneath it:
+the drawing carries `P1`…`P<n>`, because a diagram whose boxes are the artifact's noun
+phrases cannot be read in a terminal at all. `--width` is the budget for the whole drawing,
+not for one message — the renderer widens a diagram to fit its widest message rather than
+breaking it, so the message budget is narrowed until the drawing fits, and a drawing that
+cannot be made to fit is printed with the width it reached reported on stderr. `--mermaid`
+prints the source instead, exactly the bytes the fence above carries, so it can be pasted
+into a viewer and read as the rail wrote it.
+
+The drawing needs `beautiful-mermaid`, which `install.js` installs into the `.claude` tree
+it installs. `--list` and `--mermaid` need nothing: they work before any dependency is
+resolved, and the drawn mode says which package is missing rather than failing obscurely.
+
 PASS when the artifact exists and its digest can be printed. FAIL: back to Step 14;
 max 2 loops.
 

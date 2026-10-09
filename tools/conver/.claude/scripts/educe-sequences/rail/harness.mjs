@@ -410,7 +410,56 @@ export function encodeForDiagram(text) {
 }
 
 /**
- * One diagram for one sequence, drawn from the records the artifact already holds.
+ * Whether a step field names a participant. A participant is a name, and a name is not empty.
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+function isParticipant(name) {
+  return typeof name === 'string' && name !== '';
+}
+
+/**
+ * The participants of one sequence, in the order they first appear.
+ *
+ * Exported because two callers must agree about which name a `P<n>` stands for: the emitter,
+ * which writes the alias into the diagram, and the console surface, which prints the legend
+ * under it. Two computations of that mapping would be two places for it to drift.
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+export function participantsOf(steps) {
+  return [...new Set(steps.flatMap((step) => [step.subject, step.object]))].filter(isParticipant);
+}
+
+/**
+ * The Mermaid source of one sequence, without the fence that carries it in Markdown.
+ *
+ * This is the one generator behind all three readings of a sequence: the rendering beside the
+ * specification wraps it in a fence, the console's raw mode prints it verbatim, and the
+ * console's drawn mode folds it to a width and hands it to a renderer. Splitting it out is
+ * what makes those three unable to disagree.
+ *
+ * `fold` receives a message and returns the text to emit for it, defaulting to the identity.
+ * It runs before the encoding, so a fold measures the characters a reader will see rather
+ * than the numeric references they are written as.
+ *
+ * `displayName` receives a participant name and its identifier and returns what the alias
+ * carries, defaulting to the name itself. A viewer with a viewport shows the names; a
+ * terminal, which cannot scroll a diagram sideways, shows the identifiers and prints the
+ * names underneath.
+ */
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
+export function sequenceDiagramSource(entry, steps, { fold = (message) => message, displayName = (name) => name } = {}) {
+  const participants = participantsOf(steps);
+  const identifierOf = new Map(participants.map((name, index) => [name, `P${index + 1}`]));
+  return [
+    'sequenceDiagram',
+    `  %% ${encodeForDiagram(entry.id)} ${entry.firstLine}-${entry.lastLine}`,
+    ...participants.map((name) => `  participant ${identifierOf.get(name)} as ${encodeForDiagram(displayName(name, identifierOf.get(name)))}`),
+    ...steps.map((step) => `  ${identifierOf.get(step.subject)}->>${identifierOf.get(step.object)}: ${encodeForDiagram(fold(`${step.predicate} [${step.operation}]`))}`),
+  ].join('\n');
+}
+
+/**
+ * One diagram for one sequence, as the fenced block a Markdown file carries.
  *
  * A sequence diagram is a projection and not a decision: every step is a message, its
  * subject and object are the participants, its predicate is what the message says and its
@@ -429,19 +478,9 @@ export function encodeForDiagram(text) {
  * step naming no actor is refused there, and the product path writes a rendering only from
  * a verification that passed.
  */
-// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
 export function renderSequenceDiagram(entry, steps) {
-  const participants = [...new Set(steps.flatMap((step) => [step.subject, step.object]))]
-    .filter((name) => typeof name === 'string' && name !== '');
-  const identifierOf = new Map(participants.map((name, index) => [name, `P${index + 1}`]));
-  return [
-    '```mermaid',
-    'sequenceDiagram',
-    `  %% ${encodeForDiagram(entry.id)} ${entry.firstLine}-${entry.lastLine}`,
-    ...participants.map((name) => `  participant ${identifierOf.get(name)} as ${encodeForDiagram(name)}`),
-    ...steps.map((step) => `  ${identifierOf.get(step.subject)}->>${identifierOf.get(step.object)}: ${encodeForDiagram(step.predicate)} [${encodeForDiagram(step.operation)}]`),
-    '```',
-  ].join('\n');
+  return ['```mermaid', sequenceDiagramSource(entry, steps), '```'].join('\n');
 }
 
 export function renderArtifact(artifact) {

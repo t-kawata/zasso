@@ -185,27 +185,134 @@ function isDependencyInstalled(dependency, fromDir) {
 }
 
 /**
+ * What dependency resolution can decide.
+ *
+ * One constant rather than the same string literals repeated across the classifier and the
+ * resolver, so a comparison against a misspelled value is a reference error instead of a
+ * branch that silently never matches.
+ */
+const DEPENDENCY_ACTIONS = Object.freeze({
+  NONE: 'no-dependencies',
+  RESOLVED: 'resolved',
+  SKIP_EXISTING: 'skip-existing-node_modules',
+  INSTALL_MISSING: 'install-missing',
+  INSTALL: 'install',
+});
+
+/**
+ * What resolution reports back.
+ *
+ * Separate from the plan because there are five plans and four outcomes: adding a missing
+ * declaration and filling an empty tree both end as `installed`. The names are the ones this
+ * module has always reported and are unchanged by the extra plan.
+ */
+const RESOLUTION_STATUS = Object.freeze({
+  NONE: 'no-dependencies',
+  RESOLVED: 'resolved',
+  SKIPPED: 'skipped-existing',
+  INSTALLED: 'installed',
+  FAILED: 'install-failed',
+});
+
+/**
+ * The top-level packages in a `node_modules` that the declared set does not account for.
+ *
+ * Declared is not the same as accounted for. The installed tree of this project holds four
+ * packages that no manifest names, because they are the dependencies of one that does;
+ * calling those extraneous would refuse to resolve a tree that is exactly right. So the walk
+ * starts at the declared names and follows each installed package's own dependencies, and
+ * what it does not reach is what a reify would remove.
+ *
+ * @param {object} params
+ * @param {string} params.targetClaudeDir - directory whose node_modules is read
+ * @param {string[]} params.dependencyEntries - the names the manifest declares
+ * @returns {string[]} the names present that the closure does not reach
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+function extraneousPackages({ targetClaudeDir, dependencyEntries }) {
+  const nodeModulesPath = path.join(targetClaudeDir, 'node_modules');
+  if (!fs.existsSync(nodeModulesPath)) {
+    return [];
+  }
+
+  const accounted = new Set();
+  const pending = [...(dependencyEntries ?? [])];
+  while (pending.length > 0) {
+    const name = pending.pop();
+    if (accounted.has(name)) {
+      continue;
+    }
+    accounted.add(name);
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(nodeModulesPath, name, 'package.json'), 'utf8'));
+      pending.push(...Object.keys(manifest.dependencies ?? {}));
+    } catch {
+      // A declared package that is not installed has no manifest to read. Its absence is
+      // what install-missing exists for, and it accounts for nothing.
+    }
+  }
+
+  return topLevelPackageNames(nodeModulesPath).filter((name) => !accounted.has(name));
+}
+
+/**
+ * The package names directly inside a `node_modules`, scoped names included.
+ *
+ * A scoped package is a directory holding more directories, so a plain listing would report
+ * `@scope` as a package and never name the one that is installed.
+ *
+ * @param {string} nodeModulesPath
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+function topLevelPackageNames(nodeModulesPath) {
+  const names = [];
+  for (const entry of fs.readdirSync(nodeModulesPath, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) {
+      continue;
+    }
+    if (!entry.name.startsWith('@')) {
+      names.push(entry.name);
+      continue;
+    }
+    for (const scoped of fs.readdirSync(path.join(nodeModulesPath, entry.name), { withFileTypes: true })) {
+      if (scoped.isDirectory()) {
+        names.push(`${entry.name}/${scoped.name}`);
+      }
+    }
+  }
+  return names;
+}
+
+/**
  * Classify what dependency resolution should do for a target .claude.
  * @param {object} params
  * @param {string} params.targetClaudeDir - Installed .claude directory
  * @param {string[]} params.dependencyEntries - Package names to resolve, e.g. ['ajv', 'sql.js']
- * @returns {{ action: 'no-dependencies' | 'resolved' | 'skip-existing-node_modules' | 'install' }}
+ * @returns {{ action: string }}
  */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function classifyDependencyAction({ targetClaudeDir, dependencyEntries }) {
   if (!dependencyEntries || dependencyEntries.length === 0) {
-    return { action: 'no-dependencies' };
+    return { action: DEPENDENCY_ACTIONS.NONE };
   }
 
   const allResolved = dependencyEntries.every((dep) => isDependencyInstalled(dep, targetClaudeDir));
   if (allResolved) {
-    return { action: 'resolved' };
+    return { action: DEPENDENCY_ACTIONS.RESOLVED };
   }
 
   const nodeModulesPath = path.join(targetClaudeDir, 'node_modules');
-  if (fs.existsSync(nodeModulesPath)) {
-    return { action: 'skip-existing-node_modules' };
+  if (!fs.existsSync(nodeModulesPath)) {
+    return { action: DEPENDENCY_ACTIONS.INSTALL };
   }
-  return { action: 'install' };
+
+  // A tree that holds something the manifest does not account for is one a reify would
+  // damage; a tree that holds nothing else has only the absent declaration to resolve.
+  if (extraneousPackages({ targetClaudeDir, dependencyEntries }).length > 0) {
+    return { action: DEPENDENCY_ACTIONS.SKIP_EXISTING };
+  }
+  return { action: DEPENDENCY_ACTIONS.INSTALL_MISSING };
 }
 
 /**
@@ -243,13 +350,19 @@ function runDependencyInstall({
 
 /**
  * Resolve dependencies for a target .claude following the safe policy.
+ *
+ * Every answer carries the sentence a reader needs, because the function that decides the
+ * status is the only one that knows which case was met. A caller holding a status-to-sentence
+ * table of its own would be a second place for the two to disagree.
+ *
  * @param {object} params
  * @param {string} params.targetClaudeDir
  * @param {string[]} params.dependencyEntries
  * @param {string[]} [params.npmArgs]
  * @param {(cmd: object) => { status: number|null, stdout?: string, stderr?: string }} [params.commandRunner]
- * @returns {{ status: 'no-dependencies'|'resolved'|'skipped-existing'|'installed'|'install-failed', error?: string, message: string }}
+ * @returns {{ status: string, error?: string, message: string }}
  */
+// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function resolveTargetDependencies({
   targetClaudeDir,
   dependencyEntries,
@@ -258,32 +371,43 @@ function resolveTargetDependencies({
 }) {
   const plan = classifyDependencyAction({ targetClaudeDir, dependencyEntries });
 
-  if (plan.action === 'no-dependencies') {
-    return { status: 'no-dependencies', message: 'No dependencies declared; dependency resolution skipped.' };
+  if (plan.action === DEPENDENCY_ACTIONS.NONE) {
+    return { status: RESOLUTION_STATUS.NONE, message: 'No dependencies are declared, so none were installed.' };
   }
-  if (plan.action === 'resolved') {
-    return { status: 'resolved', message: 'All declared dependencies already resolve from the target; nothing to install.' };
+  if (plan.action === DEPENDENCY_ACTIONS.RESOLVED) {
+    return { status: RESOLUTION_STATUS.RESOLVED, message: 'Every declared dependency already resolves; nothing was installed.' };
   }
-  if (plan.action === 'skip-existing-node_modules') {
+  if (plan.action === DEPENDENCY_ACTIONS.SKIP_EXISTING) {
     return {
-      status: 'skipped-existing',
+      status: RESOLUTION_STATUS.SKIPPED,
       message:
-        'node_modules exists in the target but declared dependencies are missing. ' +
-        'To avoid destroying pre-existing content, nothing was modified. Resolve the dependencies manually.',
+        'node_modules exists and holds a package the manifest does not account for, ' +
+        'so nothing was modified. Resolve the dependencies manually.',
     };
   }
 
   const install = runDependencyInstall({ targetClaudeDir, npmArgs, commandRunner });
   if (install.ok) {
-    return { status: 'installed', message: 'Dependencies installed into the target .claude.' };
+    return {
+      status: RESOLUTION_STATUS.INSTALLED,
+      message: plan.action === DEPENDENCY_ACTIONS.INSTALL_MISSING
+        ? 'The declared dependencies that were missing were installed into the target .claude.'
+        : 'Dependencies installed into the target .claude.',
+    };
   }
 
-  // Roll back only what this module created: node_modules did not exist before the install.
-  fs.rmSync(path.join(targetClaudeDir, 'node_modules'), { recursive: true, force: true });
+  // Only a node_modules this run created is removed. A tree that was already there is left
+  // as it was found, however the install ended: it is not this module's to discard.
+  const created = plan.action === DEPENDENCY_ACTIONS.INSTALL;
+  if (created) {
+    fs.rmSync(path.join(targetClaudeDir, 'node_modules'), { recursive: true, force: true });
+  }
   return {
-    status: 'install-failed',
+    status: RESOLUTION_STATUS.FAILED,
     error: install.error,
-    message: 'Dependency install failed; the partially-created node_modules was removed.',
+    message: created
+      ? 'Dependency install failed; the partially-created node_modules was removed.'
+      : 'Dependency install failed; the existing node_modules was left as it was found.',
   };
 }
 

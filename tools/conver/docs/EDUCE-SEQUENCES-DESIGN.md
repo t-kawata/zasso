@@ -387,8 +387,59 @@ operation, and `every-sequence-is-drawable` accepts 1 of the 68. That artifact p
 these checks; the next generation is what closes it, and the rendering says so by refusing
 rather than by drawing a diagram full of empty operations.
 
-## 8. What is not here
+### Reading a sequence at a console
 
+The rendering above is a file beside the specification. `rail/text.mjs` is the same artifact
+read at a console instead, and it has three readings: `--list` says what the artifact holds,
+`--id` draws a chosen sequence, and `--mermaid` prints the source the drawing was made from.
+All three come from one generator — `sequenceDiagramSource` — with the fence applied by
+`renderSequenceDiagram`, so a printed drawing and a printed Mermaid cannot disagree about a
+sequence. `--mermaid` prints exactly the bytes the fence carries, unfolded: folding is a
+property of a drawing, and a viewer does its own layout.
+
+Three measurements decide the rest, all taken through the library the drawn mode uses.
+
+The first is that the library widens rather than wraps. A message is not broken inside the
+diagram; the lifelines are pushed apart to fit it. So a width budget applied to the message
+does not bound the diagram — measured over the 68 drawable sequences of
+`GaiaSekkeiShiyousho_v32-sequences.json`, a 25-participant sequence is 272 columns with its
+messages folded to 6, 430 at 20 and 951 at 80. The budget therefore belongs to the diagram,
+and the drawn mode narrows the message budget and re-measures the rendering until it fits,
+because the relationship is the library's to decide and not ours to predict. At a requested
+80 columns the widest of the 68 falls from 951 to 294, and 28 of them remain wider than 80 —
+that residue is the participant count, not the messages: 25 lifelines cannot be drawn in 80
+columns, and the command prints the drawing and reports the width it reached rather than
+withholding a diagram that can still be scrolled.
+
+The second is that a `br` element inside a message is drawn as a line break, which is the
+only fold separator that survives both the encoding and the library's lexer. That is what
+`foldMessage` joins its lines with.
+
+The third is that a participant name in this artifact is a full noun phrase — the longest is
+99 characters. A viewer with a viewport shows the names; a terminal cannot scroll a diagram
+sideways, so the drawing carries `P1`…`P<n>` and the names are printed beneath it as a legend.
+`participantsOf` is exported for that reason: the emitter writes the alias and the console
+surface writes the legend, and one mapping serves both.
+
+The library is reached by the drawn mode alone, through an import that happens when that mode
+runs, so `--list` and `--mermaid` work on a machine that has never run `install.js`. That
+matters because the rail's own suite parses and imports no Mermaid and no renderer: what
+`tests/educe-sequences/text-render.test.mjs` holds is the text the drawn mode hands over,
+against a renderer injected for the purpose, and the measured renderings above are recorded
+here rather than asserted there.
+
+The dependency is declared once, in `.claude/package.json`, which is the only manifest
+`install.js` reads. Installing it needed one addition to the resolver: a tree that already
+existed was never touched, because npm reifies a tree from the manifest and removes what the
+manifest does not account for. Measured, both `npm install` and `npm install <name>` remove
+an undeclared package from a scratch tree. So the caution is kept and made precise rather
+than dropped: a tree is left alone when it holds a top-level package the closure of the
+declared set does not reach, and a declared package missing from a tree that holds nothing
+else is installed. Accounted for is not the same as declared — the installed tree of this
+project holds four packages no manifest names, because they are the dependencies of one that
+does, and calling those extraneous would refuse to resolve a tree that is exactly right.
+
+## 8. What is not here
 - The grill intake. The grill reads its prior material by fixed file name, so giving it
   the artifact at RFC-writing time needs a change on the grill side; that is a separate
   ticket.
