@@ -290,6 +290,8 @@ node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="
 
 An existing `Initial Design Artifact` header is **never** rewritten: preserved byte for byte, reported `header_preserved`. A declared path with no file is reported `absent` rather than dropped — that declaration is exactly what B3 exists to surface.
 
+The header also names the unit ids of the node it cross-references, on a `units:` line inside the header itself, so the source side of the chain is greppable. The ids go **inside** the header rather than beside it: the header is the vessel the supreme law protects, and a second comment would be a second place to look. A node with no unit ids writes no `units:` line, so a header written before this change is still the header it was.
+
 Placement is measured against the answer key rather than judged:
 
 ```bash

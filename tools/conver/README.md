@@ -59,7 +59,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 | 層（ループ） | 実行主体 | コマンド | 責務 |
 |--------|----------|----------|------|
-| **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。一周で終わらず、内側が実装を進めるたびに繰り返す |
+| **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → `/educe-sequences`（要求台帳） | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。一周で終わらず、内側が実装を進めるたびに繰り返す |
 | **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/explain-seed` → `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
@@ -292,6 +292,7 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 material（0個以上のファイル/ディレクトリ）をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
 
 - **入力**: material（ファイル、またはすべてのファイルが material であるディレクトリ）。**0個でも可**（事前成果物と会話のみから始める）。**RFC 出力先は引数ではありません**。これに加えて STEP 0 が、実行したディレクトリ（`$RFC_DIR`）と隣接ディレクトリの先行記録 — `RFC.md`・`RFC-SEED.md`・`INFO-RFC-SEED.md`・`EXPLAIN-RFC-SEED.md` — を読みます（既存の木では正典が旧名 `RFC-<SLUG>.md` のこともあるため、読み取りはその綴りも受け付けます）
+- **要求台帳を与える**: `*-sequences.json`（`/educe-sequences` の成果物）を material の1つとして渡すと、STEP 0 がこのパッケージぶんの単位を `$RFC_DIR/SEQUENCES.md` / `SEQUENCES.json` に射影し、それを material として読みます。渡さなければ、走は今までと1バイトも変わりません（検出器は常に exit 0、義務集合は空、第六の一貫性は空配列を返します）。詳しくは[要求台帳の配布と波及](#要求台帳の配布と波及--単位idが4ループをどう通るか)
 - **出力**: 正典 RFC は常に `$RFC_DIR/RFC.md`。**名前は固定で、引数でも走査でも変えられません**。派生する成果物名も固定です（`/graphify-rfc` → `RFC-GRAPH.json`、`/boundify-graph` → `RFC-Dirs-Tree.json`）
 - **プロセス**: `init.js "$RFC_DIR" $ARGUMENTS` が DesignTree / Status.json / CheckList.md を初期化 → STEP 0 の先行走査と `settle-run.js "$RFC_DIR" prior` → はしごで確定できる点を確定 → 確定できない点だけを束ねて（1ラウンド最大3軸・最大5ラウンド）7行の塊で聞く → 答えが含意する点を `settle` で確定 → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
 - **質問ゲート**: 「決定・根拠・覆す条件」の3行が書けて**落ちる**まで、問いは起草できません。根拠は**この走で実際に読んだ記録**に限られ、読んでいない記録を根拠にした確定は拒否されます。この規則ブロックは `/explain-seed`・`/drill-rfc-down` と**バイト同一**（3ファイルで共有する1つのブロック）で、3コマンドが別々の問い方へ drift しないことをテストが保証します
@@ -604,6 +605,69 @@ CRYSTALIZE-Status.json
 ```
 
 ### 第五層（適合ループの成果物）
+
+#### 要求台帳（`/educe-sequences` の成果物）
+
+`/workspacify-allocate` のあと、上流ループの前に、仕様書から**網羅的なシーケンスとオペレーション**を抽出し、`<spec>-sequences.json` として1枚にまとめます。これは4つの内側のループが読む**要求台帳**であり、第四の整合性（実装が完全に一致すること）を、単位IDに対する述語として測れるようにするものです。
+
+台帳は仕様書の純関数であり、ディレクトリを知りません。どのパッケージがどの単位を実装するかは、台帳と `WORKSPACIFY-TREE-MANIFEST.json` の接合から決まります。接合した結果はパッケージディレクトリの`SEQUENCES.md` / `SEQUENCES.json` として置かれ、RFC に書くべき単位がそこから漏れなく読めます。
+台帳が与えられていない場合、パイプラインの動作は一切変わりません。
+
+#### 要求台帳の配布と波及 — 単位IDが4ループをどう通るか
+
+台帳は仕様書の全体を1枚に持っていますが、**RFC に書くべきなのはそのパッケージぶんだけ**です。その切り出しと、切り出したものが4つのループをどう通るかを、ここに一度だけ書きます。
+
+**与え方** — 特別なフラグはありません。material の1つとして渡すだけです。
+
+```bash
+/grill-me-for-rfc GaiaSekkeiShiyousho_v32.md ~/shyme/gaia/GaiaSekkeiShiyousho_v32-sequences.json
+```
+
+**配布（STEP 0 で起きること）**
+
+```
+① init.js          artifact を Status.json の materialPaths に記録する
+② sequences-material.js  「素材はある / view はまだ無い / 源はこれ」を JSON で報告する（常に exit 0）
+③ run.mjs          <pkg>/SEQUENCES.md と SEQUENCES.json を書く   ← ここが配布
+④ init.js          その2ファイルを素材に加える
+⑤ list-files.js    素材一覧を返す → grill が SEQUENCES.md を読む
+```
+
+**②が③より前に、③が⑤より前に**あることが構造上の要点です。記録済みの view が消えても、厳格な読み手（`init.js` / `list-files.js` は記録済みパスが無ければ exit 1）が走る前に再生成されるので、セッションが永久に固まる状態が作れません。
+
+**③が肝**です。`run.mjs` は台帳と `WORKSPACIFY-TREE-MANIFEST.json` を接合し、そのパッケージが所有する単位だけを抜き出します。単位の同一性は最後まで**単位ID**です。
+
+| 単位ID | 意味 |
+|---|---|
+| `op-<operationId>` | このパッケージが実装するオペレーション |
+| `seq-<sequenceId>` | このパッケージが単独で持つシーケンス |
+| `xdir-<sequenceId>` | **他パッケージとまたがる**シーケンス。所有者すべての view に同じIDで現れる |
+
+**RFC.md に届くまで**
+
+```
+STEP 1  単位IDごとに DesignTree ノードを1つ播く
+STEP 4  generate-checklist.js が1ノード＝1行を出力する（生成器の変更は不要）
+STEP 5  確定した木から RFC.md を書く → 単位が RFC に名前を持つ
+        RFC のその節に <!-- unit: op-IssueCertificate --> が付く
+```
+
+素材の集合が義務の集合を決め、義務の集合がノードを決め、ノードが RFC の節を決めます。**ゲート側に「台帳があったら要求する」という分岐は1行もありません** — 義務レジストリが返したものをループするだけなので、素材が無ければ空ループになります。これが追加補強であることの実体です。
+
+**4ループへの波及**
+
+| ループ | 単位IDの運ばれ方 | 検査 |
+|---|---|---|
+| **上流** | RFC の `<!-- unit: -->` → `/graphify-rfc` がノードの `unitIds` に → `/boundify-graph` がヘッダの `units:` 行に → `/split-to-tickets` がチケットの `nodeIds` に | 検出器が view の存在を保証し、配布台帳ゲートが台帳の形を検査する |
+| **実装** | チケットが単位を宣言し、実装ファイルの `Initial Design Artifact` ヘッダが単位を名指しする（supreme law が保護する器の中に） | 落ちた単位は未解決テンプレートとして現れる。`checkUnitProvenance` が**発明**と**欠落**を別々に報告する |
+| **出荷** | `/crystalize-readme` は**グラフだけ**を読む。グラフに単位IDがあるから船積層が単位を列挙できる | 船積層が見る単位集合 ＝ 台帳の単位集合 |
+| **進化** | `/drill-rfc-down` Step 1 が同じ検出器を呼び、同じ view を読む | 第六の一貫性が台帳 ⇄ グラフ ⇄ チケットを突き合わせ、**失われた単位は high severity** |
+
+**保証**
+
+- **無ければ何も変わらない**: 検出器は常に exit 0、`obligationsFor` は空配列、第六の一貫性は空配列を返します。`verify-step.js` は high severity だけを見るので、既存パッケージの PASS / FAIL は数学的に不変です。
+- **あれば漏れない**: 1つの単位は所有者の数だけ view に現れ、台帳・グラフ・チケットの3集合が一致しなければ high finding になります。
+- **壊れても直せる**: view が消えても、源の artifact が残っていれば再生成されます。
 
 ```
 WORKSPACIFY-TREE-MANIFEST.json（/workspacify-tree の出力・stage one の単一の正典。カレントディレクトリに出力）

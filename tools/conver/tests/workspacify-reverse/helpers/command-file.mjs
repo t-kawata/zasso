@@ -82,7 +82,7 @@ export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
   'jpush-branch',
   'plan',
   'sessions',
-  'skill-health',
+  'skill-health', 'suggest-min-tickets',
 ]);
 
 /** Where the instrument's subcommands are catalogued. */

@@ -134,47 +134,43 @@ describe('detect-orphan-contracts.js (orphaned edge-contract detection)', () => 
     assert.ok(orphans[0].connectingTickets.every((t) => typeof t.status === 'string'), 'status surfaced for every connecting ticket');
   });
 
+// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
   it('C004: verify-consistencies reports a high-severity orphan finding when orphans exist', () => {
     const graph = buildGraph();
     const tickets = buildTickets(); // orphans present
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'orphan-verify-'));
-    const rfcPath = path.join(tmp, 'RFC.md');
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'orphan-verify-'));
+    const rfcPath = path.join(fixtureRoot, 'RFC.md');
     fs.writeFileSync(rfcPath, '# Doc\n\n## Auth\n', 'utf8');
-    const dirsTree = { schemaVersion: 1, sourceGraph: path.join(tmp, 'RFC-GRAPH.json'), sourceFile: rfcPath, trees: {}, dependencyDirections: {} };
-    const srcDir = path.join(tmp, 'src');
+    const dirsTree = { schemaVersion: 1, sourceGraph: path.join(fixtureRoot, 'RFC-GRAPH.json'), sourceFile: rfcPath, trees: {}, dependencyDirections: {} };
+    const srcDir = path.join(fixtureRoot, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
 
     const result = verifyConsistencies(
       fs.readFileSync(rfcPath, 'utf8').split('\n'),
-      graph,
-      dirsTree,
-      srcDir,
-      tickets,
+      { srcDir, artifacts: { graph, dirsTree, tickets } },
     );
 
     assert.ok(result.findings.some((f) => f.severity === 'high' && /orphan|contract/i.test(f.message)), 'high-severity orphan finding reported');
-    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
+// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
   it('C004: verify-consistencies reports no orphan finding when all contracts are covered', () => {
     const graph = buildGraph();
     const tickets = buildTickets({ t1Contracts: [{ id: 'C001', sourceEdge: 'N0002→N0003', precondition: 'p', postcondition: 'q', invariant: 'r' }] });
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'orphan-verify-'));
-    const rfcPath = path.join(tmp, 'RFC.md');
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'orphan-verify-'));
+    const rfcPath = path.join(fixtureRoot, 'RFC.md');
     fs.writeFileSync(rfcPath, '# Doc\n\n## Auth\n', 'utf8');
-    const dirsTree = { schemaVersion: 1, sourceGraph: path.join(tmp, 'RFC-GRAPH.json'), sourceFile: rfcPath, trees: {}, dependencyDirections: {} };
-    const srcDir = path.join(tmp, 'src');
+    const dirsTree = { schemaVersion: 1, sourceGraph: path.join(fixtureRoot, 'RFC-GRAPH.json'), sourceFile: rfcPath, trees: {}, dependencyDirections: {} };
+    const srcDir = path.join(fixtureRoot, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
 
     const result = verifyConsistencies(
       fs.readFileSync(rfcPath, 'utf8').split('\n'),
-      graph,
-      dirsTree,
-      srcDir,
-      tickets,
+      { srcDir, artifacts: { graph, dirsTree, tickets } },
     );
 
     assert.ok(!result.findings.some((f) => /orphan/i.test(f.message)), 'no orphan finding when covered');
-    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   });
 });

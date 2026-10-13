@@ -26,6 +26,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `lib` | `commonjs` |
 | `question-gate` | `module` |
 | `rfc-graph` | `commonjs` |
+| `sequences-slice` | `module` |
 | `tickets` | `commonjs` |
 | `utils` | `unknown` |
 | `workspacify-allocate` | `module` |

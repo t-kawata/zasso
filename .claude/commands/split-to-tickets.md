@@ -47,6 +47,8 @@ In: arg1 required RFC/design-document; arg2 required I/O-boundary GRAPH; arg3 re
 Out: `Tickets.json` in RFC directory; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`.
 Existing output → ask; stop before overwrite.
 
+A ticket that implements a node carrying `unitIds` records those ids in its own `nodeIds` array, beside the graph node ids it already carries. The ticket level is the level the consumers read: `verify-consistencies.js` `collectTicketNodeIds` iterates `phases[].tickets[].nodeIds` and never reads a phase-level array, so writing to the phase would put the ids where nothing looks. The schema declares `nodeIds` at both levels as an array of unconstrained strings and requires it at neither, so a unit id is structurally acceptable and no schema change is needed.
+
 ## List of Scripts Used
 
 Root: `.claude/scripts/tickets/`; status/graph utility invocations below retain source paths.

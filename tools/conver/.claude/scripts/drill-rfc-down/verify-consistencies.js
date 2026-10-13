@@ -21,6 +21,10 @@
 
 import fs from 'fs';
 import path from 'path';
+// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+import { readDistributionLedger, resolvesInsideRfc } from '../sequences-slice/lib/distribution-ledger.mjs';
+// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+import { checkUnitProvenance } from '../sequences-slice/lib/unit-provenance.mjs';
 import { fileURLToPath } from 'url';
 import { detectOrphanContracts } from './detect-orphan-contracts.js';
 
@@ -193,7 +197,81 @@ function checkOrphanEdgeContracts(graph, tickets) {
 
 /** Run all consistency checks and return the findings. */
 // [::TICKET::] PX-169, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-169|PX-172) --for-spec --no-implementation-order`.
-function verifyConsistencies(rfcLines, graph, dirsTree, srcDir, tickets) {
+/**
+ * The sixth consistency: every unit the projection distributed is discharged in the ledger.
+ *
+ * This returns an empty array when the package carries no distribution ledger, and that
+ * single line is the whole additivity argument. The obligation set comes from the registry,
+ * so an absent material yields an empty loop; there is deliberately no branch here on a
+ * material's file name, because a gate that read "if the material is present, then require
+ * something" would make the material a precondition of operation.
+ *
+ * Severity follows the file's existing vocabulary: a unit the tree carries and the ledger
+ * does not disclose is a structural break, and a row citing a location that does not resolve
+ * inside this document is cosmetic, because the row exists and only its pointer is wrong.
+ *
+ * @param {string[]} rfcLines
+ * @param {{ nodes?: object[] }} tree
+ * @param {object|null} ledger - the verdict from readDistributionLedger, or null
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
+function checkUnitPreservation(rfcLines, tree, ledger, artifacts = null) {
+  if (ledger === null || ledger === undefined) return [];
+
+  const findings = [];
+  const unitIdsInTree = collectUnitIds(tree?.nodes ?? []);
+  const disclosed = new Set(ledger.rows.map((row) => row.unit));
+
+  for (const unitId of unitIdsInTree) {
+    if (!disclosed.has(unitId)) {
+      findings.push({ severity: 'high', message: `unit ${unitId} is distributed to this package and the distribution ledger does not disclose it` });
+    }
+  }
+  for (const row of ledger.rows) {
+    if (!resolvesInsideRfc(row.location)) {
+      findings.push({ severity: 'low', message: `distribution ledger row ${row.index} cites "${row.location}", which does not resolve inside this RFC` });
+    }
+  }
+
+  // PX-258 extends the same check rather than adding a second one with the same name: the
+  // chain continues past the package, and the graph and the tickets are the next two links.
+  findings.push(...checkUnitProvenance(artifacts?.graph ?? null, ledgerUnitIdsOf(tree), [], artifacts?.tickets ?? null));
+  return findings;
+}
+
+/** The ledger unit ids a design tree implies, or nothing when it carries no unit nodes. */
+// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+function ledgerUnitIdsOf(tree) {
+  const unitIds = collectUnitIds(tree?.nodes ?? []);
+  return unitIds.length === 0 ? null : new Set(unitIds);
+}
+
+/** Every unit id the design tree carries, at any depth, in the prefixes the view uses. */
+// [::TICKET::] PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
+function collectUnitIds(nodes) {
+  const unitIds = [];
+  for (const node of nodes) {
+    if (typeof node?.id === 'string' && /^(op|seq|xdir)-/.test(node.id)) unitIds.push(node.id);
+    unitIds.push(...collectUnitIds(node?.children ?? []));
+  }
+  return unitIds;
+}
+
+/** The package's design tree, or null when it carries none. */
+// [::TICKET::] PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
+function readDesignTreeBeside(rfcPath) {
+  const treePath = path.join(path.dirname(rfcPath), 'DesignTree.json');
+  try {
+    return JSON.parse(fs.readFileSync(treePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+// [::TICKET::] PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
+function verifyConsistencies(rfcLines, { srcDir, artifacts, designTree = null }) {
+  const { graph, dirsTree, tickets } = artifacts;
   const findings = [
     ...checkRfcHeadingCoverage(rfcLines, graph.nodes || []),
     ...checkGraphDirsTreeMapping(graph.nodes || [], dirsTree),
@@ -201,13 +279,14 @@ function verifyConsistencies(rfcLines, graph, dirsTree, srcDir, tickets) {
     ...checkGraphTicketCoverage(graph.nodes || [], tickets),
     ...checkDanglingReferences(graph.nodes || [], dirsTree, tickets),
     ...checkOrphanEdgeContracts(graph, tickets),
+    ...checkUnitPreservation(rfcLines, designTree, readDistributionLedger(rfcLines.join('\n')), artifacts),
   ];
   const high = findings.filter((f) => f.severity === 'high').length;
   const low = findings.filter((f) => f.severity === 'low').length;
   return { ok: high === 0, findings, summary: { high, low, total: findings.length } };
 }
 
-// [::TICKET::] PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-169|PX-257|PX-258) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let rfcPath = '';
@@ -232,7 +311,11 @@ function main() {
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
   const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
-  const result = verifyConsistencies(rfcLines, graph, dirsTree, srcDir, tickets);
+  const result = verifyConsistencies(rfcLines, {
+    srcDir,
+    artifacts: { graph, dirsTree, tickets },
+    designTree: readDesignTreeBeside(rfcPath),
+  });
   const payload = JSON.stringify(result, null, 2) + '\n';
   if (outPath) fs.writeFileSync(outPath, payload, 'utf8');
   process.stdout.write(payload);
@@ -258,6 +341,8 @@ export {
   checkGraphTicketCoverage,
   checkDanglingReferences,
   checkOrphanEdgeContracts,
+  // [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+  checkUnitPreservation,
   verifyConsistencies,
   main,
 };

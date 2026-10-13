@@ -20,11 +20,19 @@ const GENERATED_BASENAMES = ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Statu
 
 /** The basenames that are stage-1 inputs, matched by name at any depth. */
 const FROZEN_BASENAMES = [
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
   'RFC-SEED.md',
   'INFO-RFC-SEED.md',
   'EXPLAIN-RFC-SEED.md',
   'WORKSPACIFY-ALLOCATE-MANIFEST.json',
   'WORKSPACIFY-TREE-MANIFEST.json',
+  // The projection /grill-me-for-rfc writes from the sequences artifact. Generated, not
+  // authored, so the grill must not rewrite it: a rewritten view would carry the grill's
+  // reading of the sequences rather than the artifact's, and nothing downstream could tell
+  // the two apart. It is frozen for the same reason RFC-SEED.md is, and regenerable, so
+  // refusing to edit it costs nothing.
+  'SEQUENCES.md',
+  'SEQUENCES.json',
 ];
 
 /** The specification is versioned, so it is matched by pattern rather than by name. */
