@@ -107,6 +107,8 @@ Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `tickets/ve
 
 ### Node (node.schema.json)
 
+The unit anchor — a section written for a distributed unit records the unit's id in an HTML comment, `<!-- unit: op-<operationId> -->`, so the id can be read out of the section without reading its prose. A unit the ledger does not assign to this package carries no anchor here. When a node is built from such a section, the node's optional `unitIds` array records those ids, and it stays empty for a section that carries none. The property is optional, so a graph written before it existed still validates against `additionalProperties: false`; nothing else about the node changes.
+
 ```json
 {
   "id": "N0001",

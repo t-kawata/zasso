@@ -222,6 +222,19 @@ Artifacts:
 - session-only: Status / DesignTree / CheckList / baseline / delta under `$SESSION_DIR`.
 - no touch: existing `$RFC_DIR/Status.json` and equivalent existing session artifacts.
 
+Sequence material — an optional input this run may have. `sequences-material.js` is the tolerant reader: it exits 0 for every input, so it can never stop the drill, and it runs here, after preflight and before `session-init.js`, so it reports before anything else reads a material list.
+
+```bash
+node "$DRILL_DIR/sequences-material.js" "$RFC_DIR" --session-dir="$SESSION_DIR"
+```
+
+one JSON object: `present`, `source`, `view`, `viewExists`, `materialPaths`, `staleMaterialPaths`, `searched`. The session record is searched first and carries no `materialPaths` of its own, so the answer comes from `$RFC_DIR/Status.json` or from the view's deterministic location — which is why the search has three steps rather than one.
+
+- `present` false → this package has no sequences material. Read no sequences; the drill is exactly the drill it would have been without this input.
+- `present` true → read `$RFC_DIR/SEQUENCES.md` as material alongside everything preflight listed, and treat cross-boundary units (`xdir-*`) as work that reaches beyond this package.
+
+The view is deliberately **not** added to the preflight material arguments: preflight refuses a missing file argument and an empty directory argument, so a view that had been deleted would abort the drill — precisely the failure this input must not introduce. Read it by this instruction instead, which cannot fail.
+
 #### 1-1. Session Initialization
 
 ```bash

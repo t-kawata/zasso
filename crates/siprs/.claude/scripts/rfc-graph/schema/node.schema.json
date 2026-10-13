@@ -2,21 +2,46 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "node.schema.json",
   "type": "object",
-  "required": ["id", "title", "kind", "summary", "headingRefs", "slug"],
+  "required": [
+    "id",
+    "title",
+    "kind",
+    "summary",
+    "headingRefs",
+    "slug"
+  ],
   "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^N[0-9]{4}$" },
-    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "id": {
+      "type": "string",
+      "pattern": "^N[0-9]{4}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
     "kind": {
       "type": "string",
       "enum": [
-        "requirement", "api_contract", "data_model", "state_machine",
-        "architecture", "security",
-        "error_policy", "config", "test_policy", "build_ci",
-        "rationale", "glossary"
+        "requirement",
+        "api_contract",
+        "data_model",
+        "state_machine",
+        "architecture",
+        "security",
+        "error_policy",
+        "config",
+        "test_policy",
+        "build_ci",
+        "rationale",
+        "glossary"
       ]
     },
-    "summary": { "type": "string", "minLength": 1 },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
     "language": {
       "type": "string",
       "description": "当該ノードが実装されるプログラミング言語（単一値）。graphify 側で静的に確定する。PX-25 以降の boundify パイプラインで使用。"
@@ -32,18 +57,40 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["refId", "heading", "texts"],
+        "required": [
+          "refId",
+          "heading",
+          "texts"
+        ],
         "additionalProperties": false,
         "properties": {
-          "refId": { "type": "string", "pattern": "^REF[0-9]{3,}$" },
-          "heading": { "type": "integer", "minimum": 0, "maximum": 6 },
+          "refId": {
+            "type": "string",
+            "pattern": "^REF[0-9]{3,}$"
+          },
+          "heading": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
           "texts": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
+    },
+    "unitIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(op|seq|xdir)-.+"
+      },
+      "description": "このノードが実装する配布単位のID（例: [\"op-IssueCertificate\",\"seq-S-application-and-payment\"]）。/educe-sequences の artifact から PX-256 の投影が配り、PX-257 の台帳が検査する。required には含めず後方互換性を維持。"
     }
   }
 }

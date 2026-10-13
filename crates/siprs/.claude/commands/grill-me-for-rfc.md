@@ -277,6 +277,27 @@ node .claude/scripts/grill-me-for-rfc/canon-state.js "$RFC_DIR"
 
 exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
 
+Sequence material — an optional input this run may have been handed. `sequences-material.js` is the tolerant reader: it reports whether a sequences artifact or a generated per-package view is available, and it exits 0 for every input, so it can never stop the command. It runs here, after the guard and before the strict reader below, because that ordering is what keeps a recorded-but-deleted view from wedging the session.
+
+```bash
+node .claude/scripts/grill-me-for-rfc/sequences-material.js "$RFC_DIR"
+```
+
+one JSON object: `present`, `source`, `view`, `viewExists`, `materialPaths`, `staleMaterialPaths`, `searched`. `searched` names every record read and whether it could be read, so an answer of "absent" can always be explained rather than taken on trust.
+
+- `present` false → this package has no sequences material. Read no sequences and continue; the run is exactly the run it would have been before this input existed.
+- `present` true and `view` non-null → the view is already at `$RFC_DIR/SEQUENCES.md`. Read it as material alongside the files below.
+- `present` true and `view` null → the view is missing and `source` names the artifact it comes from. Regenerate it, record it, and only then let the strict reader below walk the material list:
+
+```bash
+node .claude/scripts/sequences-slice/run.mjs "$SOURCE" "$RFC_DIR"
+node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" "$RFC_DIR/SEQUENCES.md" "$RFC_DIR/SEQUENCES.json"
+```
+
+`run.mjs` writes the view for this package alone and reports what it wrote; it exits 0 even when it writes nothing, so a workspace missing a manifest is a reported reason rather than a stop. A view that was recorded and then deleted is regenerated here, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable.
+
+Do not pass the view paths to `preflight`-style material walking, and never hand them back to `/educe-sequences`: its supplied-material rail absorbs and deletes per-crate artifacts, which is the mechanism that removed them in the first place.
+
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
 ```
@@ -303,6 +324,24 @@ after reading all research material, before the first grill question: generate i
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
 ```
+
+Nodes also come from the material. When STEP 0 found sequences material, `$RFC_DIR/SEQUENCES.md` names the units this package must implement, and each becomes a node with the unit's own id:
+
+- one node per owned operation, id `op-<operationId>`;
+- one node per sequence this package owns, id `seq-<sequenceId>`;
+- one node per sequence that crosses this package boundary, id `xdir-<sequenceId>`, carrying its steps as child nodes, because a cross-boundary sequence is work that reaches beyond this package and its steps are what a reader needs to see.
+
+An id is used exactly as the view spells it. Nothing is renamed, because the distribution ledger is checked against these ids and a renamed node would look like an undisclosed unit.
+
+When STEP 0 found no sequences material there are no such nodes and nothing changes: the tree is seeded from the research material exactly as before.
+
+Ask what the registry obliges rather than testing whether the material is there — the obligation set is what the gates loop over, and an empty one is the ordinary case:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/sequences-ledger.js "$RFC_DIR" --stage=upstream
+```
+
+Verdicts use the machine vocabulary: `proved` and `not proved`. The words success and failure are not verdicts.
 
 ---
 
@@ -398,6 +437,7 @@ user approves → generate mechanically:
 ```bash
 node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR"
 ```
+The generator emits one row per node in the tree, so the units seeded at STEP 1 reach the checklist with no generator change: an `op-` node is a row, and a `seq-` or `xdir-` node carries its own. A package with no sequences material has no such nodes and its checklist is exactly the checklist it would have had.
 structure (two-level):
 ```
 ## §N Section Name  ← top-level node
