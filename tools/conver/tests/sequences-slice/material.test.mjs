@@ -13,6 +13,7 @@ import {
   LEGACY_MATERIAL_FIELD,
   MATERIAL_LIST_FIELD,
   SOURCE_ARTIFACT_SUFFIX,
+  collectUnitIds,
   findSequenceMaterial,
   isUsableSourceArtifact,
   isViewName,
@@ -141,4 +142,22 @@ test('C001 a recorded view name is reported as recorded, so a caller can tell it
   assert.deepEqual(answer.recordedViewNames, [VIEW]);
   assert.equal(answer.source, SOURCE);
   assert.equal(answer.present, true);
+});
+
+// FIX-PLAN005 (docs/FIX-PLAN005.md) — one reading of the units a view distributes, so the
+// stage report and the distribution gate cannot disagree about which units a package holds.
+// The order is the view's own and repeats stay repeated, because the ledger is checked
+// against these ids as the view spells them.
+test('C001 the unit ids a view distributes are read in the view order, without renaming or de-duplicating', () => {
+  const view = {
+    ownedOperationUnits: [{ unitId: 'op-a' }, { unitId: 'op-b' }],
+    ownedSequenceUnits: [{ unitId: 'seq-c' }],
+    crossBoundarySequenceUnits: [{ unitId: 'xdir-d' }, { unitId: 'op-a' }],
+  };
+  assert.deepEqual(collectUnitIds(view), ['op-a', 'op-b', 'seq-c', 'xdir-d', 'op-a']);
+});
+
+test('C001 a view that carries none of the three arrays distributes no unit', () => {
+  assert.deepEqual(collectUnitIds({}), []);
+  assert.deepEqual(collectUnitIds({ ownedOperationUnits: [{ unitId: 'op-a' }] }), ['op-a']);
 });

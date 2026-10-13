@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sequences-ledger.js <project-dir> [--stage=<conformance|upstream|implementation|ship|evolution>]
+ * sequences-ledger.js <project-dir> [--units=<path>] [--stage=<conformance|upstream|implementation|ship|evolution>]
  *
  * The obligation registry, and the stage report every layer can ask for.
  *
@@ -11,19 +11,37 @@
  * require something" would make the material a precondition of operation, and the whole
  * reinforcement would stop being additive.
  *
+ * The report reads the units from the package's own view and decides each one's discharge
+ * from the artifact its stage produces. Only `upstream` has such an artifact today — a row in
+ * this package's RFC.md — so a later stage reports not proved for every unit rather than
+ * proved for a check nobody ran. The view's file name is the default path of that reading and
+ * not a condition on whether to read: the condition is the obligation set.
+ *
  * Verdicts use the machine vocabulary the README fixes at line 130: proved and not proved
  * only. The words success and failure are not verdicts here.
  *
  * Design context: tools/conver/README.md — 上流ループ, and the five consistencies.
  */
 
+import fs from 'node:fs';
 import path from 'node:path';
 
-import { LEDGER_TITLE_SUFFIX } from '../sequences-slice/lib/distribution-ledger.mjs';
-import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME } from '../sequences-slice/lib/material.mjs';
+import { LEDGER_TITLE_SUFFIX, readDistributionLedger } from '../sequences-slice/lib/distribution-ledger.mjs';
+import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME, collectUnitIds, findSequenceMaterial } from '../sequences-slice/lib/material.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
+
+/** The file the package's own Distribution ledger lives in. */
+const RFC_FILENAME = 'RFC.md';
+
+/** The two flags the report reads, spelled as the sibling gate spells the units flag. */
+const STAGE_FLAG_PREFIX = '--stage=';
+const UNITS_FLAG_PREFIX = '--units=';
+
+/** The stage named when none is, and the one stage whose discharge artifact this module reads. */
+const DEFAULT_STAGE = 'upstream';
+const DISCHARGE_ARTIFACT_STAGE = 'upstream';
 
 /** The machine vocabulary. Two words, and nothing else is a verdict. */
 export const MACHINE_VERDICTS = Object.freeze(['proved', 'not proved']);
@@ -36,6 +54,8 @@ export const DISTRIBUTION_OBLIGATION = Object.freeze({
 });
 
 const STAGES = Object.freeze(['conformance', 'upstream', 'implementation', 'ship', 'evolution']);
+
+const USAGE = `usage: sequences-ledger.js <project-dir> [${UNITS_FLAG_PREFIX}<path>] ${STAGE_FLAG_PREFIX}<${STAGES.join('|')}>`;
 
 /**
  * The descriptor a material kind registers.
@@ -100,18 +120,88 @@ function renderStageReport({ stage, units }) {
   return `${lines.join('\n')}\n`;
 }
 
+/** The real file system, in the shape `findSequenceMaterial` takes its io in. */
+const FILE_SYSTEM = {
+  readFile(filePath) {
+    try {
+      return fs.readFileSync(filePath, 'utf8');
+    } catch {
+      return null;
+    }
+  },
+  fileExists(filePath) {
+    return fs.existsSync(filePath);
+  },
+  basename: path.basename,
+  join: path.join,
+};
+
+/**
+ * The unit ids the package's view distributes, or none when there is no readable view.
+ *
+ * Design context: docs/FIX-PLAN005.md.
+ */
+function readDistributedUnitIds(unitsPath) {
+  try {
+    return collectUnitIds(JSON.parse(fs.readFileSync(unitsPath, 'utf8')));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The units this package's ledger discharges at the stage asked about.
+ *
+ * A ledger that is absent, unreadable, or not well formed discharges nothing: a row carried
+ * by a record the gate refuses proves no unit, and reporting it as proved would state a check
+ * that no one can repeat.
+ *
+ * Design context: docs/FIX-PLAN005.md.
+ */
+function dischargedUnitIds({ stage, rfcDir, unitIds }) {
+  if (stage !== DISCHARGE_ARTIFACT_STAGE) return new Set();
+
+  let rfcText;
+  try {
+    rfcText = fs.readFileSync(path.join(rfcDir, RFC_FILENAME), 'utf8');
+  } catch {
+    return new Set();
+  }
+
+  const verdict = readDistributionLedger(rfcText, new Set(unitIds));
+  if (verdict === null || !verdict.ok) return new Set();
+  return new Set(verdict.rows.map((row) => row.unit));
+}
+
 // [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const stageArgument = argv.find((argument) => argument.startsWith('--stage='));
-  const stage = stageArgument === undefined ? 'upstream' : stageArgument.slice('--stage='.length);
+  const stageArgument = argv.find((argument) => argument.startsWith(STAGE_FLAG_PREFIX));
+  const stage = stageArgument === undefined ? DEFAULT_STAGE : stageArgument.slice(STAGE_FLAG_PREFIX.length);
 
-  if (!STAGES.includes(stage)) {
-    process.stderr.write(`usage: sequences-ledger.js <project-dir> --stage=<${STAGES.join('|')}>\n`);
+  const [rfcDirArgument] = argv.filter((argument) => !argument.startsWith('--'));
+  if (rfcDirArgument === undefined || !STAGES.includes(stage)) {
+    process.stderr.write(`${USAGE}\n`);
     return EXIT_FAILED;
   }
-  // The units come from the package's own view; with none distributed there is nothing to
-  // report and the verdict says so rather than reporting an empty run as a pass.
-  process.stdout.write(renderStageReport({ stage, units: [] }));
+
+  const rfcDir = path.resolve(rfcDirArgument);
+  const unitsArgument = argv.find((argument) => argument.startsWith(UNITS_FLAG_PREFIX));
+  const unitsPath = unitsArgument === undefined
+    ? path.join(rfcDir, VIEW_JSON_NAME)
+    : path.resolve(unitsArgument.slice(UNITS_FLAG_PREFIX.length));
+
+  // The obligation set decides whether there is anything to report, so a package that was
+  // never handed the material reads exactly as it did before this report read units.
+  const obligations = obligationsFor(findSequenceMaterial({ rfcDir, io: FILE_SYSTEM }));
+  if (obligations.length === 0) {
+    process.stdout.write(renderStageReport({ stage, units: [] }));
+    return EXIT_OK;
+  }
+
+  const unitIds = readDistributedUnitIds(unitsPath);
+  const discharged = dischargedUnitIds({ stage, rfcDir, unitIds });
+  const units = unitIds.map((unitId) => ({ unitId, discharged: discharged.has(unitId) }));
+  process.stdout.write(renderStageReport({ stage, units }));
   return EXIT_OK;
 }
 

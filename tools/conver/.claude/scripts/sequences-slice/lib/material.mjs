@@ -53,6 +53,28 @@ export function isViewName(basename) {
   return basename === VIEW_MARKDOWN_NAME || basename === VIEW_JSON_NAME;
 }
 
+/** The three arrays a view distributes, in the order a ledger is checked against them. */
+const VIEW_UNIT_ARRAY_FIELDS = ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits'];
+
+/**
+ * The unit ids a view distributes.
+ *
+ * Read from the view rather than derived, because the view is what the package was told to
+ * implement; recomputing the set here would assert this module's own arithmetic instead of
+ * the material's contents. The order is the view's own and repeats stay repeated: the
+ * distribution ledger is checked against these ids as the view spells them, so de-duplicating
+ * or re-sorting here would let the report name an id the appendix cannot carry.
+ *
+ * Design context: docs/FIX-PLAN005.md — one reading of these arrays, so the stage report and
+ * the distribution gate cannot disagree about which units a package holds.
+ *
+ * @param {object} view — a parsed view document
+ * @returns {string[]}
+ */
+export function collectUnitIds(view) {
+  return VIEW_UNIT_ARRAY_FIELDS.flatMap((field) => (view?.[field] ?? []).map((unit) => unit.unitId));
+}
+
 /**
  * Whether a path is a usable sequences artifact.
  *

@@ -24,6 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { LEDGER_TITLE_SUFFIX, readDistributionLedger } from '../sequences-slice/lib/distribution-ledger.mjs';
+import { collectUnitIds } from '../sequences-slice/lib/material.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -34,23 +35,16 @@ const UNITS_FLAG_PREFIX = '--units=';
 const USAGE = 'usage: check-distribution-ledger.js <RFC_DIR> [--units=<path>]';
 
 /**
- * The unit ids a package's view distributes, or an empty set when there is no view.
+ * The unit ids a package's view distributes, as a set, or an empty set when there is no
+ * readable view.
  *
- * Read from the view rather than derived, because the view is what the package was told to
- * implement; a gate that recomputed the set would be asserting its own arithmetic instead
- * of the material's contents. An absent view bounds nothing, and the membership rule is
- * then skipped rather than failing every row.
+ * A set because the only question this gate asks of the ids is membership. An absent view
+ * bounds nothing, and the membership rule is then skipped rather than failing every row.
  */
 // [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function readUnitIds(unitsPath) {
   try {
-    const view = JSON.parse(fs.readFileSync(unitsPath, 'utf8'));
-    const ids = [
-      ...(view.ownedOperationUnits ?? []).map((unit) => unit.unitId),
-      ...(view.ownedSequenceUnits ?? []).map((unit) => unit.unitId),
-      ...(view.crossBoundarySequenceUnits ?? []).map((unit) => unit.unitId),
-    ];
-    return new Set(ids);
+    return new Set(collectUnitIds(JSON.parse(fs.readFileSync(unitsPath, 'utf8'))));
   } catch {
     return new Set();
   }
