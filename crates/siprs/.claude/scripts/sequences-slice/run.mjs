@@ -21,6 +21,7 @@ import path from 'node:path';
 
 import { parseSequencesArtifact } from './lib/artifact.mjs';
 import { resolvePackageByPath } from './lib/packages.mjs';
+import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './lib/segments.mjs';
 import { buildPackageView, renderPackageViewJson, renderPackageViewMarkdown } from './lib/view.mjs';
 
 const EXIT_OK = 0;
@@ -66,6 +67,34 @@ function readJsonOrRefuse(filePath) {
 }
 
 /**
+ * The workspace's package segments, or a refusal naming what could not be read.
+ *
+ * The view states the workspace's line coordinate, so this list is an input to it. A
+ * workspace whose seeds are absent, or whose package root cannot be walked, is refused
+ * rather than passed on as an empty list: an empty list renders as a package count the
+ * workspace never measured, which is the shape of the defect this projection exists to
+ * avoid repeating.
+ *
+ * @param {string} root
+ * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
+ */
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+function readWorkspaceSegmentsOrRefuse(root) {
+  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
+
+  let packageSegments;
+  try {
+    packageSegments = readPackageSegments(packageRoot);
+  } catch (error) {
+    throw new ProjectionRefused(`${packageRoot} could not be read (${error.code ?? error.message})`);
+  }
+  if (packageSegments.length === 0) {
+    throw new ProjectionRefused(`no package seed was readable under ${packageRoot}`);
+  }
+  return packageSegments;
+}
+
+/**
  * Write the two view files and report what was written.
  *
  * @param {string} artifactPath
@@ -91,10 +120,12 @@ function projectPackageView(artifactPath, packageDir) {
   // projection may speak for.
   readJsonOrRefuse(path.join(root, ALLOCATE_MANIFEST_FILENAME));
 
+  const packageSegments = readWorkspaceSegmentsOrRefuse(root);
+
   const resolved = resolvePackageByPath(treeManifest.workspace.packages, packageDir, root);
   if (resolved.packageId === null) throw new ProjectionRefused(resolved.reason);
 
-  const view = buildPackageView({ artifact, treeManifest }, resolved.packageId);
+  const view = buildPackageView({ artifact, treeManifest, packageSegments }, resolved.packageId);
   fs.mkdirSync(packageDir, { recursive: true });
   fs.writeFileSync(path.join(packageDir, VIEW_MARKDOWN_NAME), renderPackageViewMarkdown(view));
   fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), renderPackageViewJson(view));

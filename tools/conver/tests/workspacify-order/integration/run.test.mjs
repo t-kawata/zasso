@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { basename, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EXPLAIN_FILE_NAME, RFC_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
+import { EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-order/run.mjs', import.meta.url));
 
@@ -170,11 +170,12 @@ test('IT: tests/check-conventions.mjs names this directory with the module syste
 /**
  * The three-package fixture, with each document in the directories its list names.
  *
- * The two lists are independent, so a caller may mark a directory as explained, as grilled,
- * as both or as neither, and the expected stdout of each shape is written out in full.
+ * The three lists are independent, so a caller may mark a directory with any one of the
+ * documents, any pair, all three or none, and the expected stdout of each shape is written
+ * out in full.
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-function markedWorkspace(t, { explained = [], grilled = [] } = {}) {
+function markedWorkspace(t, { explained = [], grilled = [], sequenced = [] } = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
     edges: [
@@ -184,6 +185,7 @@ function markedWorkspace(t, { explained = [], grilled = [] } = {}) {
     levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
     explained,
     grilled,
+    sequenced,
   });
   t.after(() => workspace.remove());
   return workspace;
@@ -280,7 +282,7 @@ test('IT: the command writes nothing, so an unmarked workspace stays unmarked', 
 
   assert.equal(result.status, 0);
   assert.equal(digestTree(workspace.root), before);
-  for (const fileName of [EXPLAIN_FILE_NAME, RFC_FILE_NAME]) {
+  for (const fileName of [EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME]) {
     assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0001'), fileName)), false);
   }
 });
@@ -302,8 +304,8 @@ test('IT: a grilled workspace prints the grill mark after the path and exits 0',
       '  * crates/protocol/package-1',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟡 GRILLED',
-      '    crates/protocol/package-3 🟡 GRILLED',
+      '  * crates/protocol/package-2 🟠 GRILLED',
+      '    crates/protocol/package-3 🟠 GRILLED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -330,10 +332,10 @@ test('IT: a directory holding both documents prints both marks, explained first'
       `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
-      '  * crates/protocol/package-1 🔴 EXPLAINED 🟡 GRILLED',
+      '  * crates/protocol/package-1 🔴 EXPLAINED 🟠 GRILLED',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟡 GRILLED',
+      '  * crates/protocol/package-2 🟠 GRILLED',
       '    crates/protocol/package-3 🔴 EXPLAINED',
       '',
       'parallel width   level   0  1',
@@ -355,6 +357,83 @@ test('IT: the grill mark follows the directory and not the manifest, so writing 
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟡 GRILLED\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟠 GRILLED\n'));
+  assert.deepEqual(readManifests(), manifestsBefore);
+});
+
+test('IT: a sequenced workspace prints the sequenced mark after the path and exits 0', (t) => {
+  const workspace = markedWorkspace(t, { sequenced: ['pkg-0002', 'pkg-0003'] });
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.stderr, '');
+  assert.equal(result.status, 0);
+  assert.equal(
+    result.stdout,
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🟡 SEQUENCED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('IT: a directory holding all three documents prints the three marks in pipeline order', (t) => {
+  const workspace = markedWorkspace(t, {
+    explained: ['pkg-0001', 'pkg-0003'],
+    grilled: ['pkg-0001'],
+    sequenced: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+  });
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.status, 0);
+  // The middle line carries the last mark alone and the one below it skips the grill mark,
+  // so a command that printed the marks as an uninterrupted chain fails on both.
+  assert.equal(
+    result.stdout,
+    [
+      '',
+      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      '',
+      'level  0    alone     1 dir',
+      '  * crates/protocol/package-1 🔴 EXPLAINED 🟠 GRILLED 🟡 SEQUENCED',
+      '',
+      'level  1    parallel  2 dirs',
+      '  * crates/protocol/package-2 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🔴 EXPLAINED 🟡 SEQUENCED',
+      '',
+      'parallel width   level   0  1',
+      '                 dirs    1  2',
+      '',
+      'critical chain   package-1 → package-2',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('IT: the sequenced mark follows the directory and not the manifest, so writing SEQUENCES.md alone changes the plan', (t) => {
+  const workspace = markedWorkspace(t);
+  const readManifests = () => [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];
+  const manifestsBefore = readManifests();
+
+  const before = runOrder([], { cwd: workspace.root });
+  writeFileSync(join(workspace.root, workspace.pathOf.get('pkg-0003'), SEQUENCES_FILE_NAME), '');
+  const after = runOrder([], { cwd: workspace.root });
+
+  assert.notEqual(after.stdout, before.stdout);
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟡 SEQUENCED\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });

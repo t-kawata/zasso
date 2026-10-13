@@ -7,8 +7,8 @@
  *
  * The artifact path is given; the two manifests are resolved beside it, and the package
  * seed documents are found by walking for RFC-SEED.md under crates/ beneath the same
- * root. This is the only module in the slice that touches the filesystem: the libraries
- * are pure, so the surface to audit for a stray write is one file and it is this one.
+ * root. That walk lives in lib/segments.mjs beside the join it feeds, so the slice reads
+ * in three places and writes in one: this module still writes nothing.
  *
  * Output is prose by default and a machine record under --json. A calibration is read to
  * decide whether a gate may be written against it, and that decision is made by reading
@@ -26,7 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseSequencesArtifact } from './lib/artifact.mjs';
-import { readSourceSegments } from './lib/segments.mjs';
+import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './lib/segments.mjs';
 import { buildCalibrationReport, renderCalibrationJson, renderCalibrationProse } from './lib/report.mjs';
 
 const EXIT_OK = 0;
@@ -34,8 +34,6 @@ const EXIT_INPUT_MISSING = 2;
 
 const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
-const PACKAGE_ROOT_DIRECTORY = 'crates';
-const SEED_FILENAME = 'RFC-SEED.md';
 const JSON_FLAG = '--json';
 
 /** A failure the operator can act on: it names the path and says what was wrong with it. */
@@ -109,35 +107,6 @@ function readArtifactOrFail(artifactPath) {
     if (error instanceof InputError) throw error;
     throw new InputError(error.message);
   }
-}
-
-/**
- * Every package seed document under the manifest root, as package and segment ids.
- *
- * A seed document that carries no source_segments block is read as claiming no segment
- * rather than skipped: skipping it would remove the package from the denominator, and ten
- * packages claiming nothing is one of the findings this calibration exists to report.
- *
- * @param {string} packageRoot
- * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
- */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
-function readPackageSegments(packageRoot) {
-  if (!fs.existsSync(packageRoot)) return [];
-
-  const packageSegments = [];
-  const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (entry.name === SEED_FILENAME) {
-        const segmentIds = readSourceSegments(fs.readFileSync(fullPath, 'utf8'));
-        packageSegments.push({ packagePath: path.relative(packageRoot, directory), segmentIds: segmentIds ?? [] });
-      }
-    }
-  };
-  walk(packageRoot);
-  return packageSegments.sort((left, right) => left.packagePath.localeCompare(right.packagePath));
 }
 
 // [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.

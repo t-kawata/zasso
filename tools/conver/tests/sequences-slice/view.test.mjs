@@ -18,7 +18,16 @@ import {
   liveShapedOperations,
   liveShapedSequenceAxis,
 } from '../sequences-slice/fixtures/synthetic-workspace.mjs';
-import { RECORDED_MANIFEST_SEGMENTS, SPEC_LINES } from '../sequences-slice/fixtures/line-range-shape.mjs';
+import {
+  RECORDED_MANIFEST_SEGMENTS,
+  RECORDED_PACKAGE_SEGMENTS,
+  SPEC_LINES,
+} from '../sequences-slice/fixtures/line-range-shape.mjs';
+import {
+  measureLineRangeJoin,
+  normalizeStructureSegments,
+} from '../../.claude/scripts/sequences-slice/lib/segments.mjs';
+import { renderLineRangeStatement } from '../../.claude/scripts/sequences-slice/lib/report.mjs';
 
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function liveShapedInput() {
@@ -41,6 +50,7 @@ function liveShapedInput() {
       inventory: { objects: liveShapedObjects(), claims: [], terms: [] },
       structure: { segment_count: RECORDED_MANIFEST_SEGMENTS.length, segments: RECORDED_MANIFEST_SEGMENTS },
     },
+    packageSegments: RECORDED_PACKAGE_SEGMENTS,
   };
 }
 
@@ -128,6 +138,44 @@ test('C003 a package reached by no operation gets an empty view rather than an e
   assert.deepEqual(view.ownedSequenceUnits, []);
   assert.deepEqual(view.crossBoundarySequenceUnits, []);
   assert.match(renderPackageViewMarkdown(view), /not used as an identity/);
+});
+
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+test('C003 the view states the same line coordinate the calibration measures', () => {
+  const expected = renderLineRangeStatement(
+    measureLineRangeJoin({
+      packageSegments: RECORDED_PACKAGE_SEGMENTS,
+      structureSegments: normalizeStructureSegments(RECORDED_MANIFEST_SEGMENTS),
+      specLines: SPEC_LINES,
+    }),
+  );
+
+  const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
+  assert.equal(view.lineRange.statement, expected);
+});
+
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+test('C003 the line coordinate the view states is measured, not the arithmetic of nothing', () => {
+  const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
+  const packagesWithNoSegments = RECORDED_PACKAGE_SEGMENTS.filter((entry) => entry.segmentIds.length === 0).length;
+
+  assert.ok(view.lineRange.claimedLineCount > 0);
+  assert.ok(view.lineRange.unclaimedLineCount < SPEC_LINES);
+  assert.equal(view.lineRange.claimedLineCount + view.lineRange.unclaimedLineCount, SPEC_LINES);
+  assert.match(view.lineRange.statement, new RegExp(`${packagesWithNoSegments} packages claim no segment at all`));
+});
+
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+test('C003 two packages state the same line coordinate, and that coordinate is the measured one', () => {
+  const input = liveShapedInput();
+  const first = buildPackageView(input, 'pkg-0001');
+  const last = buildPackageView(input, 'pkg-0029');
+
+  // Equality alone is what a package-local statement would also satisfy, so it is asserted
+  // together with the non-degeneracy that separates a measured workspace from an empty one.
+  assert.deepEqual(first.lineRange, last.lineRange);
+  assert.ok(first.lineRange.claimedLineCount > 0);
+  assert.ok(first.lineRange.unclaimedLineCount < SPEC_LINES);
 });
 
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.

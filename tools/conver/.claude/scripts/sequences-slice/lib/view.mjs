@@ -7,13 +7,13 @@
  * involved before implementing. A unit that appeared nowhere would be an omission nothing
  * downstream could detect, so the partition is the property the tests assert.
  *
- * The projection is pure: it is a function of the artifact and the tree manifest, and it
- * neither reads nor writes.
+ * The projection is pure: it is a function of the artifact, the tree manifest and the
+ * workspace's package segments, and it neither reads nor writes.
  */
 import { collectDistinctClassNames, classifyOperationOwnership, resolveOwningPackages } from './ownership.mjs';
 import { measureLineRangeJoin, normalizeStructureSegments } from './segments.mjs';
 import { classifySequenceOwnership, buildSequenceUnits } from './units.mjs';
-import { renderLineRangeStatement } from './report.mjs';
+import { renderLineRangeStatement, LINE_RANGE_IDENTITY_USE } from './report.mjs';
 
 /** The prefix that marks an operation unit. */
 const OPERATION_UNIT_PREFIX = 'op-';
@@ -30,12 +30,22 @@ export const VIEW_SOURCE_NOTE = 'Generated from the sequences artifact by /grill
 /**
  * The units one package owns, and the ones it shares.
  *
- * @param {{ artifact: object, treeManifest: object }} input
+ * `packageSegments` is the workspace's list and not the package's: the line-coordinate
+ * statement every view carries is a cross-package measurement, so it is measured once over
+ * the whole workspace and is therefore the same sentence in every view. It is required
+ * rather than defaulted, because a default renders the same confident zero for a package
+ * claiming seven segments and for one claiming none.
+ *
+ * @param {{
+ *   artifact: object,
+ *   treeManifest: object,
+ *   packageSegments: Array<{ packagePath: string, segmentIds: string[] }>,
+ * }} input
  * @param {string} packageId
  * @returns {object}
  */
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
-export function buildPackageView({ artifact, treeManifest }, packageId) {
+export function buildPackageView({ artifact, treeManifest, packageSegments }, packageId) {
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
   const units = buildSequenceUnits(artifact);
 
@@ -80,11 +90,7 @@ export function buildPackageView({ artifact, treeManifest }, packageId) {
   }
 
   const structureSegments = normalizeStructureSegments(treeManifest.structure.segments);
-  const lineRange = measureLineRangeJoin({
-    packageSegments: [{ packagePath: '', segmentIds: [] }],
-    structureSegments,
-    specLines: artifact.spec.lines,
-  });
+  const lineRange = measureLineRangeJoin({ packageSegments, structureSegments, specLines: artifact.spec.lines });
 
   const namedClassNames = new Set(ownedOperationUnits.flatMap((unit) => unit.resultObjectClasses));
 
@@ -101,7 +107,7 @@ export function buildPackageView({ artifact, treeManifest }, packageId) {
       claimedLineCount: lineRange.claimedLineCount,
       multiClaimedLineCount: lineRange.multiClaimedLineCount,
       unclaimedLineCount: lineRange.unclaimedLineCount,
-      identityUse: 'not used as an identity',
+      identityUse: LINE_RANGE_IDENTITY_USE,
       statement: renderLineRangeStatement(lineRange),
     },
   };

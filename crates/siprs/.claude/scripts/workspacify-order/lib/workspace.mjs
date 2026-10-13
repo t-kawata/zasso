@@ -36,6 +36,16 @@ export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
  */
 export const RFC_FILE_NAME = 'RFC.md';
 
+/**
+ * The sequences view `sequences-slice` writes into a package directory.
+ *
+ * `sequences-slice/lib/material.mjs` declares the name as `VIEW_MARKDOWN_NAME` and its
+ * `run.mjs` writes the view into the package directory itself, beside the seed and the two
+ * documents above. Declared here for the same reason as those two names: one string is not
+ * worth reaching across scripts for.
+ */
+export const SEQUENCES_FILE_NAME = 'SEQUENCES.md';
+
 /** Every ancestor of `startDirectory`, nearest first, ending at the filesystem root. */
 export function ancestorsOf(startDirectory) {
   const ancestors = [];
@@ -76,6 +86,21 @@ export function holdsExplanation({ root, packagePath }) {
  */
 export function holdsRfc({ root, packagePath }) {
   return holds(join(root, packagePath), RFC_FILE_NAME);
+}
+
+/**
+ * Whether a package directory already carries the sequences view written for it.
+ *
+ * The rule is again the one `holdsExplanation` follows: existence is the whole thing, so the
+ * view is never opened and a directory that cannot be read answers false rather than failing a
+ * plan that is only meant to describe the workspace. The probe is separate from the two above
+ * because none of the three implies another — `sequences-slice` writes the view beside
+ * whatever the directory already holds, which may be a seed alone, either document, both, or
+ * all of them. The view is named exactly, so the `SEQUENCES.json` written in the same pass is
+ * not a mark.
+ */
+export function holdsSequences({ root, packagePath }) {
+  return holds(join(root, packagePath), SEQUENCES_FILE_NAME);
 }
 
 /** The one ancestor directory holding both manifests. */

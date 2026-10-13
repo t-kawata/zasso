@@ -20,6 +20,8 @@ export const SEED_FILE_NAME = 'RFC-SEED.md';
 export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 /** The design document grill-me-for-rfc writes beside a seed; its presence is the mark. */
 export const RFC_FILE_NAME = 'RFC.md';
+/** The sequences view sequences-slice writes into a package directory; its presence is the mark. */
+export const SEQUENCES_FILE_NAME = 'SEQUENCES.md';
 
 const DEFAULT_LAYER = 'protocol';
 const DEFAULT_TOP_LEVEL = 'crates';
@@ -59,20 +61,22 @@ function levelsFromEdges(packageIds, edges) {
  * Write a workspace whose manifests agree with each other.
  *
  * @param {{ packages?: string[], edges?: Array<[string, string]>, levels?: string[][],
- *   paths?: Record<string, string>, explained?: string[], grilled?: string[] }} input
+ *   paths?: Record<string, string>, explained?: string[], grilled?: string[],
+ *   sequenced?: string[] }} input
  *   `edges` are consumer-provider pairs, the orientation the manifest itself uses.
  *   `levels` is the published order; it is computed from the edges when omitted.
- *   `explained` names the packages whose directory receives an EXPLAIN-RFC-SEED.md, and
- *   `grilled` those that receive an RFC.md; each document is written empty, because
- *   existence is the whole rule and a fixture that carried content would suggest otherwise.
- *   The two lists are independent, so a package may appear in either, both or neither.
+ *   `explained` names the packages whose directory receives an EXPLAIN-RFC-SEED.md,
+ *   `grilled` those that receive an RFC.md, and `sequenced` those that receive a
+ *   SEQUENCES.md; each document is written empty, because existence is the whole rule and a
+ *   fixture that carried content would suggest otherwise. The three lists are independent,
+ *   so a package may appear in any, all or none of them.
  * @returns {{ root: string, treeManifestPath: string, allocateManifestPath: string,
  *   seedPathOf: (id: string) => string, explainPathOf: (id: string) => string,
- *   rfcPathOf: (id: string) => string,
+ *   rfcPathOf: (id: string) => string, sequencesPathOf: (id: string) => string,
  *   writeTreeManifest: (value: object) => void, remove: () => void }}
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, explained = [], grilled = [] } = {}) {
+export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, explained = [], grilled = [], sequenced = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workspacify-order-'));
   const publishedLevels = levels ?? levelsFromEdges(packages, edges);
   const pathOf = new Map(
@@ -86,12 +90,14 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
 
   const explainedPackages = new Set(explained);
   const grilledPackages = new Set(grilled);
+  const sequencedPackages = new Set(sequenced);
   for (const id of packages) {
     const directory = join(root, pathOf.get(id));
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, SEED_FILE_NAME), `# RFC Seed: ${id}\n`);
     if (explainedPackages.has(id)) writeFileSync(join(directory, EXPLAIN_FILE_NAME), '');
     if (grilledPackages.has(id)) writeFileSync(join(directory, RFC_FILE_NAME), '');
+    if (sequencedPackages.has(id)) writeFileSync(join(directory, SEQUENCES_FILE_NAME), '');
   }
 
   const treeManifest = {
@@ -132,6 +138,7 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
     seedPathOf: (id) => join(root, pathOf.get(id), SEED_FILE_NAME),
     explainPathOf: (id) => join(root, pathOf.get(id), EXPLAIN_FILE_NAME),
     rfcPathOf: (id) => join(root, pathOf.get(id), RFC_FILE_NAME),
+    sequencesPathOf: (id) => join(root, pathOf.get(id), SEQUENCES_FILE_NAME),
     writeTreeManifest: (value) => writeFileSync(treeManifestPath, JSON.stringify(value, null, 2)),
     writeAllocateManifest: (value) => writeFileSync(allocateManifestPath, JSON.stringify(value, null, 2)),
     remove: () => rmSync(root, { recursive: true, force: true }),

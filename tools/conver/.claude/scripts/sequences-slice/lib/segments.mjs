@@ -12,8 +12,17 @@
  * measurement below is the reason, recorded as numbers rather than as an argument.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 /** The fence that opens a JSON block inside a seed document. */
 const JSON_FENCE = /```json\r?\n([\s\S]*?)```/g;
+
+/** The directory beneath a workspace root that holds its packages. */
+export const PACKAGE_ROOT_DIRECTORY = 'crates';
+
+/** The seed document each package directory carries its source_segments in. */
+const SEED_FILENAME = 'RFC-SEED.md';
 
 /** The field names the tree manifest carries, which are not the names used here. */
 const MANIFEST_LINE_START_FIELD = 'line_start';
@@ -163,4 +172,33 @@ export function measureLineRangeJoin({ packageSegments, structureSegments, specL
     maxClaimantsOnOneSegment: claimantCounts.length === 0 ? 0 : Math.max(...claimantCounts),
     packagesWithNoSegments: packageSegments.filter((entry) => entry.segmentIds.length === 0),
   };
+}
+
+/**
+ * Every package seed document under the manifest root, as package and segment ids.
+ *
+ * A seed document that carries no source_segments block is read as claiming no segment
+ * rather than skipped: skipping it would remove the package from the denominator, and ten
+ * packages claiming nothing is one of the findings this calibration exists to report.
+ *
+ * @param {string} packageRoot
+ * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
+ */
+// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+export function readPackageSegments(packageRoot) {
+  if (!fs.existsSync(packageRoot)) return [];
+
+  const packageSegments = [];
+  const walk = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) walk(fullPath);
+      else if (entry.name === SEED_FILENAME) {
+        const segmentIds = readSourceSegments(fs.readFileSync(fullPath, 'utf8'));
+        packageSegments.push({ packagePath: path.relative(packageRoot, directory), segmentIds: segmentIds ?? [] });
+      }
+    }
+  };
+  walk(packageRoot);
+  return packageSegments.sort((left, right) => left.packagePath.localeCompare(right.packagePath));
 }

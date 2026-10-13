@@ -18,7 +18,9 @@ export const CRITICAL_MARKER = '*';
 /** Written after a path whose package directory already carries its explanation document. */
 export const EXPLAINED_LABEL = '🔴 EXPLAINED';
 /** Written after the explanation mark, when the directory also carries its grilled design. */
-export const GRILLED_LABEL = '🟡 GRILLED';
+export const GRILLED_LABEL = '🟠 GRILLED';
+/** Written after the grill mark, when the directory also carries its sequences view. */
+export const SEQUENCED_LABEL = '🟡 SEQUENCED';
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
@@ -72,15 +74,18 @@ function renderLevelHeader(index, memberCount) {
 /**
  * The marks a package carries, in the order the pipeline reaches them.
  *
- * The seed is explained before it is grilled, so a directory that reached both reads left to
- * right as the work happened. Each mark is written from its own document alone: RFC.md can
- * sit in a directory that was never explained, so a package may carry one, both or neither,
- * and printing only the furthest would drop a fact the directory holds.
+ * A seed is explained, then grilled, then sliced into sequences, so a directory that reached
+ * all three reads left to right as the work happened. Each mark is written from its own
+ * document alone: RFC.md can sit in a directory that was never explained, and SEQUENCES.md
+ * can sit in one that was never grilled, so a package may carry any one of the three, any
+ * pair, all three or none. Printing only the furthest would drop a fact the directory holds,
+ * and closing a gap would assert a step that never ran.
  */
 function renderMarks(model, id) {
   const marks = [];
   if (model.explainedIds.has(id)) marks.push(EXPLAINED_LABEL);
   if (model.grilledIds.has(id)) marks.push(GRILLED_LABEL);
+  if (model.sequencedIds.has(id)) marks.push(SEQUENCED_LABEL);
   return marks.map((mark) => ` ${mark}`).join('');
 }
 

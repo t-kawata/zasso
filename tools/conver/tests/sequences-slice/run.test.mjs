@@ -161,6 +161,41 @@ test('C003 an artifact that does not parse writes nothing and exits 0 with the p
 });
 
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+test('C003 a workspace whose packages carry no seed writes nothing and exits 0 with the path named', () => {
+  const root = buildSyntheticTriple({ omitCratesTree: true });
+  try {
+    const packageDir = 'crates/adapters/gaia-ekyc-adapter';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    const before = digestDirectory(root);
+    const result = runWriter(root, packageDir);
+    assert.equal(result.status, 0);
+    assert.deepEqual(result.report.written, []);
+    assert.match(result.report.reason, /no package seed was readable/);
+    assert.match(result.report.reason, /crates/);
+    assert.deepEqual(changedPaths(before, digestDirectory(root)), []);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+test('C003 a package root that cannot be walked writes nothing and exits 0 with the path named', () => {
+  const root = buildSyntheticTriple({ omitCratesTree: true });
+  try {
+    fs.writeFileSync(path.join(root, 'crates'), 'not a directory');
+    const packageDir = 'crates/adapters/gaia-ekyc-adapter';
+    const before = digestDirectory(root);
+    const result = runWriter(root, packageDir);
+    assert.equal(result.status, 0);
+    assert.deepEqual(result.report.written, []);
+    assert.match(result.report.reason, /crates could not be read/);
+    assert.deepEqual(changedPaths(before, digestDirectory(root)), []);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the view names the same package the calibration counted, and the reachable packages agree', () => {
   const root = workspaceWithNamedPackages();
   try {
