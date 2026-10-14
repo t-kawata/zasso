@@ -1,3 +1,4 @@
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // The borrowed census: the artifact is told what it must account for (PX-248).
@@ -115,7 +116,11 @@ function declare(directory, sourceEnumerations) {
 // ---------------------------------------------------------------------------
 
 test('C001 the declared extraction shapes are generic, and each takes its parameter from the declaration', () => {
-  assert.deepEqual([...SOURCE_SHAPES].sort(), ['jsonFieldRows', 'markedLines', 'tableColumn']);
+  // PX-266 added the fourth shape, whose members are spans of the specification rather than
+  // names read out of the document. The three asserted below are the ones whose parameters
+  // read a document's own contents, and the extraction assertions underneath are what says
+  // they are still generic: the list of names alone would not.
+  assert.deepEqual([...SOURCE_SHAPES].sort(), ['jsonFieldRows', 'markedLines', 'specSpans', 'tableColumn']);
 
   const json = splitLines(fenced([{ kind: 'Admit' }, { kind: 'Settle' }]));
   const table = splitLines(['| operation | mutation |', '| --- | --- |', '| Admit | yes |', '| Settle | no |'].join('\n'));

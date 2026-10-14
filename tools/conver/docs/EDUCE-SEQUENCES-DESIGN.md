@@ -36,7 +36,7 @@ where no reader can check it.
 The artifact carries the pins: the predicate line and its limbs, the row-schema line and
 its fields, the enumerations with their ranges, the forms, and the section partition.
 Each pin is recorded together with the rule it was read by, and `rederiveAll` at
-`pins.mjs:519` re-runs that rule against the specification text in the same run that
+`pins.mjs:661` re-runs that rule against the specification text in the same run that
 consumes it.
 
 This is the property that keeps the single-input design from becoming a self-referential
@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:626`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:704`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -86,7 +86,7 @@ and the report prints how many limbs were cited and how many were not, so a pred
 nothing decided by is visible as a number rather than as an absence.
 
 A neighbour is selected by citation: the entry that cites a line inside the entry's own
-span, at `pins.mjs:280`. A neighbour that merely covers the span is not a candidate — that
+span, at `pins.mjs:311`. A neighbour that merely covers the span is not a candidate — that
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
@@ -168,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:276` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:278` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -327,7 +327,7 @@ earlier and the more useful refusal.
 
 A repeat over an unchanged set is noticed, not refused. `gates.mjs:502` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:426` reports them as a line of output while opening
+is the same revision — and `phases.mjs:428` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to
@@ -371,9 +371,13 @@ A reading of one document can only be complete against something that document h
 one thing it does not hold is the list of operations an interface must implement: a
 specification names operations in prose, in tables and in bare lists, and never says which
 of its names are the ones an implementer owes. Supplied material may carry that list — a
-census read by one of three generic extraction shapes (a field of every JSON row, a column
-of every table row, the remainder of every marked line), each total over the document it
-reads, so an element the extractor cannot read is refused by name rather than skipped. The
+census read by one of four generic extraction shapes (a field of every JSON row, a column
+of every table row, the remainder of every marked line, and a span of the specification
+from every JSON row that states one), each total over the document it reads, so an element
+the extractor cannot read is refused by name rather than skipped. The fourth is the shape
+for the census no independent document can carry in identifiers — the entries a reading
+produces are named inside the run — so it is authored in the specification's own line
+numbers and held against a reading by containment. The
 census is a pin: the file, its digest, the shape and the parameter are recorded, and it is
 re-derived on every run, so a file that moved refuses rather than being compared with
 itself. Every member the census names must be declared by an operation and either reached

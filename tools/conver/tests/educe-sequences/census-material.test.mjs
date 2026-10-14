@@ -1,3 +1,4 @@
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
 // The supplied census: material that carries a census but is read by no pin (PX-264).
 //
@@ -160,12 +161,15 @@ test('PX-264 C002 a mixed document is refused, naming the first offending row, w
   assert.equal(result.members, undefined);
 });
 
-test('PX-264 C002 the three selectors stay a closed vocabulary and every one requires a parameter', () => {
+test('PX-264 C002 the selectors stay a closed vocabulary and every one requires a parameter', () => {
   const lines = ['```json', '{"kind":"Admit"}', '```', ''];
 
-  assert.deepEqual([...SOURCE_SHAPES], ['jsonFieldRows', 'tableColumn', 'markedLines']);
+  // PX-266 extended the vocabulary by the shape whose members are spans of the specification.
+  // The contract asserted here is the closure and the parameter requirement, which the fourth
+  // shape enters on the same terms as the first three — the loop below covers it too.
+  assert.deepEqual([...SOURCE_SHAPES], ['jsonFieldRows', 'tableColumn', 'markedLines', 'specSpans']);
   const unknown = extractMembers({ lines, shape: 'jsonFieldRowsWhere', parameter: 'kind' });
-  assert.match(unknown.refused, /is not one of jsonFieldRows, tableColumn, markedLines/);
+  assert.match(unknown.refused, /is not one of jsonFieldRows, tableColumn, markedLines, specSpans/);
   for (const shape of SOURCE_SHAPES) {
     const empty = extractMembers({ lines, shape, parameter: '' });
     assert.match(empty.refused, new RegExp(`the ${shape} shape needs a parameter naming what to read`));

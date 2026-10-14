@@ -19,6 +19,7 @@
 // a coverage relation as evidence about what a line says.
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 import { uncoveredRanges } from './coverage.mjs';
+import { spanLabel } from './load.mjs';
 import { PIN_RULES, flattenPins, rederivePin } from './pins.mjs';
 
 /**
@@ -33,8 +34,16 @@ export const PIN_KINDS = Object.freeze([...new Set(flattenPins(PIN_SHAPE_PROBE).
 
 const DEFAULT_SCOPE = 'every artifact';
 
-/** One verdict, in the one shape every check reports. */
-function verdict(id, subject, reason) {
+/**
+ * One verdict, in the one shape every check reports.
+ *
+ * Exported because a check whose shape changes with the record it is reading — the entries
+ * agreement check reads an identifier census one way and a census of spans another — is still
+ * one check, and it must report in the shape the rest of them report in rather than in a second
+ * shape a reader would have to learn.
+ */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+export function verdict(id, subject, reason) {
   return { check: id, subject, reason };
 }
 
@@ -45,8 +54,15 @@ function requireAttribution({ id, defect, refuses }) {
   if (typeof refuses !== 'string' || refuses.trim() === '') throw new Error(`the check "${id}" does not say what reading it refuses`);
 }
 
-/** A check is its contract plus the reading it performs, and nothing else. */
-function checkOf(contract, run) {
+/**
+ * A check is its contract plus the reading it performs, and nothing else.
+ *
+ * Exported for the same reason `verdict` is: a check that holds one requirement in two
+ * coordinates is built from the same two parts as any other, and building it by hand would put
+ * a second copy of this shape in the module that declares the checks.
+ */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+export function checkOf(contract, run) {
   return {
     id: contract.id,
     originatingDefect: contract.defect,
@@ -131,11 +147,6 @@ export function agreeOn(contract, { left, right, key = (record) => record.id, va
   });
 }
 
-/** How a run of lines is named in a verdict, so a refusal points at what to repair. */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-function lineRangeLabel({ first, last }) {
-  return first === last ? String(first) : `${first}-${last}`;
-}
 
 /**
  * A check that every line of the document belongs to a span.
@@ -146,7 +157,8 @@ function lineRangeLabel({ first, last }) {
  * verdicts are one per uncovered run rather than one per uncovered line, because a gap of
  * fourteen thousand lines is one finding and not fourteen thousand.
  */
-export function coverEveryLine(contract, { spans, lineCount, label = lineRangeLabel }) {
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+export function coverEveryLine(contract, { spans, lineCount, label = spanLabel }) {
   requireAttribution(contract);
   return checkOf(contract, (context) =>
     uncoveredRanges({ spans: spans(context) ?? [], lineCount: lineCount(context) })

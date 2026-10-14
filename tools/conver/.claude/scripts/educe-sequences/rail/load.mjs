@@ -103,6 +103,99 @@ export const DIAGRAMMED_OUTCOMES = Object.freeze(
   readArtifactSchema().outcomes.filter((outcome) => outcome !== 'notASequence' && outcome !== 'exempt'),
 );
 
+/** The two kinds a borrowed-census entry may be, read from the schema as the others are. */
+export const SOURCE_ENTRY_KINDS = Object.freeze(readArtifactSchema().pins.sourceEnumerations.kinds);
+
+/**
+ * Whether an entry carries a value under a key, as opposed to carrying the key and no answer.
+ *
+ * A key present and empty is the state a declaration falls into when somebody empties it, and
+ * counting that as carrying a value would let an entry answer for nothing while reading as if
+ * it had named what it answers with.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function carriesValue(entry, key) {
+  const value = entry?.[key];
+  return typeof value === 'string' ? value.trim() !== '' : value !== undefined && value !== null;
+}
+
+/** Whether an entry is a census pin: it names a shape that reads a census out of the file. */
+export function isCensusPin(entry) {
+  return carriesValue(entry, 'selector');
+}
+
+/** Whether an entry is a material declaration: it answers for nothing and says so. */
+export function isMaterialDeclaration(entry) {
+  return !carriesValue(entry, 'selector') && carriesValue(entry, 'ground');
+}
+
+/**
+ * The shapes whose members are coordinates of the specification rather than names read out of
+ * the document.
+ *
+ * A census of the entries a reading produces cannot be authored in the identifiers that
+ * reading generates, because those are chosen inside the run: a document written before the
+ * run can only agree with them by accident. The specification's own line numbers are facts
+ * about the document rather than about the rail, so a census written as spans over it can be
+ * authored from the document alone and held against a reading by containment. Which shapes
+ * are read in that coordinate is stated here, once, and read by the reader, the agreement
+ * check and the shape check together.
+ */
+export const SPAN_SHAPES = Object.freeze(readArtifactSchema().pins.sourceEnumerations.coordinates);
+
+/** Whether a borrowed census is written in the specification's own coordinates. */
+export function isSpanCensusPin(pin) {
+  return SPAN_SHAPES.includes(pin?.selector?.shape);
+}
+
+/**
+ * The span a member states, or null when it states none.
+ *
+ * `34-35` is a span of two lines and `34` is a span of one, because a region of the document
+ * that happens to be a single line is a region. Anything else — a name, a reversed range, a
+ * zero, a decimal — states no span, and the caller refuses it by name rather than reading a
+ * member it cannot place as though it had placed it.
+ */
+export function parseSpan(member) {
+  const match = /^(\d+)(?:-(\d+))?$/.exec(String(member).trim());
+  if (match === null) return null;
+  const first = Number(match[1]);
+  const last = match[2] === undefined ? first : Number(match[2]);
+  return first >= 1 && last >= first ? { first, last } : null;
+}
+
+/** How a span is written, which is also how it is recorded as a member. */
+export function spanLabel({ first, last }) {
+  return first === last ? String(first) : `${first}-${last}`;
+}
+
+/**
+ * Why a census of spans cannot stand, or null when it can.
+ *
+ * One reason rather than a list, because a reader repairs the first thing first: a census that
+ * claims a line of the specification twice and a census that claims a line beyond it are two
+ * repairs, and reporting both at once would make the second wait behind the first anyway. The
+ * bound is the specification's own length, which the artifact declares, so a census written
+ * against a renumbered document is refused rather than read as a census of another document.
+ */
+export function spanCensusProblem({ members, lineCount }) {
+  const spans = [];
+  for (const member of members ?? []) {
+    const span = parseSpan(member);
+    if (span === null) return `the member "${member}" is not a span of the specification`;
+    if (span.last > lineCount) return `the span ${spanLabel(span)} ends at line ${span.last}, and the specification has ${lineCount} lines`;
+    spans.push({ member, span });
+  }
+  const ordered = [...spans].sort((left, right) => left.span.first - right.span.first);
+  for (let index = 1; index < ordered.length; index += 1) {
+    const held = ordered[index - 1];
+    if (ordered[index].span.first <= held.span.last) {
+      return `the spans ${held.member} and ${ordered[index].member} overlap`;
+    }
+  }
+  return null;
+}
+
 /** The keys a record is missing, given the keys it must carry. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function missingKeys(record, required) {
@@ -152,6 +245,29 @@ export function validateArtifactShape(artifact, schema) {
     }
     for (const key of missingKeys(borrowed.source ?? {}, schema.pins.sourceEnumerations.source.required)) {
       problems.push({ pin: `sourceEnumerations[${index}].source.${key}`, reason: `borrowed census ${borrowed.name ?? index} names no ${key}` });
+    }
+    // An entry of neither kind answers for nothing and says nothing, which is the silence the
+    // declaration exists to convert into a statement. It is refused here rather than read as a
+    // census pin whose selector somebody deleted, because the two are different repairs.
+    if (!isCensusPin(borrowed) && !isMaterialDeclaration(borrowed)) {
+      problems.push({
+        pin: `sourceEnumerations[${index}].ground`,
+        reason: `borrowed census ${borrowed.name ?? index} carries no selector and no ground, so it is neither ${SOURCE_ENTRY_KINDS.join(' nor ')}`,
+      });
+    }
+    // A census of spans is a claim about the specification's own coordinates, so a member that
+    // is not a span, a span beyond the last line and a span that claims a line another span
+    // already claims are all refused here, where the artifact's own declaration of the
+    // specification's length is in hand. The subject is the census file, not an index, because
+    // that is what a reader opens to repair it.
+    if (isSpanCensusPin(borrowed)) {
+      const problem = spanCensusProblem({ members: borrowed.members ?? [], lineCount: artifact.spec.lines });
+      if (problem !== null) {
+        problems.push({
+          pin: `sourceEnumerations[${index}].members`,
+          reason: `the census ${borrowed.name ?? index} reads ${borrowed.source?.file}: ${problem}`,
+        });
+      }
     }
   }
   for (const [index, form] of artifact.pins.forms.entries()) {

@@ -24,7 +24,7 @@
     "rowSchema": { "required": ["line", "fields"] },
     "enumerations": { "required": ["name", "members", "ranges", "closedness"] },
     "forms": { "required": ["name", "proposes"] },
-    "sourceEnumerations": { "required": ["name", "role", "source", "selector", "members"], "source": { "required": ["file", "sha256"] }, "selector": { "required": ["shape", "parameter"] } },
+    "sourceEnumerations": { "required": ["name", "role", "source", "members"], "kinds": ["censusPin", "materialDeclaration"], "coordinates": ["specSpans"], "source": { "required": ["file", "sha256"] }, "selector": { "required": ["shape", "parameter"] } },
     "columns": { "required": ["name", "decidedBy"] },
     "blocks": { "required": ["id", "firstLine", "lastLine"] }
   },
