@@ -93,3 +93,28 @@ test('C001 precondition: a missing argument is a usage error, not a silent allow
   assert.equal(result.status, 1);
   assert.match(result.stderr, /usage/i);
 });
+
+// ---------------------------------------------------------------------------
+// PX-260 — the record a run writes is admitted, and nothing frozen is
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+test('PX-260 postcondition: the package obligation record is writable, and its rule is named', () => {
+  const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json', '--why']);
+
+  assert.equal(result.status, 0, `${result.stderr}`);
+  assert.match(result.stdout + result.stderr, /rule: record/);
+});
+
+test('PX-260 invariant: the record is admitted by its exact name, and a look-alike beside it is still refused', () => {
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json']).status, 0);
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json.bak']).status, 1, 'a copy of the record is not the record');
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/obligation.json']).status, 1, 'the rule is about the name the run writes');
+});
+
+test('PX-260 invariant: admitting the record does not open any frozen input', () => {
+  for (const basename of [...FROZEN_BASENAMES, 'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'SEQUENCES.md', 'SEQUENCES.json']) {
+    assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/crates/pkg-a/${basename}`]).status, 1, `${basename} stays frozen`);
+  }
+});

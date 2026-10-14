@@ -83,10 +83,10 @@ function measuredTerms(lines) {
   return lines.filter((line) => TERM_KEYS.some((key) => line.startsWith(`${key}=`)));
 }
 
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
-function blockLines(summary, { previous = null, inquest = null } = {}) {
+// [::TICKET::] PX-251, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-251|PX-260|PX-261) --for-spec --no-implementation-order`.
+function blockLines(summary, { previous = null, inquest = null, demand = null } = {}) {
   const status = { phases: [], readings: {}, history: previous === null ? [] : [{ generation: 1, coverage: previous }] };
-  return healthLines({ summary, status, inquest });
+  return healthLines({ summary, status, inquest, demand });
 }
 
 // ---------------------------------------------------------------------------
@@ -220,4 +220,56 @@ test('C004 the measured block and the audit lines are never summed into one tota
   assert.equal(lines.includes('inquestAsked=5'), true);
   const totals = lines.filter((line) => /^(entries|inquestAsked)=/.test(line)).length;
   assert.equal(totals, 2, 'the apparatus counts and the audit counts are printed as their own lines and never added');
+});
+
+// ---------------------------------------------------------------------------
+// PX-260 — the rail states the demand, so a re-run reinforces it
+// ---------------------------------------------------------------------------
+
+/** The demand as the rail measures it: the facts, and the coverage over a workspace root. */
+// [::TICKET::] PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261) --for-spec --no-implementation-order`.
+function demandFixture() {
+  return {
+    facts: { candidateColumns: ['verb', 'route'], boundaryCount: 3, counts: { operations: 8, sequences: 4, boundaries: 3, surfaces: 2 } },
+    coverage: { verdict: 'not established', axes: {}, refusedExemptions: [{ kind: 'sequence', id: 'S-1', why: 'no procedure is stated' }], assignmentDistribution: [{ packageId: 'pkg-a', count: 5 }], unassigned: [{ axis: 'operations', id: 'R-2' }] },
+  };
+}
+
+test('PX-260 the demand is printed beside the measured block, as its own lines and never added into it', () => {
+  const lines = blockLines(goldenSummary(), { demand: demandFixture() });
+
+  assert.equal(lines.includes('demand=operations 8, sequences 4, boundaries 3, surfaces 2'), true, lines.join(' | '));
+  assert.equal(lines.includes('candidateColumns=verb, route'), true);
+  assert.equal(lines.includes('boundaryCount=3'), true);
+  assert.equal(lines.includes('unassigned=1'), true);
+  assert.equal(lines.includes('  operations: R-2'), true);
+  assert.equal(lines.includes('assignmentDistribution=pkg-a 5'), true);
+  assert.equal(lines.includes('refusedExemption=sequence S-1 was exempted — a sequence may not be exempted'), true);
+  assert.equal(lines.some((line) => line.includes('previous generation')), false, 'the demand is measured, never compared with a stored copy of itself');
+});
+
+test('PX-260 a run that measured no demand prints no demand line, so a rail run reads as it did before', () => {
+  const lines = blockLines(goldenSummary());
+
+  assert.equal(lines.some((line) => line.startsWith('demand=')), false);
+  assert.equal(lines.some((line) => line.startsWith('candidateColumns=')), false);
+  assert.equal(lines.some((line) => line.startsWith('unassigned=')), false);
+});
+
+test('PX-260 a workspace whose every demand is placed reports unassigned zero rather than omitting the line', () => {
+  const held = demandFixture();
+  held.coverage.unassigned = [];
+  held.coverage.refusedExemptions = [];
+  const lines = blockLines(goldenSummary(), { demand: held });
+
+  assert.equal(lines.includes('unassigned=0'), true, 'a measured zero is a fact, not a reason to omit the term');
+  assert.equal(lines.includes('candidateColumns=verb, route'), true);
+  assert.equal(lines.some((line) => line.startsWith('refusedExemption=')), false, 'a workspace with no refusal names none');
+});
+
+test('PX-260 a rail run whose artifact carries no candidate column says so rather than printing an empty list', () => {
+  const demand = demandFixture();
+  demand.facts = { ...demand.facts, candidateColumns: [] };
+
+  assert.equal(blockLines(goldenSummary(), { demand }).includes('candidateColumns=none'), true);
 });

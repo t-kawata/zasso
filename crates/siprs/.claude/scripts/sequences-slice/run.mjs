@@ -21,7 +21,7 @@ import path from 'node:path';
 
 import { parseSequencesArtifact } from './lib/artifact.mjs';
 import { resolvePackageByPath } from './lib/packages.mjs';
-import { readDeclaredInterfaces } from './lib/obligation.mjs';
+import { readPackageObligations } from './lib/obligation.mjs';
 import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './lib/segments.mjs';
 import { buildPackageView, renderPackageViewJson, renderPackageViewMarkdown } from './lib/view.mjs';
 
@@ -33,7 +33,7 @@ const VIEW_JSON_NAME = 'SEQUENCES.json';
 const USAGE = 'usage: run.mjs <sequences-artifact> <package-dir>';
 
 /** A failure that is reported rather than thrown out of the process. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 class ProjectionRefused extends Error {}
 
 /**
@@ -100,9 +100,9 @@ function readWorkspaceSegmentsOrRefuse(root) {
  *
  * @param {string} artifactPath
  * @param {string} packageDir
- * @returns {{ written: string[], packageId: string, reason: string|null }}
+ * @returns {{ written: string[], packageId: string, reason: string|null, refused: string[] }}
  */
-// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function projectPackageView(artifactPath, packageDir) {
   const root = path.dirname(artifactPath);
 
@@ -128,20 +128,30 @@ function projectPackageView(artifactPath, packageDir) {
   const resolved = resolvePackageByPath(treeManifest.workspace.packages, packageDir, root);
   if (resolved.packageId === null) throw new ProjectionRefused(resolved.reason);
 
-  const declared = readDeclaredInterfaces(packageRoot, allocateManifest).get(path.relative(packageRoot, packageDir)) ?? [];
-  const view = buildPackageView({ artifact, treeManifest, packageSegments, obligations: { allocateManifest, declared } }, resolved.packageId);
+  // The obligations are read for every package at once, because the record is keyed by the
+  // package's own directory and the reader is the one place that knows the key. A record that
+  // could not be read leaves its package declaring nothing, so the demands it would have placed
+  // are reported as unassigned by the gate rather than disappearing with the refusal.
+  const obligation = readPackageObligations(packageRoot, allocateManifest).get(path.relative(packageRoot, packageDir))
+    ?? { serves: [], assignments: [], refused: [] };
+  const view = buildPackageView({
+    artifact,
+    treeManifest,
+    packageSegments,
+    obligations: { allocateManifest, declared: obligation.serves, record: { assignments: obligation.assignments } },
+  }, resolved.packageId);
   fs.mkdirSync(packageDir, { recursive: true });
   fs.writeFileSync(path.join(packageDir, VIEW_MARKDOWN_NAME), renderPackageViewMarkdown(view));
   fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), renderPackageViewJson(view));
 
-  return { written: [VIEW_MARKDOWN_NAME, VIEW_JSON_NAME], packageId: resolved.packageId, reason: null };
+  return { written: [VIEW_MARKDOWN_NAME, VIEW_JSON_NAME], packageId: resolved.packageId, reason: null, refused: obligation.refused };
 }
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function main() {
   const positional = process.argv.slice(2);
   if (positional.length !== 2) {
-    process.stdout.write(`${JSON.stringify({ written: [], packageId: null, reason: USAGE })}\n`);
+    process.stdout.write(`${JSON.stringify({ written: [], packageId: null, reason: USAGE, refused: [] })}\n`);
     return EXIT_OK;
   }
 
@@ -152,7 +162,7 @@ function main() {
     process.stdout.write(`${JSON.stringify(projectPackageView(artifactPath, packageDir))}\n`);
   } catch (error) {
     if (error instanceof ProjectionRefused) {
-      process.stdout.write(`${JSON.stringify({ written: [], packageId: null, reason: error.message })}\n`);
+      process.stdout.write(`${JSON.stringify({ written: [], packageId: null, reason: error.message, refused: [] })}\n`);
       return EXIT_OK;
     }
     throw error;

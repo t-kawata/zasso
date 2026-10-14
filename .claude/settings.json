@@ -11,5 +11,18 @@
         "repo": "mksglu/context-mode"
       }
     }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/scripts/grill-me-for-rfc/guard-obligation-on-commit.js"
+          }
+        ]
+      }
+    ]
   }
 }

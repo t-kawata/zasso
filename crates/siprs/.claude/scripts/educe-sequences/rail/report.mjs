@@ -6,6 +6,8 @@
 // no check measures: that a reader opened the line. A run that printed a single total
 // would make the second readable as the first, which is the confusion this file exists
 // to prevent.
+import { describeRefusedExemption } from '../../sequences-slice/lib/obligation-coverage.mjs';
+
 import { NOT_MEASURED, coverageTerms, mappingNote, predecessorValueFor } from './coverage.mjs';
 import { PHASES } from './gates.mjs';
 import { phaseState, readingOf } from './run-state.mjs';
@@ -36,7 +38,8 @@ export function readPhaseSettled(status, phase) {
  */
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-export function healthLines({ summary, status, inquest = null }) {
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+export function healthLines({ summary, status, inquest = null, demand = null }) {
   const done = PHASES.filter((phase) => phaseState(status, phase.id).status === 'done').length;
   const reads = readPhases();
   const settled = reads.filter((phase) => readPhaseSettled(status, phase));
@@ -52,7 +55,40 @@ export function healthLines({ summary, status, inquest = null }) {
     `readPhasesSettled=${settled.length} of ${reads.length} (${vacuous.length} had nothing to read)`,
     `railExits=${summary?.railExits ?? 0} promotionCandidates=${summary?.promotionCandidates ?? 0}`,
     ...inquestLines(inquest),
+    ...demandLines(demand),
   ];
+}
+
+/**
+ * The demand, and the demands nobody owes.
+ *
+ * These lines are appended after everything the run measured, and are never added into it: what a
+ * run measured is a property of the specification it read, while the demand is a property of the
+ * workspace the specification sits in — a different set of numbers that a total would make
+ * readable as one. A run handed no demand prints no line at all, so a rail run over a workspace
+ * that carries no package reads exactly as it did before this existed.
+ *
+ * @param {{ facts: object, coverage: object }|null} demand
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+export function demandLines(demand) {
+  if (demand === null || demand === undefined) return [];
+  const { facts, coverage } = demand;
+  const columns = facts.candidateColumns.length === 0 ? 'none' : facts.candidateColumns.join(', ');
+  const lines = [
+    `demand=${Object.entries(facts.counts).map(([axis, count]) => `${axis} ${count}`).join(', ')}`,
+    `candidateColumns=${columns}`,
+    `boundaryCount=${facts.boundaryCount}`,
+  ];
+  if (coverage === null || coverage === undefined) return lines;
+
+  lines.push(`unassigned=${coverage.unassigned.length}`);
+  for (const unplaced of coverage.unassigned) lines.push(`  ${unplaced.axis}: ${unplaced.id}`);
+  const distribution = coverage.assignmentDistribution.filter((row) => row.count > 0);
+  lines.push(`assignmentDistribution=${distribution.length === 0 ? 'no package holds an obligation unit' : distribution.map((row) => `${row.packageId} ${row.count}`).join(', ')}`);
+  for (const row of coverage.refusedExemptions) lines.push(`refusedExemption=${describeRefusedExemption(row)}`);
+  return lines;
 }
 
 /**
@@ -203,7 +239,7 @@ export function isComplete({ summary, status }) {
 }
 
 /** The closing report, in two parts that are never summed. */
-export function buildReport({ status, summary, artifact, inquest = null }) {
+export function buildReport({ status, summary, artifact, inquest = null, demand = null }) {
   const lines = [
     '## educe-sequences run',
     '',
@@ -213,7 +249,7 @@ export function buildReport({ status, summary, artifact, inquest = null }) {
     '',
     '### Measured',
     '',
-    ...healthLines({ summary, status, inquest }).map((line) => `- ${line}`),
+    ...healthLines({ summary, status, inquest, demand }).map((line) => `- ${line}`),
     '',
     '### Carried by a signature',
     '',

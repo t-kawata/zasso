@@ -12,9 +12,17 @@
  * Nothing here knows a project. An interface id, a column name and a vocabulary name are opaque
  * strings: this module uses a column as a key into the operation rows and a vocabulary name as a key
  * into the pinned enumerations, and interprets neither.
+ *
+ * A third relation reads the package obligation record, which is the one document a run may
+ * write. It exists because the two sources the surfaces are declared in are a stage-1 input and a
+ * generated projection, so a judgment about a demand that no relation reaches had nowhere to live;
+ * it now lives beside the package's own papers and is read back by everything downstream.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { basename } from 'node:path';
+
+import { NOT_A_SEQUENCE } from './units.mjs';
 
 /** The unit-id prefix a boundary unit carries. */
 export const CARRIES_UNIT_PREFIX = 'ctr-';
@@ -22,8 +30,39 @@ export const CARRIES_UNIT_PREFIX = 'ctr-';
 /** The unit-id prefix a surface unit carries. */
 export const SERVES_UNIT_PREFIX = 'obl-';
 
+/** The unit-id prefix an operation demand carries, which a recorded assignment names. */
+export const OPERATION_UNIT_PREFIX = 'op-';
+
+/** The unit-id prefix a sequence demand carries, which a recorded assignment names. */
+export const SEQUENCE_UNIT_PREFIX = 'seq-';
+
+/** The relation a unit carries when a recorded judgment placed it rather than a relation. */
+export const ASSIGNMENT_RELATION = 'assigns';
+
 /** The relation names a unit may declare. */
-export const OBLIGATION_RELATIONS = Object.freeze(['serves', 'carries']);
+export const OBLIGATION_RELATIONS = Object.freeze(['serves', 'carries', ASSIGNMENT_RELATION]);
+
+/**
+ * The writable document a run records its own judgments in, beside the package's own papers.
+ *
+ * Every other declaration source is either a stage-1 input or a generated projection, so a
+ * judgment written into one of them would be indistinguishable from the material it was
+ * derived from, and regenerating would silently discard it. This is the one document a run
+ * may write, and the name is spelled once here because the reader, the guard and the run
+ * that writes it must agree about it.
+ */
+export const OBLIGATION_RECORD_BASENAME = 'OBLIGATION.json';
+
+/** The record version this reader understands. */
+export const OBLIGATION_RECORD_VERSION = 1;
+
+/** The version field of the record, and the two lists it carries. */
+const RECORD_VERSION_FIELD = 'version';
+const RECORD_SERVES_FIELD = 'serves';
+const RECORD_ASSIGNMENTS_FIELD = 'assignments';
+
+/** The demand kind each unit-id prefix names. */
+const DEMAND_KIND_BY_PREFIX = Object.freeze({ [OPERATION_UNIT_PREFIX]: 'operation', [SEQUENCE_UNIT_PREFIX]: 'sequence' });
 
 /**
  * The three states of a view's obligation source.
@@ -184,27 +223,191 @@ function readSeedDeclarations(seedText) {
  */
 export function readDeclaredInterfaces(packageRoot, allocateManifest) {
   const declared = new Map();
+  for (const [packagePath, obligation] of readPackageObligations(packageRoot, allocateManifest)) {
+    if (obligation.listedBy !== null) declared.set(packagePath, obligation.serves);
+  }
+  return declared;
+}
+
+/** The seed declarations of every package beneath a root, keyed by the path the reader keys by. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function readSeedsByDirectory(packageRoot) {
+  const seeds = new Map();
+  if (!fs.existsSync(packageRoot)) return seeds;
+  walkPackageRoot(packageRoot, (directory, name, fullPath) => {
+    if (name !== SEED_FILENAME) return;
+    const entries = readSeedDeclarations(fs.readFileSync(fullPath, 'utf8'));
+    if (entries.length > 0) seeds.set(path.relative(packageRoot, directory), entries);
+  });
+  return seeds;
+}
+
+/**
+ * The obligation record of every package beneath a root, keyed the way the seeds are.
+ *
+ * A record that cannot be read, or that was written by a version this reader does not know,
+ * is answered with a refusal naming it rather than with an empty obligation: a package read
+ * as declaring nothing is a package whose silence is indistinguishable from a decision, and
+ * that is the confusion this whole relation exists to remove.
+ */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function readRecordsByDirectory(packageRoot) {
+  const records = new Map();
+  if (!fs.existsSync(packageRoot)) return records;
+  walkPackageRoot(packageRoot, (directory, name, fullPath) => {
+    if (name !== OBLIGATION_RECORD_BASENAME) return;
+    records.set(path.relative(packageRoot, directory), readRecordOrRefusal(fullPath));
+  });
+  return records;
+}
+
+/** Every file beneath a package root, reported with the directory it sits in. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function walkPackageRoot(directory, visit) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) walkPackageRoot(fullPath, visit);
+    else visit(directory, entry.name, fullPath);
+  }
+}
+
+/**
+ * One record's content, or the refusal that stands in its place.
+ *
+ * The version is read before the lists, because a record written by a newer writer may mean
+ * something else by the same field names, and half-reading it would put a judgment into the
+ * obligation set that no writer of this version ever made.
+ *
+ * @param {string} filePath
+ * @returns {{ serves: object[], assignments: object[], refused: string|null }}
+ */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function readRecordOrRefusal(filePath) {
+  const empty = { serves: [], assignments: [], refused: null };
+  const refusedWith = (reason) => ({ ...empty, refused: `${basename(filePath)} ${reason}` });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return refusedWith('could not be read as a record');
+  }
+  if (parsed?.[RECORD_VERSION_FIELD] !== OBLIGATION_RECORD_VERSION) {
+    return refusedWith(`records version ${JSON.stringify(parsed?.[RECORD_VERSION_FIELD])}, and this reader knows version ${OBLIGATION_RECORD_VERSION}`);
+  }
+
+  const serves = Array.isArray(parsed[RECORD_SERVES_FIELD]) ? parsed[RECORD_SERVES_FIELD].map(normalizeDeclaration) : [];
+  const assignments = Array.isArray(parsed[RECORD_ASSIGNMENTS_FIELD]) ? parsed[RECORD_ASSIGNMENTS_FIELD].map(normalizeAssignment).filter((entry) => entry.unit.length > 0) : [];
+  return { serves, assignments, refused: null };
+}
+
+/** One recorded judgment, with the demand it names and the evidence it rests on. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function normalizeAssignment(entry) {
+  return { unit: String(entry?.unit ?? '').trim(), ground: String(entry?.ground ?? '') };
+}
+
+/**
+ * Every package's obligation record, read from the three sources in precedence order.
+ *
+ * The surfaces keep the precedence they had before the record existed — the stage-2 manifest
+ * field first, then the seed's fence, then the record — so a workspace that declared its
+ * surfaces either way is read exactly as it was. The judgments have no other source, so the
+ * record is read whichever source answered for the surfaces. `listedBy` names the source that
+ * answered, because a reader that cannot say where a declaration came from cannot tell a
+ * decision from a silence.
+ *
+ * @param {string} packageRoot
+ * @param {{ [DECLARED_INTERFACES_FIELD]?: object }} [allocateManifest]
+ * @returns {Map<string, { serves: object[], assignments: object[], refused: string[], listedBy: string|null, source: string }>}
+ */
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+export function readPackageObligations(packageRoot, allocateManifest) {
+  const obligations = new Map();
+  const entryFor = (packagePath) => {
+    if (!obligations.has(packagePath)) {
+      obligations.set(packagePath, { serves: [], assignments: [], refused: [], listedBy: null, source: OBLIGATION_SOURCES[1] });
+    }
+    return obligations.get(packagePath);
+  };
+
   const fromManifest = allocateManifest?.[DECLARED_INTERFACES_FIELD];
   if (fromManifest !== null && typeof fromManifest === 'object') {
     for (const [packagePath, entries] of Object.entries(fromManifest)) {
-      if (Array.isArray(entries)) declared.set(packagePath, entries.map(normalizeDeclaration));
+      if (!Array.isArray(entries)) continue;
+      const entry = entryFor(packagePath);
+      entry.serves = entries.map(normalizeDeclaration);
+      entry.listedBy = DECLARED_INTERFACES_FIELD;
     }
-    return declared;
+  } else {
+    for (const [packagePath, serves] of readSeedsByDirectory(packageRoot)) {
+      const entry = entryFor(packagePath);
+      entry.serves = serves;
+      entry.listedBy = SEED_FILENAME;
+    }
   }
 
-  if (!fs.existsSync(packageRoot)) return declared;
-  const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (entry.name === SEED_FILENAME) {
-        const entries = readSeedDeclarations(fs.readFileSync(fullPath, 'utf8'));
-        if (entries.length > 0) declared.set(path.relative(packageRoot, directory), entries);
-      }
+  for (const [packagePath, record] of readRecordsByDirectory(packageRoot)) {
+    const entry = entryFor(packagePath);
+    if (record.refused !== null) entry.refused.push(record.refused);
+    if (entry.serves.length === 0 && record.serves.length > 0) {
+      entry.serves = record.serves;
+      entry.listedBy = OBLIGATION_RECORD_BASENAME;
     }
-  };
-  walk(packageRoot);
-  return declared;
+    entry.assignments = record.assignments;
+  }
+
+  for (const entry of obligations.values()) {
+    entry.source = entry.serves.length > 0 ? OBLIGATION_SOURCES[0] : OBLIGATION_SOURCES[1];
+  }
+  return obligations;
+}
+
+/**
+ * The units one package's recorded judgments place, and the ones that name nothing.
+ *
+ * A judgment names the demand by the unit id the view already spells, so an assignment to an
+ * operation is `op-<operationId>` and an assignment to a sequence is `seq-<sequenceId>`. A
+ * name the artifact does not hold is reported rather than turned into a unit: a unit is a
+ * duty a package is told to implement, and inventing one from a typo would tell a package to
+ * implement something the specification never named.
+ *
+ * A sequence the reading ruled is not a sequence is not a demand, so a judgment naming one is
+ * unbound for the same reason a typo is.
+ *
+ * @param {{ operations?: object[], sequences?: object[] }} artifact
+ * @param {Array<{ unit: string, ground: string }>} assignments
+ * @returns {{ units: object[], unbound: string[] }}
+ */
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+export function classifyAssignments(artifact, assignments) {
+  const demanded = new Set();
+  for (const operation of artifact?.operations ?? []) {
+    if (operation?.id) demanded.add(`${OPERATION_UNIT_PREFIX}${operation.id}`);
+  }
+  for (const sequence of artifact?.sequences ?? []) {
+    if (sequence?.id && sequence.outcome !== NOT_A_SEQUENCE) demanded.add(`${SEQUENCE_UNIT_PREFIX}${sequence.id}`);
+  }
+
+  const units = [];
+  const unbound = [];
+  for (const assignment of assignments ?? []) {
+    if (!demanded.has(assignment.unit)) {
+      unbound.push(assignment.unit);
+      continue;
+    }
+    units.push({
+      unitId: assignment.unit,
+      relation: ASSIGNMENT_RELATION,
+      subject: assignment.unit.slice(assignment.unit.indexOf('-') + 1),
+      kind: DEMAND_KIND_BY_PREFIX[assignment.unit.slice(0, assignment.unit.indexOf('-') + 1)],
+      // The ground is normalized here rather than at the reader, so a whitespace-only ground reads
+      // as no ground however the assignment reached this module. The coverage layer reads this
+      // field to count a demand, so a judgment recorded without a ground places nothing.
+      ground: String(assignment.ground ?? '').trim(),
+    });
+  }
+  return { units, unbound };
 }
 
 /**
@@ -277,12 +480,17 @@ export function classifyServes(artifact, declared, packageId) {
  * The union is sorted and each unit carries a stable id, because the grill seeds one design node
  * per unit and a node whose id moved would read downstream as an undisclosed unit.
  *
- * @param {{ artifact: object, allocateManifest: object }} input
+ * @param {{ artifact: object, allocateManifest: object, record?: { assignments?: object[] }|null }} input
  * @param {string} packageId
  * @param {Array<object>} declared
  * @returns {object[]}
  */
-export function buildObligationUnits({ artifact, allocateManifest }, packageId, declared) {
-  const units = [...classifyServes(artifact, declared, packageId), ...classifyCarries(allocateManifest, packageId)];
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+export function buildObligationUnits({ artifact, allocateManifest, record = null }, packageId, declared) {
+  const units = [
+    ...classifyServes(artifact, declared, packageId),
+    ...classifyAssignments(artifact, record?.assignments ?? []).units,
+    ...classifyCarries(allocateManifest, packageId),
+  ];
   return units.sort((left, right) => (left.unitId === right.unitId ? left.relation.localeCompare(right.relation) : left.unitId.localeCompare(right.unitId)));
 }

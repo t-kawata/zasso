@@ -263,3 +263,62 @@ test('C004 a view on disk that carries no obligation section reads as absent, ne
   assert.equal(obligationSourceOf({ packageId: 'pkg-0011', obligationSource: 'undeclared' }), 'undeclared');
 });
 
+// ---------------------------------------------------------------------------
+// PX-260 — the recorded judgment reaches the view, with the ground a reader reviews
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+test('C004 a recorded assignment is a unit of the view, printed with its relation and its ground', () => {
+  const input = liveShapedInput();
+  const record = { serves: [], assignments: [{ unit: 'op-SyntheticOperation0001', ground: 'the specification states it on line 412' }] };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] }, declared: [], record } }, OCCUPIED_PACKAGE);
+  const section = renderPackageViewMarkdown(view).slice(
+    renderPackageViewMarkdown(view).indexOf('## Obligation'),
+    renderPackageViewMarkdown(view).indexOf('## Class names no manifest owns'),
+  );
+
+  assert.deepEqual(view.obligationUnits.map((unit) => `${unit.unitId}:${unit.relation}`), ['op-SyntheticOperation0001:assigns']);
+  assert.match(section, /\| assigns \| op-SyntheticOperation0001 \| SyntheticOperation0001 \| placed by a recorded judgment: the specification states it on line 412 \|/);
+});
+
+test('C004 an assignment with no ground reads as ungrounded rather than as a satisfied obligation', () => {
+  const input = liveShapedInput();
+  const record = { serves: [], assignments: [{ unit: 'op-SyntheticOperation0001', ground: '' }] };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] }, declared: [], record } }, OCCUPIED_PACKAGE);
+  const markdown = renderPackageViewMarkdown(view);
+
+  assert.match(markdown, /recorded with no ground/);
+});
+
+// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+test('PX-261 the view carries the columns its package adjudicated away, and the section states each ground', () => {
+  const input = liveShapedInput();
+  const record = { version: 1, serves: [], assignments: [], adjudications: [{ column: 'id', ground: 'the specification states it on line 412' }] };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] }, declared: [], record } }, OCCUPIED_PACKAGE);
+  const markdown = renderPackageViewMarkdown(view);
+
+  assert.deepEqual(view.adjudicatedColumns, [{ column: 'id', ground: 'the specification states it on line 412', carriedBy: OCCUPIED_PACKAGE }], 'a version-1 adjudication is read as carrying the package that wrote it');
+  assert.match(markdown, /Adjudicated away: id — the specification states it on line 412\./);
+  assert.deepEqual(view.obligationUnits, [], 'an adjudication removes a question and places no duty');
+});
+
+test('PX-261 a view whose package adjudicated nothing carries an empty list, so the section reads as it did', () => {
+  const input = liveShapedInput();
+  const view = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] } } }, OCCUPIED_PACKAGE);
+  const markdown = renderPackageViewMarkdown(view);
+
+  assert.deepEqual(view.adjudicatedColumns, []);
+  assert.doesNotMatch(markdown, /Adjudicated away/);
+});
+
+test('C004 an assignment naming nothing the artifact holds is a finding of the view, and is not dressed as a unit', () => {
+  const input = liveShapedInput();
+  const record = { serves: [], assignments: [{ unit: 'op-NoSuchOperation', ground: 'the specification states it' }] };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] }, declared: [], record } }, OCCUPIED_PACKAGE);
+  const markdown = renderPackageViewMarkdown(view);
+
+  assert.deepEqual(view.obligationUnits.map((unit) => unit.unitId), []);
+  assert.deepEqual(view.unboundAssignments, ['op-NoSuchOperation']);
+  assert.match(markdown, /Recorded assignments naming no operation or sequence: op-NoSuchOperation\./);
+});
+

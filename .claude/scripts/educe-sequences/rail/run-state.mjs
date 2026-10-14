@@ -91,7 +91,7 @@ export function readStatus(directory) {
  * staged name is not a record, and a rename that cannot land takes it away again rather
  * than leaving it beside the real one.
  */
-function replaceFile(target, contents) {
+export function replaceFile(target, contents) {
   const staged = `${target}.partial`;
   try {
     writeFileSync(staged, contents);
@@ -101,6 +101,19 @@ function replaceFile(target, contents) {
     throw error;
   }
 }
+
+/**
+ * Write a file a run owns, by writing beside it and renaming over it.
+ *
+ * The rename is the point: a reader can never observe a half-written record, and a write that
+ * cannot land takes its staged name away rather than leaving a second copy of the document
+ * beside the real one.
+ *
+ * @param {string} target — the file to replace
+ * @param {string} contents
+ * @returns {void}
+ */
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 
 /** Write a run's status, replacing the record rather than writing into it. */
 export function writeStatus(directory, status) {

@@ -7,6 +7,7 @@
 // the neighbour a recorded fact rather than something the engine rediscovers.
 import { basename } from 'node:path';
 
+import { demandFactsBeside } from './demand.mjs';
 import { readArtifactSchema } from './load.mjs';
 import { establishPins } from './pins.mjs';
 import { digestOfSupplied } from './supplied.mjs';
@@ -30,11 +31,13 @@ export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs
  * is the same value a verification computes beside a specification with no run.
  */
 // [::TICKET::] PX-240, PX-242, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]), suppliedDocuments = {} }) {
   const pins = establishPins(spec.lines, declaration, suppliedDocuments);
   const readingFor = new Map(readings.sequences.map((reading) => [reading.subject, reading]));
 
-  return {
+  const composed = {
     // The version is read from the schema rather than written here, so a schema change
     // and the artifacts it produces cannot disagree about which contract they carry.
     schema_version: readArtifactSchema().schema_version,
@@ -56,4 +59,9 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
     exemptions: declaration.exemptions,
     verify: { command: VERIFY_COMMAND, expected_exit: 0 },
   };
+
+  // The demand is stated after the rest is composed, because it is read from what was composed:
+  // the candidate columns are the pinned vocabularies crossed with this artifact's own operation
+  // rows. Who owes a demand is deliberately absent — the rail emits, and the slice assigns.
+  return { ...composed, demand: demandFactsBeside(specPath, composed) };
 }

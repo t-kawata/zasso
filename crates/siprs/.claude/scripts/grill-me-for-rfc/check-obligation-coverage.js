@@ -21,7 +21,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { DEMAND_AXES, VERDICT_HOLDS, measureCoverage } from '../sequences-slice/lib/obligation-coverage.mjs';
+import {
+  DEMAND_AXES,
+  DEMAND_RELATIONS,
+  VERDICT_HOLDS,
+  describeRefusedExemption,
+  findUngroundedAssignments,
+  measureCoverage,
+} from '../sequences-slice/lib/obligation-coverage.mjs';
 import { SOURCE_ARTIFACT_SUFFIX, VIEW_JSON_NAME } from '../sequences-slice/lib/material.mjs';
 import { PACKAGE_ROOT_DIRECTORY } from '../sequences-slice/lib/segments.mjs';
 import { OBLIGATION_SOURCES } from '../sequences-slice/lib/obligation.mjs';
@@ -90,6 +97,66 @@ function findDeclarationsThatDidNotBind(views) {
     .map((view) => String(view.packageId));
 }
 
+/**
+ * The lines naming, per axis, how many demands were placed and by which relation.
+ *
+ * The mix is printed because a count alone cannot tell a workspace that distributed its work from
+ * one where a single relation reached everything. An axis nobody placed a demand on prints no
+ * line: a zero here is the unassigned list's business, and stating it twice invites the reader to
+ * read one of the two as the other.
+ */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderAssignedLines(coverage) {
+  return DEMAND_AXES.flatMap((axis) => {
+    const assigned = coverage.axes[axis].assigned;
+    if (assigned.length === 0) return [];
+    const mix = DEMAND_RELATIONS
+      .map((relation) => [relation, assigned.filter((demand) => demand.by === relation).length])
+      .filter(([, count]) => count > 0)
+      .map(([relation, count]) => `${relation} ${count}`)
+      .join(', ');
+    return [`assigned ${axis}: ${assigned.length} (${mix})`];
+  });
+}
+
+/** The lines naming the demands one package was handed, so a concentration is visible. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderAssignmentDistribution(coverage) {
+  const rows = coverage.assignmentDistribution.filter((row) => row.count > 0);
+  if (rows.length === 0) return ['assignment distribution: no package holds an obligation unit'];
+  return [`assignment distribution: ${rows.map((row) => `${row.packageId} ${row.count}`).join(', ')}`];
+}
+
+/** The lines naming every exemption that was refused, and the rule each one broke. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderRefusedExemptionLines(coverage) {
+  if (coverage.refusedExemptions.length === 0) return [];
+  return [
+    `refused exemptions: ${coverage.refusedExemptions.length}`,
+    ...coverage.refusedExemptions.map((row) => `  ${describeRefusedExemption(row)}`),
+  ];
+}
+
+/** The packages whose record named a unit the artifact does not hold, with the names it used. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function findUnboundAssignments(views) {
+  return views
+    .filter((view) => (view.unboundAssignments ?? []).length > 0)
+    .map((view) => `${view.packageId} — ${view.unboundAssignments.join(', ')}`);
+}
+
+/** The lines naming the judgments that named nothing, and the ones that carried no ground. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderAssignmentFindingLines(views) {
+  const lines = [];
+  const unbound = findUnboundAssignments(views);
+  if (unbound.length > 0) lines.push(`unbound assignments: ${unbound.join('; ')}`);
+
+  const ungrounded = findUngroundedAssignments(views);
+  if (ungrounded.length > 0) lines.push(`ungrounded assignments: ${ungrounded.join(', ')}`);
+  return lines;
+}
+
 /** The lines naming every demand that no package owes. */
 // [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function renderUnassignedLines(coverage) {
@@ -112,7 +179,7 @@ function renderVerdictLine(coverage, exemptionCount) {
 }
 
 /** Measure one workspace and print its verdict. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {
@@ -141,7 +208,11 @@ function main(argv = process.argv.slice(2)) {
   const unbound = findDeclarationsThatDidNotBind(views);
   const lines = [
     renderVerdictLine(coverage, DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].exempt.length, 0)),
+    ...renderAssignedLines(coverage),
+    ...renderAssignmentDistribution(coverage),
     ...renderUnassignedLines(coverage),
+    ...renderRefusedExemptionLines(coverage),
+    ...renderAssignmentFindingLines(views),
   ];
   if (coverage.unreachedOwnedObjects > 0) {
     lines.push(`objects no operation reaches: ${coverage.unreachedOwnedObjects} (owned by a package the ownership join cannot see)`);
@@ -151,7 +222,11 @@ function main(argv = process.argv.slice(2)) {
   }
   process.stdout.write(`${lines.join('\n')}\n`);
 
-  if (coverage.verdict !== VERDICT_HOLDS || unbound.length > 0) return EXIT_FAILED;
+  // A refusal here is not a judgment about the design; it is a defect in the record itself — a
+  // declaration that bound to nothing, a judgment that named a demand the artifact does not hold,
+  // or a judgment with no ground. All three are repairable and none of them is coverage.
+  const defects = unbound.length > 0 || findUnboundAssignments(views).length > 0;
+  if (coverage.verdict !== VERDICT_HOLDS || defects) return EXIT_FAILED;
   return EXIT_OK;
 }
 

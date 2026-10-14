@@ -176,14 +176,40 @@ test('C007 invariant: STEP 5b and STEP 7b exist, and 7b follows 7a', () => {
   assert.ok(step7b > step7a && step7b < step8, 'STEP 7b sits after STEP 7a and before STEP 8');
 });
 
-test('C007 invariant: the STEP 8 gate carries five conditions and the defect gate', () => {
+// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+test('C007 invariant: the STEP 8 gate requires the denominator, not only the placement', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 8:');
   const section = text.slice(start, text.indexOf('### STEP 8a', start));
 
-  assert.match(section, /gate \(all 6 required\)/);
+  assert.match(section, /every axis is measured against a structure the workspace holds rather than against the artifact itself/);
+});
+
+// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+test('C007 invariant: STEP 1 states that a denominator gap withholds without stopping the run', () => {
+  const text = commandText();
+  const start = text.indexOf('### STEP 1:');
+  const section = text.slice(start, text.indexOf('### STEP 2', start));
+
+  assert.match(section, /reports the \*\*denominator\*\*/);
+  assert.match(section, /A gap is not an unassigned demand and assigning faster does not repair it/);
+  assert.match(section, /the run continues and records what it resolved/, 'the gap is the gate answer, not unfinished work');
+  assert.match(section, /supply the census material for the operations and entries roles/);
+});
+
+// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+test('C007 invariant: the STEP 8 gate carries nine conditions and the defect gate', () => {
+  const text = commandText();
+  const start = text.indexOf('### STEP 8:');
+  const section = text.slice(start, text.indexOf('### STEP 8a', start));
+
+  assert.match(section, /gate \(all 9 required\)/);
   assert.match(section, /defect-report\.js --gate` exits 0/);
   assert.match(section, /seed divergence ledger and the defect ledger are present and well formed/);
+  // PX-261: the guarantee has two halves and both are required where the package declares DONE.
+  assert.match(section, /check-obligation-coverage\.js "\$WORKSPACE_ROOT"` exits 0/);
+  assert.match(section, /check-ledger-discharge\.js "\$WORKSPACE_ROOT"` exits 0/);
+  assert.match(section, /every unit every view holds is accounted for by its own package's distribution ledger/);
 });
 
 test('C007 invariant: STEP 8a carries the cross-directory re-entry item', () => {

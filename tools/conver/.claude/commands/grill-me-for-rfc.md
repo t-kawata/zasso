@@ -325,6 +325,36 @@ after reading all research material, before the first grill question: generate i
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
 ```
 
+Before a node is seeded, the demand is settled — a unit that does not exist yet cannot be seeded, so resolving a demand afterwards would leave every unit it created without a node, a header and a ledger row.
+
+```bash
+node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+```
+
+The gate names every demand no relation and no recorded judgment covers, by axis and id. Resolve each one by the cheapest faithful route first: a side of a boundary the allocate manifest already names, a surface route through an interface the package declares, an ownership reach. Only where no route exists does the run make the judgment itself, and it records that judgment in the package's obligation record — `OBLIGATION.json` beside the package's own documents — with a ground naming the specification evidence it rests on. The record is writable; the stage-1 inputs and the generated views are not, and a judgment written into one of those would be indistinguishable from the material it was derived from.
+
+```bash
+node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json" "<package-dir>"
+```
+
+A candidate column that is not an interface is adjudicated away in the same record, as an `adjudications` row of `{ column, ground }` — the artifact's own `exemptions` array is written only by a readings pass, so the record is the route a run can take. An operation or a sequence is never exempted from either route: a grounded row naming one is refused by name, the demand stays unassigned, and the reason is the rule it broke, because the duty is placed and never removed. A column may be adjudicated away with its ground, and a declaration is accepted only when every value of its column instantiates the vocabulary it declares — a column whose values the vocabulary does not cover is a declaration about something other than what it says it is, and the gate names it instead of counting it.
+
+The gate also reports the **denominator**: one line naming what each axis is measured against, and a gap for every axis the workspace cannot answer for because nothing outside the artifact states it. A gap is not an unassigned demand and assigning faster does not repair it — the demand list is complete against nothing, and placing every member of a list nobody checked is not the guarantee. The repair travels with the gap: supply the census material for the operations and entries roles beside the run, or declare the interfaces for the surfaces. A gap withholds the verdict without stopping the run, in the same shape as a workspace holding no artifact, where the refusal is the gate's answer rather than unfinished work — the run continues and records what it resolved.
+
+The whole of that is answered in one place when the loop is done:
+```bash
+node .claude/scripts/grill-me-for-rfc/check-distribution-completeness.js "$WORKSPACE_ROOT"
+```
+It prints one line per clause of the distribution criterion — the denominator, the placement, the grounds, the exemptions, the ledger in both directions, the ledger locations, the claim closure and the reach — each with the check that measured it, and it prints the boundary line saying that whether the specification names every procedure the project needs is not measured by any of them. A short clause is repaired by the act its own line names, and a run is never refused over one: the rail writes and the gate withholds.
+
+Then run the gate again: the views carry the units the record placed, and the report names the correspondingly smaller list. Repeat until no demand is unassigned. The re-projection above is run for **every** package the tree manifest names, not for one of them.
+
+A target that carries no obligation record at all is the ordinary case: the gate names every demand, the run resolves what it can, and the second run differs from the first only by what it resolved.
+
+A target that carries **no sequences artifact** is a different case and not unfinished work: the demand cannot be measured there at all, the gate refuses by name — `refused: <root> does not hold both an artifact and a WORKSPACIFY-ALLOCATE-MANIFEST.json` — and the run proceeds exactly as it did before the obligation existed. Do not read that refusal as a demand to resolve; there is nothing to resolve until the workspace has an artifact.
+
+Every grounded judgment must cite evidence the workspace holds: a line or a line range of the specification, a section id the artifact carries, or an id it names. A ground that cites nothing, or that cites something the artifact does not hold, leaves its demand unplaced and is reported by name. The gate prints what it does and does not guarantee — the placement is checked, the judgment behind it is not.
+
 Nodes also come from the material. When STEP 0 found sequences material, `$RFC_DIR/SEQUENCES.md` names the units this package must implement, and each becomes a node with the unit's own id:
 
 - one node per owned operation, id `op-<operationId>`;
@@ -436,11 +466,11 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
 ```
 
-Before proposing the end, gate the coverage: every demand of every axis is assigned to a named package or exempted with a ground. An unassigned demand is reported by axis and by id, and the session does not end while one stands.
+Before proposing the end, gate the coverage: every demand of every axis is assigned to a named package or adjudicated away with a ground. An unassigned demand is reported by axis and by id, and the session does not end while one stands.
 ```bash
 node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
 ```
-A declaration that bound to no unit is reported apart from an unserved demand, because the two call for different repairs.
+A declaration that bound to no unit is reported apart from an unserved demand, because the two call for different repairs. So is a refused exemption: a grounded adjudication row naming an operation or a sequence is refused by name, the demand it named stays unassigned, and the reason is the rule it broke — that exemption would delete a duty rather than place it. A grounded exemption that names no `carriedBy` is refused the same way, because an exemption places a demand only when it says which package the duty went to, and a row naming nobody would otherwise read as a placement while the demand stayed owed. The report also prints the assigned count and the relation mix per axis, and which package was handed what, so a workspace that placed everything on one package is visible rather than summarised away. The denominator line is printed before the partition, so a count of assigned demands is readable against what it was measured against: an axis resting on a borrowed census means one thing and an axis resting on the artifact's own reading means another. An unstated axis is named with the structure to supply, apart from the unassigned list, because the two are repaired by different acts.
 
 ---
 
@@ -623,7 +653,9 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 
 ### STEP 8: RFC Completion Declaration
 
-gate (all 6 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is assigned or exempted.
+gate (all 9 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately.
+
+The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
 
 Re-running over a workspace projected by an older rail must succeed, require no new workspace, destroy nothing, and leave the workspace carrying the obligation section: an old projection is a target to bring forward, never a reason to refuse.
 ```bash

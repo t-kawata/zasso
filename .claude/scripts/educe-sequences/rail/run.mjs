@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
 import { coverageLine, predecessorLine } from './coverage.mjs';
+import { writeDemandRecord } from './demand.mjs';
 import { limbCensusLines } from './report.mjs';
 import { checkAll, describeRefusal } from './engine.mjs';
 import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
@@ -59,6 +60,7 @@ const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
 // [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -89,6 +91,9 @@ export async function runCommand(argv, options = {}) {
     }
     report(stdout, verified.summary, previousCoverageFor(specPath));
     stdout(`artifact digest: ${digestOf(verified.artifactPath)}`);
+    // A verification writes no artifact, and it does record what the workspace still owes: the
+    // demand is measured beside the run rather than stored in the document being verified.
+    stdout(`demand record: ${writeDemandRecord(specPath, verified.artifact)}`);
     return { exitCode: EXIT.OK, artifactPath: verified.artifactPath, summary: verified.summary, verdicts: [] };
   }
 
@@ -144,6 +149,7 @@ export async function runCommand(argv, options = {}) {
   report(stdout, summary, previousCoverageFor(specPath));
   stdout(`artifact digest: ${digestOf(ground.artifactPath)}`);
   stdout(`rendering: ${renderPathFor(specPath)} (run rail/render.mjs to write it)`);
+  stdout(`demand record: ${writeDemandRecord(specPath, artifact)}`);
   return { exitCode: EXIT.OK, artifactPath: ground.artifactPath, summary, verdicts: [] };
 }
 

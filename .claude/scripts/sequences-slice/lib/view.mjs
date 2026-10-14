@@ -13,7 +13,7 @@
 import { collectDistinctClassNames, classifyOperationOwnership, resolveOwningPackages } from './ownership.mjs';
 import { measureLineRangeJoin, normalizeStructureSegments } from './segments.mjs';
 import { classifySequenceOwnership, buildSequenceUnits } from './units.mjs';
-import { OBLIGATION_SOURCES, buildObligationUnits } from './obligation.mjs';
+import { ASSIGNMENT_RELATION, OBLIGATION_SOURCES, buildObligationUnits, classifyAdjudications, classifyAssignments } from './obligation.mjs';
 import { renderLineRangeStatement, LINE_RANGE_IDENTITY_USE } from './report.mjs';
 
 /** The prefix that marks an operation unit. */
@@ -41,14 +41,16 @@ export const VIEW_SOURCE_NOTE = 'Generated from the sequences artifact by /grill
  *   artifact: object,
  *   treeManifest: object,
  *   packageSegments: Array<{ packagePath: string, segmentIds: string[] }>,
- *   obligations?: { allocateManifest?: object, declared?: Array<object> },
+ *   obligations?: { allocateManifest?: object, declared?: Array<object>, record?: object|null },
+
  * }} input
  * @param {string} packageId
  * @returns {object}
  */
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
 export function buildPackageView({ artifact, treeManifest, packageSegments, obligations = {} }, packageId) {
-  const { allocateManifest = null, declared = [] } = obligations;
+  const { allocateManifest = null, declared = [], record = null } = obligations;
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
   const units = buildSequenceUnits(artifact);
 
@@ -101,7 +103,15 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
   // object an operation result names, so a package whose duty is structural appears in no unit
   // above; these are the units that reach it, and they are additive: nothing in the three lists is
   // recomputed from them.
-  const obligationUnits = buildObligationUnits({ artifact, allocateManifest }, packageId, declared);
+  const obligationUnits = buildObligationUnits({ artifact, allocateManifest, record }, packageId, declared);
+  // The same pure classifier the units above come from, so the finding and the units cannot
+  // disagree about which judgment bound and which named nothing. A judgment that named nothing is
+  // reported rather than dropped: a package told to implement a duty no specification states is a
+  // worse outcome than a package told its record has a name it cannot use.
+  const unboundAssignments = classifyAssignments(artifact, record?.assignments ?? []).unbound;
+  // The columns this package adjudicated away. They produce no unit — a question removed is not
+  // a duty placed — so they are carried beside the units rather than among them.
+  const adjudicatedColumns = classifyAdjudications(record, packageId);
 
   return {
     packageId,
@@ -109,6 +119,8 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
     ownedSequenceUnits,
     crossBoundarySequenceUnits,
     obligationUnits,
+    unboundAssignments,
+    adjudicatedColumns,
     obligationSource: declared.length > 0 ? OBLIGATION_SOURCES[0] : OBLIGATION_SOURCES[1],
     unmatchedClassNames: collectDistinctClassNames(artifact.operations).filter(
       (name) => namedClassNames.has(name) && !ownershipByCanonicalName.has(name),
@@ -154,12 +166,37 @@ function renderUnitTable(heading, units, columns) {
  * @param {object} unit
  * @returns {string}
  */
-// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-259, PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259|PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function describeObligation(unit) {
+  if (unit.relation === ASSIGNMENT_RELATION) {
+    return unit.ground.length === 0 ? 'recorded with no ground' : `placed by a recorded judgment: ${unit.ground}`;
+  }
   if (unit.relation !== 'serves') return `${unit.direction} for ${unit.counterpart}`;
   const { column, carried, total, crossChecked, operationSet } = unit.coverage;
   if (!crossChecked) return `not cross-checked: the artifact carries no ${column} column`;
   return `cross-checked against ${column}, ${carried} of ${total} operations against ${operationSet}`;
+}
+
+/** The line naming the judgments that named nothing, or none when every one of them bound. */
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+function renderUnboundAssignments(units) {
+  if (units.length === 0) return [];
+  return [`Recorded assignments naming no operation or sequence: ${units.join(', ')}.`, ''];
+}
+
+/**
+ * The line naming the questions this package removed, with the ground of each.
+ *
+ * An adjudication places no duty, so it produces no unit and appears in no table above. It is
+ * printed because a reader of the projection is reading the whole decision: a column the package
+ * decided is not a surface is as much a part of what it owes as the surfaces it declared, and a
+ * projection that showed only the duties would leave the removal to be found in the record.
+ */
+// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+function renderAdjudications(adjudications) {
+  if (adjudications.length === 0) return [];
+  const removed = adjudications.map((entry) => `${entry.column} — ${entry.ground.length === 0 ? 'recorded with no ground' : entry.ground}`);
+  return [`Adjudicated away: ${removed.join('; ')}.`, ''];
 }
 
 /**
@@ -218,6 +255,8 @@ export function renderPackageViewMarkdown(view) {
       { title: 'Subject', value: (unit) => unit.subject },
       { title: 'Owes', value: (unit) => describeObligation(unit) },
     ]),
+    ...renderUnboundAssignments(view.unboundAssignments ?? []),
+    ...renderAdjudications(view.adjudicatedColumns ?? []),
     '## Class names no manifest owns',
     '',
     view.unmatchedClassNames.length === 0

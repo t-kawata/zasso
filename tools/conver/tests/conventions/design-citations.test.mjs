@@ -201,6 +201,7 @@ const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[â€“â
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
@@ -218,13 +219,13 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // became part of what a run recorded, in one place instead of at each call site.
   { asWritten: 'gates.mjs:129', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 129, token: 'export const PHASES' },
   { asWritten: 'phases.mjs:275', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 275, token: 'export function runPhase' },
-  { asWritten: 'run-state.mjs:170', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 170, token: 'export function openRun' },
+  { asWritten: 'run-state.mjs:183', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 183, token: 'export function openRun' },
   { asWritten: 'readings.mjs:303', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 303, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
-  { asWritten: 'rail/report.mjs:206', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 206, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:330', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 330, token: 'export async function main' },
+  { asWritten: 'rail/report.mjs:242', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 242, token: 'export function buildReport' },
+  { asWritten: 'phase.mjs:338', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 338, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.
@@ -234,7 +235,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // coverage.mjs gained the partitions and the predecessor mapping, and report.mjs gained
   // the per-term block and the shared annotation.
   { asWritten: 'coverage.mjs:239', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 239, token: 'export function coverageOf' },
-  { asWritten: 'rail/report.mjs:144', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 144, token: 'function coverageLines' },
+  { asWritten: 'rail/report.mjs:180', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 180, token: 'function coverageLines' },
   { asWritten: 'gates.mjs:474', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 474, token: 'export function unchangedRepeatReason' },
   // Re-measured by PX-253, which moved two of these by the lines its own change added
   // above the definition: the phase 9 action reads the artifact it replaces before

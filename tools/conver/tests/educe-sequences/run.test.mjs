@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -40,6 +40,13 @@ async function quietly(argv, runInput) {
 }
 
 const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+/** The path the demand record is written to for a scratch specification directory. */
+// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+function recordPath(directory) {
+  return join(directory, 'educe-sequences', 'demand.json');
+}
+
 
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
@@ -141,6 +148,70 @@ test('C013 a verification of an existing artifact needs only the specification p
   assert.match(result.out, /checksRun=29 of 29/);
 });
 
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+test('PX-260 the artifact states the demand, and names no package that owes it', async () => {
+  const { specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+
+  assert.deepEqual(Object.keys(artifact.demand.counts), ['operations', 'sequences', 'boundaries', 'surfaces']);
+  assert.equal(artifact.demand.counts.operations, artifact.operations.length, 'the demand is counted from the artifact it sits in');
+  assert.equal(artifact.demand.counts.sequences, artifact.sequences.filter((entry) => entry.outcome !== 'notASequence').length);
+  assert.equal(artifact.demand.counts.surfaces, artifact.demand.candidateColumns.length, 'a candidate column is the surface demand, so the two counts cannot disagree');
+  assert.equal(typeof artifact.demand.boundaryCount, 'number');
+  assert.equal(JSON.stringify(artifact.demand).includes('package'), false, 'the rail emits, never assigns');
+});
+
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+test('PX-261 a passing run records what the workspace still owes, beside the specification and never in the artifact', async () => {
+  const { directory, specPath, artifactPath } = scratchSpec();
+  const recordPath = join(directory, 'educe-sequences', 'demand.json');
+
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+  assert.deepEqual(Object.keys(record.facts.counts), ['operations', 'sequences', 'boundaries', 'surfaces']);
+  assert.match(record.measuredAgainst.spec, /^[0-9a-f]{64}$/, 'the record names the specification it was measured against');
+  assert.equal(Array.isArray(record.coverage.unassigned), true);
+  assert.equal(Object.prototype.hasOwnProperty.call(JSON.parse(readFileSync(artifactPath, 'utf8')), 'demand'), true, 'the artifact states the demand facts and nothing about who owes them');
+});
+
+test('PX-261 a second run over an unchanged specification writes a byte-identical demand record and leaves the artifact alone', async () => {
+  const { directory, specPath, artifactPath } = scratchSpec();
+  const recordPath = join(directory, 'educe-sequences', 'demand.json');
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  const firstRecord = readFileSync(recordPath, 'utf8');
+  const artifactBefore = digestOf(artifactPath);
+
+  assert.equal((await quietly([specPath])).exitCode, EXIT.OK);
+
+  assert.equal(readFileSync(recordPath, 'utf8'), firstRecord);
+  assert.equal(digestOf(artifactPath), artifactBefore, 'the verification leaves the document it verified byte-identical');
+});
+
+test('PX-261 a refused run writes no demand record', async () => {
+  const { directory, specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  rmSync(join(directory, 'educe-sequences', 'demand.json'));
+  writeFileSync(artifactPath, `${JSON.stringify({ ...JSON.parse(readFileSync(artifactPath, 'utf8')), steps: [] }, null, 2)}\n`);
+
+  const refused = await quietly([specPath]);
+
+  assert.equal(refused.exitCode, EXIT.REFUSED);
+  assert.equal(existsSync(join(directory, 'educe-sequences', 'demand.json')), false);
+});
+
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+test('PX-260 a second run over an unchanged specification states the same demand, byte for byte', async () => {
+  const { specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  const first = readFileSync(artifactPath);
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  assert.equal(digestOf(artifactPath), createHash('sha256').update(first).digest('hex'));
+});
+
 test('C011 the artifact a run produces equals the committed golden record', async () => {
   const { specPath, artifactPath } = scratchSpec();
 
@@ -151,4 +222,57 @@ test('C011 the artifact a run produces equals the committed golden record', asyn
   // record as the run whose output is committed, which holds only because the recorded
   // path is the file name rather than the location the run happened to be invoked from.
   assert.deepEqual(produced, golden);
+});
+
+// ---------------------------------------------------------------------------
+// PX-262 — the rail writes the denominator and never refuses over it
+// ---------------------------------------------------------------------------
+
+test('C003 a run that borrowed no census writes the denominator and exits 0, because the rail produces a reading and not a verdict', async () => {
+  const { directory, specPath } = scratchSpec();
+  const recordPath = join(directory, 'educe-sequences', 'demand.json');
+
+  const result = await quietly([specPath], RUN_INPUT);
+
+  assert.equal(result.exitCode, EXIT.OK, 'a missing denominator is not a refusal');
+  assert.doesNotMatch(result.err, /^refused: /m, 'the refusal is the gate sentence, and the rail does not use it');
+  assert.doesNotMatch(result.err, /ReferenceError|TypeError|at main \(/, 'a crash is not a refusal either');
+
+  const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+  assert.deepEqual(Object.keys(record.denominator), ['operations', 'sequences', 'boundaries', 'surfaces']);
+  assert.equal(record.denominator.operations.borrowed, false);
+  assert.equal(record.denominator.operations.source, 'unstated', 'the scratch specification carries no supplied census material');
+  assert.equal(record.denominator.operations.members, 0);
+});
+
+test('C003 the record states which axes are unstated, so the absence is written rather than inferred from a verdict', async () => {
+  const { directory, specPath } = scratchSpec();
+  const recordPath = join(directory, 'educe-sequences', 'demand.json');
+
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+  assert.equal(Array.isArray(record.coverage.denominatorGaps), true);
+  assert.ok(record.coverage.denominatorGaps.some((gap) => gap.axis === 'operations'));
+  for (const gap of record.coverage.denominatorGaps) {
+    assert.ok(gap.why.length > 0 && gap.repair.length > 0, `the ${gap.axis} gap states the reason and the repair`);
+  }
+});
+
+test('C003 the recorded gaps are exactly the axes the record states as unstated, so the two cannot drift', async () => {
+  const { directory, specPath } = scratchSpec();
+
+  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+
+  const record = JSON.parse(readFileSync(recordPath(directory), 'utf8'));
+  // The surfaces axis is the one whose statement and whose placement are the same act, so an axis
+  // asking about no column has nothing to state and is recorded unstated without being a gap.
+  const unstated = Object.entries(record.denominator)
+    .filter(([, axis]) => axis.source === 'unstated')
+    .map(([axis]) => axis)
+    .filter((axis) => axis !== 'surfaces' || record.facts.counts.surfaces > 0)
+    .sort();
+
+  assert.deepEqual(record.coverage.denominatorGaps.map((gap) => gap.axis).sort(), unstated, 'a gap is reported for an unstated axis and for no other');
+  for (const gap of record.coverage.denominatorGaps) assert.equal(record.denominator[gap.axis].borrowed, false);
 });

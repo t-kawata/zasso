@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 import { coverageLine } from './coverage.mjs';
+import { demandSummaryBeside, writeDemandRecord } from './demand.mjs';
 import { checkAll, escapedOperationsOf } from './engine.mjs';
 import { parseSpecArgument, artifactPathFor } from './paths.mjs';
 import { predicateFor } from './pins.mjs';
@@ -231,7 +232,7 @@ function inquestQuestionsIn(directory, specPath) {
 }
 
 /** Print the closing report for a run. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248|PX-260|PX-261) --for-spec --no-implementation-order`.
 function report(context) {
   const status = readStatus(context.directory);
   if (status === null) {
@@ -254,7 +255,14 @@ function report(context) {
     summary,
     artifact: { path: context.artifactPath, digest: artifact === null ? '(none)' : digestOf(context.artifactPath) },
     inquest: { ...inquestCountsIn(context.directory, context.specPath), previous: status.history?.at(-1)?.inquest ?? null },
+    // The demand is measured here rather than read from the artifact: who owes a demand changes
+    // when another command writes a view, and a report that repeated what an earlier run stored
+    // would answer about a workspace state that has already moved.
+    demand: artifact === null ? null : demandSummaryBeside(context.specPath, artifact),
   }));
+  // The same record the product path writes, written by the same writer, so the two surfaces a
+  // reader may arrive at leave one durable statement rather than two spellings of it.
+  if (summary !== null && artifact !== null) writeDemandRecord(context.specPath, artifact);
   return summary === null ? 1 : 0;
 }
 

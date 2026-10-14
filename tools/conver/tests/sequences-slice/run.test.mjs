@@ -46,6 +46,29 @@ function runWriter(root, packageDir) {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr, report };
 }
 
+// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+test('PX-260 a record the run cannot read leaves the package declaring nothing, and the refusal is reported', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    fs.writeFileSync(path.join(root, packageDir, 'OBLIGATION.json'), '{ not json');
+
+    const result = runWriter(root, packageDir);
+
+    assert.equal(result.status, 0, 'the projection never stops a pipeline');
+    assert.equal(result.report.reason, null, 'the view is still written');
+    assert.equal(result.report.refused.length, 1);
+    assert.match(result.report.refused[0], /OBLIGATION\.json/);
+    const view = JSON.parse(fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME), 'utf8'));
+    assert.deepEqual(view.obligationUnits, []);
+    assert.equal(view.obligationSource, 'undeclared', 'a refusal is not read as a declaration');
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the writer produces exactly the two view files inside the named package', () => {
   const root = workspaceWithNamedPackages();

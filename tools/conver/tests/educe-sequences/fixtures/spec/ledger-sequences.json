@@ -414,5 +414,15 @@
   "verify": {
     "command": "node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>",
     "expected_exit": 0
+  },
+  "demand": {
+    "candidateColumns": [],
+    "boundaryCount": 0,
+    "counts": {
+      "operations": 3,
+      "sequences": 4,
+      "boundaries": 0,
+      "surfaces": 0
+    }
   }
 }

@@ -188,7 +188,7 @@ parsing the prose.
 
 The run's working state — where it has reached, which loops it has spent, which briefs have
 reported — lives in a run directory **beside the specification**, at
-`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:170`. It is not
+`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:183`. It is not
 ignored by the tool, because the declaration and the readings in it are the evidence for
 the artifact and a reader of the specification has to be able to find them. PX-240 kept
 the state under the tool so that the one-argument contract would be a statement about
@@ -281,7 +281,7 @@ written, because editing the rail is a change made under a ticket.
 
 What each generation produced is measured rather than judged. `coverage.mjs:239` counts
 what the artifact holds and unions the specification lines its records name, clipped to
-the document, and `rail/report.mjs:144` prints those counts beside the generation before them
+the document, and `rail/report.mjs:180` prints those counts beside the generation before them
 through the same helper the audit counts use. Each count carries the change from the
 generation before it, signed, because a reader judging whether another repetition is
 worth asking for should not have to subtract two numbers to see that they have stopped
@@ -361,8 +361,8 @@ condition that would promote the check into the rail. The records live in the ru
 directory, at `rail-exits.jsonl` beside the checks they describe: a store inside the tool
 tree would let one specification's ad-hoc history be read by another's run, and would make
 a successful scaffold write into the library. Because the store is inherited like any
-other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:206` closes the run by
-separating what was measured from what is carried by a signature, and `phase.mjs:330` is
+other asset, recording a new check changes the digest the next generation reads. `rail/report.mjs:242` closes the run by
+separating what was measured from what is carried by a signature, and `phase.mjs:338` is
 the command line every step of the command file runs.
 
 ## 7b. What the artifact is held to, when the specification does not say

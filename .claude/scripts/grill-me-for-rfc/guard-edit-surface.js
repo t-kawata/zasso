@@ -4,8 +4,9 @@
  *
  * Decides whether a path may be written by `/grill-me-for-rfc`. The command generates
  * `RFC.md`, `DesignTree.json`, `CheckList.md` and `Status.json` anywhere in the
- * workspace; the stage-1 artifacts and the specification are hash-recorded inputs and
- * are never rewritten, in this directory or any other.
+ * workspace, and records its own judgments in the package obligation record; the stage-1
+ * artifacts and the specification are hash-recorded inputs and are never rewritten, in
+ * this directory or any other.
  *
  * The answer is default-deny. A name that matches no rule is refused, because the
  * allow-list is a list a human grows deliberately, never a guess this script makes.
@@ -15,8 +16,21 @@
  */
 import { basename } from 'node:path';
 
+import { OBLIGATION_RECORD_BASENAME } from '../sequences-slice/lib/obligation.mjs';
+
 /** The basenames this command generates, and may therefore correct anywhere. */
 const GENERATED_BASENAMES = ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Status.json'];
+
+/**
+ * The documents this command writes that belong to a package rather than to a session.
+ *
+ * The obligation record is where a run puts the judgments it had to make for itself: the demands
+ * no relation reaches, each with the specification evidence it rests on. It is written rather than
+ * generated, so it is not a document this command may correct — it is one it must be able to add
+ * to. The name is read from the module that writes it, because two spellings of one filename is a
+ * guard that can refuse the very file the run is about to write.
+ */
+const JUDGMENT_RECORD_BASENAMES = [OBLIGATION_RECORD_BASENAME];
 
 /** The basenames that are stage-1 inputs, matched by name at any depth. */
 const FROZEN_BASENAMES = [
@@ -51,10 +65,13 @@ const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json]';
  * @param {string} name
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-239|PX-260|PX-261) --for-spec --no-implementation-order`.
 function classifyBasename(name) {
   if (GENERATED_BASENAMES.includes(name)) {
     return { allowed: true, rule: 'generated', detail: 'a file this command generates' };
+  }
+  if (JUDGMENT_RECORD_BASENAMES.includes(name)) {
+    return { allowed: true, rule: 'record', detail: 'the package obligation record this run writes its judgments into' };
   }
   if (FROZEN_BASENAMES.includes(name) || SPECIFICATION_BASENAME_PATTERN.test(name)) {
     return { allowed: false, rule: 'frozen', detail: `a stage-1 input; ${OWNING_RFC_ALTERNATIVE}` };
