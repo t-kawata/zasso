@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildPackageView,
+  obligationSourceOf,
   renderPackageViewJson,
   renderPackageViewMarkdown,
 } from '../../.claude/scripts/sequences-slice/lib/view.mjs';
@@ -188,3 +189,77 @@ test('C005 a package directory resolves to its package id, and an unknown direct
   assert.equal(unknown.packageId, null);
   assert.match(unknown.reason, /package-9999/);
 });
+
+// PX-259 @verifies C004
+// The obligation section is additive: the three lists ownership produces must not move when the two
+// new relations are supplied, or a unit id a materialised record already cites would change meaning.
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+test('C004 the three existing lists are a function of the artifact alone, undisturbed by the new relations', () => {
+  const input = liveShapedInput();
+  const allocateManifest = {
+    contract_registry: [{ boundary_id: 'boundary-001', provider_package: 'pkg-0011', consumer_package: 'pkg-0012' }],
+  };
+  const declared = [{ interfaceId: 'surface-one', column: 'verb', operationSet: 'VerbMethod' }];
+
+  const withoutRelations = buildPackageView({ ...input, obligations: { allocateManifest: { contract_registry: [] } } }, OCCUPIED_PACKAGE);
+  const withRelations = buildPackageView({ ...input, obligations: { allocateManifest, declared } }, OCCUPIED_PACKAGE);
+
+  assert.deepEqual(withRelations.ownedOperationUnits, withoutRelations.ownedOperationUnits);
+  assert.deepEqual(withRelations.ownedSequenceUnits, withoutRelations.ownedSequenceUnits);
+  assert.deepEqual(withRelations.crossBoundarySequenceUnits, withoutRelations.crossBoundarySequenceUnits);
+});
+
+test('C004 a package that declares nothing carries its boundary units and reports undeclared', () => {
+  const input = liveShapedInput();
+  const allocateManifest = {
+    contract_registry: [{ boundary_id: 'boundary-001', provider_package: OCCUPIED_PACKAGE, consumer_package: 'pkg-0012' }],
+  };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest } }, OCCUPIED_PACKAGE);
+
+  assert.deepEqual(view.obligationUnits.map((unit) => unit.unitId), ['ctr-boundary-001']);
+  assert.equal(view.obligationSource, 'undeclared');
+});
+
+test('C004 the obligation section is the only difference in the rendered view', () => {
+  const input = liveShapedInput();
+  const allocateManifest = {
+    contract_registry: [{ boundary_id: 'boundary-001', provider_package: OCCUPIED_PACKAGE, consumer_package: 'pkg-0012' }],
+  };
+  const view = buildPackageView({ ...input, obligations: { allocateManifest } }, OCCUPIED_PACKAGE);
+  const withUnits = renderPackageViewMarkdown(view);
+  const withoutUnits = renderPackageViewMarkdown({ ...view, obligationUnits: [] });
+
+  const sectionStart = (text) => text.indexOf('## Obligation');
+  const sectionEnd = (text) => text.indexOf('## Class names no manifest owns');
+  assert.ok(sectionStart(withUnits) > 0, 'the section is rendered');
+  assert.equal(withUnits.slice(0, sectionStart(withUnits)), withoutUnits.slice(0, sectionStart(withoutUnits)));
+  assert.equal(withUnits.slice(sectionEnd(withUnits)), withoutUnits.slice(sectionEnd(withoutUnits)));
+  assert.match(withUnits.slice(sectionStart(withUnits), sectionEnd(withUnits)), /ctr-boundary-001/);
+  assert.match(withUnits.slice(sectionStart(withUnits), sectionEnd(withUnits)), /provides/);
+});
+
+test('C004 a served column is cross-checked with its measured counts, and an absent column is not dropped', () => {
+  const input = liveShapedInput();
+  const artifact = {
+    ...input.artifact,
+    operations: input.artifact.operations.map((operation) => ({ ...operation, verb: 'object.get' })),
+    pins: { enumerations: [{ name: 'VerbMethod', members: ['object.get', 'object.unsubscribe'] }] },
+  };
+  const declared = [
+    { interfaceId: 'surface-one', column: 'verb', operationSet: 'VerbMethod' },
+    { interfaceId: 'surface-two', column: 'socket', operationSet: 'VerbMethod' },
+  ];
+  const view = buildPackageView({ ...input, artifact, obligations: { declared } }, OCCUPIED_PACKAGE);
+  const markdown = renderPackageViewMarkdown(view);
+
+  assert.equal(view.obligationSource, 'declared');
+  assert.deepEqual(view.obligationUnits.map((unit) => unit.unitId), ['obl-surface-one', 'obl-surface-two']);
+  assert.match(markdown, /cross-checked against verb/);
+  assert.match(markdown, /not cross-checked: the artifact carries no socket column/);
+});
+
+test('C004 a view on disk that carries no obligation section reads as absent, never as satisfied', () => {
+  assert.equal(obligationSourceOf({ packageId: 'pkg-0011' }), 'absent');
+  assert.equal(obligationSourceOf({ packageId: 'pkg-0011', obligationSource: 'undeclared' }), 'undeclared');
+});
+

@@ -31,7 +31,7 @@ import {
   resolveUnitIdsFromTickets,
   writeUnitIdsToTicket,
 } from '../../.claude/scripts/rfc-graph/lib/unit-ids.mjs';
-import { UNIT_ID_PATTERN } from '../../.claude/scripts/rfc-graph/lib/unit-ids.mjs';
+import { UNIT_ID_PATTERN, UNIT_KINDS } from '../../.claude/scripts/rfc-graph/lib/unit-ids.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const NODE_SCHEMA_PATH = path.join(PROJECT_ROOT, '.claude/scripts/rfc-graph/schema/node.schema.json');
@@ -168,12 +168,35 @@ test('C005 the edge type precedes is accepted by edge.schema.json, so a cross-bo
 });
 
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
-test('C002 the unit id pattern accepts the three prefixes and rejects anything else', () => {
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+test('C005 the unit id pattern accepts the five named prefixes and rejects a sixth', () => {
+  // The subject is "the vocabulary is closed and named", not "the vocabulary has three members":
+  // the two prefixes this ticket adds are named here, and an unnamed prefix is still refused.
   const pattern = new RegExp(UNIT_ID_PATTERN);
   assert.equal(pattern.test('op-IssueCertificate'), true);
   assert.equal(pattern.test('seq-S-application-and-payment'), true);
   assert.equal(pattern.test('xdir-S-crossing'), true);
+  assert.equal(pattern.test('ctr-boundary-001'), true);
+  assert.equal(pattern.test('obl-surface-one'), true);
+  assert.equal(pattern.test('nfx-whatever'), false);
   assert.equal(pattern.test('N0001'), false);
   assert.equal(pattern.test('IssueCertificate'), false);
   assert.equal(pattern.test(''), false);
+});
+
+// PX-259 @verifies C005
+test('C005 every carrier reads a boundary and a surface unit, and none of them invents a sixth', () => {
+  const carried = ['ctr-boundary-001', 'obl-surface-one'];
+  assert.deepEqual(readUnitIds({ unitIds: [...carried, 'nfx-whatever'] }), carried);
+  assert.deepEqual(readUnitAnchors('text <!-- unit: ctr-boundary-001 --> <!-- unit: nfx-whatever -->'), ['ctr-boundary-001']);
+  assert.deepEqual(
+    readHeaderUnitIds('Initial Design Artifact — RFC-driven Implementation\nnode: N0001\nunits: obl-surface-one, nfx-whatever, ctr-boundary-001\n'),
+    ['obl-surface-one', 'ctr-boundary-001'],
+  );
+  assert.deepEqual(
+    resolveUnitIdsFromTickets({ phases: [{ tickets: [{ id: 'PX-1', nodeIds: ['ctr-boundary-001', 'nfx-whatever'] }] }] }),
+    ['ctr-boundary-001'],
+  );
+  assert.deepEqual(carryUnitIdsToNode({ id: 'N0001' }, ['obl-surface-one', 'nfx-whatever']).unitIds, ['obl-surface-one']);
+  assert.deepEqual(UNIT_KINDS, ['op', 'seq', 'xdir', 'ctr', 'obl']);
 });

@@ -22,7 +22,8 @@ export const PRECEDENCE_MARKER = 'canonical';
 export const LEDGER_COLUMNS = Object.freeze(['Unit', 'Kind', 'Owner', 'RFC location', 'Ground']);
 
 /** The kinds a row may declare. */
-export const UNIT_KINDS = Object.freeze(['operation', 'sequence', 'cross-boundary-sequence', 'declared-residual']);
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+export const UNIT_KINDS = Object.freeze(['operation', 'sequence', 'cross-boundary-sequence', 'contract', 'surface', 'declared-residual']);
 
 /** What a ledger with no rows must say to be told from one nobody read. */
 export const COMPOSITION_CHECK_PATTERN = /composition check/i;

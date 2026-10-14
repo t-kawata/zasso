@@ -152,6 +152,7 @@ test('C007 invariant: the defect classes and the G6 gate are stated', () => {
   assert.match(text, /never resolve a G6 failure by recording the defect and moving on/);
 });
 
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 test('C007 invariant: the RFC Hard Constraints gained the two ledgers and the two composition rules', () => {
   const text = commandText();
   const start = text.indexOf('## RFC Hard Constraints');
@@ -180,7 +181,7 @@ test('C007 invariant: the STEP 8 gate carries five conditions and the defect gat
   const start = text.indexOf('### STEP 8:');
   const section = text.slice(start, text.indexOf('### STEP 8a', start));
 
-  assert.match(section, /gate \(all 5 required\)/);
+  assert.match(section, /gate \(all 6 required\)/);
   assert.match(section, /defect-report\.js --gate` exits 0/);
   assert.match(section, /seed divergence ledger and the defect ledger are present and well formed/);
 });

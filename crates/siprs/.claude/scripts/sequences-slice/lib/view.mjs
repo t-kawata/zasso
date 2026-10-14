@@ -13,6 +13,7 @@
 import { collectDistinctClassNames, classifyOperationOwnership, resolveOwningPackages } from './ownership.mjs';
 import { measureLineRangeJoin, normalizeStructureSegments } from './segments.mjs';
 import { classifySequenceOwnership, buildSequenceUnits } from './units.mjs';
+import { OBLIGATION_SOURCES, buildObligationUnits } from './obligation.mjs';
 import { renderLineRangeStatement, LINE_RANGE_IDENTITY_USE } from './report.mjs';
 
 /** The prefix that marks an operation unit. */
@@ -40,12 +41,14 @@ export const VIEW_SOURCE_NOTE = 'Generated from the sequences artifact by /grill
  *   artifact: object,
  *   treeManifest: object,
  *   packageSegments: Array<{ packagePath: string, segmentIds: string[] }>,
+ *   obligations?: { allocateManifest?: object, declared?: Array<object> },
  * }} input
  * @param {string} packageId
  * @returns {object}
  */
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
-export function buildPackageView({ artifact, treeManifest, packageSegments }, packageId) {
+export function buildPackageView({ artifact, treeManifest, packageSegments, obligations = {} }, packageId) {
+  const { allocateManifest = null, declared = [] } = obligations;
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
   const units = buildSequenceUnits(artifact);
 
@@ -94,11 +97,19 @@ export function buildPackageView({ artifact, treeManifest, packageSegments }, pa
 
   const namedClassNames = new Set(ownedOperationUnits.flatMap((unit) => unit.resultObjectClasses));
 
+  // The relations that assign work beside ownership. Ownership reaches a package only through an
+  // object an operation result names, so a package whose duty is structural appears in no unit
+  // above; these are the units that reach it, and they are additive: nothing in the three lists is
+  // recomputed from them.
+  const obligationUnits = buildObligationUnits({ artifact, allocateManifest }, packageId, declared);
+
   return {
     packageId,
     ownedOperationUnits,
     ownedSequenceUnits,
     crossBoundarySequenceUnits,
+    obligationUnits,
+    obligationSource: declared.length > 0 ? OBLIGATION_SOURCES[0] : OBLIGATION_SOURCES[1],
     unmatchedClassNames: collectDistinctClassNames(artifact.operations).filter(
       (name) => namedClassNames.has(name) && !ownershipByCanonicalName.has(name),
     ),
@@ -114,23 +125,56 @@ export function buildPackageView({ artifact, treeManifest, packageSegments }, pa
 }
 
 /** A markdown table row built from cells that may be empty. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
-function tableRow(cells) {
+// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
+function renderTableRow(cells) {
   return `| ${cells.join(' | ')} |`;
 }
 
 /** A section of the view, or a line saying the section is empty. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
 function renderUnitTable(heading, units, columns) {
   if (units.length === 0) return [`## ${heading}`, '', 'None.', ''];
   return [
     `## ${heading}`,
     '',
-    tableRow(columns.map((column) => column.title)),
-    tableRow(columns.map(() => '---')),
-    ...units.map((unit) => tableRow(columns.map((column) => column.value(unit)))),
+    renderTableRow(columns.map((column) => column.title)),
+    renderTableRow(columns.map(() => '---')),
+    ...units.map((unit) => renderTableRow(columns.map((column) => column.value(unit)))),
     '',
   ];
+}
+
+/**
+ * What one obligation unit owes, as the sentence a reader acts on.
+ *
+ * A served unit says what it was measured against and whether it could be checked at all, because
+ * an absent cross-check and an absent obligation must not read the same: the first is a limit of the
+ * artifact, the second is the defect this projection exists to remove.
+ *
+ * @param {object} unit
+ * @returns {string}
+ */
+// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
+function describeObligation(unit) {
+  if (unit.relation !== 'serves') return `${unit.direction} for ${unit.counterpart}`;
+  const { column, carried, total, crossChecked, operationSet } = unit.coverage;
+  if (!crossChecked) return `not cross-checked: the artifact carries no ${column} column`;
+  return `cross-checked against ${column}, ${carried} of ${total} operations against ${operationSet}`;
+}
+
+/**
+ * The obligation source of a view read from disk.
+ *
+ * A view projected before the relations existed carries no section at all, and that state is named
+ * `absent` rather than defaulted to `undeclared`: a consumer that read the silence as a satisfied
+ * obligation would reintroduce the defect the relations remove.
+ *
+ * @param {object} view
+ * @returns {string}
+ */
+// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+export function obligationSourceOf(view) {
+  return OBLIGATION_SOURCES.includes(view?.obligationSource) ? view.obligationSource : OBLIGATION_SOURCES[2];
 }
 
 /**
@@ -167,6 +211,12 @@ export function renderPackageViewMarkdown(view) {
       { title: 'Sequence', value: (unit) => unit.sequenceId },
       { title: 'Outcome', value: (unit) => unit.outcome },
       { title: 'Owning packages', value: (unit) => unit.ownerPackageIds.join(', ') },
+    ]),
+    ...renderUnitTable('Obligation', view.obligationUnits ?? [], [
+      { title: 'Relation', value: (unit) => unit.relation },
+      { title: 'Unit', value: (unit) => unit.unitId },
+      { title: 'Subject', value: (unit) => unit.subject },
+      { title: 'Owes', value: (unit) => describeObligation(unit) },
     ]),
     '## Class names no manifest owns',
     '',

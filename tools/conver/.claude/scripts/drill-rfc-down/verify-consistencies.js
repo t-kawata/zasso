@@ -248,11 +248,11 @@ function ledgerUnitIdsOf(tree) {
 }
 
 /** Every unit id the design tree carries, at any depth, in the prefixes the view uses. */
-// [::TICKET::] PX-257, PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-258, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-258|PX-259) --for-spec --no-implementation-order`.
 function collectUnitIds(nodes) {
   const unitIds = [];
   for (const node of nodes) {
-    if (typeof node?.id === 'string' && /^(op|seq|xdir)-/.test(node.id)) unitIds.push(node.id);
+    if (typeof node?.id === 'string' && /^(op|seq|xdir|ctr|obl)-/.test(node.id)) unitIds.push(node.id);
     unitIds.push(...collectUnitIds(node?.children ?? []));
   }
   return unitIds;

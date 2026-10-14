@@ -331,7 +331,14 @@ Nodes also come from the material. When STEP 0 found sequences material, `$RFC_D
 - one node per sequence this package owns, id `seq-<sequenceId>`;
 - one node per sequence that crosses this package boundary, id `xdir-<sequenceId>`, carrying its steps as child nodes, because a cross-boundary sequence is work that reaches beyond this package and its steps are what a reader needs to see.
 
-An id is used exactly as the view spells it. Nothing is renamed, because the distribution ledger is checked against these ids and a renamed node would look like an undisclosed unit.
+Nodes also come from the obligation section, `$RFC_DIR/SEQUENCES.md` under `## Obligation`, and it is seeded beside the three lists above:
+
+- one node per boundary this package holds a side of, id `ctr-<boundaryId>`, because a boundary is work two packages owe and the contract states the clauses each side must honour;
+- one node per declared surface, id `obl-<interfaceId>`, because a surface owes the whole path to every operation the artifact records against it.
+
+A view carrying no obligation section is `absent`: regenerate it, or report `absent` with the reason. A view is never treated as a satisfied obligation set because it is silent.
+
+An id is used exactly as the view spells it, for the obligation units as for the three lists. Nothing is renamed, because the distribution ledger is checked against these ids and a renamed node would look like an undisclosed unit.
 
 When STEP 0 found no sequences material there are no such nodes and nothing changes: the tree is seeded from the research material exactly as before.
 
@@ -428,6 +435,12 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRIL
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
 ```
+
+Before proposing the end, gate the coverage: every demand of every axis is assigned to a named package or exempted with a ground. An unassigned demand is reported by axis and by id, and the session does not end while one stands.
+```bash
+node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+```
+A declaration that bound to no unit is reported apart from an unserved demand, because the two call for different repairs.
 
 ---
 
@@ -610,7 +623,9 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 
 ### STEP 8: RFC Completion Declaration
 
-gate (all 5 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0.
+gate (all 6 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is assigned or exempted.
+
+Re-running over a workspace projected by an older rail must succeed, require no new workspace, destroy nothing, and leave the workspace carrying the obligation section: an old projection is a target to bring forward, never a reason to refuse.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```

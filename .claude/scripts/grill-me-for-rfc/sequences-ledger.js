@@ -28,6 +28,7 @@ import path from 'node:path';
 
 import { LEDGER_TITLE_SUFFIX, readDistributionLedger } from '../sequences-slice/lib/distribution-ledger.mjs';
 import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME, collectUnitIds, findSequenceMaterial } from '../sequences-slice/lib/material.mjs';
+import { obligationSourceOf } from '../sequences-slice/lib/view.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -43,8 +44,15 @@ const UNITS_FLAG_PREFIX = '--units=';
 const DEFAULT_STAGE = 'upstream';
 const DISCHARGE_ARTIFACT_STAGE = 'upstream';
 
-/** The machine vocabulary. Two words, and nothing else is a verdict. */
-export const MACHINE_VERDICTS = Object.freeze(['proved', 'not proved']);
+/**
+ * The machine vocabulary. Three words, and nothing else is a verdict.
+ *
+ * `undeclared` is a named state rather than a failure: it says this package's manifest declares no
+ * interface, so it owes no surface and the workspace has not adopted the surface mapping. Reading
+ * that as `not proved` would make an unadopted workspace look like a failing one, and reading the
+ * silence as satisfied is the defect the obligation relations exist to remove.
+ */
+export const MACHINE_VERDICTS = Object.freeze(['proved', 'not proved', 'undeclared']);
 
 /** The one obligation this registry knows: the distribution material obliges a ledger. */
 export const DISTRIBUTION_OBLIGATION = Object.freeze({
@@ -109,11 +117,13 @@ export function reportUnit(unit, layer) {
 }
 
 /** The stage report, one line per unit, in the machine vocabulary. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
-function renderStageReport({ stage, units }) {
+// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
+function renderStageReport({ stage, units, obligationSource = null }) {
   const lines = [`# Distribution ledger at ${stage}`, ''];
   if (units.length === 0) {
-    lines.push(`${MACHINE_VERDICTS[1]}: no unit is distributed to this package, so there is nothing to discharge`);
+    lines.push(obligationSource === MACHINE_VERDICTS[2]
+      ? `${MACHINE_VERDICTS[2]}: this package's manifest declares no interface, so it owes no surface, and the workspace has not adopted the surface mapping`
+      : `${MACHINE_VERDICTS[1]}: no unit is distributed to this package, so there is nothing to discharge`);
     return `${lines.join('\n')}\n`;
   }
   for (const unit of units) lines.push(reportUnit(unit, stage));
@@ -141,6 +151,16 @@ const FILE_SYSTEM = {
  *
  * Design context: docs/FIX-PLAN005.md.
  */
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+function readObligationSource(unitsPath) {
+  try {
+    return obligationSourceOf(JSON.parse(fs.readFileSync(unitsPath, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function readDistributedUnitIds(unitsPath) {
   try {
     return collectUnitIds(JSON.parse(fs.readFileSync(unitsPath, 'utf8')));
@@ -173,7 +193,7 @@ function dischargedUnitIds({ stage, rfcDir, unitIds }) {
   return new Set(verdict.rows.map((row) => row.unit));
 }
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const stageArgument = argv.find((argument) => argument.startsWith(STAGE_FLAG_PREFIX));
   const stage = stageArgument === undefined ? DEFAULT_STAGE : stageArgument.slice(STAGE_FLAG_PREFIX.length);
@@ -190,18 +210,22 @@ function main(argv = process.argv.slice(2)) {
     ? path.join(rfcDir, VIEW_JSON_NAME)
     : path.resolve(unitsArgument.slice(UNITS_FLAG_PREFIX.length));
 
+  // The view states whether this package declares a surface, which is what tells an undeclared
+  // workspace from a failing one; it is read once and passed to both branches of the report.
+  const obligationSource = readObligationSource(unitsPath);
+
   // The obligation set decides whether there is anything to report, so a package that was
   // never handed the material reads exactly as it did before this report read units.
   const obligations = obligationsFor(findSequenceMaterial({ rfcDir, io: FILE_SYSTEM }));
   if (obligations.length === 0) {
-    process.stdout.write(renderStageReport({ stage, units: [] }));
+    process.stdout.write(renderStageReport({ stage, units: [], obligationSource }));
     return EXIT_OK;
   }
 
   const unitIds = readDistributedUnitIds(unitsPath);
   const discharged = dischargedUnitIds({ stage, rfcDir, unitIds });
   const units = unitIds.map((unitId) => ({ unitId, discharged: discharged.has(unitId) }));
-  process.stdout.write(renderStageReport({ stage, units }));
+  process.stdout.write(renderStageReport({ stage, units, obligationSource }));
   return EXIT_OK;
 }
 

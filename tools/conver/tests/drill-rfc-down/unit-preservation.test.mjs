@@ -141,12 +141,13 @@ test('C002 a ledger Unit outside the unit set is refused by name', () => {
 });
 
 // [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 test('C002 a well-formed ledger whose every Unit is a member is accepted, and a Kind outside the vocabulary is not', () => {
   assert.equal(readDistributionLedger(rfcWithLedger({ rows: [ROW('op-A', 'operation', 'pkg-0006', '3.1', 'line 30')] }), new Set(['op-A'])).ok, true);
   const wrongKind = readDistributionLedger(rfcWithLedger({ rows: [ROW('op-A', 'invented', 'pkg-0006', '3.1', 'line 30')] }), new Set(['op-A']));
   assert.equal(wrongKind.ok, false);
   assert.match(wrongKind.reason, /invented/);
-  assert.deepEqual(UNIT_KINDS, ['operation', 'sequence', 'cross-boundary-sequence', 'declared-residual']);
+  assert.deepEqual(UNIT_KINDS, ['operation', 'sequence', 'cross-boundary-sequence', 'contract', 'surface', 'declared-residual']);
 });
 
 // [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.

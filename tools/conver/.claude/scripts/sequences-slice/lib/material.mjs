@@ -53,8 +53,9 @@ export function isViewName(basename) {
   return basename === VIEW_MARKDOWN_NAME || basename === VIEW_JSON_NAME;
 }
 
-/** The three arrays a view distributes, in the order a ledger is checked against them. */
-const VIEW_UNIT_ARRAY_FIELDS = ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits'];
+/** The arrays a view distributes, in the order a ledger is checked against them. */
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+const VIEW_UNIT_ARRAY_FIELDS = ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits', 'obligationUnits'];
 
 /**
  * The unit ids a view distributes.

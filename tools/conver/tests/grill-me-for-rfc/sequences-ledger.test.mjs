@@ -99,8 +99,9 @@ function runGate(root) {
 }
 
 /** The verdict lines of a report, which are the lines the machine vocabulary begins. */
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function verdictLines(stdout) {
-  return stdout.split('\n').filter((line) => /^(proved|not proved):/.test(line));
+  return stdout.split('\n').filter((line) => /^(proved|not proved|undeclared):/.test(line));
 }
 
 test('C001 the report names every unit the view distributes, one line each, when no ledger exists', () => {
@@ -234,4 +235,21 @@ test('C005 a package directory that was not given is refused with the usage line
   assert.equal(result.status, 1);
   assert.match(result.stderr, /^usage: sequences-ledger\.js/m);
   assert.equal(result.stdout, '', 'no verdict is printed about a package that was never named');
+});
+
+// PX-259 @verifies C004
+test('C004 an undeclared view earns the third verdict, and an undeclared package is not a failure', () => {
+  withPackage((root) => {
+    writePackage(root, { rfc: rfcWithoutLedger(), units: { operations: [], sequences: [], crossBoundary: [] } });
+    const unitsPath = path.join(root, VIEW_JSON_NAME);
+    const view = JSON.parse(fs.readFileSync(unitsPath, 'utf8'));
+    fs.writeFileSync(unitsPath, JSON.stringify({ ...view, obligationUnits: [], obligationSource: 'undeclared' }));
+
+    const result = runReport(root);
+
+    assert.equal(result.status, 0);
+    assert.equal(verdictLines(result.stdout).length, 1);
+    assert.match(verdictLines(result.stdout)[0], /^undeclared: /);
+    assert.match(result.stdout, /declares no interface/);
+  });
 });

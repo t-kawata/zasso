@@ -11,11 +11,12 @@
  * empty list rather than throwing, because the whole corpus on disk predates it.
  */
 
-/** The id shape a distributed unit has. op- for an operation, seq- for a sequence one package owns, xdir- for one that crosses. */
-export const UNIT_ID_PATTERN = '^(op|seq|xdir)-.+';
+/** The id shape a distributed unit has: op- an operation, seq- a sequence one package owns, xdir- one that crosses, ctr- a boundary side, obl- a declared surface. */
+// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+export const UNIT_ID_PATTERN = '^(op|seq|xdir|ctr|obl)-.+';
 
 /** The prefixes the pattern admits, kept beside it so a reader sees the vocabulary once. */
-export const UNIT_KINDS = Object.freeze(['op', 'seq', 'xdir']);
+export const UNIT_KINDS = Object.freeze(['op', 'seq', 'xdir', 'ctr', 'obl']);
 
 /** The RFC anchor that records which unit a section implements. */
 const SECTION_ANCHOR = /<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->/g;

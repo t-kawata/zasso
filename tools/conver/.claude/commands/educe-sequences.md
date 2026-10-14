@@ -87,6 +87,14 @@ Repair for dropped name = one of two; both are readings:
 
 Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operation | step → Steps 8 and 9; entry that stops claiming a sequence → Steps 10 to 12 also (ruling attacked before trusted). Verification identical in every case; stated at Step 9.
 
+## Consumer contract
+
+**ARTIFACT COLUMNS.** Per-operation rows carry one column per interface the project declares; the rail emits the field list it emitted, and never a silent omission. A project declaring three interfaces gets three columns; a project declaring none gets none. Column ids are the project's; the rail never spells one.
+
+**CONSUMER CONTRACT.** The rail emits, never assigns. Package attribution, obligation and who-owes-it are the slice's. Do not add a package field here.
+
+**EXEMPTION.** A demand this specification imposes no duty for is an `exemptions` row: `subject`, and `why`. The rail rules on whether something is a demand; the slice rules on who owes it. A demand left with neither is not a pass — say so.
+
 ## Workflow
 
 Step 0 opens run; performs no phase. Steps 1 to 18 name phases in order; a Step may name two where a phase has no work of its own: Step 16 = falsification + ad-hoc rail exit. Loop per Step, four moves:

@@ -21,6 +21,7 @@ import path from 'node:path';
 
 import { parseSequencesArtifact } from './lib/artifact.mjs';
 import { resolvePackageByPath } from './lib/packages.mjs';
+import { readDeclaredInterfaces } from './lib/obligation.mjs';
 import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './lib/segments.mjs';
 import { buildPackageView, renderPackageViewJson, renderPackageViewMarkdown } from './lib/view.mjs';
 
@@ -101,7 +102,7 @@ function readWorkspaceSegmentsOrRefuse(root) {
  * @param {string} packageDir
  * @returns {{ written: string[], packageId: string, reason: string|null }}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
 function projectPackageView(artifactPath, packageDir) {
   const root = path.dirname(artifactPath);
 
@@ -117,15 +118,18 @@ function projectPackageView(artifactPath, packageDir) {
   const treeManifest = readJsonOrRefuse(path.join(root, TREE_MANIFEST_FILENAME));
   // The allocate manifest is read because the view is a slice of a workspace the two
   // manifests jointly describe, and a workspace where one is missing is not one this
-  // projection may speak for.
-  readJsonOrRefuse(path.join(root, ALLOCATE_MANIFEST_FILENAME));
+  // projection may speak for. It is also where the boundary relation comes from, so the
+  // parsed value is passed on rather than discarded.
+  const allocateManifest = readJsonOrRefuse(path.join(root, ALLOCATE_MANIFEST_FILENAME));
 
+  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
   const packageSegments = readWorkspaceSegmentsOrRefuse(root);
 
   const resolved = resolvePackageByPath(treeManifest.workspace.packages, packageDir, root);
   if (resolved.packageId === null) throw new ProjectionRefused(resolved.reason);
 
-  const view = buildPackageView({ artifact, treeManifest, packageSegments }, resolved.packageId);
+  const declared = readDeclaredInterfaces(packageRoot, allocateManifest).get(path.relative(packageRoot, packageDir)) ?? [];
+  const view = buildPackageView({ artifact, treeManifest, packageSegments, obligations: { allocateManifest, declared } }, resolved.packageId);
   fs.mkdirSync(packageDir, { recursive: true });
   fs.writeFileSync(path.join(packageDir, VIEW_MARKDOWN_NAME), renderPackageViewMarkdown(view));
   fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), renderPackageViewJson(view));

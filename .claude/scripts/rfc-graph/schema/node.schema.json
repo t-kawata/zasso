@@ -88,7 +88,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^(op|seq|xdir)-.+"
+        "pattern": "^(op|seq|xdir|ctr|obl)-.+"
       },
       "description": "このノードが実装する配布単位のID（例: [\"op-IssueCertificate\",\"seq-S-application-and-payment\"]）。/educe-sequences の artifact から PX-256 の投影が配り、PX-257 の台帳が検査する。required には含めず後方互換性を維持。"
     }
