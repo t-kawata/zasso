@@ -175,16 +175,19 @@ Find every closed vocabulary, its members, lines those members occupy. Record `e
 
 Invocation supplied material carrying a census (registry of operations an interface must implement, or regions that must be adjudicated) → record `sourceEnumerations[].{name,source,selector,role}`:
 - `source` = supplied file;
-- `selector` = generic shape reading it: `jsonFieldRows` (with a field) | `tableColumn` (with a header) | `markedLines` (with a prefix);
-- `role` = what it answers for: `operations` | `entries`.
+- `selector` = generic shape reading it: `jsonFieldRows` (with a field every row of a fenced block carries) | `tableColumn` (with a header every row of a table stands beneath) | `markedLines` (with a prefix every member line begins with);
+- `role` = what it answers for: `operations` | `entries`; a pin with no role answers for nothing and is permitted;
 - members read out of file, not written down ⇒ census cannot be shortened.
 - record beside it: `columns` an operation must carry; which of them `requiredMeasuredColumns` requires measured; `consumerFields` the implementer reads.
+
+Every file in the supplied directory other than the guidance file the invocation writes must be named by a pin. The phase refuses by name otherwise, because an unread census leaves its axis measured against the artifact itself — so a supplied file that carries no census is removed from the supplied directory, and because that changes the digest the run records, the run is re-read rather than patched.
+- a document that mixes vocabularies is split so that each block holds one, because a row a shape cannot read is refused by name rather than skipped, and a skipped row is how a denominator shrinks in silence.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 4
 ```
 
-Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
+Refused when a supplied file no pin reads. Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
 
 ### Step 5 — blocks `[read]` (AI judgment)
 

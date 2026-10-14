@@ -294,7 +294,7 @@ node .claude/scripts/sequences-slice/run.mjs "$SOURCE" "$RFC_DIR"
 node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" "$RFC_DIR/SEQUENCES.md" "$RFC_DIR/SEQUENCES.json"
 ```
 
-`run.mjs` writes the view for this package alone and reports what it wrote; it exits 0 even when it writes nothing, so a workspace missing a manifest is a reported reason rather than a stop. A view that was recorded and then deleted is regenerated here, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable.
+`run.mjs` writes the view for this package alone and reports what it wrote; it exits 0 even when it writes nothing, so a workspace missing a manifest is a reported reason rather than a stop. A view that was recorded and then deleted is regenerated here, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable. This is the per-directory form; the artifact-only form, which reaches every package the allocation names rather than this one, is stated beside the gate below.
 
 Do not pass the view paths to `preflight`-style material walking, and never hand them back to `/educe-sequences`: its supplied-material rail absorbs and deletes per-crate artifacts, which is the mechanism that removed them in the first place.
 
@@ -335,7 +335,10 @@ The gate names every demand no relation and no recorded judgment covers, by axis
 
 ```bash
 node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json" "<package-dir>"
+node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json"
 ```
+
+The first form projects the one package directory. The second takes the artifact alone and projects a view for every package the allocation names that carries none, leaving the packages that already carry one byte-identical — which is the form that reaches the directories no run has been in, and the only one that can close K8 once and for all rather than one directory per session. It reports `projected`, `present` and `reported` apart, because a package the allocation names and the material cannot carry is the residue `check-distribution-completeness.js` reads as K8, and that residue is repaired by what the reason names, not by running the command again in the same place.
 
 A candidate column that is not an interface is adjudicated away in the same record, as an `adjudications` row of `{ column, ground }` — the artifact's own `exemptions` array is written only by a readings pass, so the record is the route a run can take. An operation or a sequence is never exempted from either route: a grounded row naming one is refused by name, the demand stays unassigned, and the reason is the rule it broke, because the duty is placed and never removed. A column may be adjudicated away with its ground, and a declaration is accepted only when every value of its column instantiates the vocabulary it declares — a column whose values the vocabulary does not cover is a declaration about something other than what it says it is, and the gate names it instead of counting it.
 
