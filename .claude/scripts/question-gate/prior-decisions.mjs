@@ -11,8 +11,18 @@
  * that purity and are the module's whole point: presence is never a ground — only
  * a file's content decides anything — and an artifact that cannot be read settles
  * nothing rather than being salvaged into a guess.
+ *
+ * What the module returns leaves the process: the caller records it in the design
+ * tree, which is committed beside the RFC. A source is therefore recorded
+ * home-relative while the file it names is opened where it is — the filesystem does
+ * not expand a tilde, and a record naming one machine's home describes the machine
+ * that read the design rather than the design.
  */
 import { join } from 'node:path';
+
+// The converter every path leaving this process passes through. The rule and its reason
+// are PX-231's: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+import { toHomeRelative } from '../lib/path-utils.js';
 
 // The explanation's own vocabulary, taken from the module that writes it: the heading
 // and the rule that recognises it are one definition, so a change to the spelling
@@ -201,13 +211,17 @@ function entriesOfDirectory({ directory, readFile, listDirectory }) {
   const entries = [];
   const artifactsRead = [];
   for (const artifact of artifactNamesOf({ directory, listDirectory })) {
-    const source = join(directory, artifact);
-    const text = readFile(source);
+    const absolutePath = join(directory, artifact);
+    const text = readFile(absolutePath);
     // An artifact that cannot be read settles nothing. It is not salvaged into a
     // guess, because a guess here becomes a decision the human was never asked.
     if (typeof text !== 'string') continue;
     artifactsRead.push(artifact);
-    entries.push(...entriesOfArtifact({ artifact, source, text }));
+    // Two paths, because the record and the reader want different things: the file is
+    // opened where it is, and the source is recorded where it stays true. A record
+    // holding one machine's home directory describes the machine that read the design
+    // rather than the design, and the tree it is written into is committed beside the RFC.
+    entries.push(...entriesOfArtifact({ artifact, source: toHomeRelative(absolutePath), text }));
   }
   return { entries, artifactsRead };
 }

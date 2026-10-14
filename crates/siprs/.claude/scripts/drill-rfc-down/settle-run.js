@@ -238,7 +238,9 @@ function runPrior(recordDirectories) {
   // nothing is still a thing this run read, and a settle trace may name it.
   tree.priorScan = {
     scannedAt: new Date().toISOString(),
-    directories: [...directories],
+    // Recorded the way the entries' sources are: a scan that named this machine's home
+    // would make the tree a description of the machine rather than of the package.
+    directories: directories.map(toHomeRelative),
     artifacts: [...new Set(artifactsRead)],
     decisions: entries.filter((entry) => entry.kind === "decision"),
     grounds: entries.filter((entry) => entry.kind === "ground"),
