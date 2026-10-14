@@ -124,7 +124,7 @@ without recorded readings is refused at the first `[read]` phase by design.
 ## 7. The phase driver
 
 A phase table is a claim until something evaluates it. The eighteen phases are declared
-once, at `gates.mjs:129`, and each entry carries its tag, the phases it requires, the edge
+once, at `gates.mjs:146`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
@@ -168,7 +168,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:275` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:276` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -325,9 +325,9 @@ would give one fact two homes and compare counts where the artifact itself is av
 The consequence is that a loss is refused at the generation that causes it, which is the
 earlier and the more useful refusal.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:474` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:502` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:425` reports them as a line of output while opening
+is the same revision — and `phases.mjs:426` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to

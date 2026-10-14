@@ -203,6 +203,7 @@ const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[â€“â
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
+// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
   // file: the citation moved with the file rather than the file being kept still for it.
@@ -217,8 +218,8 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // the store left the tool tree, the loader arrived, and the loader is what a citation to
   // the ad-hoc surface now resolves to. The review of all three moved five more: the audit
   // became part of what a run recorded, in one place instead of at each call site.
-  { asWritten: 'gates.mjs:129', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 129, token: 'export const PHASES' },
-  { asWritten: 'phases.mjs:275', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 275, token: 'export function runPhase' },
+  { asWritten: 'gates.mjs:146', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 146, token: 'export const PHASES' },
+  { asWritten: 'phases.mjs:276', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 276, token: 'export function runPhase' },
   { asWritten: 'run-state.mjs:183', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 183, token: 'export function openRun' },
   { asWritten: 'readings.mjs:303', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 303, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
@@ -236,11 +237,15 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // the per-term block and the shared annotation.
   { asWritten: 'coverage.mjs:239', path: '.claude/scripts/educe-sequences/rail/coverage.mjs', line: 239, token: 'export function coverageOf' },
   { asWritten: 'rail/report.mjs:180', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 180, token: 'function coverageLines' },
-  { asWritten: 'gates.mjs:474', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 474, token: 'export function unchangedRepeatReason' },
+  // Re-measured by PX-264, which moved both of these by the lines its own change added
+  // above them: the phase-4 gate now hands the supplied material to the census pins and
+  // refuses a supplied file no pin reads, which added a predicate above the phase table
+  // and a comment inside it.
+  { asWritten: 'gates.mjs:502', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 502, token: 'export function unchangedRepeatReason' },
   // Re-measured by PX-253, which moved two of these by the lines its own change added
   // above the definition: the phase 9 action reads the artifact it replaces before
   // composing, so `runPhase` and `beginRun` both sit below the comparison it now holds.
-  { asWritten: 'phases.mjs:425', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 425, token: 'export function beginRun' },
+  { asWritten: 'phases.mjs:426', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 426, token: 'export function beginRun' },
 ]);
 
 test('the educe-sequences document carries every citation its argument rests on', () => {

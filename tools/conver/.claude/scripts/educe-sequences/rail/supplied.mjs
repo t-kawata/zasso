@@ -51,8 +51,8 @@ export function suppliedFilesOf(directory) {
 /**
  * The content of everything a run directory's supplied/ directory holds, by file name.
  *
- * The digest says a run was given the same material twice; it does not let a check read
- * anything. A borrowed census needs the content, because the artifact must be held to a set
+ * The digest says the run was given the same material twice; it does not let any check read
+ * anything. The borrowed census needs the content, because the artifact must be held to a set
  * that lives outside it — and the set is re-extracted from these bytes on every run, so a
  * file that moved is caught rather than compared with itself.
  */
@@ -65,6 +65,19 @@ export function suppliedDocumentsOf(directory) {
     if (statSync(join(supplied, name)).isFile()) documents[name] = readFileSync(join(supplied, name), 'utf8');
   }
   return documents;
+}
+
+/**
+ * The supplied files a census could be read out of, guidance excluded.
+ *
+ * The guidance file is what the reader typed into the invocation rather than a document
+ * supplied beside the specification, so it is not material a pin could answer for.
+ * Counting it as material would refuse every run that was given a hint, which is how a
+ * rule that exists to make an omission loud would instead make supplying anything loud.
+ */
+// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+export function pinnableSuppliedFiles(directory) {
+  return suppliedFilesOf(directory).filter((file) => file.name !== MATERIAL_FILE);
 }
 
 /**

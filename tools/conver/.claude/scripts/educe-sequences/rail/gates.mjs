@@ -17,7 +17,7 @@ import { uncoveredRanges } from './coverage.mjs';
 import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { deriveSet, readArtifact } from './load.mjs';
-import { blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
+import { SOURCE_ROLES, blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES } from './reading.mjs';
 import {
   DECLARATION_FILE,
@@ -32,7 +32,7 @@ import {
   signedCount,
 } from './readings.mjs';
 import { generationOf } from './run-state.mjs';
-import { suppliedDocumentsOf } from './supplied.mjs';
+import { suppliedDocumentsOf, pinnableSuppliedFiles } from './supplied.mjs';
 
 /** The three tags. Their meanings are stated above and used by the command's table. */
 export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-hoc' });
@@ -112,6 +112,23 @@ function suppliedBeside(ctx) {
   return suppliedDocumentsOf(ctx.directory);
 }
 
+/**
+ * The supplied files no pin reads, which is how an omitted census is made loud.
+ *
+ * The rail cannot know that a document holds a census, but it can know that a document
+ * was filed and that no pin answers for it — and that is the state the live workspace was
+ * in when its operations axis came out unstated. Naming the file at the phase that reads
+ * the specification puts the repair where the material is, rather than leaving it to a
+ * coverage report that says only that a denominator was never stated.
+ */
+// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+export function unpinnedSuppliedFiles(ctx, pins) {
+  const named = new Set((pins ?? []).map((pin) => pin.source?.file));
+  return pinnableSuppliedFiles(ctx.directory)
+    .map((file) => file.name)
+    .filter((name) => !named.has(name));
+}
+
 /** The entries whose outcome is missing or outside the declared vocabulary. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function entriesWithoutOutcome(artifact) {
@@ -160,7 +177,18 @@ export const PHASES = Object.freeze([
     exit: (ctx) => {
       const declaration = readDeclaration(ctx.directory);
       if (!declaration.ok) return refuse(declaration.problems.join('; '));
-      const pins = establishPins(ctx.spec.lines, declaration.declaration);
+      // The census is read out of the material, so the material is handed over. A pin whose
+      // file is not beside the run records that refusal rather than reading nothing, which
+      // is why the gate must pass what it has instead of letting the pin judge in the dark.
+      const pins = establishPins(ctx.spec.lines, declaration.declaration, suppliedBeside(ctx));
+      const unpinned = unpinnedSuppliedFiles(ctx, pins.sourceEnumerations);
+      if (unpinned.length > 0) {
+        const roles = SOURCE_ROLES.join(', ');
+        return refuse(
+          `supplied file(s) no sourceEnumerations pin reads: ${unpinned.join(', ')} — declare a pin whose selector reads each, or remove it from supplied/. `
+          + `An unread census leaves the ${roles} denominators unstated, because the artifact is then its own denominator.`,
+        );
+      }
       const bare = pins.enumerations.filter((enumeration) => enumeration.ranges.length === 0);
       return bare.length > 0
         ? refuse(`${bare.map((enumeration) => enumeration.name).join(', ')} occur nowhere in the specification`)
