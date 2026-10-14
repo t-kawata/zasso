@@ -91,7 +91,12 @@ export function main(rawInput, directory = process.cwd()) {
     lines.push(`the criterion could not be evaluated — ${error.message}`);
   }
   lines.push(`${PREFIX} never blocks; the blocking decision belongs to the grill Step 8 gate`);
-  process.stdout.write(`${lines.join('\n')}\n`);
+  // Written to stderr rather than stdout on purpose. A PreToolUse hook answers with an exit code,
+  // and its stdout is read by the harness as a decision; free text there is a contract this hook
+  // cannot verify and whose failure would land on every Bash call in every project the tooling is
+  // installed into. Stderr is surfaced to the reader without being parsed, which is what an
+  // advisory wants.
+  process.stderr.write(`${lines.join('\n')}\n`);
   return EXIT_ADVISORY;
 }
 

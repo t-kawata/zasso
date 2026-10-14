@@ -328,7 +328,7 @@
     "scripts/grill-me-for-rfc/extract-io-boundary.js": "1f21059a2441a59cbb67d489e4f6b1135d78b97db4b719b94259eb5125430cdb",
     "scripts/grill-me-for-rfc/generate-checklist.js": "7b80330f6b6e5211d0e7a8a758f5f08a8520b9c28d8cf6d10b24e136822e7455",
     "scripts/grill-me-for-rfc/guard-edit-surface.js": "ea66b99b8e169995023d045646481f3637117d461d6b5eea027a4f0e615da2c8",
-    "scripts/grill-me-for-rfc/guard-obligation-on-commit.js": "6ab29c8ecdb136b17c3557185ce33989ae82801181c8a73eb04f398edcb7181f",
+    "scripts/grill-me-for-rfc/guard-obligation-on-commit.js": "52fafbd3970de7bd63902840be37856917692a47369521baa016971811a33944",
     "scripts/grill-me-for-rfc/init-for-drill-rfc-down.js": "1a6242a9393ee2a9bc92c9d843f372565f8fb0a29f1f088fc9eb27ca4c3eb235",
     "scripts/grill-me-for-rfc/init.js": "bd0dec4028743232e6208e0285d96b3acde8ab3937c1e32997e0151f5b9300b6",
     "scripts/grill-me-for-rfc/insert-io-boundary-template.js": "9a4ea678ed3e7b67bb4f3840c045681321c9310b0cbe8b3ae4f9d9204f7441b1",
