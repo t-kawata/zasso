@@ -175,16 +175,30 @@ Find every closed vocabulary, its members, lines those members occupy. Record `e
 
 Invocation supplied material carrying a census (registry of operations an interface must implement, or regions that must be adjudicated) → record `sourceEnumerations[].{name,source,selector,role}`:
 - `source` = supplied file;
-- `selector` = generic shape reading it: `jsonFieldRows` (with a field) | `tableColumn` (with a header) | `markedLines` (with a prefix);
-- `role` = what it answers for: `operations` | `entries`.
+- `selector` = generic shape reading it: `jsonFieldRows` (with a field every row of a fenced block carries) | `tableColumn` (with a header every row of a table stands beneath) | `markedLines` (with a prefix every member line begins with);
+- `role` = what it answers for: `operations` | `entries`; a pin with no role answers for nothing and is permitted;
+- `specSpans` (with the field every row of a fenced block carries, its value a span of the specification: `34-35` for a region of two lines, `34` for one) = the shape for an
+  **entries** census. The other three read names the document itself states, which is why a census of the entries a reading produces cannot be written in them: those are named
+  inside the run. This shape reads the specification's own line numbers instead, so it is authored from the document rather than from the run, and it is the only role it answers
+  for — a span census claiming `operations` is refused by name;
 - members read out of file, not written down ⇒ census cannot be shortened.
 - record beside it: `columns` an operation must carry; which of them `requiredMeasuredColumns` requires measured; `consumerFields` the implementer reads.
+
+Supplied material carrying no census — a script, a document of prose, a record of what the reading found — → record `sourceEnumerations[].{name,source,ground}`:
+- `ground` = what the file is, in the operator's words; it is the statement that the file answers for nothing, and it is required to be non-empty;
+- no `selector` and no `role`: such an entry contributes no member, borrows no census, and states no axis;
+- it is recorded rather than deleted, because a run over an existing project carries what it was given, and removing a file changes the digest the run records.
+
+Every file in the supplied directory other than the guidance file the invocation writes must be named by an entry of one of the two kinds. The phase refuses by name otherwise, because an unread census leaves its axis measured against the artifact itself; an entry of neither kind — no `selector` and no `ground` — is refused by name too, by the shape check that reads the artifact and by the re-derivation of its own pin at phase 6.
+- a census in spans is refused by name when a member states no span, when a span reaches past the last line of the specification, and when two spans overlap: the specification's lines are claimed once each, so no line of it is counted twice and none is claimed outside it.
+- the entries a census of spans names are held against the entries the artifact adjudicates by containment: every span must hold at least one adjudicated entry, and every adjudicated entry must lie inside some span.
+- a document that mixes vocabularies is split so that each block holds one, because a row a shape cannot read is refused by name rather than skipped, and a skipped row is how a denominator shrinks in silence.
 
 ```bash
 node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 4
 ```
 
-Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
+Refused when a supplied file no pin reads. Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
 
 ### Step 5 — blocks `[read]` (AI judgment)
 

@@ -16,7 +16,7 @@
 // supplied file's digest, because a census read from a file that has since moved is a
 // census about a document nobody has. The extraction shapes are the rail's own and name no
 // project; the file, the field, the column and the prefix are the declaration's.
-import { digestOfBytes, splitLines } from './load.mjs';
+import { SPAN_SHAPES, digestOfBytes, isCensusPin, isMaterialDeclaration, isSpanCensusPin, parseSpan, splitLines } from './load.mjs';
 
 /** The rule each pin kind is re-derived by. */
 export const PIN_RULES = Object.freeze({
@@ -36,7 +36,7 @@ export const PIN_RULES = Object.freeze({
  * it in fenced JSON. Naming a project's own format here would make the rail that project's
  * instrument; naming the shape and leaving the parameter to the caller does not.
  */
-export const SOURCE_SHAPES = Object.freeze(['jsonFieldRows', 'tableColumn', 'markedLines']);
+export const SOURCE_SHAPES = Object.freeze(['jsonFieldRows', 'tableColumn', 'markedLines', ...SPAN_SHAPES]);
 
 /**
  * What a borrowed census may answer for.
@@ -48,7 +48,8 @@ export const SOURCE_SHAPES = Object.freeze(['jsonFieldRows', 'tableColumn', 'mar
  * check that exists to make an omission loud. A census with no role answers for nothing and
  * is permitted; a census with a role outside this list is refused.
  */
-export const SOURCE_ROLES = Object.freeze(['operations', 'entries']);
+export const ENTRIES_ROLE = 'entries';
+export const SOURCE_ROLES = Object.freeze(['operations', ENTRIES_ROLE]);
 
 /** The bodies of every fenced block in a document, as arrays of lines. */
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
@@ -85,6 +86,11 @@ function tableCellsOf(line) {
 /**
  * The members a document holds in the shape and at the parameter the declaration names.
  *
+ * Members are strings in every shape, because a census is a list of names the artifact must
+ * account for and the coordinate a member is written in is a property of the shape rather than
+ * of the list: a span is the text of a span (`24-26`), and the reader that needs its first and
+ * last line reads them out of that text.
+ *
  * Every shape is total over the elements it claims: an element it cannot read is refused by
  * name rather than skipped, because a skipped element is a member that leaves the census
  * without anything failing — which is the one way a denominator can shrink in silence.
@@ -98,13 +104,18 @@ export function extractMembers({ lines, shape, parameter }) {
   if (typeof parameter !== 'string' || parameter === '') {
     return { refused: `the ${shape} shape needs a parameter naming what to read` };
   }
+  // A coordinate shape reads a field of every JSON row, as the first shape does, and then
+  // refuses a value that states no span. The reading is the same reading; what the shape adds
+  // is the coordinate its members are in, which is what lets a check hold a span against the
+  // entries it covers rather than against a name it expects to be written twice.
+  if (SPAN_SHAPES.includes(shape)) return extractSpecSpans(lines, parameter);
   if (shape === 'jsonFieldRows') return extractJsonFieldRows(lines, parameter);
   if (shape === 'tableColumn') return extractTableColumn(lines, parameter);
   return extractMarkedLines(lines, parameter);
 }
 
 /** A field of every JSON row in every fenced block that holds rows. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
 function extractJsonFieldRows(lines, field) {
   const members = [];
   for (const body of fencedBlockBodies(lines)) {
@@ -146,6 +157,26 @@ function extractTableColumn(lines, header) {
     members.push(cells[column]);
   }
   return { members };
+}
+
+/**
+ * A span of the specification from every JSON row that states one.
+ *
+ * Total over the elements it claims, as the other shapes are, and total a second time: a row
+ * whose field states no span is refused by name rather than dropped, because a dropped row is
+ * a region that leaves the census with nothing failing, and a census that shrinks in silence
+ * is the one way a denominator can be smaller than the work without anybody seeing it.
+ */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+function extractSpecSpans(lines, field) {
+  const extracted = extractJsonFieldRows(lines, field);
+  if (extracted.refused !== undefined) return extracted;
+  for (const member of extracted.members) {
+    if (parseSpan(member) === null) {
+      return { refused: `the member "${member}" is not a span of the specification, so it names no first and last line` };
+    }
+  }
+  return { members: extracted.members };
 }
 
 /** The remainder of every line of a document that is a list and nothing else. */
@@ -285,6 +316,87 @@ export function selectNeighbourFor(artifact, entry) {
 }
 
 /**
+ * One borrowed-census entry, established as the kind it declares.
+ *
+ * The source is recorded for every kind, because a file recorded nowhere answers for nothing
+ * silently: the digest is what a later run compares against, and the phase-4 gate names the
+ * file no entry carries. What differs between the kinds is everything else, which is why each
+ * is established by its own function rather than by one record with holes punched in it.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function establishSourceEnumeration(entry, document) {
+  const readable = typeof document === 'string';
+  const source = {
+    file: entry.source,
+    sha256: readable ? digestOfBytes(Buffer.from(document, 'utf8')) : null,
+  };
+  if (isMaterialDeclaration(entry)) return establishMaterialDeclaration(entry, source, readable);
+  if (!isCensusPin(entry)) return establishKindlessEntry(entry, source);
+  return establishCensusPin(entry, document, source);
+}
+
+/**
+ * A census pin: the shape that reads the file, the role it answers for, and its members.
+ *
+ * The shape is not defaulted. A selector that names no shape is handed to the extraction
+ * anyway, which refuses it by name — the pin records that refusal rather than a document read
+ * by a shape nobody declared.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function establishCensusPin(entry, document, source) {
+  const extracted = typeof document === 'string'
+    ? extractMembers({ lines: splitLines(document), shape: entry.selector?.shape, parameter: entry.selector?.parameter })
+    : { refused: `the supplied file ${entry.source} is not beside this run` };
+  return {
+    name: entry.name,
+    role: entry.role ?? null,
+    source,
+    selector: { shape: entry.selector?.shape ?? null, parameter: entry.selector?.parameter ?? null },
+    members: extracted.members ?? [],
+    refusal: extracted.refused ?? null,
+  };
+}
+
+/**
+ * A material declaration: the ground that says what the file is, and nothing else.
+ *
+ * It records no role and no member, so neither the accounting of a census nor the agreement
+ * check can find anything in it: an entry that answers for nothing must not be able to state
+ * an axis by accident, and the only way to guarantee that is for it to carry nothing a
+ * denominator reads.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function establishMaterialDeclaration(entry, source, readable) {
+  return {
+    name: entry.name,
+    role: null,
+    source,
+    selector: null,
+    ground: entry.ground.trim(),
+    members: [],
+    refusal: readable ? null : `the supplied file ${entry.source} is not beside this run`,
+  };
+}
+
+/**
+ * An entry of neither kind: it names a file and says nothing about it.
+ *
+ * The refusal is recorded rather than thrown because this is reached while the pins are being
+ * established, and a run that stopped here would report a crash instead of the entry to repair.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function establishKindlessEntry(entry, source) {
+  return {
+    name: entry.name,
+    role: null,
+    source,
+    selector: null,
+    members: [],
+    refusal: `the entry carries no selector and no ground, so it names ${entry.source} and answers for nothing`,
+  };
+}
+
+/**
  * Establish the pins of one specification from a declaration of what to look for.
  *
  * The declaration names the limbs, fields, members and headings; this function finds
@@ -301,23 +413,12 @@ export function establishPins(specLines, declaration, supplied = {}) {
   return {
     // The borrowed census: a set of names read out of supplied material rather than out of
     // the specification, so the artifact can be held to something it does not hold itself.
-    // What is recorded is the file, its digest, the shape and parameter that were used, and
-    // the members the extraction found — or the refusal, when the file could not be read.
-    sourceEnumerations: (declaration.sourceEnumerations ?? []).map((entry) => {
-      const document = supplied?.[entry.source];
-      const readable = typeof document === 'string';
-      const extracted = readable
-        ? extractMembers({ lines: splitLines(document), shape: entry.selector?.shape, parameter: entry.selector?.parameter })
-        : { refused: `the supplied file ${entry.source} is not beside this run` };
-      return {
-        name: entry.name,
-        role: entry.role ?? null,
-        source: { file: entry.source, sha256: readable ? digestOfBytes(Buffer.from(document, 'utf8')) : null },
-        selector: { shape: entry.selector?.shape ?? null, parameter: entry.selector?.parameter ?? null },
-        members: extracted.members ?? [],
-        refusal: extracted.refused ?? null,
-      };
-    }),
+    // Every entry records the file and its digest, and then what its kind carries: a census
+    // pin the shape and parameter that were used and the members the extraction found, a
+    // material declaration the ground saying what the file is and no members at all.
+    sourceEnumerations: (declaration.sourceEnumerations ?? []).map((entry) =>
+      establishSourceEnumeration(entry, supplied?.[entry.source]),
+    ),
     // The columns the caller wants an operation record to carry, which of them must be
     // measured, and which fields the consumer of the artifact reads. All three are the
     // caller's: which columns an interface needs is a property of the project, and a rail
@@ -419,21 +520,32 @@ function rederiveBlocks(blocks, specLines, sectionLevel) {
 }
 
 /**
- * Re-derive a borrowed census: the supplied file is the one it was read from, and the
- * members are what that file holds now.
+ * Re-derive a borrowed census entry by the rule its kind declares.
  *
- * The file is re-read and re-extracted rather than the members being compared with
+ * A census pin is re-read and re-extracted rather than its members being compared with
  * themselves, and the digest is checked first, because a file that moved makes every later
- * comparison a comparison against a document nobody has.
+ * comparison a comparison against a document nobody has. A material declaration has no
+ * members to re-extract: it is held to its digest and to the ground that says what it is.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
 function rederiveSourceEnumeration(pin, supplied) {
   const rule = PIN_RULES.SOURCE_ENUMERATION;
   const subject = `sourceEnumerations.${pin.name}`;
+  if (isMaterialDeclaration(pin)) return rederiveMaterialDeclaration(pin, supplied, subject, rule);
+  if (!isCensusPin(pin)) {
+    return verdict(subject, rule, 'the entry carries no selector and no ground, so it answers for nothing without saying so');
+  }
   // Read from the pin rather than decided when it was established: the artifact is data
   // under verification, so a role edited after the fact is exactly the case this refuses.
   if (pin.role !== null && pin.role !== undefined && !SOURCE_ROLES.includes(pin.role)) {
     return verdict(subject, rule, `role "${pin.role}" is not one of ${SOURCE_ROLES.join(', ')}, so no check can find this census`);
+  }
+  // A census of spans is measured in the specification's coordinates, and the entries a reading
+  // produces are what is held against those coordinates. A span census claiming another role
+  // would be compared with that role's identifiers — hundreds of members refused one at a time,
+  // none of them saying why — so it is refused once, by name, here.
+  if (isSpanCensusPin(pin) && pin.role !== null && pin.role !== undefined && pin.role !== ENTRIES_ROLE) {
+    return verdict(subject, rule, `a census of spans is measured in the specification's coordinates, which is what the ${ENTRIES_ROLE} role counts, so it cannot answer for "${pin.role}"`);
   }
   const document = supplied?.[pin.source?.file];
   if (typeof document !== 'string') {
@@ -452,6 +564,36 @@ function rederiveSourceEnumeration(pin, supplied) {
   if (absent.length > 0) return verdict(subject, rule, `member "${absent[0]}" occurs in no row of ${pin.source.file}`);
   const extra = [...found].filter((member) => !declared.has(member));
   if (extra.length > 0) return verdict(subject, rule, `${pin.source.file} carries "${extra[0]}", which the pin does not list`);
+  return { ok: true, pin: subject, rule, line: null };
+}
+
+/**
+ * Re-derive a material declaration: its file, its digest, and nothing it claims to be.
+ *
+ * The three claims refused here are not refused when the declaration is established — it
+ * records no role and no member by construction — they are refused when the artifact is read
+ * back, because the artifact is data under verification and an entry edited after the fact is
+ * exactly the case this is for. A declaration that carried a role would state an axis for a
+ * file nothing was read out of, and one that carried members would be a census with a ground
+ * beside it, which is the thing the second kind exists not to be.
+ */
+// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+function rederiveMaterialDeclaration(pin, supplied, subject, rule) {
+  if (pin.role !== null && pin.role !== undefined) {
+    return verdict(subject, rule, `the declaration carries the role "${pin.role}", and an entry that answers for nothing borrows no census`);
+  }
+  const members = Array.isArray(pin.members) ? pin.members : [];
+  if (members.length > 0) {
+    return verdict(subject, rule, `the declaration records ${members.length} member(s), and an entry that answers for nothing contributes none`);
+  }
+  const document = supplied?.[pin.source?.file];
+  if (typeof document !== 'string') {
+    return verdict(subject, rule, `the supplied file ${pin.source?.file} is not beside this run`);
+  }
+  const digest = digestOfBytes(Buffer.from(document, 'utf8'));
+  if (digest !== pin.source?.sha256) {
+    return verdict(subject, rule, `${pin.source.file} digests to ${digest}; the pin records ${pin.source.sha256}`);
+  }
   return { ok: true, pin: subject, rule, line: null };
 }
 

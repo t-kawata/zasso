@@ -11,12 +11,14 @@
 //
 // The checks are built from the constructors in checks.mjs rather than written out,
 // so the shape of a check is declared once and a new check costs choosing a shape.
-import { agreeOn, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery } from './checks.mjs';
+import { agreeOn, checkOf, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery, verdict } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
 import {
   DIAGRAMMED_OUTCOMES,
   OPERATION_POSITIONS,
   UNREACHED_ESCAPES,
+  isSpanCensusPin,
+  parseSpan,
   readArtifactSchema,
   validateArtifactShape,
 } from './load.mjs';
@@ -71,11 +73,17 @@ export function escapedOperationsOf(artifact) {
     .map((operation) => operation.id);
 }
 
+/** The borrowed census pin holding a role, or null when nothing is borrowed for it. */
+// [::TICKET::] PX-248, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
+function borrowedCensusPinOf(context, role) {
+  return (context.artifact.pins?.sourceEnumerations ?? []).find((entry) => entry.role === role) ?? null;
+}
+
 /** The members of the borrowed census holding a role, or null when nothing is borrowed. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
 function borrowedCensusOf(context, role) {
-  const pin = (context.artifact.pins.sourceEnumerations ?? []).find((entry) => entry.role === role);
-  return pin === undefined ? null : [...(pin.members ?? [])];
+  const pin = borrowedCensusPinOf(context, role);
+  return pin === null ? null : [...(pin.members ?? [])];
 }
 
 /**
@@ -141,16 +149,86 @@ const everyEnumeratedOperationAccountedFor = agreeOn(
  * silence: a censused entry the artifact carries no outcome for reads here as absent.
  */
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
-const everyCensusedEntryAdjudicated = agreeOn(
-  { id: 'every-censused-entry-adjudicated', defect: 'a census of regions that had to be ruled on, held against an artifact that was allowed to carry a region with no outcome', refuses: 'a censused entry the artifact adjudicates nowhere, and an adjudicated entry the census does not name', scope: 'every artifact, over its sequences and the census borrowed for the entries role' },
-  {
-    when: (context) => borrowedCensusOf(context, 'entries') !== null,
-    left: (context) => (borrowedCensusOf(context, 'entries') ?? []).map((id) => ({ id })),
-    right: (context) => context.artifact.sequences.filter((entry) => entry.outcome !== null && entry.outcome !== undefined),
-    key: (record) => record.id,
-    value: (record) => record.id,
-  },
-);
+const ENTRY_CENSUS_CONTRACT = Object.freeze({
+  id: 'every-censused-entry-adjudicated',
+  defect: 'a census of regions that had to be ruled on, held against an artifact that was allowed to carry a region with no outcome',
+  refuses: 'a censused entry, or a censused span covering no adjudicated entry, that the artifact adjudicates nowhere, and an adjudicated entry the census does not name',
+  scope: 'every artifact, over its sequences and the census borrowed for the entries role',
+});
+
+/** The adjudicated entries of an artifact: the ones a reading gave an outcome. */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+function adjudicatedEntriesOf(artifact) {
+  return artifact.sequences.filter((entry) => entry.outcome !== null && entry.outcome !== undefined);
+}
+
+/** Whether a censused span holds an entry inside it, which is what a coordinate comparison is. */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+function spanHoldsEntry(span, entry) {
+  return span.first <= entry.firstLine && entry.lastLine <= span.last;
+}
+
+/**
+ * The entries agreement in the coordinate a census of spans is written in.
+ *
+ * The two directions are the two the identifier coordinate reports, said in the coordinate the
+ * census was authored in: a span that holds no adjudicated entry is a censused region the
+ * reading never read, and an entry no span holds is a region the census does not name. Neither
+ * side has to name the other, which is the whole reason this coordinate exists — the span is
+ * read off the specification and the entry is placed in it by where they lie.
+ */
+// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+function spanCensusVerdicts(context, census) {
+  const verdicts = [];
+  const entries = adjudicatedEntriesOf(context.artifact);
+  const spans = [];
+  for (const member of census.members ?? []) {
+    const span = parseSpan(member);
+    // A member that is not a span is refused by the artifact's shape check, which runs before
+    // any check does. Naming it here as well keeps this check from reading a member it cannot
+    // place as though it had placed it.
+    if (span === null) {
+      return [verdict(ENTRY_CENSUS_CONTRACT.id, member, 'the member is not a span of the specification, so the census names no region')];
+    }
+    spans.push({ member, span });
+  }
+  for (const { member, span } of spans) {
+    if (!entries.some((entry) => spanHoldsEntry(span, entry))) {
+      verdicts.push({ ...verdict(ENTRY_CENSUS_CONTRACT.id, member, 'the span covers no adjudicated entry, so the census names a region the reading did not read'), direction: 'backward' });
+    }
+  }
+  for (const entry of entries) {
+    if (!spans.some(({ span }) => spanHoldsEntry(span, entry))) {
+      verdicts.push({ ...verdict(ENTRY_CENSUS_CONTRACT.id, entry.id, 'the entry lies in no censused span, so the census does not name it'), direction: 'forward' });
+    }
+  }
+  return verdicts;
+}
+
+/** The same agreement in the coordinate a census of identifiers is written in. */
+const identifierCensusAgreement = agreeOn(ENTRY_CENSUS_CONTRACT, {
+  when: (context) => borrowedCensusOf(context, 'entries') !== null,
+  left: (context) => (borrowedCensusOf(context, 'entries') ?? []).map((id) => ({ id })),
+  right: (context) => adjudicatedEntriesOf(context.artifact),
+  key: (record) => record.id,
+  value: (record) => record.id,
+});
+
+/**
+ * One check, reading the census in whichever coordinate it was authored in.
+ *
+ * A census of identifiers is held to the entries by identity and a census of spans by
+ * containment, and both are the same requirement: everything the census names was adjudicated
+ * and everything adjudicated is named. The two are one check rather than two because a reader
+ * asking whether an artifact accounts for its regions is asking one question, and a count of
+ * checks that grew with the number of coordinates a project may author in would report the
+ * material rather than the reading.
+ */
+const everyCensusedEntryAdjudicated = checkOf(ENTRY_CENSUS_CONTRACT, (context) => {
+  const census = borrowedCensusPinOf(context, 'entries');
+  if (census === null) return [];
+  return isSpanCensusPin(census) ? spanCensusVerdicts(context, census) : identifierCensusAgreement.run(context);
+});
 
 /** Every declared column is placed in exactly one class, and that class carries its evidence. */
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
