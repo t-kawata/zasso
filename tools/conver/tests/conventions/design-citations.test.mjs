@@ -253,7 +253,9 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // above them: the phase-4 gate now hands the supplied material to the census pins and
   // refuses a supplied file no pin reads, which added a predicate above the phase table
   // and a comment inside it.
-  { asWritten: 'gates.mjs:502', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 502, token: 'export function unchangedRepeatReason' },
+  // Re-measured for the phase-16 harness fix, which hands the recorded material to the
+  // corpus and states why above the context it builds: 502 -> 506.
+  { asWritten: 'gates.mjs:506', path: '.claude/scripts/educe-sequences/rail/gates.mjs', line: 506, token: 'export function unchangedRepeatReason' },
   // Re-measured by PX-253, which moved two of these by the lines its own change added
   // above the definition: the phase 9 action reads the artifact it replaces before
   // composing, so `runPhase` and `beginRun` both sit below the comparison it now holds.

@@ -10,13 +10,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { COUNTER_MUTATION_CORPUS, SPEC_MUTATION_CORPUS, digestOfTree, runCase } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
+import { evaluateGate } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { buildContext } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
+import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const FIXTURE_ROOT = new URL('./fixtures/spec/', import.meta.url).pathname;
 const spec = readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname);
 const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
 
+// This artifact borrows no census, so it is judged without material and the corpus below is
+// correct as it stands. That is also why the corpus could not see the omission the PX-267
+// section covers: a material-free artifact is the one case where handing the harness nothing
+// looks the same as handing it what the run read.
 const context = () => ({ artifact: golden, specLines: spec.lines, fixtureRoot: FIXTURE_ROOT });
 
 test('C005 every mutation reddens the check it names, for an attributable reason', () => {
@@ -118,4 +125,73 @@ test('C007 the counter-mutation runs over an artifact that binds a single step t
   assert.equal(mutated.steps.every((step, index) => step.sequence === small.steps[index].sequence), true, 'and every step still belongs to the entry it did');
   assert.equal(mutated.operations.some((operation) => operation.id === 'Admit'), false, 'the vocabulary differs from the fixture\'s');
   assert.equal(mutated.steps[0].operation !== small.steps[0].operation, true, 'and it is not the same run as the input');
+});
+
+// ---------------------------------------------------------------------------
+// PX-267 — the harness judges the mutated artifact with the material the run read
+// ---------------------------------------------------------------------------
+//
+// A census is re-derived from the supplied file it was read from, so `checkAll` cannot
+// judge an artifact that borrows one without being handed the material. The falsification
+// harness was the one caller that did not hand it over, which made the baseline red for
+// every artifact that borrows a census: each counter-mutation then "reddened correct work",
+// and the gate refused with the rule blamed instead of the subject. The golden fixture the
+// corpus was written against borrows nothing, so nothing covered the omission until a run
+// over a specification that does.
+
+const CENSUS_ROOT = new URL('./fixtures/census/', import.meta.url).pathname;
+const censusSpec = readSpecification(`${CENSUS_ROOT}ledger.md`);
+const censusGolden = JSON.parse(readFileSync(`${CENSUS_ROOT}ledger-sequences.json`, 'utf8'));
+const CENSUS_SUPPLIED = suppliedDocumentsOf(`${CENSUS_ROOT}educe-sequences`);
+
+/** What a run that borrowed a census hands the harness: the artifact and the material. */
+const censusContext = () => ({
+  artifact: censusGolden,
+  specLines: censusSpec.lines,
+  fixtureRoot: CENSUS_ROOT,
+  recorded: { supplied: CENSUS_SUPPLIED },
+});
+
+test('PX-267 an artifact that borrows a census is not red before anything is mutated', () => {
+  const identity = { name: 'identity', check: 'predicate-pin-rederives', mutate: ({ artifact, specLines }) => ({ artifact, specLines }) };
+
+  const judged = runCase(identity, censusContext());
+  assert.equal(judged.red, false, `the census the run read is beside it: ${judged.reason}`);
+
+  // Without the material the census pin refuses, which is why the harness has to be given it.
+  const withoutMaterial = runCase(identity, { artifact: censusGolden, specLines: censusSpec.lines, fixtureRoot: CENSUS_ROOT });
+  assert.equal(withoutMaterial.red, true);
+  assert.equal(withoutMaterial.reddenedCheck, 'source-enumeration-pin-rederives');
+});
+
+test('PX-267 every mutation reddens the check it names over an artifact that borrows a census', () => {
+  for (const testCase of SPEC_MUTATION_CORPUS) {
+    const outcome = runCase(testCase, censusContext());
+
+    assert.equal(outcome.red, true, `${testCase.name} left the run green`);
+    assert.equal(outcome.attributable, true, `${testCase.name}: ${outcome.reason}`);
+    assert.equal(outcome.reddenedCheck, testCase.check, testCase.name);
+  }
+});
+
+test('PX-267 every counter-mutation stays green over an artifact that borrows a census', () => {
+  for (const counter of COUNTER_MUTATION_CORPUS) {
+    const outcome = runCase(counter, censusContext());
+
+    assert.equal(outcome.red, false, `${counter.name} reddened correct work — the rule is defective, not the subject`);
+    assert.equal(outcome.counterGreen, true);
+  }
+});
+
+test('PX-267 phase 16 hands the harness the material the run recorded', () => {
+  const ctx = buildContext({
+    specPath: `${CENSUS_ROOT}ledger.md`,
+    spec: censusSpec,
+    run: { directory: `${CENSUS_ROOT}educe-sequences`, status: {} },
+  });
+
+  const verdict = evaluateGate(16, ctx);
+
+  assert.equal(verdict.ok, true, verdict.reason);
+  assert.match(verdict.reason, /counter-mutation\(s\) green/);
 });

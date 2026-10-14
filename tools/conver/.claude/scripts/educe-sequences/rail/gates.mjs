@@ -397,7 +397,11 @@ export const PHASES = Object.freeze([
     id: 16, name: 'falsify', tag: PHASE_TAGS.DET, requires: [14], backTo: 14, maxLoops: 3,
     exit: (ctx) => {
       const artifact = readArtifact(ctx.artifactPath);
-      const context = { artifact, specLines: ctx.spec.lines, fixtureRoot: ctx.fixtureRoot };
+      // The material travels with the corpus because `checkAll` reads the recorded inputs as
+      // one thing: a borrowed census is re-derived from the supplied file, so a case judged
+      // without it is red before anything is mutated, and the gate would blame the rule for a
+      // subject the checks were never shown whole.
+      const context = { artifact, specLines: ctx.spec.lines, fixtureRoot: ctx.fixtureRoot, recorded: ctx.recorded };
       const unattributable = SPEC_MUTATION_CORPUS.map((testCase) => runCase(testCase, context)).filter((outcome) => !outcome.attributable);
       if (unattributable.length > 0) return refuse(`${unattributable[0].name}: ${unattributable[0].reason}`);
       const broken = COUNTER_MUTATION_CORPUS.map((testCase) => runCase(testCase, context)).filter((outcome) => outcome.red);

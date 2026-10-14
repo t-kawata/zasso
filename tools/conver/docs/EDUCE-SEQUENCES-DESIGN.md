@@ -325,7 +325,7 @@ would give one fact two homes and compare counts where the artifact itself is av
 The consequence is that a loss is refused at the generation that causes it, which is the
 earlier and the more useful refusal.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:502` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:506` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
 is the same revision — and `phases.mjs:428` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the

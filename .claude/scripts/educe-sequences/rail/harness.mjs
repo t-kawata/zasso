@@ -351,13 +351,22 @@ export function digestOfTree(root) {
 /**
  * Run one case and report both directions.
  *
+ * The mutation is judged with everything the run recorded beside the artifact, because a
+ * check reads the material as well as the artifact: a borrowed census is re-derived from the
+ * supplied file it was read from, so a case judged without that material is red before
+ * anything is mutated, and every counter-mutation over such an artifact would be reported as
+ * reddening correct work. What the case changes is the artifact and the specification, and
+ * the rest of the run's inputs travel through unchanged — the mutation is the subject, not
+ * the material.
+ *
+ * @param {{recorded?: object}} options — the material the run read, as `checkAll` reads it
  * @returns {{name: string, red: boolean, attributable: boolean, reddenedCheck: string|null,
  *            counterGreen: boolean, restored: boolean, reason: string|null}}
  */
-export function runCase(testCase, { artifact, specLines, fixtureRoot }) {
+export function runCase(testCase, { artifact, specLines, fixtureRoot, recorded = {} }) {
   const before = digestOfTree(fixtureRoot);
   const mutated = testCase.mutate({ artifact: structuredClone(artifact), specLines: [...specLines] });
-  const { verdicts } = checkAll({ specLines: mutated.specLines, artifact: mutated.artifact });
+  const { verdicts } = checkAll({ specLines: mutated.specLines, artifact: mutated.artifact, recorded });
   const reddened = verdicts.map((verdict) => verdict.check);
   const red = reddened.length > 0;
   const attributable = red && reddened.includes(testCase.check);
