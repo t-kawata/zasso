@@ -1,3 +1,4 @@
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C001
 // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
@@ -34,7 +35,12 @@ function roundWith(block) {
 
 test('C001 postcondition: a question that names the record it read passes the gate', () => {
   const fixture = roundWith(questionBlock({
-    settleTrace: 'EXPLAIN-RFC-SEED.md records the store as a file; it does not decide which experience comes first',
+    settleTrace: [
+      {
+        record: 'EXPLAIN-RFC-SEED.md',
+        leavesOpen: 'it records the store as a file and does not decide which experience comes first',
+      },
+    ],
   }));
   try {
     const result = runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'check']);
@@ -45,7 +51,9 @@ test('C001 postcondition: a question that names the record it read passes the ga
 });
 
 test('C001 invariant: a question that names none of the records is refused, and the node is named', () => {
-  const fixture = roundWith(questionBlock({ settleTrace: 'this one is the human’s' }));
+  const fixture = roundWith(questionBlock({
+    settleTrace: [{ record: 'what the human said', leavesOpen: 'it is not a record this package holds' }],
+  }));
   try {
     const result = runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'check']);
 
@@ -69,7 +77,9 @@ test('C001 boundary: with no artifact to read, the rule does not apply and the r
 
     runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'prior']);
     runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'next', '1']);
-    runCommand(GRILL_UPDATE_TREE, [fixture.rfcDir, 'bind', '1', JSON.stringify(questionBlock({ settleTrace: 'no record in this package decides it' }))]);
+    runCommand(GRILL_UPDATE_TREE, [fixture.rfcDir, 'bind', '1', JSON.stringify(questionBlock({
+      settleTrace: [{ record: 'no record in this package', leavesOpen: 'the package holds nothing to read' }],
+    }))]);
 
     const result = runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'check']);
     assert.equal(result.status, 0, 'a package holding no record cannot be asked to name one');
@@ -79,12 +89,17 @@ test('C001 boundary: with no artifact to read, the rule does not apply and the r
 });
 
 test('C001 invariant: a block with no settle trace at all is refused', () => {
-  const fixture = roundWith(questionBlock({ settleTrace: '' }));
-  try {
-    const result = runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'check']);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /missing-settle-trace/);
-  } finally {
-    disposeFixture(fixture);
+  // An opened block carries an empty list; a block left by the generation before this
+  // shape carries an empty string. Both record no reason, and both are refused as such
+  // rather than as a trace that failed to show a silence.
+  for (const absent of [[], '']) {
+    const fixture = roundWith(questionBlock({ settleTrace: absent }));
+    try {
+      const result = runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'check']);
+      assert.notEqual(result.status, 0, `${JSON.stringify(absent)} records no reason`);
+      assert.match(result.stderr, /missing-settle-trace/);
+    } finally {
+      disposeFixture(fixture);
+    }
   }
 });

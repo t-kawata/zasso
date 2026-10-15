@@ -97,10 +97,19 @@ export const FIXTURE_SETTLEMENT_GROUND = 'RFC-SEED.md#§1';
  * @param {object} [overrides]
  * @returns {object}
  */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 export function questionBlock(overrides = {}) {
   return {
     boundNodeIds: ['Q1', 'Q2'],
-    settleTrace: 'EXPLAIN-RFC-SEED.md was read and decides neither',
+    // The trace is a list of entries, each naming a record the scan returned and the
+    // fact that leaves the point open. A trace that names a record and stops has
+    // shown the reading and not the search.
+    settleTrace: [
+      {
+        record: FIXTURE_GROUND,
+        leavesOpen: 'it records the store as a file and does not decide which experience comes first',
+      },
+    ],
     scopeLine: 'the answer settles both',
     framing: {
       context: 'A person changes their handle.',

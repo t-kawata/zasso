@@ -1,3 +1,4 @@
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C004
 // PX-236 @verifies C006
 // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
@@ -84,6 +85,7 @@ test('C004 invariant: the shared block states the gate, the ladder and the refus
     'foreign-package-doubt',
     'author-only-is-material-not-exemption',
     'weight-alone-does-not-bind',
+    'read-record-not-shown-silent',
   ]) {
     assert.ok(block.includes(refusal), `the block names the refusal ${refusal}`);
   }

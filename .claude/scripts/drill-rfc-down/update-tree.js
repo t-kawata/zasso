@@ -124,6 +124,26 @@ function refuseBlock(block) {
   return null;
 }
 
+/**
+ * The trace entries as the block wrote them.
+ *
+ * The writer carries what the block states and judges none of it: whether an entry
+ * names a record the run read, and whether it shows that record silent, is the gate's
+ * judgement. What the writer must not do is drop the entries, which is what a shape
+ * check alone would do — the gate can then only report a trace it never received.
+ *
+ * @param {unknown} trace
+ * @returns {Array<{ record: string, leavesOpen: string }>}
+ */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function readTraceEntries(trace) {
+  if (!Array.isArray(trace)) return [];
+  return trace.map((entry) => ({
+    record: typeof entry?.record === "string" ? entry.record : "",
+    leavesOpen: typeof entry?.leavesOpen === "string" ? entry.leavesOpen : "",
+  }));
+}
+
 // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function ensureQuestions() {
   if (!Array.isArray(tree.questions)) tree.questions = [];
@@ -260,7 +280,7 @@ switch (operation) {
       number,
       boundNodeIds: block.boundNodeIds,
       scopeLine: typeof block.scopeLine === "string" ? block.scopeLine : "",
-      settleTrace: typeof block.settleTrace === "string" ? block.settleTrace : "",
+      settleTrace: readTraceEntries(block.settleTrace),
       framing: block.framing ?? { context: "", conclusion: "", settled: "", remainder: "" },
       choice: block.choice ?? { directions: [], recommendation: "", overturning: "" },
       answer: null,

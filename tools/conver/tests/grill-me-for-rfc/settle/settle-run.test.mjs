@@ -1,3 +1,4 @@
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C001
 // PX-234 @verifies C002
 // PX-234 @verifies C003
@@ -155,13 +156,17 @@ test('C003 postcondition: bind fills a numbered block with the nodes it decides'
     prior(fixture.rfcDir);
     next(fixture.rfcDir, 1);
     const result = bind(fixture.rfcDir, 1, questionBlock({
-      settleTrace: 'EXPLAIN-RFC-SEED.md was read; it decides neither question',
+      settleTrace: [
+        { record: 'EXPLAIN-RFC-SEED.md', leavesOpen: 'it was read and decides neither question' },
+      ],
     }));
 
     assert.equal(result.status, 0);
     const block = readTree(fixture.rfcDir).questions[0];
     assert.deepEqual(block.boundNodeIds, ['Q1', 'Q2']);
-    assert.match(block.settleTrace, /EXPLAIN-RFC-SEED\.md/);
+    assert.deepEqual(block.settleTrace, [
+      { record: 'EXPLAIN-RFC-SEED.md', leavesOpen: 'it was read and decides neither question' },
+    ], 'the writer carries the entries the block states');
   } finally {
     disposeFixture(fixture);
   }
@@ -211,7 +216,9 @@ test('C001 invariant: a settle trace naming none of the artifacts the scan found
   try {
     prior(fixture.rfcDir);
     next(fixture.rfcDir, 1);
-    bind(fixture.rfcDir, 1, questionBlock({ settleTrace: 'I could not decide' }));
+    bind(fixture.rfcDir, 1, questionBlock({
+      settleTrace: [{ record: 'what I remember of it', leavesOpen: 'it is not a record the scan returned' }],
+    }));
 
     const result = check(fixture.rfcDir);
     assert.notEqual(result.status, 0);

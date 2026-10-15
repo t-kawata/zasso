@@ -124,6 +124,31 @@ export function validateDesignTree(sessionDir) {
 }
 
 /**
+ * What is wrong with one settle trace, read as the list of entries the rule states.
+ *
+ * Each entry names a record the run read and the fact that leaves the point open.
+ * Whether those records are ones the run actually read, and whether the facts are
+ * facts, is the gate's judgement; that the entries have the shape to be judged at all
+ * is this file's.
+ *
+ * @param {unknown} trace
+ * @param {string} path
+ * @returns {string[]} error messages
+ */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function traceEntryErrors(trace, path) {
+  if (!Array.isArray(trace)) return [`${path}: must be a list of entries naming a record and the fact that leaves it open`];
+
+  return trace.flatMap((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    const errors = [];
+    if (typeof entry?.record !== "string") errors.push(`${entryPath}.record: must be a string`);
+    if (typeof entry?.leavesOpen !== "string") errors.push(`${entryPath}.leavesOpen: must be a string`);
+    return errors;
+  });
+}
+
+/**
  * The question blocks a run has opened.
  *
  * This validates shape only. Whether a block is *allowed* — whether it binds
@@ -150,7 +175,7 @@ export function validateQuestionBlocks(blocks) {
     }
     if (!Array.isArray(block.boundNodeIds)) errors.push(`${p}.boundNodeIds: must be an array`);
     if (typeof block.scopeLine !== "string") errors.push(`${p}.scopeLine: must be a string`);
-    if (typeof block.settleTrace !== "string") errors.push(`${p}.settleTrace: must be a string`);
+    errors.push(...traceEntryErrors(block.settleTrace, `${p}.settleTrace`));
     if (block.framing !== undefined && typeof block.framing !== "object") errors.push(`${p}.framing: must be an object`);
     if (block.choice !== undefined && typeof block.choice !== "object") errors.push(`${p}.choice: must be an object`);
   });

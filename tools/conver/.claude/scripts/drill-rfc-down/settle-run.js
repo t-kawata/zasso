@@ -37,12 +37,24 @@ import { MAX_AXES_PER_ROUND } from "../question-gate/bundle.mjs";
 import { nextNumbers } from "../question-gate/rounds.mjs";
 import { isAnsweredByLetter, readAnswers, refineLetterlessAnswer } from "../question-gate/answers.mjs";
 import { readBack, renderBlock } from "../question-gate/block.mjs";
+import { REFUSAL } from "../question-gate/settle.mjs";
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 
 /** A question binds at least this many points: one point is a fact-question. */
 const MIN_BOUND_NODES = 2;
+
+/**
+ * The fault kinds a settle trace can carry, named here because this driver reports
+ * them. The middle one is published by the core, so the block text, the code and the
+ * tests read one string rather than three copies of it.
+ */
+const TRACE_FAULT = Object.freeze({
+  MISSING: "missing-settle-trace",
+  NOT_SHOWN_SILENT: REFUSAL.READ_RECORD_NOT_SHOWN_SILENT,
+  UNREAD_ARTIFACT: "unread-prior-artifact",
+});
 
 /** The framing half of the block: the four lines that narrow the question. */
 const FRAMING_FIELDS = ["context", "conclusion", "settled", "remainder"];
@@ -114,12 +126,12 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
 function emptyBlock(number) {
   return {
     number,
     boundNodeIds: [],
-    settleTrace: "",
+    settleTrace: [],
     scopeLine: "",
     framing: { context: "", conclusion: "", settled: "", remainder: "" },
     choice: { directions: [], recommendation: "", overturning: "" },
@@ -292,14 +304,95 @@ function runNext(countText) {
 }
 
 /**
+ * How one block recorded its settle trace, as one of three states.
+ *
+ * A block is opened empty and filled afterwards, so its trace is absent before it is
+ * filled. The generation before this shape wrote a single line of prose. The shape the
+ * rule states is a list of entries, each naming a record the run read and the fact
+ * that leaves the point open.
+ *
+ * @param {unknown} trace
+ * @returns {{ state: 'absent' | 'prose' | 'entries', entries?: Array<object> }}
+ */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function readSettleTrace(trace) {
+  const blankProse = typeof trace === "string" && trace.trim() === "";
+  const blankList = Array.isArray(trace) && trace.length === 0;
+
+  if (trace === undefined || blankProse || blankList) return { state: "absent" };
+  if (!Array.isArray(trace)) return { state: "prose" };
+  return { state: "entries", entries: trace };
+}
+
+/** The record one trace entry names, or the empty string when it names none. */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function namedRecord(entry) {
+  return typeof entry?.record === "string" ? entry.record : "";
+}
+
+/** Whether one trace entry states the fact that leaves its record's point open. */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function statesWhyOpen(entry) {
+  return typeof entry?.leavesOpen === "string" && entry.leavesOpen.trim() !== "";
+}
+
+/**
+ * What the entries fail to show, judged against the records the scan returned.
+ *
+ * The two faults are different defects and keep different names. An entry naming a
+ * record the run never read is unread-prior-artifact: the comparison is exact
+ * membership, so a prefix or a substring of a scanned artifact is not that artifact. An
+ * entry naming a record the run read without saying what leaves the point open is
+ * read-record-not-shown-silent — naming a record is never sufficient on its own, which
+ * is the shape a round takes when the AI asks about a point it could have decided.
+ *
+ * @param {{ entries: Array<object>, scannedArtifacts: string[], questionNumber: number, first: string }} input
+ * @returns {Array<{ kind: string, detail: string }>}
+ */
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+function silenceFaults({ entries, scannedArtifacts, questionNumber, first }) {
+  const faults = [];
+  const named = entries.map(namedRecord);
+
+  // With nothing scanned there is no read record to be silent, so only the entries' own
+  // shape is judged: a run whose package holds no artifact is not asked to name one.
+  if (scannedArtifacts.length > 0) {
+    const read = named.filter((record) => scannedArtifacts.includes(record));
+    if (read.length === 0) {
+      faults.push({
+        kind: TRACE_FAULT.UNREAD_ARTIFACT,
+        detail: `Q${questionNumber} binds ${first} and its reason names none of: ${scannedArtifacts.join(", ")}`,
+      });
+    } else {
+      for (const record of named.filter((candidate) => !scannedArtifacts.includes(candidate))) {
+        faults.push({
+          kind: TRACE_FAULT.UNREAD_ARTIFACT,
+          detail: `Q${questionNumber} names ${record === "" ? "no record" : record}, which the scan did not return`,
+        });
+      }
+    }
+  }
+
+  for (const entry of entries.filter((candidate) => !statesWhyOpen(candidate))) {
+    faults.push({
+      kind: TRACE_FAULT.NOT_SHOWN_SILENT,
+      detail: `Q${questionNumber} names ${namedRecord(entry) || "a record"} and states no fact that leaves the point open`,
+    });
+  }
+
+  return faults;
+}
+
+/**
  * Everything wrong with this round, as values a reader can act on.
  *
- * The four kinds are the four ways a round can look finished and not be: a question
- * that should have been settled, a question that does not say why it was not, a
- * question asked without reading the records, and a question that names none of the
- * records that were read.
+ * The trace kinds are the ways a round can look finished and not be: a question that
+ * should have been settled, a question that does not say why it was not, a question
+ * asked without reading the records, and a question that names a read record without
+ * showing what leaves its point open. The last of these is the one the shape of the
+ * trace exists to catch, and it is why naming a record is not a reason to ask.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
 function collectFaults() {
   const faults = [];
   const blocks = tree.questions ?? [];
@@ -315,19 +408,25 @@ function collectFaults() {
     if (boundIds.length < MIN_BOUND_NODES) {
       faults.push({ kind: "single-point-question", detail: `Q${block.number} binds ${boundIds.length} point(s)` });
     }
-    if ((block.settleTrace ?? "").trim() === "") {
-      faults.push({ kind: "missing-settle-trace", detail: `Q${block.number} records no reason it could not be settled` });
+    const trace = readSettleTrace(block.settleTrace);
+
+    if (trace.state === "absent") {
+      faults.push({ kind: TRACE_FAULT.MISSING, detail: `Q${block.number} records no reason it could not be settled` });
+      continue;
+    }
+    // A trace that cannot show a silence is refused rather than read, so a tree inherited
+    // from the generation that wrote prose is reported by name instead of by guesswork.
+    if (trace.state === "prose") {
+      faults.push({
+        kind: TRACE_FAULT.NOT_SHOWN_SILENT,
+        detail: `Q${block.number} records its reason as prose, so no record it read is shown silent`,
+      });
       continue;
     }
     if (boundIds.length > 0 && tree.priorScan === undefined) {
       faults.push({ kind: "prior-artifacts-not-read", detail: `Q${block.number} binds ${first} before any prior scan was recorded` });
     }
-    if (scannedArtifacts.length > 0 && !scannedArtifacts.some((artifact) => block.settleTrace.includes(artifact))) {
-      faults.push({
-        kind: "unread-prior-artifact",
-        detail: `Q${block.number} binds ${first} and its reason names none of: ${scannedArtifacts.join(", ")}`,
-      });
-    }
+    faults.push(...silenceFaults({ entries: trace.entries, scannedArtifacts, questionNumber: block.number, first }));
   }
 
   for (const [nodeId, times] of boundCount) {

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 /**
  * The question gate: whether a point may become a question at all.
  *
@@ -13,21 +14,30 @@
  * may settle it, and that is what lets the human's share fall without any decision
  * losing its origin.
  *
- * The four refusals are the four inferences that each produced a wrong question:
- * a manifest flag naming a point, a doubt filed under another package, a sentence
- * saying only the author can decide, and a point's own weight. Each is returned by
- * name so a caller asserts on a value rather than on prose.
+ * The four inferences are the four that each produced a wrong question: a manifest flag
+ * naming a point, a doubt filed under another package, a sentence saying only the author
+ * can decide, and a point's own weight. Each is returned by name so a caller asserts on
+ * a value rather than on prose. A fifth name joins them for the question side: a trace
+ * that names a record without showing what leaves the point open.
  */
 
 /** The three lines, in the order they are written. */
 export const SETTLE_LINES = Object.freeze(['決定', '根拠', '覆す条件']);
 
-/** Why a point is refused a settlement or a question, named rather than described. */
+/**
+ * Why a point is refused a settlement or a question, named rather than described.
+ *
+ * The first four are inferences about a point; the fifth is a fault in the trace that
+ * is supposed to show the point could not be settled. It belongs with them because it
+ * is refused by name at the same place and for the same reason — naming a record is
+ * not showing it silent, so a question resting on that shows nothing.
+ */
 export const REFUSAL = Object.freeze({
   FLAG_IS_NOT_A_GROUND: 'flag-is-not-a-ground',
   FOREIGN_PACKAGE_DOUBT: 'foreign-package-doubt',
   AUTHOR_ONLY_IS_MATERIAL_NOT_EXEMPTION: 'author-only-is-material-not-exemption',
   WEIGHT_ALONE_DOES_NOT_BIND: 'weight-alone-does-not-bind',
+  READ_RECORD_NOT_SHOWN_SILENT: 'read-record-not-shown-silent',
 });
 
 const REFUSAL_KINDS = new Set(Object.values(REFUSAL));

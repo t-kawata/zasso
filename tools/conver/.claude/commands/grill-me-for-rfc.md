@@ -108,7 +108,7 @@ cannot be written becomes a question. The gate's output is those three lines, no
 feeling: a question drafted without them is a defect even if it reads well. The line
 that records the failed test is `決められなかった理由`.
 
-Four inferences this gate forbids. Each has produced a wrong question.
+Five inferences this gate forbids. Each has produced a wrong question.
 
 | inference | refusal, and why it is wrong |
 |---|---|
@@ -116,6 +116,7 @@ Four inferences this gate forbids. Each has produced a wrong question.
 | 「a doubt about this record means there is no ground」 | `foreign-package-doubt` — a doubt filed under another package is not this package's point. Establish whose point it is before treating it as material. |
 | 「the doubt says only the author can decide, so it must be asked」 | `author-only-is-material-not-exemption` — that sentence is material *for* the test above, not an exemption from it. Write the three lines. |
 | 「the point is weighty, so it is the human's」 | `weight-alone-does-not-bind` — weight alone does not bind a point to a question. The binding condition is weighty **and** no ground. A ground the AI has not looked for is not an absent ground. |
+| 「a read record was named, so this point may be asked」 | `read-record-not-shown-silent` — naming a record is not showing it silent. The trace must state, for each record it names, the fact that leaves the point open. |
 
 ## The ladder
 
@@ -147,9 +148,13 @@ it would weaken.
 6. 推奨 — the letter, now that it is defined.
 7. 推奨が覆る条件 — the fact that would change it.
 
-If line 2 cannot be written at all, or line 4 cannot be written narrowly, stop: go
-back to the question gate. A name used before the line that defines it is a defect at
-that line; fix the line, never append a gloss later.
+The failed settle test is the only thing that makes a point a question: a point whose
+three lines can be written is settled, and only a point whose 根拠 cannot be written is
+asked. Lines 2 and 6 are what the human is shown — the AI's own answer in words, and
+the letter it recommends — and neither is a condition on asking, nor a ground: a
+recommendation can be written for any point, so it can decide none of them. If line 4
+cannot be written narrowly, stop: go back to the question gate. A name used before the
+line that defines it is a defect at that line; fix the line, never append a gloss later.
 
 ## The loop
 
@@ -413,9 +418,12 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" answer <n> '<the
    fact-question wearing a question's clothes.
 3. the block's seven lines are 状況 / 私の結論 / すでに決まっていること /
    残っている選択 / 選択肢 / 推奨 / 推奨が覆る条件, in that order.
-4. every block carries a settle trace naming the records that were read and why none
-   of them was decisive. `check` refuses a block whose trace is empty, and refuses a
-   block whose trace names none of the records the scan found.
+4. every block carries a settle trace: a list of entries, each names a record the scan
+   returned and the fact that leaves the point open. `check` refuses a block whose trace
+   is empty, refuses a block whose trace names none of the records the scan found, and
+   refuses an entry that names a read record without saying what leaves its point open
+   (`read-record-not-shown-silent`) — naming a record is not showing it silent, and a
+   point the records leave open is the only point there is to ask about.
 5. no RFC content during the grill session — questions and answers only.
 6. after every user answer: record it with `answer`, then settle with `settle` the
    nodes that answer entails, or leave them bound and say what the answer failed to

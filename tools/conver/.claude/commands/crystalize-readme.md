@@ -11,7 +11,7 @@ Pipeline commands (`/workspacify-*`, `/educe-sequences`, `/graphify-rfc`, `/spli
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
-**Exception to the above, scoped to this command only**: Step 1.5 below is a genuine `ask; stop` checkpoint — a literal, blocking wait for the user's answer. It is not a violation of this block; it is the one designed exception, and it is stated explicitly at its point of use.
+**Exception to the above, scoped to this command only**: the heading proposals of Step 1 — sub-steps 1-2 through 1-7 — are the one genuine `ask; stop` checkpoint of this file: a literal, blocking wait for the user's answer. The prohibition is narrowed there by exactly what those sub-steps require, and nowhere else: 1-2 presents options, and 1-5 delegates the choice of a content proposal to the human. It is not a violation of this block; it is the one designed exception, and it is stated explicitly at its point of use.
 
 # /crystalize-readme <graph-path>
 

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-232 @verifies C001
 // PX-232 @verifies C002
 // PX-232 @verifies C003
@@ -191,7 +192,7 @@ test('the command file states the gate, the shape rules, the block order, and th
   const command = readFileSync(COMMAND_PATH, 'utf8');
   const required = [
     '## The question gate (settle before drafting)',
-    'Four inferences this gate forbids',
+    'Five inferences this gate forbids',
     'A flag is not a ground and is not weight.',
     'not an exemption from it',
     '| W13 |',
