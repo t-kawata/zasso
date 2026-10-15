@@ -19,6 +19,7 @@ import path from 'node:path';
 import { CRITERION_BOUNDARY, criterionFindings } from '../sequences-slice/lib/distribution-criterion.mjs';
 import { DEMAND_AXES, measureCoverage, measureDischarge } from '../sequences-slice/lib/obligation-coverage.mjs';
 import { collectUnitIds } from '../sequences-slice/lib/material.mjs';
+import { obligationSourceOf } from '../sequences-slice/lib/view.mjs';
 import { resolveGround, sectionIdentifiersOf } from '../sequences-slice/lib/obligation-ground.mjs';
 import { toHomeRelative } from '../lib/path-utils.js';
 
@@ -62,16 +63,33 @@ function unresolvedLocations(ledgerRows) {
   return { unresolved };
 }
 
-/** The packages the allocation names, and the packages that carry a view. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+/**
+ * The packages the allocation names, and the packages a view reached.
+ *
+ * Two answers rather than one, because a view is a file and a carriage is a distribution: a
+ * projection written before the obligation relations existed exists, parses and holds nothing, so
+ * counting it as reached is how a workspace came to be reported complete while the distribution had
+ * visited almost none of it. They are reported apart for the same reason the gate already reports a
+ * declaration that did not bind apart from an unserved column — the two call for different repairs.
+ */
+// [::TICKET::] PX-263, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
 function packageCoverage(allocateManifest, views) {
   const named = new Set();
   for (const contract of allocateManifest?.contract_registry ?? []) {
     if (contract?.provider_package) named.add(String(contract.provider_package));
     if (contract?.consumer_package) named.add(String(contract.consumer_package));
   }
+  const namedPackages = [...named].sort();
   const withView = new Set(views.map((view) => String(view.packageId)));
-  return { named: [...named].sort(), withView: [...withView].sort() };
+  const carried = new Set(
+    views.filter((view) => obligationSourceOf(view) !== 'absent').map((view) => String(view.packageId)),
+  );
+  return {
+    named: namedPackages,
+    withView: [...withView].sort(),
+    carried: [...carried].sort(),
+    untransported: namedPackages.filter((packageId) => !carried.has(packageId)),
+  };
 }
 
 /**
@@ -80,11 +98,12 @@ function packageCoverage(allocateManifest, views) {
  * The clause id leads so a reader can scan the list, and the check that measured it is printed
  * beside the state so a short clause names where to look rather than only that something is short.
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
 function renderCriterionLines(findings) {
-  return findings.map((finding) => {
+  return findings.flatMap((finding) => {
     const state = finding.holds ? 'holds' : 'not established';
-    return `${finding.id} ${state} — ${finding.claim} (measured by ${finding.measuredBy})`;
+    const line = `${finding.id} ${state} — ${finding.claim} (measured by ${finding.measuredBy})`;
+    return finding.detail === null ? [line] : [line, `  ${finding.detail}`];
   });
 }
 

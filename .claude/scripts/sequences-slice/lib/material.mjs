@@ -12,6 +12,13 @@
  * point can quietly grow a second policy.
  */
 
+import { obligationSourceOf } from './view.mjs';
+import {
+  PACKAGE_VERDICT_NO_VIEW,
+  PACKAGE_VERDICT_UNREADABLE_VIEW,
+  PACKAGE_VERDICT_VIEW_PREDATES_THE_CARRIAGE,
+} from './package-verdict.mjs';
+
 /** The field current runs write into a session record. */
 export const MATERIAL_LIST_FIELD = 'materialPaths';
 
@@ -45,6 +52,49 @@ const REQUIRED_SOURCE_ARRAY_FIELDS = ['sequences', 'steps', 'operations'];
 export function materialPathsOf(record) {
   if (Array.isArray(record?.[MATERIAL_LIST_FIELD])) return [...record[MATERIAL_LIST_FIELD]];
   return record?.[LEGACY_MATERIAL_FIELD] ? [record[LEGACY_MATERIAL_FIELD]] : [];
+}
+
+/** The spelling a recorded path uses for the home directory, which no reader can open as it stands. */
+const HOME_PREFIX = '~';
+
+/**
+ * A recorded path, as the file system would need it written.
+ *
+ * A session records the path it was handed, and a path handed over by something other than a shell
+ * keeps its tilde: the shell expands one before the program ever sees it, and nothing else does.
+ * Every recorded path that begins with a tilde therefore read as missing, which made the staleness
+ * report a constant and hid the artifact the run was supposed to project from. The record keeps its
+ * own spelling — a human reads the list — and only the probe and the read use this.
+ *
+ * @param {string} materialPath
+ * @param {string|null} homeDirectory
+ * @returns {string}
+ */
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+export function expandHomePath(materialPath, homeDirectory) {
+  if (homeDirectory === null || homeDirectory === undefined || typeof materialPath !== 'string') return materialPath;
+  if (materialPath === HOME_PREFIX) return homeDirectory;
+  if (!materialPath.startsWith(`${HOME_PREFIX}/`)) return materialPath;
+  return `${homeDirectory.replace(/\/+$/, '')}/${materialPath.slice(HOME_PREFIX.length + 1)}`;
+}
+
+/**
+ * Why a view is not the projection this run would write, or null when it is.
+ *
+ * Existence was the whole rule before, and a view that exists is not the same fact as a view a
+ * writer that knew about obligations produced: the first is answered by a file, the second by the
+ * field only such a writer sets. The reasons are the verdict's own words rather than a second
+ * vocabulary, because a reader comparing the two would otherwise have to know that two spellings
+ * mean one state.
+ *
+ * @param {{ viewExists: boolean, viewDocument: object|null }} input
+ * @returns {string|null}
+ */
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+function viewStalenessOf({ viewExists, viewDocument }) {
+  if (!viewExists) return PACKAGE_VERDICT_NO_VIEW;
+  if (viewDocument === null) return PACKAGE_VERDICT_UNREADABLE_VIEW;
+  return obligationSourceOf(viewDocument) === 'absent' ? PACKAGE_VERDICT_VIEW_PREDATES_THE_CARRIAGE : null;
 }
 
 /** Whether a name is one of the two generated view files. */
@@ -144,6 +194,7 @@ function readSessionRecord({ readFile }, statusPath) {
  * @param {{
  *   rfcDir: string,
  *   sessionDir?: string|null,
+ *   homeDirectory?: string|null,
  *   io: {
  *     readFile: (path: string) => string|null,
  *     fileExists: (path: string) => boolean,
@@ -154,7 +205,7 @@ function readSessionRecord({ readFile }, statusPath) {
  * @returns {object}
  */
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
-export function findSequenceMaterial({ rfcDir, sessionDir = null, io }) {
+export function findSequenceMaterial({ rfcDir, sessionDir = null, homeDirectory = null, io }) {
   const { readFile, fileExists, basename, join } = io;
   const candidateRecords = [
     ...(sessionDir === null ? [] : [join(sessionDir, STATUS_FILENAME)]),
@@ -171,17 +222,26 @@ export function findSequenceMaterial({ rfcDir, sessionDir = null, io }) {
     if (record.readable && materialPaths.length === 0) materialPaths.push(...record.materialPaths);
   }
 
-  const staleMaterialPaths = materialPaths.filter((materialPath) => !fileExists(materialPath));
-  const source = materialPaths.find((materialPath) => isUsableSourceArtifact({ readFile }, materialPath)) ?? null;
+  const openablePathOf = (materialPath) => expandHomePath(materialPath, homeDirectory);
+  const staleMaterialPaths = materialPaths.filter((materialPath) => !fileExists(openablePathOf(materialPath)));
+  const source = materialPaths
+    .map(openablePathOf)
+    .find((resolvedPath) => isUsableSourceArtifact({ readFile }, resolvedPath)) ?? null;
 
   const viewPath = join(rfcDir, VIEW_MARKDOWN_NAME);
   const view = fileExists(viewPath) ? viewPath : null;
+  const viewStalenessReason = viewStalenessOf({
+    viewExists: view !== null,
+    viewDocument: parseDocumentOrNull(readFile(join(rfcDir, VIEW_JSON_NAME))),
+  });
 
   return {
     present: source !== null || view !== null,
     source,
     view,
     viewExists: view !== null,
+    viewIsCurrent: viewStalenessReason === null,
+    viewStalenessReason,
     materialPaths,
     staleMaterialPaths,
     recordedViewNames: materialPaths.filter((materialPath) => isViewName(basename(materialPath))),
@@ -189,6 +249,22 @@ export function findSequenceMaterial({ rfcDir, sessionDir = null, io }) {
     rfcDir,
     sessionDir,
   };
+}
+
+/**
+ * A document, or null when the text is absent or is not one.
+ *
+ * A view that cannot be read is reported as a staleness of its own rather than as an absence, because
+ * the two call for different repairs and the run has to be able to say which it found.
+ */
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+function parseDocumentOrNull(text) {
+  if (text === null || text === undefined) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 /** The session directory a drill keeps under the package. */

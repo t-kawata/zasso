@@ -14,9 +14,76 @@
  * and reports the result as JSON on STDOUT.
  */
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 import { AI_SUPPLEMENT_COMMENT } from "./lib/checklist-fence.mjs";
+import {
+  VIEW_JSON_NAME,
+  VIEW_MARKDOWN_NAME,
+  expandHomePath,
+  findSequenceMaterial,
+  isUsableSourceArtifact,
+  nodeFileSystem,
+  SOURCE_ARTIFACT_SUFFIX,
+} from "../sequences-slice/lib/material.mjs";
+import { ProjectionRefused, projectPackageView } from "../sequences-slice/lib/project-package.mjs";
+
+const HOME_DIRECTORY = os.homedir();
+
+/**
+ * The view this run was handed an artifact for, made current.
+ *
+ * A session records the material it was given and then reads whatever is on disk, so a view
+ * projected from an older artifact was read as material by every later run and nothing in the run's
+ * own state said it predated the obligation carriage. The repair belongs at initialization rather
+ * than in the command's prose because the arguments are already here: the run cannot forget a step
+ * it never had to take.
+ *
+ * It happens only when an argument names an artifact, which is the condition under which a run owes
+ * this directory a carriage at all. A session resumed with no artifact — the ordinary case for a
+ * project that has none — reaches none of this and writes nothing.
+ *
+ * The two view files are recorded as material in the same step, because the strict readers walk
+ * the recorded list: a view that was written and not recorded is a view the run does not read.
+ *
+ * The artifact is looked for in what the session recorded and in what this invocation was handed,
+ * because on the run that first reaches a directory the artifact is only in the second: the session
+ * record is written at the end of this function, so it cannot be the only place the argument is
+ * read from. An unusable artifact that is still on disk is attempted anyway, so the refusal names
+ * what is wrong with it instead of the run reporting that it had nothing to do.
+ *
+ * @param {string} rfcDir
+ * @param {string[]} givenMaterialPaths — this invocation's arguments, already resolved
+ * @returns {{ refreshed: Array<{view: string, packageId: string}>, recordedMaterials: string[], reason: string|null }}
+ */
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+function refreshRecordedView(rfcDir, givenMaterialPaths) {
+  const io = { ...nodeFileSystem(fs), basename: path.basename, join: path.join };
+  const answer = findSequenceMaterial({ rfcDir, homeDirectory: HOME_DIRECTORY, io });
+  const candidates = [
+    ...answer.materialPaths.map((materialPath) => expandHomePath(materialPath, HOME_DIRECTORY)),
+    ...givenMaterialPaths,
+  ].filter((materialPath) => materialPath.endsWith(SOURCE_ARTIFACT_SUFFIX));
+
+  const artifactPath = candidates.find((materialPath) => isUsableSourceArtifact(io, materialPath))
+    ?? candidates.find((materialPath) => fs.existsSync(materialPath))
+    ?? null;
+  if (artifactPath === null) return { refreshed: [], recordedMaterials: [], reason: null };
+  const recordedMaterials = [
+    path.join(rfcDir, VIEW_MARKDOWN_NAME),
+    path.join(rfcDir, VIEW_JSON_NAME),
+  ];
+  if (answer.viewIsCurrent) return { refreshed: [], recordedMaterials, reason: null };
+
+  try {
+    const written = projectPackageView(artifactPath, rfcDir);
+    return { refreshed: [{ view: VIEW_JSON_NAME, packageId: written.packageId }], recordedMaterials, reason: null };
+  } catch (error) {
+    if (!(error instanceof ProjectionRefused)) throw error;
+    return { refreshed: [], recordedMaterials: [], reason: error.message };
+  }
+}
 
 /** The one name a grill run gives the design document it writes. */
 const CANONICAL_RFC_FILENAME = "RFC.md";
@@ -27,7 +94,8 @@ if (!packageDir) {
   process.exit(1);
 }
 
-const materialPaths = process.argv.slice(3).map((materialPath) => path.resolve(materialPath));
+const materialPaths = process.argv.slice(3)
+  .map((materialPath) => path.resolve(expandHomePath(materialPath, HOME_DIRECTORY)));
 const missingMaterials = materialPaths.filter((materialPath) => !fs.existsSync(materialPath));
 if (missingMaterials.length > 0) {
   console.error(`Material not found: ${missingMaterials.join(", ")}`);
@@ -110,14 +178,18 @@ if (mode === "resume") {
   // something, which is what lets a completed session tell "a viewpoint arrived
   // afterwards" apart from "this run finished and nothing has happened since".
   status.updatedAt = new Date().toISOString();
+  const refresh = refreshRecordedView(rfcDir, materialPaths);
+  const withViews = mergeMaterialPaths(merged, refresh.recordedMaterials);
+  if (added.length > 0 || withViews.added.length > 0) {
+    status.materialPaths = withViews.merged;
+    status.researchPath = withViews.merged[0] ?? "";
+  }
   if (added.length > 0) {
-    status.materialPaths = merged;
-    status.researchPath = merged[0] ?? "";
     status.materialsAddedAt = status.updatedAt;
   }
   fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf-8");
 
-  process.stdout.write(JSON.stringify({ mode: "resume", status, addedMaterials: added }) + "\n");
+  process.stdout.write(JSON.stringify({ mode: "resume", status, addedMaterials: added, ...refresh }) + "\n");
   process.exit(0);
 }
 
@@ -145,6 +217,16 @@ const statusTemplate = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
+
+// A directory being initialized is the first run in it, and the branch that used to project its
+// view was the manual step the command no longer states. Without this the first run in every
+// directory would end with no view, which is the state the sequences rail then reads as nothing
+// to do. The refresh is the same call the resume path makes, so there is one answer to what a
+// view contains rather than one per branch.
+const refresh = refreshRecordedView(rfcDir, materialPaths);
+const withViews = mergeMaterialPaths(statusTemplate.materialPaths, refresh.recordedMaterials);
+statusTemplate.materialPaths = withViews.merged;
+statusTemplate.researchPath = withViews.merged[0] ?? "";
 fs.writeFileSync(statusPath, JSON.stringify(statusTemplate, null, 2), "utf-8");
 
 // DesignTree.json template
@@ -178,10 +260,12 @@ if (schemaErrors.length > 0) {
 process.stdout.write(JSON.stringify({
   mode: "new",
   rfcDir,
-  materialPaths,
+  status: statusTemplate,
+  materialPaths: statusTemplate.materialPaths,
   files: {
     status: statusPath,
     tree: treePath,
     checklist: checklistPath,
   },
+  ...refresh,
 }) + "\n");

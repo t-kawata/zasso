@@ -72,9 +72,18 @@ export const CRITERION_CLAUSES = Object.freeze([
   },
   {
     id: 'K8',
-    claim: 'every package the allocation names carries a view, so the distribution reached every directory rather than most of them',
+    // The claim says the distribution reached every directory, and a view is not a distribution: a
+    // projection written before the obligation carriage existed is a file that exists and an
+    // obligation set that is empty. Measured over one workspace: the allocation named 29 packages,
+    // 26 held a view, and one of those 26 held a view the carriage had reached. Evaluated over
+    // every parseable view the clause therefore reported the distribution complete for
+    // twenty-five directories nothing had been distributed to.
+    claim: 'every package the allocation names holds a view projected with the obligation carriage, so the distribution reached every directory rather than most of them',
     measuredBy: 'readViews',
-    evaluate: ({ packages }) => packages.named.every((packageId) => packages.withView.includes(packageId)),
+    evaluate: ({ packages }) => packages.named.every((packageId) => packages.carried.includes(packageId)),
+    describe: ({ packages }) => (packages.untransported.length === 0
+      ? null
+      : `not carried: ${packages.untransported.join(', ')}`),
   },
 ]);
 
@@ -94,7 +103,8 @@ export const CLAIM_CLAUSES = Object.freeze([
   { pattern: /every unit every view holds is accounted for/i, clause: 'K5' },
   { pattern: /exemption names the package/i, clause: 'K4' },
   { pattern: /every axis is measured against a structure the workspace holds/i, clause: 'K1' },
-  { pattern: /every package the allocation names carries a view/i, clause: 'K8' },
+  { pattern: /every package the allocation names (carries a view|holds a view projected with the obligation carriage)/i, clause: 'K8' },
+  { pattern: /the distribution reached every directory/i, clause: 'K8' },
 ]);
 
 /** The sentence a gate writes to state what it claims, which is the text the closure reads. */
@@ -151,14 +161,19 @@ export function uncoveredClaims(sourceText) {
  * One finding per clause, in the criterion's own order.
  *
  * @param {{ coverage: object, discharge: object, locations: object, packages: object, gateSource: string }} context
- * @returns {Array<{ id: string, claim: string, measuredBy: string, holds: boolean }>}
+ * @returns {Array<{ id: string, claim: string, measuredBy: string, holds: boolean, detail: string|null }>}
  */
 // [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function criterionFindings(context) {
   return CRITERION_CLAUSES.map((clause) => ({
     id: clause.id,
     claim: clause.claim,
     measuredBy: clause.measuredBy,
     holds: clause.evaluate(context) === true,
+    // What the clause saw, when the clause can say it. A finding that reports only that a clause is
+    // short leaves the reader to work out which directories to open, which is the work this value
+    // exists to remove.
+    detail: typeof clause.describe === 'function' ? clause.describe(context) ?? null : null,
   }));
 }

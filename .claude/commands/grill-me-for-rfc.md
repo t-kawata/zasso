@@ -20,6 +20,59 @@ Interactive grill session for writing an RFC design document under strict constr
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+## ★ Cross-directory resolution (first-class, top priority)
+
+A grill reads records. Some of what it reads is wrong, and a design that cannot be
+implemented is wrong whatever its records say. A run that only answers questions carries
+the wrongness forward — and a defect whose fix lives in another directory is invisible to
+a run that never looks outside its own.
+
+A **defect** is a place where the design cannot be implemented: a **contradiction**
+(two statements cannot both hold), a **conflict** (two declarations compete for one
+thing, or one side demands an outcome the other cannot produce), or a **deficiency**
+(a name is used but not defined, a contract is missing, a boundary is unstated). The
+test is one question: can an implementer read this design and write the implementation
+to the end, inventing nothing? A place where they must invent is a defect.
+
+- **resolve all of them**: every defect this run finds is resolved before the run declares
+  DONE. "Recorded and left open" is not a disposition this command admits.
+- **the inspection is the whole workspace**: this package is a part. Read the neighbours'
+  designs, not only their appendices, and check the composition — that the types this
+  document names are the types its neighbours pass, that its ordering claims are the ones
+  they assume, that every edge names a counterpart that exists. A part is implementable
+  only in composition.
+- **the target may be another directory**: a defect owned by another package is resolved by
+  correcting that package's artifacts. Reaching across directories is the expected case,
+  not an exception.
+- **the edit surface is what this command generates**: `RFC.md`, `DesignTree.json`,
+  `CheckList.md` and `Status.json` are editable **anywhere**. `RFC-SEED.md`,
+  `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md`, the `WORKSPACIFY-*.json` manifests and the
+  specification are **never** edited: their hashes are recorded and chained.
+  `guard-edit-surface.js` refuses them by name.
+- **a seed defect is resolved in the output, not in the input**: where a stage-1 artifact
+  asserts something a higher record contradicts, the resolution is the RFC naming the
+  contradiction, taking the correct reading, and indexing it in the ledger. That is a
+  resolution, not a deferral.
+- **verify before carrying**: a defect inherited from another package's appendix is a
+  *reading*, not a record. Open the cited section with `show-record.js` and confirm it
+  before it travels. A false defect propagates: one reached two RFCs and a checklist before
+  anyone read the source.
+- **follow the fix downstream**: after a cross-directory fix, every artifact that recorded
+  the defect as live is corrected — the target's, and the recording package's.
+- **an unread neighbour is not a clean neighbour**: "no defect found" is a result, and the
+  ledger records the checks that produced it. A run that did not look has not cleared
+  anything.
+
+Gates this section adds, carried outside the shared question-gate block:
+
+- **G6 defects** — every defect found in any package is resolved: `resolved-here`,
+  `resolved-other` (naming the directory and the date) or `withdrawn`. None is `open`. No
+  input artifact was edited. The seed divergence ledger and the defect ledger are both
+  present and well formed, and the defect ledger records the composition checks performed.
+
+Rule: G5 and G6 are both required for DONE; a run may not trade one for the other.
+Prohibition: never resolve a G6 failure by recording the defect and moving on.
+
 <!-- question-gate:begin -->
 ## Core Rule
 
@@ -211,6 +264,8 @@ node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" $ARGUMENTS
 ```
 generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING), and records the material list and the fixed RFC path in `Status.json`. A material path that does not exist is reported and the run stops before writing anything.
 
+It also makes the recorded view current, in this call and under the same condition the sequences rail below is owed at all: when one of the arguments names a `*-sequences.json`. A view projected from an older artifact was read as material by every later run and nothing in the run's state said it predated the obligation carriage, so the repair is done where the arguments already are rather than as a step a run has to remember. It reports what it refreshed in `refreshed`, and it records the two view files it wrote as material in the same step, because a view written and not recorded is a view the strict readers never walk. With no artifact among the arguments nothing of this runs and the files are exactly what they were.
+
 ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (the RFC may or may not exist yet — first written at STEP 5).
 ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete the old RFC, re-run `init.js`.
 
@@ -223,6 +278,29 @@ node .claude/scripts/grill-me-for-rfc/canon-state.js "$RFC_DIR"
 ```
 
 exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
+
+Sequence material — an optional input this run may have been handed. `sequences-material.js` is the tolerant reader: it reports whether a sequences artifact or a generated per-package view is available, and it exits 0 for every input, so it can never stop the command. It runs here, after the guard and before the strict reader below, because that ordering is what keeps a recorded-but-deleted view from wedging the session.
+
+```bash
+node .claude/scripts/grill-me-for-rfc/sequences-material.js "$RFC_DIR"
+```
+
+one JSON object: `present`, `source`, `view`, `viewExists`, `viewIsCurrent`, `viewStalenessReason`, `materialPaths`, `staleMaterialPaths`, `searched`. `searched` names every record read and whether it could be read, so an answer of "absent" can always be explained rather than taken on trust.
+
+- `present` false → this package has no sequences material. Read no sequences and continue; the run is exactly the run it would have been before this input existed.
+- `present` true and `view` non-null → the view is already at `$RFC_DIR/SEQUENCES.md`. Read it as material alongside the files below.
+- `present` true and `view` null → the view is missing. Initialization has already written it and recorded it when the arguments name an artifact, so there is nothing to run here; when the arguments name none, this package owes no carriage and the run continues without one. A view that was recorded and then deleted is regenerated by that same call, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable.
+- `viewIsCurrent` false with a view on disk → the view is there and was written by a reader that did not know about obligations. Initialization has replaced it when an artifact is among the arguments. `viewStalenessReason` names which absence it is, in the same words the verdict uses, and it is printed so a run that named no artifact can tell that this directory still owes a carriage.
+
+The carriage read says which directory needs what. It is advisory, in the shape `report-obligation-state.js` has always had:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/report-obligation-state.js "$WORKSPACE_ROOT" $ARGUMENTS
+```
+
+It prints the two gate summaries it has always printed, and — only when one of the arguments ends in `-sequences.json` — a section per directory naming the state, the reason in words, every unit the directory has carried and not accounted for, what has to be written, and the commands that verify it afterwards. It exits 0 on every path, so it is a read and not a second blocking point; the blocking stays with the gate at STEP 8. A directory the section reports as failed is the one to open next, and the units it lists are the rows the ledger is missing.
+
+Do not pass the view paths to `preflight`-style material walking, and never hand them back to `/educe-sequences`: its supplied-material rail absorbs and deletes per-crate artifacts, which is the mechanism that removed them in the first place.
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
@@ -250,6 +328,64 @@ after reading all research material, before the first grill question: generate i
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
 ```
+
+Before a node is seeded, the demand is settled — a unit that does not exist yet cannot be seeded, so resolving a demand afterwards would leave every unit it created without a node, a header and a ledger row.
+
+```bash
+node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+```
+
+The gate names every demand no relation and no recorded judgment covers, by axis and id. Resolve each one by the cheapest faithful route first: a side of a boundary the allocate manifest already names, a surface route through an interface the package declares, an ownership reach. Only where no route exists does the run make the judgment itself, and it records that judgment in the package's obligation record — `OBLIGATION.json` beside the package's own documents — with a ground naming the specification evidence it rests on. The record is writable; the stage-1 inputs and the generated views are not, and a judgment written into one of those would be indistinguishable from the material it was derived from.
+
+```bash
+node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json" "<package-dir>"
+node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json"
+```
+
+The first form projects the one package directory. The second takes the artifact alone and projects a view for every package the allocation names that carries none, leaving the packages that already carry one byte-identical — which is the form that reaches the directories no run has been in, and the only one that can close K8 once and for all rather than one directory per session. It reports `projected`, `present` and `reported` apart, because a package the allocation names and the material cannot carry is the residue `check-distribution-completeness.js` reads as K8, and that residue is repaired by what the reason names, not by running the command again in the same place.
+
+A candidate column that is not an interface is adjudicated away in the same record, as an `adjudications` row of `{ column, ground }` — the artifact's own `exemptions` array is written only by a readings pass, so the record is the route a run can take. An operation or a sequence is never exempted from either route: a grounded row naming one is refused by name, the demand stays unassigned, and the reason is the rule it broke, because the duty is placed and never removed. A column may be adjudicated away with its ground, and a declaration is accepted only when every value of its column instantiates the vocabulary it declares — a column whose values the vocabulary does not cover is a declaration about something other than what it says it is, and the gate names it instead of counting it.
+
+The gate also reports the **denominator**: one line naming what each axis is measured against, and a gap for every axis the workspace cannot answer for because nothing outside the artifact states it. A gap is not an unassigned demand and assigning faster does not repair it — the demand list is complete against nothing, and placing every member of a list nobody checked is not the guarantee. The repair travels with the gap: supply the census material for the operations and entries roles beside the run, or declare the interfaces for the surfaces. A gap withholds the verdict without stopping the run, in the same shape as a workspace holding no artifact, where the refusal is the gate's answer rather than unfinished work — the run continues and records what it resolved.
+
+The whole of that is answered in one place when the loop is done:
+```bash
+node .claude/scripts/grill-me-for-rfc/check-distribution-completeness.js "$WORKSPACE_ROOT"
+```
+It prints one line per clause of the distribution criterion — the denominator, the placement, the grounds, the exemptions, the ledger in both directions, the ledger locations, the claim closure and the reach — each with the check that measured it, and it prints the boundary line saying that whether the specification names every procedure the project needs is not measured by any of them. A short clause is repaired by the act its own line names, and a run is never refused over one: the rail writes and the gate withholds.
+
+Then run the gate again: the views carry the units the record placed, and the report names the correspondingly smaller list. Repeat until no demand is unassigned. The re-projection above is run for **every** package the tree manifest names, not for one of them.
+
+A target that carries no obligation record at all is the ordinary case: the gate names every demand, the run resolves what it can, and the second run differs from the first only by what it resolved.
+
+A target that carries **no sequences artifact** is a different case and not unfinished work: the demand cannot be measured there at all, the gate refuses by name — `refused: <root> does not hold both an artifact and a WORKSPACIFY-ALLOCATE-MANIFEST.json` — and the run proceeds exactly as it did before the obligation existed. Do not read that refusal as a demand to resolve; there is nothing to resolve until the workspace has an artifact.
+
+Every grounded judgment must cite evidence the workspace holds: a line or a line range of the specification, a section id the artifact carries, or an id it names. A ground that cites nothing, or that cites something the artifact does not hold, leaves its demand unplaced and is reported by name. The gate prints what it does and does not guarantee — the placement is checked, the judgment behind it is not.
+
+Nodes also come from the material. When STEP 0 found sequences material, `$RFC_DIR/SEQUENCES.md` names the units this package must implement, and each becomes a node with the unit's own id:
+
+- one node per owned operation, id `op-<operationId>`;
+- one node per sequence this package owns, id `seq-<sequenceId>`;
+- one node per sequence that crosses this package boundary, id `xdir-<sequenceId>`, carrying its steps as child nodes, because a cross-boundary sequence is work that reaches beyond this package and its steps are what a reader needs to see.
+
+Nodes also come from the obligation section, `$RFC_DIR/SEQUENCES.md` under `## Obligation`, and it is seeded beside the three lists above:
+
+- one node per boundary this package holds a side of, id `ctr-<boundaryId>`, because a boundary is work two packages owe and the contract states the clauses each side must honour;
+- one node per declared surface, id `obl-<interfaceId>`, because a surface owes the whole path to every operation the artifact records against it.
+
+A view carrying no obligation section is `absent`: regenerate it, or report `absent` with the reason. A view is never treated as a satisfied obligation set because it is silent.
+
+An id is used exactly as the view spells it, for the obligation units as for the three lists. Nothing is renamed, because the distribution ledger is checked against these ids and a renamed node would look like an undisclosed unit.
+
+When STEP 0 found no sequences material there are no such nodes and nothing changes: the tree is seeded from the research material exactly as before.
+
+Ask what the registry obliges rather than testing whether the material is there — the obligation set is what the gates loop over, and an empty one is the ordinary case:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/sequences-ledger.js "$RFC_DIR" --stage=upstream
+```
+
+Verdicts use the machine vocabulary: `proved` and `not proved`. The words success and failure are not verdicts.
 
 ---
 
@@ -337,6 +473,12 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
 ```
 
+Before proposing the end, gate the coverage: every demand of every axis is assigned to a named package or adjudicated away with a ground. An unassigned demand is reported by axis and by id, and the session does not end while one stands.
+```bash
+node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+```
+A declaration that bound to no unit is reported apart from an unserved demand, because the two call for different repairs. So is a refused exemption: a grounded adjudication row naming an operation or a sequence is refused by name, the demand it named stays unassigned, and the reason is the rule it broke — that exemption would delete a duty rather than place it. A grounded exemption that names no `carriedBy` is refused the same way, because an exemption places a demand only when it says which package the duty went to, and a row naming nobody would otherwise read as a placement while the demand stayed owed. The report also prints the assigned count and the relation mix per axis, and which package was handed what, so a workspace that placed everything on one package is visible rather than summarised away. The denominator line is printed before the partition, so a count of assigned demands is readable against what it was measured against: an axis resting on a borrowed census means one thing and an axis resting on the artifact's own reading means another. An unstated axis is named with the structure to supply, apart from the unassigned list, because the two are repaired by different acts.
+
 ---
 
 ### STEP 4: CheckList.md Generation
@@ -345,6 +487,7 @@ user approves → generate mechanically:
 ```bash
 node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR"
 ```
+The generator emits one row per node in the tree, so the units seeded at STEP 1 reach the checklist with no generator change: an `op-` node is a row, and a `seq-` or `xdir-` node carries its own. A package with no sequences material has no such nodes and its checklist is exactly the checklist it would have had.
 structure (two-level):
 ```
 ## §N Section Name  ← top-level node
@@ -384,10 +527,45 @@ The grill writes the whole RFC from the settled tree. The tree holds the decisio
 - a single RFC document stands alone as a complete design fully covering the entire Design Tree
 - every design decision accompanied by a code example
 - IETF-style structure: Abstract / Motivation / Design / Implementation / Appendix
+- the document carries a **seed divergence ledger** appendix (STEP 5b)
+- the document carries a **defect ledger** appendix (STEP 7b)
+- every type, trait, constant and operation the document names is **defined in this document
+  or named with the record that defines it** — a name used and defined nowhere is a deficiency
+- every cross-package edge states its **counterpart**: the artifact on the other side and the
+  type or contract that crosses it
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state WRITING
 ```
+
+---
+
+### STEP 5b: Seed divergence ledger
+
+The RFC carries an appendix titled **Seed divergence ledger**. Its job is the precedence
+question a reader otherwise has to guess at: this document is canonical, and the three
+stage-1 artifacts beside it are inputs.
+
+It contains, in this order:
+
+1. a **precedence statement** — `RFC.md` is canonical; `RFC-SEED.md`, `INFO-RFC-SEED.md` and
+   `EXPLAIN-RFC-SEED.md` are the stage-1 inputs this run read, not authorities; where a
+   reader finds one of them disagreeing, this ledger is the index;
+2. the **reason the seed is not edited** — its header marks the reference paths, the
+   implementation order and the contract ids as machine-injected and states that "a
+   disagreement with the manifests is a gate failure", and `INFO-RFC-SEED.md` records the
+   seed's sha256, so a rewrite breaks both the gate and the chain;
+3. a **table**, one row per departure:
+   `Artifact | Location | What the artifact says | What this document decides | Ground`;
+4. a **testable form** — a `DIVERGENCES` const and a test asserting every row names one of
+   the three stage-1 artifacts and a resolvable location, so a departure cannot quietly
+   disappear.
+
+A package with **no** departure still carries the appendix, and it records the **checks**
+that establish that. "No departure" is a result, not an omission, and it must be auditable
+rather than trusted.
+
+gate: `node .claude/scripts/grill-me-for-rfc/check-divergence-ledger.js "$RFC_DIR"`
 
 ---
 
@@ -435,9 +613,58 @@ fi
 
 ---
 
+### STEP 7b: Cross-directory defect resolution
+
+Every defect this run found is resolved, including the ones no fix inside this directory
+can reach. A defect is a contradiction, a conflict or a deficiency — a place where the
+design cannot be implemented. The inspection covers the workspace: the neighbours'
+designs, not only their appendices.
+
+1. Name each defect's **class** and its **target**: the directory whose artifact is wrong.
+2. Guard the edit surface before touching it.
+   ```bash
+   node .claude/scripts/grill-me-for-rfc/guard-edit-surface.js "<TARGET_PATH>"
+   ```
+   exit 1 → the path is an input and MUST NOT be edited. Resolve the defect in the owning
+   RFC's output instead, and never in the seed.
+3. Correct the target's `RFC.md`, and settle a DesignTree node there so the fix passes that
+   package's own gate. Regenerate its `CheckList.md`, and return its `Status.json` to DONE.
+4. Correct every other artifact that recorded the defect as live — the recording package's
+   RFC and checklist included. A resolution that exists only in the target is a defect in
+   the record that still asserts it.
+5. Write the **defect ledger** appendix (format below) and return here to re-run STEP 6 →
+   STEP 8: the cross-directory fix invalidates every record that read the old text.
+
+**Defect ledger format.** The appendix title ends with `Cross-directory defect ledger`.
+One table, six columns, in this order:
+
+| Defect | Class | Target | Disposition | Evidence | Ground |
+|---|---|---|---|---|---|
+
+- `Class` — `contradiction`, `conflict` or `deficiency`. No other value.
+- `Target` — repository-relative path of the artifact that must change; it ends in `RFC.md`.
+- `Disposition` — `resolved-here`, `resolved-other` or `withdrawn`. `open` and `unresolved`
+  are not members of this vocabulary.
+- `Evidence` — `resolved-other`: `<target> @ YYYY-MM-DD`; `resolved-here`: `§<section>`;
+  `withdrawn`: the artifacts the withdrawal was recorded in.
+- `Ground` — the record that makes the disposition right. Never empty.
+
+A package with **no** defect still carries the appendix, and it carries a **composition
+check** subsection listing the neighbours whose designs were read and what was checked —
+types crossing each edge, ordering claims, contract counterparts. "No defect" is a result,
+not an omission.
+
+gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> --gate`
+
+---
+
 ### STEP 8: RFC Completion Declaration
 
-gate (all 3 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body.
+gate (all 9 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" $ARGUMENTS` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
+
+The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
+
+Re-running over a workspace projected by an older rail must succeed, require no new workspace, destroy nothing, and leave the workspace carrying the obligation section: an old projection is a target to bring forward, never a reason to refuse.
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```
@@ -464,6 +691,10 @@ command handles it — the human is never asked to run anything again.
 3. A re-entry round follows the same rules as any round: it asks a new axis built from the
    added node and the still-open nodes only (W6), it never renumbers a question (W7), and it
    never overwrites an answer already written (W8). `loop-count > 3` is reported as STEP 7 says.
+4. A defect whose target is another package re-enters **that** package, not this one:
+   `guard-edit-surface.js` the target, correct its `RFC.md`, settle a node there, then
+   re-run that package's STEP 6 → STEP 8 before returning here. A cross-directory fix that
+   leaves the target's gates unrun is not a fix.
 
 Re-entry is this command's own loop. STEP 5's RFC prose is written once the grill closes
 again, so the document never carries a decision the re-entry round has not settled.
