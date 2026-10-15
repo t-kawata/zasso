@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:704`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:724`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -85,12 +85,20 @@ point at a limb. The brief now states it, a ruling that applies it names the lim
 and the report prints how many limbs were cited and how many were not, so a predicate that
 nothing decided by is visible as a number rather than as an absence.
 
+Which rulings those are, and which field carries the answer, are declared once in the
+artifact schema and read from it, as the other closed vocabularies are. The rulings
+themselves are read from the artifact rather than from one collection named for them: an
+entry's outcome comes from the reading that judged it and an adjudication's is recorded
+beside it, and both are drawn from that one vocabulary. A check that selected by a
+collection's name and a list written into the code measured nothing at all over a
+specification whose rows are worded differently, and reported green while doing it.
+
 A neighbour is selected by citation: the entry that cites a line inside the entry's own
 span, at `pins.mjs:311`. A neighbour that merely covers the span is not a candidate — that
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
-The integrator at `reading.mjs:405` proves every field of every reading before anything is
+The integrator at `reading.mjs:414` proves every field of every reading before anything is
 written, and a refusal leaves the artifact byte-identical to its state before the call. A
 partial write is the failure that module exists to make impossible.
 
@@ -124,7 +132,7 @@ without recorded readings is refused at the first `[read]` phase by design.
 ## 7. The phase driver
 
 A phase table is a claim until something evaluates it. The eighteen phases are declared
-once, at `gates.mjs:146`, and each entry carries its tag, the phases it requires, the edge
+once, at `gates.mjs:147`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
@@ -229,7 +237,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:303` before anything downstream sees them. Two files are
+line by line at `readings.mjs:309` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 
@@ -325,7 +333,7 @@ would give one fact two homes and compare counts where the artifact itself is av
 The consequence is that a loss is refused at the generation that causes it, which is the
 earlier and the more useful refusal.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:506` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:510` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
 is the same revision — and `phases.mjs:428` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the

@@ -136,7 +136,8 @@
       "kind": "entry",
       "firstLine": 1,
       "lastLine": 23,
-      "outcome": "notASequence"
+      "outcome": "notASequence",
+      "predicateLimb": "none-applies"
     },
     {
       "id": "admission",
@@ -150,7 +151,8 @@
       "kind": "entry",
       "firstLine": 27,
       "lastLine": 33,
-      "outcome": "notASequence"
+      "outcome": "notASequence",
+      "predicateLimb": "none-applies"
     },
     {
       "id": "settlement",
@@ -165,7 +167,8 @@
       "kind": "entry",
       "firstLine": 36,
       "lastLine": 48,
-      "outcome": "notASequence"
+      "outcome": "notASequence",
+      "predicateLimb": "none-applies"
     },
     {
       "id": "settlement-replays-admission",
@@ -180,7 +183,8 @@
       "kind": "entry",
       "firstLine": 51,
       "lastLine": 58,
-      "outcome": "notASequence"
+      "outcome": "notASequence",
+      "predicateLimb": "none-applies"
     },
     {
       "id": "non-operation",

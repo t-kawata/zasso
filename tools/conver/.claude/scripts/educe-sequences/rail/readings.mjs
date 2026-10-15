@@ -1,3 +1,4 @@
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // The files the reading phases exchange (PX-240, the phase driver).
 //
 // A reading phase is where a machine cannot go, so what it hands back has to be a
@@ -148,16 +149,21 @@ export const READING_FIELDS = Object.freeze(['subject', 'outcome', 'reader']);
 export const NEIGHBOUR_FIELD = 'neighbour';
 
 /**
- * The limb a ruling that something is not an operation must name.
+ * The limb a ruling that something is not an operation must name, and which rulings owe one.
  *
- * Required of `notASequence` and `excluded` readings and of no others, because those are
- * the rulings that apply the predicate. The value is either one of the declared limbs or
- * the literal below: no limb applying is a finding, and a vocabulary that had no word for
- * it would force the reader to invent one.
+ * Required of the rulings that apply the predicate and of no others, because a ruling that
+ * says an entry is not an operation has decided the predicate and a ruling that says it is a
+ * single step has not. The value is either one of the declared limbs or the literal for no
+ * limb applying: no limb applying is a finding, and a vocabulary that had no word for it would
+ * force the reader to invent one.
+ *
+ * All three are declared in `artifact-schema.json` and read by `load.mjs`, which owns what the
+ * artifact's words mean, and re-exported here so a reader imports the vocabulary from the
+ * reading side without a second copy existing. A literal kept here bound no project to it: a
+ * check selecting by one examined nothing at all over a specification whose rows are worded
+ * differently, which is how it stayed green while measuring nothing.
  */
-export const PREDICATE_LIMB_FIELD = 'predicateLimb';
-export const NO_LIMB_APPLIES = 'none-applies';
-export const LIMB_RULING_OUTCOMES = Object.freeze(['notASequence', 'excluded']);
+export { LIMB_RULING_OUTCOMES, NO_LIMB_APPLIES, PREDICATE_LIMB_FIELD } from './load.mjs';
 
 /**
  * The fields a step must carry to be grounded in the document it was read from.

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // Composing the artifact from the specification and one run's readings (PX-240).
 //
 // The declaration says what to look for and the readings say what was found; both
@@ -8,7 +9,7 @@
 import { basename } from 'node:path';
 
 import { demandFactsBeside } from './demand.mjs';
-import { readArtifactSchema } from './load.mjs';
+import { PREDICATE_LIMB_FIELD, carriesValue, readArtifactSchema } from './load.mjs';
 import { establishPins } from './pins.mjs';
 import { digestOfSupplied } from './supplied.mjs';
 
@@ -50,6 +51,13 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
         ...entry,
         outcome: reading?.outcome ?? null,
         ...(reading?.neighbour === undefined ? {} : { neighbour: reading.neighbour }),
+        // The limb travels with the row for the same reason the neighbour does: a check that
+        // asks a ruling to cite one reads the artifact, not the reading, and a fact left behind
+        // in the reading is a fact no check can see. A key carrying no answer is not carried,
+        // because an entry that answered nothing has not cited a limb.
+        ...(reading !== undefined && carriesValue(reading, PREDICATE_LIMB_FIELD)
+          ? { [PREDICATE_LIMB_FIELD]: reading[PREDICATE_LIMB_FIELD] }
+          : {}),
       };
     }),
     steps: readings.steps,
