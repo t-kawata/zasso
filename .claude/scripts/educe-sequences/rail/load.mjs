@@ -1,3 +1,4 @@
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // reading the specification, the artifact and the schema (PX-240, contracts C001, C008, C013).
 //
@@ -106,6 +107,22 @@ export const DIAGRAMMED_OUTCOMES = Object.freeze(
 /** The two kinds a borrowed-census entry may be, read from the schema as the others are. */
 export const SOURCE_ENTRY_KINDS = Object.freeze(readArtifactSchema().pins.sourceEnumerations.kinds);
 
+/** The outcomes an entry or a reading may carry, which is one list stated once. */
+export const ENTRY_OUTCOMES = Object.freeze(readArtifactSchema().outcomes);
+
+/**
+ * The rulings that apply the predicate, and what one of them owes.
+ *
+ * A ruling that something is not an operation is applying the predicate to it, so it names the
+ * limb it fails, or the declared literal for no limb applying. Which outcomes those are, and
+ * which field carries the answer, are the schema's to declare: a list kept in a module instead
+ * would bind no project to it, and a check selecting by such a list measures nothing over a
+ * project whose rows are worded differently.
+ */
+export const LIMB_RULING_OUTCOMES = Object.freeze(readArtifactSchema().predicateRulings.outcomes);
+export const PREDICATE_LIMB_FIELD = readArtifactSchema().predicateRulings.field;
+export const NO_LIMB_APPLIES = readArtifactSchema().predicateRulings.noLimbApplies;
+
 /**
  * Whether an entry carries a value under a key, as opposed to carrying the key and no answer.
  *
@@ -114,7 +131,7 @@ export const SOURCE_ENTRY_KINDS = Object.freeze(readArtifactSchema().pins.source
  * it had named what it answers with.
  */
 // [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
-function carriesValue(entry, key) {
+export function carriesValue(entry, key) {
   const value = entry?.[key];
   return typeof value === 'string' ? value.trim() !== '' : value !== undefined && value !== null;
 }

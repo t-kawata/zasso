@@ -2,4 +2,4 @@
 description: Suggest min-ticket-count.
 ---
 
-Based on everything discussed so far, the materials provided, and the various considerations examined, propose the minimum number of tickets needed for the most efficient implementation. Consolidate the tickets into as few as possible. Ideally, it should be implementable within a single ticket, if it can be done safely. Split tickets only where a part carries unavoidable risk.
+Based on all discussion, materials, and considerations so far, propose minimum tickets for most efficient implementation. Consolidate maximally. Single ticket ideal if safe. Better still: if TDD (Red-Green-Refactor) alone can implement safely, implement directly via TDD, create no ticket. Split only where unavoidable risk exists.

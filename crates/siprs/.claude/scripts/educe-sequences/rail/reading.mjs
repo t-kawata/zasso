@@ -18,7 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { digestOf, writeArtifact } from './load.mjs';
+import { ENTRY_OUTCOMES, carriesValue, digestOf, writeArtifact } from './load.mjs';
 // The reading vocabularies are declared with the files that carry them, so the driver and
 // the validator cannot hold two copies of what a reading is: the copy this module used to
 // keep beside its own `neighbour` literal was a second thing to drift.
@@ -155,8 +155,14 @@ export function renderQuestionLines(questions) {
     .join('\n');
 }
 
-/** The outcomes a reading may declare. */
-export const ADJUDICATION_OUTCOMES = Object.freeze(['direct', 'viaNeighbour', 'notASequence', 'singleStep', 'exempt']);
+/**
+ * The outcomes a reading may declare.
+ *
+ * The schema's list, read rather than copied: a reading's outcome becomes its entry's outcome,
+ * so a second copy here could admit a reading the artifact has no word for, or refuse one it
+ * does, without any test failing.
+ */
+export const ADJUDICATION_OUTCOMES = ENTRY_OUTCOMES;
 
 /** The fields a supplied-rule reading adds. */
 export const SUPPLIED_RULE_FIELDS = Object.freeze(['spec_name', 'presupposition', 'grounds', 'rule', 'why', 'override']);
@@ -313,12 +319,15 @@ function proveStepsGroundThemselves({ reading, subject, refusals }) {
  * declaration is read from the artifact rather than from the reading, because the limbs
  * are the declaration's and a reading cannot narrow them to the ones it can answer.
  */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
 function proveRulingAppliesThePredicate({ reading, subject, artifact, refusals }) {
   if (!LIMB_RULING_OUTCOMES.includes(reading.outcome)) return;
   const limbs = artifact.pins?.predicate?.limbs ?? [];
   const named = reading[PREDICATE_LIMB_FIELD];
-  if (named === undefined || named === '') {
+  // A key present and empty, or present and null, is a ruling that answered nothing: the
+  // artifact composes the field only when it carries a value, so the two sides must agree about
+  // what an answer is or a reading would be refused here and silently accepted once composed.
+  if (!carriesValue(reading, PREDICATE_LIMB_FIELD)) {
     refuse(refusals, subject, PREDICATE_LIMB_FIELD, `a ruling that applies the predicate names the limb it fails, or "${NO_LIMB_APPLIES}"`);
     return;
   }

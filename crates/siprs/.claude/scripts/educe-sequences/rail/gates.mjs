@@ -1,3 +1,4 @@
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // One gate per phase (PX-240, the phase driver).
 //
 // A phase is not "done" because its text was read; it is done when a command says so.
@@ -16,7 +17,7 @@ import { join } from 'node:path';
 import { uncoveredRanges } from './coverage.mjs';
 import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
-import { deriveSet, readArtifact } from './load.mjs';
+import { LIMB_RULING_OUTCOMES, deriveSet, readArtifact } from './load.mjs';
 import { SOURCE_ROLES, blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
 import { ADJUDICATION_OUTCOMES } from './reading.mjs';
 import {
@@ -278,7 +279,10 @@ export const PHASES = Object.freeze([
       // performs and an escape covers is the reading's way of saying the operation is not
       // there, which is exactly the claim an attack is owed for. Without this the escape
       // would be the one reading in the run nothing ever tried to falsify.
-      const adjudicated = artifact.sequences.filter((entry) => entry.outcome === 'notASequence').map((entry) => entry.id);
+      // The entries a reader ruled not a sequence are the declaration's to name, not this
+      // gate's: written as the one outcome this rail ships today, a project whose rulings are
+      // worded otherwise would have its rulings attacked by nobody and the gate would pass.
+      const adjudicated = artifact.sequences.filter((entry) => LIMB_RULING_OUTCOMES.includes(entry.outcome)).map((entry) => entry.id);
       const rulings = [...adjudicated, ...escapedOperationsOf(artifact)];
       const attacked = new Set(readings.readings.map((reading) => reading.subject));
       const unattacked = rulings.filter((id) => !attacked.has(id));

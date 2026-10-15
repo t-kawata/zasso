@@ -16,6 +16,7 @@ import { coverageOf } from './coverage.mjs';
 import {
   DIAGRAMMED_OUTCOMES,
   OPERATION_POSITIONS,
+  PREDICATE_LIMB_FIELD,
   UNREACHED_ESCAPES,
   isSpanCensusPin,
   parseSpan,
@@ -626,6 +627,21 @@ const stepCitesInsideItsEntrySpan = citeInside(
 );
 
 /**
+ * Every ruling the artifact holds, wherever the run recorded it.
+ *
+ * An entry's outcome comes from the reading that judged it and an adjudication's is recorded
+ * beside it, and both are drawn from the one vocabulary the schema declares. Selecting by that
+ * vocabulary rather than by a collection's name is what keeps the check honest on a project
+ * that records its rulings somewhere else, or words its other rows differently: a selection by
+ * name and by a hand-written list examined nothing at all on such a project and reported green.
+ */
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+function rulingsOf(artifact) {
+  return [...(artifact.sequences ?? []), ...(artifact.adjudications ?? [])]
+    .filter((row) => LIMB_RULING_OUTCOMES.includes(row.outcome));
+}
+
+/**
  * Every ruling that applies the predicate names a limb of it, or says that none applies.
  *
  * This is what makes the predicate a criterion rather than a citation: the pin is
@@ -633,14 +649,16 @@ const stepCitesInsideItsEntrySpan = citeInside(
  * limbs are the chosen line's own words satisfies the re-derivation by quoting itself.
  */
 const adjudicationCitesADeclaredLimb = coverEvery(
-  { id: 'adjudication-cites-a-declared-limb', defect: 'a ruling that applies the predicate without naming the limb it fails, so the criterion was never used by the reading it decides', refuses: 'a ruling outside the declared limbs, and a ruling that names no limb and does not say none applies', scope: 'every artifact, over its adjudications' },
+  { id: 'adjudication-cites-a-declared-limb', defect: 'a ruling that applies the predicate without naming the limb it fails, so the criterion was never used by the reading it decides', refuses: 'a ruling outside the declared limbs, and a ruling that names no limb and does not say none applies', scope: 'every artifact, over every ruling it holds' },
   {
-    sources: (context) => context.artifact.adjudications.filter((row) => LIMB_RULING_OUTCOMES.includes(row.outcome)),
+    sources: (context) => rulingsOf(context.artifact),
     coveredBy: (row, context) => {
       const limbs = context.artifact.pins?.predicate?.limbs ?? [];
-      return row.predicateLimb === NO_LIMB_APPLIES || limbs.includes(row.predicateLimb);
+      return row[PREDICATE_LIMB_FIELD] === NO_LIMB_APPLIES || limbs.includes(row[PREDICATE_LIMB_FIELD]);
     },
-    label: (row) => row.subject,
+    // A sequence entry is named by its id and an adjudication by its subject, and a refusal that
+    // pointed at "the second ruling" would be one no reader could act on.
+    label: (row) => row.subject ?? row.id,
   },
 );
 
@@ -653,12 +671,12 @@ const adjudicationCitesADeclaredLimb = coverEvery(
  * a reading of the document, and every ruling saying so while no limb was ever cited is a
  * declaration that is not being used.
  */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
 function limbCensus(artifact) {
   const limbs = artifact.pins?.predicate?.limbs ?? [];
   const cited = new Set(
-    (artifact.adjudications ?? [])
-      .map((row) => row.predicateLimb)
+    rulingsOf(artifact)
+      .map((row) => row[PREDICATE_LIMB_FIELD])
       .filter((limb) => limbs.includes(limb)),
   );
   return { predicateLimbs: limbs.length, limbsCited: cited.size, limbsUnused: limbs.length - cited.size };
@@ -697,7 +715,9 @@ const everyOperationReached = reachEvery(
   // sequence claims none: requiring it to derive an operation would require a rejected
   // claim to hold. A region that holds no sequence has to be declareable, because the
   // line-coverage rule above needs exactly that declaration to name the lines it read.
-  mustRealize: (entry) => entry.outcome !== 'notASequence',
+  // Read from the declaration rather than from the one outcome this rail ships today: a
+  // specification whose rulings are worded otherwise is the case the vocabulary exists for.
+  mustRealize: (entry) => !LIMB_RULING_OUTCOMES.includes(entry.outcome),
 });
 
 /** The checks, in the order the run reports them. */

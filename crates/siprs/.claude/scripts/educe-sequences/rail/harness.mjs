@@ -16,6 +16,7 @@ import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeF
 import { join } from 'node:path';
 
 import { DIAGRAMMED_OUTCOMES, checkAll } from './engine.mjs';
+import { LIMB_RULING_OUTCOMES, PREDICATE_LIMB_FIELD } from './load.mjs';
 
 /** The file a run keeps its rail-exit records in, beside the checks it had to write. */
 export const RAIL_EXIT_FILE = 'rail-exits.jsonl';
@@ -170,6 +171,26 @@ function movePinLine(artifact, kind, line) {
   return next;
 }
 
+/**
+ * Take the limb off the first ruling that cites one.
+ *
+ * The mutation is aimed at a row the check examines rather than at a named row, so the case runs
+ * over any artifact that holds a ruling: a case naming a row the artifact does not have cannot
+ * run at all, and a case that cannot run is a phase that cannot finish.
+ */
+// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+function stripARulingLimb(artifact) {
+  const next = structuredClone(artifact);
+  for (const collection of ['sequences', 'adjudications']) {
+    const row = (next[collection] ?? []).find((candidate) => LIMB_RULING_OUTCOMES.includes(candidate.outcome) && candidate[PREDICATE_LIMB_FIELD] !== undefined);
+    if (row !== undefined) {
+      delete row[PREDICATE_LIMB_FIELD];
+      return next;
+    }
+  }
+  return next;
+}
+
 /** The specification mutations: each must redden the check it names. */
 export const SPEC_MUTATION_CORPUS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
@@ -258,6 +279,11 @@ export const SPEC_MUTATION_CORPUS = Object.freeze([
       next.steps[0].operation = 'Invented';
       return { artifact: next, specLines };
     },
+  },
+  {
+    name: 'ruling-cites-no-limb',
+    check: 'adjudication-cites-a-declared-limb',
+    mutate: ({ artifact, specLines }) => ({ artifact: stripARulingLimb(artifact), specLines }),
   },
 ]);
 

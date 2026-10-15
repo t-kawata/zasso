@@ -31,6 +31,11 @@
   "outcomes": ["direct", "viaNeighbour", "notASequence", "singleStep", "exempt"],
   "positions": ["positioned", "singleStep", "suppliedRule", "excluded"],
   "escapes": ["suppliedRule", "excluded"],
+  "predicateRulings": {
+    "outcomes": ["notASequence"],
+    "field": "predicateLimb",
+    "noLimbApplies": "none-applies"
+  },
   "sequences": {
     "required": ["id", "kind", "firstLine", "lastLine"],
     "crossRefs": { "required": ["line", "note"] }
