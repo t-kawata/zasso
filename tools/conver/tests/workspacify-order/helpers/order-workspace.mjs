@@ -20,8 +20,16 @@ export const SEED_FILE_NAME = 'RFC-SEED.md';
 export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 /** The design document grill-me-for-rfc writes beside a seed; its presence is the mark. */
 export const RFC_FILE_NAME = 'RFC.md';
-/** The sequences view sequences-slice writes into a package directory; its presence is the mark. */
+/** The prose view sequences-slice writes into a package directory. The verdict never opens it. */
 export const SEQUENCES_FILE_NAME = 'SEQUENCES.md';
+/** The projected view the verdict judges: the units a package carries, and how they were declared. */
+export const VIEW_FILE_NAME = 'SEQUENCES.json';
+/** The heading a package's distribution ledger lives under, as the one parser finds it. */
+const LEDGER_HEADING = '## Distribution ledger';
+/** The five columns the parser accepts, in the order it accepts them. */
+const LEDGER_COLUMNS = '| Unit | Kind | Owner | RFC location | Ground |';
+/** A heading whose number a ledger row can cite, so a location resolves inside the document. */
+const CITED_SECTION = '1.1';
 
 const DEFAULT_LAYER = 'protocol';
 const DEFAULT_TOP_LEVEL = 'crates';
@@ -61,22 +69,26 @@ function levelsFromEdges(packageIds, edges) {
  * Write a workspace whose manifests agree with each other.
  *
  * @param {{ packages?: string[], edges?: Array<[string, string]>, levels?: string[][],
- *   paths?: Record<string, string>, explained?: string[], grilled?: string[],
- *   sequenced?: string[] }} input
+ *   paths?: Record<string, string>, documents?: { explained?: string[], grilled?: string[],
+ *   carried?: string[] } }} input
  *   `edges` are consumer-provider pairs, the orientation the manifest itself uses.
  *   `levels` is the published order; it is computed from the edges when omitted.
- *   `explained` names the packages whose directory receives an EXPLAIN-RFC-SEED.md,
- *   `grilled` those that receive an RFC.md, and `sequenced` those that receive a
- *   SEQUENCES.md; each document is written empty, because existence is the whole rule and a
- *   fixture that carried content would suggest otherwise. The three lists are independent,
- *   so a package may appear in any, all or none of them.
+ *   `documents` says what each package directory receives, which is one question with three
+ *   answers rather than three questions: `explained` names the packages receiving an
+ *   EXPLAIN-RFC-SEED.md and `grilled` those receiving an RFC.md, both written empty because for
+ *   those two documents existence is the whole rule, and `carried` names the packages receiving
+ *   a judged view and the ledger accounting for it, written through writeCarriedView because
+ *   those documents are read rather than counted. The lists are independent, so a package may
+ *   appear in any, all or none of them.
  * @returns {{ root: string, treeManifestPath: string, allocateManifestPath: string,
  *   seedPathOf: (id: string) => string, explainPathOf: (id: string) => string,
- *   rfcPathOf: (id: string) => string, sequencesPathOf: (id: string) => string,
+ *   rfcPathOf: (id: string) => string, viewPathOf: (id: string) => string,
+ *   directoryOf: (id: string) => string,
  *   writeTreeManifest: (value: object) => void, remove: () => void }}
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, explained = [], grilled = [], sequenced = [] } = {}) {
+export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, documents = {} } = {}) {
+  const { explained = [], grilled = [], carried = [] } = documents;
   const root = mkdtempSync(join(tmpdir(), 'workspacify-order-'));
   const publishedLevels = levels ?? levelsFromEdges(packages, edges);
   const pathOf = new Map(
@@ -90,14 +102,12 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
 
   const explainedPackages = new Set(explained);
   const grilledPackages = new Set(grilled);
-  const sequencedPackages = new Set(sequenced);
   for (const id of packages) {
     const directory = join(root, pathOf.get(id));
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, SEED_FILE_NAME), `# RFC Seed: ${id}\n`);
     if (explainedPackages.has(id)) writeFileSync(join(directory, EXPLAIN_FILE_NAME), '');
     if (grilledPackages.has(id)) writeFileSync(join(directory, RFC_FILE_NAME), '');
-    if (sequencedPackages.has(id)) writeFileSync(join(directory, SEQUENCES_FILE_NAME), '');
   }
 
   const treeManifest = {
@@ -128,7 +138,7 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
   writeFileSync(treeManifestPath, JSON.stringify(treeManifest, null, 2));
   writeFileSync(allocateManifestPath, JSON.stringify(allocateManifest, null, 2));
 
-  return {
+  const workspace = {
     root,
     treeManifestPath,
     allocateManifestPath,
@@ -138,11 +148,94 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
     seedPathOf: (id) => join(root, pathOf.get(id), SEED_FILE_NAME),
     explainPathOf: (id) => join(root, pathOf.get(id), EXPLAIN_FILE_NAME),
     rfcPathOf: (id) => join(root, pathOf.get(id), RFC_FILE_NAME),
-    sequencesPathOf: (id) => join(root, pathOf.get(id), SEQUENCES_FILE_NAME),
+    viewPathOf: (id) => join(root, pathOf.get(id), VIEW_FILE_NAME),
+    directoryOf: (id) => join(root, pathOf.get(id)),
     writeTreeManifest: (value) => writeFileSync(treeManifestPath, JSON.stringify(value, null, 2)),
     writeAllocateManifest: (value) => writeFileSync(allocateManifestPath, JSON.stringify(value, null, 2)),
     remove: () => rmSync(root, { recursive: true, force: true }),
   };
+  for (const id of carried) writeCarriedView(workspace, id);
+  return workspace;
+}
+
+/**
+ * The unit kind a ledger row must declare for a given unit id.
+ *
+ * The parser accepts a closed list of kinds and refuses a row that names anything else, so a
+ * fixture that guessed would fail for a reason that has nothing to do with the case at hand.
+ */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+function kindOfUnitId(unitId) {
+  if (unitId.startsWith('ctr-')) return 'contract';
+  if (unitId.startsWith('op-')) return 'operation';
+  return 'sequence';
+}
+
+/** The design document a carrying package is grilled into: the ledger its view is judged against. */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+function renderCarriedRfc({ packageId, units, location }) {
+  return [
+    `# ${packageId} design`,
+    '',
+    `## ${CITED_SECTION} What this package carries`,
+    '',
+    LEDGER_HEADING,
+    '',
+    // The precedence marker the parser requires before it reads any row.
+    'This document is canonical for the units below.',
+    '',
+    LEDGER_COLUMNS,
+    '| --- | --- | --- | --- | --- |',
+    ...units.map((unitId) => `| ${unitId} | ${kindOfUnitId(unitId)} | ${packageId} | ${location} | the dependency this unit travels along |`),
+    '',
+  ].join('\n');
+}
+
+/**
+ * Write a package the distribution reached: a view carrying units and a ledger accounting for them.
+ *
+ * `location` is a parameter because a case needs a ledger that cites something the document does
+ * not hold, which is the one way a well-formed ledger is still refused.
+ */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+export function writeCarriedView(workspace, id, { units = ['op-0001'], source = 'undeclared', location = CITED_SECTION } = {}) {
+  const directory = workspace.directoryOf(id);
+  writeView(workspace, id, {
+    packageId: id,
+    ownedOperationUnits: [],
+    ownedSequenceUnits: [],
+    crossBoundarySequenceUnits: [],
+    obligationUnits: units.map((unitId) => ({ unitId, relation: 'carries', subject: unitId })),
+    obligationSource: source,
+    specLines: 1,
+    lineRange: { claimedLineCount: 1, multiClaimedLineCount: 0, unclaimedLineCount: 0, statement: '' },
+  });
+  writeFileSync(join(directory, RFC_FILE_NAME), renderCarriedRfc({ packageId: id, units, location }));
+}
+
+/**
+ * Write the view a slice that predates the carriage wrote: owned units, and no obligationSource.
+ *
+ * ~/shyme/gaia is 26 of these. The field's absence is what tells a reader the obligations were
+ * never attempted here, so a fixture that set it would remove the case it exists to build.
+ */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+export function writePreCarriageView(workspace, id, { units = ['op-0001'] } = {}) {
+  writeView(workspace, id, {
+    packageId: id,
+    ownedOperationUnits: units.map((unitId) => ({ unitId, operationId: unitId.slice(3), resultObjectClasses: [], ownerPackageIds: [id] })),
+    ownedSequenceUnits: [],
+    crossBoundarySequenceUnits: [],
+    unmatchedClassNames: [],
+    specLines: 1,
+    lineRange: { claimedLineCount: 1, multiClaimedLineCount: 0, unclaimedLineCount: 0, statement: '' },
+  });
+}
+
+/** Write a view verbatim, so a case can build the shape it is about rather than a convenient one. */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+export function writeView(workspace, id, view) {
+  writeFileSync(workspace.viewPathOf(id), JSON.stringify(view, null, 2));
 }
 
 /** A workspace with one package per level, so the level count is the package count. */

@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { basename, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME, materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
+import { EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME, VIEW_FILE_NAME, materializeOrderWorkspace, writeCarriedView, writeView } from '../helpers/order-workspace.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-order/run.mjs', import.meta.url));
 
@@ -174,8 +174,8 @@ test('IT: tests/check-conventions.mjs names this directory with the module syste
  * documents, any pair, all three or none, and the expected stdout of each shape is written
  * out in full.
  */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-function markedWorkspace(t, { explained = [], grilled = [], sequenced = [] } = {}) {
+// [::TICKET::] PX-228, PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
+function markedWorkspace(t, { documents = {} } = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
     edges: [
@@ -183,9 +183,7 @@ function markedWorkspace(t, { explained = [], grilled = [], sequenced = [] } = {
       ['pkg-0003', 'pkg-0001'],
     ],
     levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    explained,
-    grilled,
-    sequenced,
+    documents,
   });
   t.after(() => workspace.remove());
   return workspace;
@@ -208,7 +206,7 @@ function digestTree(root) {
 }
 
 test('IT: an explained workspace prints the label after the path and exits 0', (t) => {
-  const workspace = markedWorkspace(t, { explained: ['pkg-0001', 'pkg-0003'] });
+  const workspace = markedWorkspace(t, { documents: { explained: ['pkg-0001', 'pkg-0003'] } });
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -261,7 +259,7 @@ test('IT: the mark follows the directory and not the manifest, so writing the do
 });
 
 test('IT: a seed run prints the mark in the plan and no mark in the focused block', (t) => {
-  const workspace = markedWorkspace(t, { explained: ['pkg-0003'] });
+  const workspace = markedWorkspace(t, { documents: { explained: ['pkg-0003'] } });
 
   const result = runOrder([workspace.seedPathOf('pkg-0003')], { cwd: workspace.root });
 
@@ -282,13 +280,13 @@ test('IT: the command writes nothing, so an unmarked workspace stays unmarked', 
 
   assert.equal(result.status, 0);
   assert.equal(digestTree(workspace.root), before);
-  for (const fileName of [EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME]) {
+  for (const fileName of [EXPLAIN_FILE_NAME, RFC_FILE_NAME, SEQUENCES_FILE_NAME, VIEW_FILE_NAME]) {
     assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0001'), fileName)), false);
   }
 });
 
 test('IT: a grilled workspace prints the grill mark after the path and exits 0', (t) => {
-  const workspace = markedWorkspace(t, { grilled: ['pkg-0002', 'pkg-0003'] });
+  const workspace = markedWorkspace(t, { documents: { grilled: ['pkg-0002', 'pkg-0003'] } });
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -317,10 +315,7 @@ test('IT: a grilled workspace prints the grill mark after the path and exits 0',
 });
 
 test('IT: a directory holding both documents prints both marks, explained first', (t) => {
-  const workspace = markedWorkspace(t, {
-    explained: ['pkg-0001', 'pkg-0003'],
-    grilled: ['pkg-0001', 'pkg-0002'],
-  });
+  const workspace = markedWorkspace(t, { documents: { explained: ['pkg-0001', 'pkg-0003'], grilled: ['pkg-0001', 'pkg-0002'] } });
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -361,8 +356,8 @@ test('IT: the grill mark follows the directory and not the manifest, so writing 
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
-test('IT: a sequenced workspace prints the sequenced mark after the path and exits 0', (t) => {
-  const workspace = markedWorkspace(t, { sequenced: ['pkg-0002', 'pkg-0003'] });
+test('IT: a workspace the distribution reached prints the judged mark after the path and exits 0', (t) => {
+  const workspace = markedWorkspace(t, { documents: { grilled: ['pkg-0002', 'pkg-0003'], carried: ['pkg-0002', 'pkg-0003'] } });
 
   const result = runOrder([], { cwd: workspace.root });
 
@@ -378,8 +373,8 @@ test('IT: a sequenced workspace prints the sequenced mark after the path and exi
       '  * crates/protocol/package-1',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟡 SEQUENCED',
-      '    crates/protocol/package-3 🟡 SEQUENCED',
+      '  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🟠 GRILLED 🟡 SEQUENCED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -390,17 +385,13 @@ test('IT: a sequenced workspace prints the sequenced mark after the path and exi
   );
 });
 
-test('IT: a directory holding all three documents prints the three marks in pipeline order', (t) => {
-  const workspace = markedWorkspace(t, {
-    explained: ['pkg-0001', 'pkg-0003'],
-    grilled: ['pkg-0001'],
-    sequenced: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-  });
+test('IT: a directory the pipeline reached prints the three marks in pipeline order', (t) => {
+  const workspace = markedWorkspace(t, { documents: { explained: ['pkg-0001', 'pkg-0003'], grilled: ['pkg-0001', 'pkg-0002'], carried: ['pkg-0001', 'pkg-0002'] } });
 
   const result = runOrder([], { cwd: workspace.root });
 
   assert.equal(result.status, 0);
-  // The middle line carries the last mark alone and the one below it skips the grill mark,
+  // The middle line skips the explanation mark and the one below it carries that mark alone,
   // so a command that printed the marks as an uninterrupted chain fails on both.
   assert.equal(
     result.stdout,
@@ -412,8 +403,8 @@ test('IT: a directory holding all three documents prints the three marks in pipe
       '  * crates/protocol/package-1 🔴 EXPLAINED 🟠 GRILLED 🟡 SEQUENCED',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟡 SEQUENCED',
-      '    crates/protocol/package-3 🔴 EXPLAINED 🟡 SEQUENCED',
+      '  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🔴 EXPLAINED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -424,16 +415,44 @@ test('IT: a directory holding all three documents prints the three marks in pipe
   );
 });
 
-test('IT: the sequenced mark follows the directory and not the manifest, so writing SEQUENCES.md alone changes the plan', (t) => {
+test('IT: the judged mark follows the directory and not the manifest, so writing a carrying view alone changes the plan', (t) => {
   const workspace = markedWorkspace(t);
   const readManifests = () => [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];
   const manifestsBefore = readManifests();
 
   const before = runOrder([], { cwd: workspace.root });
-  writeFileSync(join(workspace.root, workspace.pathOf.get('pkg-0003'), SEQUENCES_FILE_NAME), '');
+  // The view and the ledger it is judged against, written into one directory: the plan changes
+  // because the directory's own documents changed, and not because a manifest said so.
+  writeCarriedView(workspace, 'pkg-0003');
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟡 SEQUENCED\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟠 GRILLED 🟡 SEQUENCED\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
+});
+
+test('IT: a failed verdict prints its mark, writes nothing to stderr and exits 0', (t) => {
+  const workspace = markedWorkspace(t, { documents: { grilled: ['pkg-0003'], carried: ['pkg-0003'] } });
+  // The view grows a unit its ledger does not name, so the distribution reached this directory
+  // and its own documents do not account for what it carries.
+  writeView(workspace, 'pkg-0003', {
+    packageId: 'pkg-0003',
+    ownedOperationUnits: [],
+    ownedSequenceUnits: [],
+    crossBoundarySequenceUnits: [],
+    obligationUnits: [
+      { unitId: 'op-0001', relation: 'carries' },
+      { unitId: 'op-0002', relation: 'carries' },
+    ],
+    obligationSource: 'undeclared',
+    specLines: 1,
+    lineRange: { claimedLineCount: 1, multiClaimedLineCount: 0, unclaimedLineCount: 0, statement: '' },
+  });
+
+  const result = runOrder([], { cwd: workspace.root });
+
+  assert.equal(result.stderr, '');
+  assert.equal(result.status, 0, 'a verdict is a reading and never a blocking point');
+  assert.ok(result.stdout.includes('    crates/protocol/package-3 🟠 GRILLED ❌ FAILED-SEQ\n'));
+  assert.equal(result.stdout.includes('🟡 SEQUENCED'), false);
 });

@@ -16,9 +16,13 @@ import {
   EXPLAIN_FILE_NAME,
   RFC_FILE_NAME,
   SEQUENCES_FILE_NAME,
+  VIEW_FILE_NAME,
   materializeChainWorkspace,
   materializeOrderWorkspace,
   materializeWideProviderWorkspace,
+  writeCarriedView,
+  writePreCarriageView,
+  writeView,
 } from '../helpers/order-workspace.mjs';
 import { buildModel } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
 import {
@@ -245,17 +249,12 @@ test('C004 postcondition: render with no focus equals the plan and render with a
 // EXPLAINED_LABEL, so a typo inside that constant cannot satisfy the test meant to catch it.
 
 /** The two-level fixture with pkg-0001 and pkg-0003 explained: one on the chain, one beside it. */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
 function explainedFixture(t) {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
       ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    explained: ['pkg-0001', 'pkg-0003'],
-  });
+    ], levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']], documents: { explained: ['pkg-0001', 'pkg-0003'] } });
   t.after(() => workspace.remove());
   return workspace;
 }
@@ -314,15 +313,10 @@ test('C001 invariant: the label is appended and never padded, so no line carries
 });
 
 test('C002 postcondition: explainedIds equals the set of packages whose directory holds the document', (t) => {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
       ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    explained: ['pkg-0002'],
-  });
+    ], levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']], documents: { explained: ['pkg-0002'] } });
   t.after(() => workspace.remove());
 
   // The manifests say nothing about explanations, so the answer can only have come from the
@@ -350,7 +344,7 @@ test('C002 precondition: a package with no path fails before the probe, naming t
 });
 
 test('C002 invariant: a zero-byte document marks its package, and a directory without one is never marked', (t) => {
-  const zeroByte = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], explained: ['pkg-0001'] });
+  const zeroByte = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], documents: { explained: ['pkg-0001'] } });
   t.after(() => zeroByte.remove());
   const plain = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']] });
   t.after(() => plain.remove());
@@ -377,12 +371,7 @@ test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed
 });
 
 test('C002 boundary: the document is found in the package directory and in no directory around it', (t) => {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    explained: ['pkg-0002'],
-  });
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { explained: ['pkg-0002'] } });
   t.after(() => workspace.remove());
   const parent = join(workspace.root, 'crates', 'protocol');
   mkdirSync(parent, { recursive: true });
@@ -406,12 +395,7 @@ test('C002 boundary: a package whose directory is absent stays unexplained inste
 });
 
 test('C001 boundary: a workspace that explains everything marks every line, and one that explains nothing marks none', (t) => {
-  const all = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    explained: ['pkg-0001', 'pkg-0002'],
-  });
+  const all = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { explained: ['pkg-0001', 'pkg-0002'] } });
   t.after(() => all.remove());
   const allText = renderPlan(twoLevelModel(all));
 
@@ -454,17 +438,12 @@ test('C004 boundary: the heading is a blank line followed by the hash-marked H1'
 // as a literal in the assertions below for the same reason as the explained mark above.
 
 /** The two-level fixture marked on both axes: pkg-0001 both, pkg-0002 grilled only, pkg-0003 explained only. */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function grilledFixture(t) {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
       ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    explained: ['pkg-0001', 'pkg-0003'],
-    grilled: ['pkg-0001', 'pkg-0002'],
-  });
+    ], levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']], documents: { explained: ['pkg-0001', 'pkg-0003'], grilled: ['pkg-0001', 'pkg-0002'] } });
   t.after(() => workspace.remove());
   return workspace;
 }
@@ -506,9 +485,9 @@ test('C002 postcondition: each mark follows its own document, so one line may ca
 });
 
 test('C002 invariant: neither document stands in for the other, so a mark never appears without its own file', (t) => {
-  const grilledOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], grilled: ['pkg-0001'] });
+  const grilledOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], documents: { grilled: ['pkg-0001'] } });
   t.after(() => grilledOnly.remove());
-  const explainedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], explained: ['pkg-0001'] });
+  const explainedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], documents: { explained: ['pkg-0001'] } });
   t.after(() => explainedOnly.remove());
 
   assert.equal(existsSync(grilledOnly.rfcPathOf('pkg-0001')), true);
@@ -542,12 +521,7 @@ test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed
 });
 
 test('C002 boundary: the document is found in the package directory and in no directory around it', (t) => {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    grilled: ['pkg-0002'],
-  });
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { grilled: ['pkg-0002'] } });
   t.after(() => workspace.remove());
   const parent = join(workspace.root, 'crates', 'protocol');
   // The workspace root and the layer directory both carry a document that belongs to
@@ -569,12 +543,7 @@ test('C002 boundary: a package whose directory is absent stays ungrilled instead
 });
 
 test('C001 boundary: a workspace that grills everything marks every line, and one that grills nothing marks none', (t) => {
-  const all = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    grilled: ['pkg-0001', 'pkg-0002'],
-  });
+  const all = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { grilled: ['pkg-0001', 'pkg-0002'] } });
   t.after(() => all.remove());
   const allText = renderPlan(twoLevelModel(all));
 
@@ -586,15 +555,10 @@ test('C001 boundary: a workspace that grills everything marks every line, and on
 });
 
 test('C001 invariant: the focused block is unchanged by the grilled state', (t) => {
-  const grilled = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
+  const grilled = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
       ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    grilled: ['pkg-0003'],
-  });
+    ], levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']], documents: { grilled: ['pkg-0003'] } });
   t.after(() => grilled.remove());
   const plain = fixture(t);
   const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
@@ -606,56 +570,57 @@ test('C001 invariant: the focused block is unchanged by the grilled state', (t) 
   assert.doesNotMatch(focus(grilled), /GRILLED/);
 });
 
-// The sequenced mark.
+// The sequences verdict.
 //
-// It answers one question: does SEQUENCES.md exist in this package directory. The mark is
-// independent of the two above it — sequences-slice writes the view for a directory whatever
-// it was explained or grilled as — so a package may carry any one of the three, any pair, all
-// three or none. The glyph is spelled as a literal in the assertions below for the same reason
-// as the two marks above: a typo inside the constant cannot satisfy the test meant to catch it.
+// It answers one question: do this package directory's own documents account for the work it was
+// handed. The mark stopped being the presence of a file — a view written before the obligation
+// carriage existed is present and answers the question with silence — so the plan prints three
+// states. 🟡 SEQUENCED when the view carries units and its ledger accounts for all of them,
+// ❌ FAILED-SEQ when a view that can carry obligations is there and its verification refutes it,
+// and nothing at all when no attempt exists to judge. A directory the distribution never reached
+// showing nothing is the point: a placeholder would read as a judgement. The glyphs are spelled
+// as literals in the assertions below for the same reason as the two marks above — a typo inside
+// the constant cannot satisfy the test meant to catch it.
 //
-// Position is part of the contract. The three marks are written in the order the pipeline
-// reaches a directory — explain-seed, then grill-me-for-rfc, then sequences-slice — so a line
-// carrying all three reads left to right as the work happened.
+// Position is part of the contract. The marks are written in the order the pipeline reaches a
+// directory — explain-seed, then grill-me-for-rfc, then the slice — so a line carrying all of
+// them reads left to right as the work happened.
 
 /**
- * The two-level fixture with the three axes mixed rather than nested.
+ * The two-level fixture with the marks mixed rather than nested.
  *
- * `pkg-0001` carries all three documents, `pkg-0002` only the sequences view, and `pkg-0003`
- * the explanation and the view but no RFC.md. The last one is the case a renderer that
- * printed a prefix of the mark chain would get wrong: the gap sits in the middle.
+ * `pkg-0001` carries all three documents, `pkg-0002` a judged view and the RFC its ledger lives
+ * in but no explanation, and `pkg-0003` an explanation alone. A renderer that printed a prefix
+ * of the mark chain would get the first two lines wrong, and one that printed a mark for a
+ * missing step would get the third wrong.
  */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function sequencedFixture(t) {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
       ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    explained: ['pkg-0001', 'pkg-0003'],
-    grilled: ['pkg-0001'],
-    sequenced: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-  });
+    ], levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']], documents: { explained: ['pkg-0001', 'pkg-0003'], grilled: ['pkg-0001', 'pkg-0002'], carried: ['pkg-0001', 'pkg-0002'] } });
   t.after(() => workspace.remove());
   return workspace;
 }
 
-test('C002 precondition: sequencedIds names exactly the packages whose directory holds SEQUENCES.md', (t) => {
+test('C001 precondition: the model carries one verdict for every package the manifest names', (t) => {
   const workspace = sequencedFixture(t);
   const model = twoLevelModel(workspace);
 
-  assert.ok(model.sequencedIds instanceof Set);
-  assert.deepEqual([...model.sequencedIds].sort(), ['pkg-0001', 'pkg-0002', 'pkg-0003']);
-  assert.ok([...model.sequencedIds].every((id) => model.pathOf.has(id)));
+  assert.ok(model.sequenceVerdicts instanceof Map);
+  assert.deepEqual([...model.sequenceVerdicts.keys()].sort(), ['pkg-0001', 'pkg-0002', 'pkg-0003']);
+  for (const [id, verdict] of model.sequenceVerdicts) {
+    assert.equal(['complete', 'failed', 'not-yet'].includes(verdict.state), true, id);
+  }
 });
 
-test('C002 postcondition: the three marks follow the pipeline order, and a gap in the middle does not shift them', (t) => {
+test('C001 postcondition: the marks follow the pipeline order, and a package the distribution did not reach prints nothing', (t) => {
   const workspace = sequencedFixture(t);
 
   // Written out in full rather than rebuilt from the model: the three lines together pin the
-  // order (explained, grilled, sequenced), that the last mark survives alone, and that a
-  // package holding the first and the third prints no placeholder for the one it lacks.
+  // order (explained, grilled, sequenced), that the judged mark survives alone, and that a
+  // package carrying only the first mark prints no placeholder for the two it lacks.
   assert.equal(
     renderPlan(twoLevelModel(workspace)),
     [
@@ -666,8 +631,8 @@ test('C002 postcondition: the three marks follow the pipeline order, and a gap i
       '  * crates/protocol/package-1 🔴 EXPLAINED 🟠 GRILLED 🟡 SEQUENCED',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟡 SEQUENCED',
-      '    crates/protocol/package-3 🔴 EXPLAINED 🟡 SEQUENCED',
+      '  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🔴 EXPLAINED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -678,31 +643,46 @@ test('C002 postcondition: the three marks follow the pipeline order, and a gap i
   );
 });
 
-test('C002 invariant: no document stands in for another, so the sequenced mark appears without either of the other two', (t) => {
-  const sequencedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], sequenced: ['pkg-0001'] });
-  t.after(() => sequencedOnly.remove());
-  const explainedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], explained: ['pkg-0001'] });
-  t.after(() => explainedOnly.remove());
+test('C001 invariant: the two judged marks are exclusive, and a line never ends in a blank where a mark would have gone', (t) => {
+  const text = renderPlan(twoLevelModel(sequencedFixture(t)));
 
-  assert.equal(existsSync(sequencedOnly.sequencesPathOf('pkg-0001')), true);
-  assert.equal(existsSync(sequencedOnly.explainPathOf('pkg-0001')), false);
-  assert.equal(existsSync(sequencedOnly.rfcPathOf('pkg-0001')), false);
-  const sequencedModel = twoLevelModel(sequencedOnly);
-  assert.deepEqual(sequencedModel.sequencedIds, new Set(['pkg-0001']));
-  assert.deepEqual(sequencedModel.explainedIds, new Set());
-  assert.deepEqual(sequencedModel.grilledIds, new Set());
-  assert.ok(renderPlan(sequencedModel).includes('package-1 🟡 SEQUENCED'));
-  assert.equal(renderPlan(sequencedModel).includes('EXPLAINED'), false);
-  assert.equal(renderPlan(sequencedModel).includes('GRILLED'), false);
-
-  // And the reverse: an explanation alone never prints the sequenced mark, so neither probe
-  // can be satisfied by the other's document.
-  const explainedModel = twoLevelModel(explainedOnly);
-  assert.deepEqual(explainedModel.sequencedIds, new Set());
-  assert.equal(renderPlan(explainedModel).includes('SEQUENCED'), false);
+  assert.equal(/🟡 SEQUENCED ❌|❌ FAILED-SEQ 🟡/.test(text), false);
+  assert.equal(
+    text.split('\n').some((line) => line !== line.trimEnd()),
+    false,
+    'a not-yet package must end at its path, because a padded line reads as a mark that failed to print',
+  );
 });
 
-test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed document marks nothing', (t) => {
+test('C002 invariant: the judged mark appears without the explanation mark, and an explanation never stands in for it', (t) => {
+  const carriedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], documents: { carried: ['pkg-0001'] } });
+  t.after(() => carriedOnly.remove());
+  const explainedOnly = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']], documents: { explained: ['pkg-0001'] } });
+  t.after(() => explainedOnly.remove());
+
+  const carriedText = renderPlan(twoLevelModel(carriedOnly));
+  assert.ok(carriedText.includes('  * crates/protocol/package-1 🟠 GRILLED 🟡 SEQUENCED'));
+  assert.equal(carriedText.includes('EXPLAINED'), false);
+
+  // And the reverse: an explanation alone is never read as a distribution, so neither probe is
+  // satisfied by the other's document.
+  const explainedText = renderPlan(twoLevelModel(explainedOnly));
+  assert.equal(/🟡 SEQUENCED|❌ FAILED-SEQ/.test(explainedText), false);
+});
+
+test('C002 boundary: a complete package always carries the grill mark, because its ledger lives in the RFC a grill writes', (t) => {
+  const text = renderPlan(twoLevelModel(sequencedFixture(t)));
+
+  // The implication is stated rather than left implicit: a verdict reads a ledger out of RFC.md,
+  // so a package the distribution reached without having been grilled is not a state this plan
+  // can report, and a line claiming one would mean the reader looked in a second place.
+  for (const line of text.split('\n')) {
+    if (!line.includes('🟡 SEQUENCED')) continue;
+    assert.ok(line.includes('🟠 GRILLED'), line);
+  }
+});
+
+test('C002 boundary: only the whole entry name counts, so a renamed or stray view marks nothing', (t) => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
     edges: [['pkg-0002', 'pkg-0001']],
@@ -710,78 +690,108 @@ test('C002 boundary: only the whole entry name counts, so a prefixed or suffixed
   });
   t.after(() => workspace.remove());
   const directory = join(workspace.root, workspace.pathOf.get('pkg-0001'));
-  // SEQUENCES.json is written by the same tool as the view and is deliberately not the mark,
-  // so a probe widened to the stem would mark this package and fail here.
-  writeFileSync(join(directory, `${SEQUENCES_FILE_NAME}.bak`), '');
-  writeFileSync(join(directory, 'SEQUENCE.md'), '');
-  writeFileSync(join(directory, 'SEQUENCES.json'), '');
+  writeFileSync(join(directory, `${VIEW_FILE_NAME}.bak`), '{}');
+  writeFileSync(join(directory, 'SEQUENCE.json'), '{}');
+  // The prose view the slice also writes is not the judged document, and reading it would mark a
+  // package whose projection carries nothing.
+  writeFileSync(join(directory, SEQUENCES_FILE_NAME), '');
 
-  assert.equal(existsSync(join(directory, SEQUENCES_FILE_NAME)), false);
-  assert.deepEqual(twoLevelModel(workspace).sequencedIds, new Set());
+  assert.equal(existsSync(join(directory, VIEW_FILE_NAME)), false);
+  assert.deepEqual(twoLevelModel(workspace).sequenceVerdicts.get('pkg-0001'), { state: 'not-yet', reason: 'no-view' });
+  const lines = renderPlan(twoLevelModel(workspace))
+    .split('\n')
+    .filter((line) => line.includes('crates/protocol/package-1'));
+  assert.deepEqual(lines, ['  * crates/protocol/package-1'], 'a directory with nothing to judge ends at its path');
 });
 
-test('C002 boundary: the document is found in the package directory and in no directory around it', (t) => {
-  const workspace = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    sequenced: ['pkg-0002'],
-  });
+test('C002 boundary: the view is read from the package directory and from no directory around it', (t) => {
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { carried: ['pkg-0002'] } });
   t.after(() => workspace.remove());
   const parent = join(workspace.root, 'crates', 'protocol');
-  // The workspace root and the layer directory both carry a document that belongs to neither
-  // of them, so a probe that walked upward would mark the wrong package.
-  writeFileSync(join(workspace.root, SEQUENCES_FILE_NAME), '');
-  writeFileSync(join(parent, SEQUENCES_FILE_NAME), '');
-  assert.equal(existsSync(join(workspace.root, workspace.pathOf.get('pkg-0002'), SEQUENCES_FILE_NAME)), true);
+  // The workspace root and the layer directory both carry a view that belongs to neither of them,
+  // so a reader that walked upward, or that took the first view it found, would judge pkg-0001.
+  writeFileSync(join(workspace.root, VIEW_FILE_NAME), JSON.stringify({ packageId: 'pkg-0001', obligationUnits: [{ unitId: 'ctr-999' }], obligationSource: 'undeclared' }));
+  writeFileSync(join(parent, VIEW_FILE_NAME), JSON.stringify({ packageId: 'pkg-0001', obligationUnits: [{ unitId: 'ctr-999' }], obligationSource: 'undeclared' }));
 
-  assert.deepEqual(twoLevelModel(workspace).sequencedIds, new Set(['pkg-0002']));
+  const verdicts = twoLevelModel(workspace).sequenceVerdicts;
+  assert.deepEqual(verdicts.get('pkg-0002'), { state: 'complete', reason: null });
+  assert.deepEqual(verdicts.get('pkg-0001'), { state: 'not-yet', reason: 'no-view' });
 });
 
-test('C002 boundary: a package whose directory is absent stays unsequenced instead of failing the plan', (t) => {
+test('C004 invariant: a view that cannot be read is a failure and never an unmarked directory', (t) => {
   const workspace = sequencedFixture(t);
-  rmSync(join(workspace.root, workspace.pathOf.get('pkg-0002')), { recursive: true, force: true });
+  writeFileSync(workspace.viewPathOf('pkg-0003'), '');
+
+  const text = renderPlan(twoLevelModel(workspace));
+  assert.ok(text.includes('    crates/protocol/package-3 🔴 EXPLAINED ❌ FAILED-SEQ\n'));
+  assert.deepEqual(twoLevelModel(workspace).sequenceVerdicts.get('pkg-0003'), { state: 'failed', reason: 'unreadable-view' });
+});
+
+test('C004 boundary: a view projected before the carriage shows no mark at all', (t) => {
+  const workspace = sequencedFixture(t);
+  // ~/shyme/gaia's 26 views: owned units, no obligationSource, and a ledger that accounts for
+  // what they hold. Present, discharged, and a claim about a different question.
+  rmSync(workspace.rfcPathOf('pkg-0001'), { force: true });
+  writePreCarriageView(workspace, 'pkg-0001', { units: ['op-0001'] });
+
+  const verdicts = twoLevelModel(workspace).sequenceVerdicts;
+  assert.deepEqual(verdicts.get('pkg-0001'), { state: 'not-yet', reason: 'view-predates-the-carriage' });
+  assert.ok(renderPlan(twoLevelModel(workspace)).includes('  * crates/protocol/package-1 🔴 EXPLAINED\n'));
+});
+
+test('C003 boundary: a view carrying a unit its own ledger omits prints the failure mark', (t) => {
+  const workspace = sequencedFixture(t);
+  writeCarriedView(workspace, 'pkg-0002', { units: ['ctr-boundary-001'] });
+  writeView(workspace, 'pkg-0002', {
+    packageId: 'pkg-0002',
+    ownedOperationUnits: [],
+    ownedSequenceUnits: [],
+    crossBoundarySequenceUnits: [],
+    obligationUnits: [
+      { unitId: 'ctr-boundary-001', relation: 'carries' },
+      { unitId: 'ctr-boundary-002', relation: 'carries' },
+    ],
+    obligationSource: 'undeclared',
+    specLines: 1,
+    lineRange: { claimedLineCount: 1, multiClaimedLineCount: 0, unclaimedLineCount: 0, statement: '' },
+  });
+
+  const text = renderPlan(twoLevelModel(workspace));
+  assert.ok(text.includes('  * crates/protocol/package-2 🟠 GRILLED ❌ FAILED-SEQ\n'));
+  assert.equal(text.includes('package-2 🟠 GRILLED 🟡 SEQUENCED'), false);
+});
+
+test('C004 boundary: a package whose directory is absent stays unmarked instead of failing the plan', (t) => {
+  const workspace = sequencedFixture(t);
+  rmSync(workspace.directoryOf('pkg-0002'), { recursive: true, force: true });
   const model = twoLevelModel(workspace);
 
-  assert.deepEqual([...model.sequencedIds], ['pkg-0001', 'pkg-0003']);
-  assert.equal(renderPlan(model).includes('package-2 🟡 SEQUENCED'), false);
+  assert.deepEqual(model.sequenceVerdicts.get('pkg-0002'), { state: 'not-yet', reason: 'no-view' });
+  assert.equal(renderPlan(model).includes('package-2 '), false);
+  assert.deepEqual(model.sequenceVerdicts.get('pkg-0001'), { state: 'complete', reason: null });
 });
 
-test('C001 boundary: a workspace that sequences everything marks every line, and one that sequences nothing marks none', (t) => {
-  const all = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002'],
-    edges: [['pkg-0002', 'pkg-0001']],
-    levels: [['pkg-0001'], ['pkg-0002']],
-    sequenced: ['pkg-0001', 'pkg-0002'],
-  });
+test('C001 boundary: a workspace where every package is judged complete marks every line, and one where none is marks none', (t) => {
+  const all = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002'], edges: [['pkg-0002', 'pkg-0001']], levels: [['pkg-0001'], ['pkg-0002']], documents: { grilled: ['pkg-0001', 'pkg-0002'], carried: ['pkg-0001', 'pkg-0002'] } });
   t.after(() => all.remove());
   const allText = renderPlan(twoLevelModel(all));
 
   assert.equal(allText.match(/🟡 SEQUENCED/g).length, 2);
-  assert.ok(allText.includes('  * crates/protocol/package-1 🟡 SEQUENCED'));
-  assert.ok(allText.includes('  * crates/protocol/package-2 🟡 SEQUENCED'));
+  assert.ok(allText.includes('  * crates/protocol/package-1 🟠 GRILLED 🟡 SEQUENCED'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED'));
   assert.doesNotMatch(allText, /EXPLAINED/);
-  assert.doesNotMatch(allText, /GRILLED/);
-  assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /SEQUENCED/);
+  assert.doesNotMatch(allText, /❌/);
+  assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /SEQUENCED|FAILED-SEQ/);
 });
 
-test('C001 invariant: the focused block is unchanged by the sequenced state', (t) => {
-  const sequenced = materializeOrderWorkspace({
-    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
-    edges: [
-      ['pkg-0002', 'pkg-0001'],
-      ['pkg-0003', 'pkg-0001'],
-    ],
-    levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
-    sequenced: ['pkg-0003'],
-  });
-  t.after(() => sequenced.remove());
+test('C001 invariant: the focused block is unchanged by the verdict', (t) => {
+  const judged = sequencedFixture(t);
   const plain = fixture(t);
   const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
 
-  // The plan of the very fixture whose block is compared carries the mark, so this case is
-  // red while the label is absent and green only once the mark exists and is confined to it.
-  assert.ok(renderPlan(twoLevelModel(sequenced)).includes('    crates/protocol/package-3 🟡 SEQUENCED\n'));
-  assert.equal(focus(sequenced), focus(plain));
-  assert.doesNotMatch(focus(sequenced), /SEQUENCED/);
+  // The plan of the very fixture whose block is compared carries the marks, so this case is red
+  // while they are absent and green only once they exist and are confined to the plan.
+  assert.ok(renderPlan(twoLevelModel(judged)).includes('crates/protocol/package-1 🔴 EXPLAINED 🟠 GRILLED 🟡 SEQUENCED'));
+  assert.equal(focus(judged), focus(plain));
+  assert.doesNotMatch(focus(judged), /SEQUENCED|FAILED-SEQ/);
 });

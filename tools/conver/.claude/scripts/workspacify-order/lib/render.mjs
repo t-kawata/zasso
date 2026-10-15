@@ -9,6 +9,10 @@
  * Left to right is time. The manifests orient an edge consumer to provider; this view prints
  * the provider first, so an arrow in the critical chain reads "is finished before".
  */
+import {
+  SEQUENCE_VERDICT_COMPLETE,
+  SEQUENCE_VERDICT_FAILED,
+} from '../../sequences-slice/lib/package-verdict.mjs';
 
 export const LEVEL_LABEL = 'level';
 export const ALONE_LABEL = 'alone';
@@ -19,8 +23,10 @@ export const CRITICAL_MARKER = '*';
 export const EXPLAINED_LABEL = '🔴 EXPLAINED';
 /** Written after the explanation mark, when the directory also carries its grilled design. */
 export const GRILLED_LABEL = '🟠 GRILLED';
-/** Written after the grill mark, when the directory also carries its sequences view. */
+/** Written when the directory's own documents account for every obligation it carries. */
 export const SEQUENCED_LABEL = '🟡 SEQUENCED';
+/** Written when the distribution reached the directory and its verification refutes what it did. */
+export const FAILED_SEQUENCE_LABEL = '❌ FAILED-SEQ';
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
@@ -74,18 +80,25 @@ function renderLevelHeader(index, memberCount) {
 /**
  * The marks a package carries, in the order the pipeline reaches them.
  *
- * A seed is explained, then grilled, then sliced into sequences, so a directory that reached
- * all three reads left to right as the work happened. Each mark is written from its own
- * document alone: RFC.md can sit in a directory that was never explained, and SEQUENCES.md
- * can sit in one that was never grilled, so a package may carry any one of the three, any
- * pair, all three or none. Printing only the furthest would drop a fact the directory holds,
- * and closing a gap would assert a step that never ran.
+ * A seed is explained, then grilled, then sliced into sequences, so a directory that reached all
+ * three reads left to right as the work happened. The first two marks are written from their own
+ * document alone — RFC.md can sit in a directory that was never explained, so a package may carry
+ * either of them, both or neither — and the third is not a document's presence but the verdict
+ * its documents support, which is why it has two spellings and a missing one.
+ *
+ * A directory the distribution never reached carries nothing rather than a third mark: the
+ * absence says no attempt exists to judge, and a placeholder would read as a judgement that the
+ * reader was unable to reach. Printing only the furthest mark would drop a fact the directory
+ * holds, and closing a gap would assert a step that never ran.
  */
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function renderMarks(model, id) {
   const marks = [];
   if (model.explainedIds.has(id)) marks.push(EXPLAINED_LABEL);
   if (model.grilledIds.has(id)) marks.push(GRILLED_LABEL);
-  if (model.sequencedIds.has(id)) marks.push(SEQUENCED_LABEL);
+  const verdict = model.sequenceVerdicts.get(id);
+  if (verdict?.state === SEQUENCE_VERDICT_COMPLETE) marks.push(SEQUENCED_LABEL);
+  if (verdict?.state === SEQUENCE_VERDICT_FAILED) marks.push(FAILED_SEQUENCE_LABEL);
   return marks.map((mark) => ` ${mark}`).join('');
 }
 
