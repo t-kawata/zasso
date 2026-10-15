@@ -1,7 +1,8 @@
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
-// The borrowed census: the artifact is told what it must account for (PX-248).
+// The borrowed census: the artifact is told what it must account for — PX-248.
 //
 // The rail's yardstick was the artifact itself: `every-operation-reached` compared the
 // steps' claimed operations against the artifact's own declared list, so a short list
@@ -431,5 +432,5 @@ test('the registry the fixture borrows is committed beside the fixture specifica
 
 test('the check count follows the registry it is declared in', () => {
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
 });

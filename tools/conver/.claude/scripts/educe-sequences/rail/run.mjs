@@ -21,12 +21,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { VERIFY_COMMAND, buildArtifact } from './artifact.mjs';
 import { coverageLine, predecessorLine } from './coverage.mjs';
 import { writeDemandRecord } from './demand.mjs';
-import { limbCensusLines } from './report.mjs';
+import { limbCensusLines, selectionLines } from './report.mjs';
 import { checkAll, describeRefusal } from './engine.mjs';
 import { digestOf, readArtifact, readJsonOrNull, readSpecification } from './load.mjs';
 import { artifactPathFor, parseSpecArgument, renderPathFor } from './paths.mjs';
 import { rederiveAll } from './pins.mjs';
-import { ADJUDICATION_OUTCOMES, applyReadings, vanishedRefusal, vanishedSubjects } from './reading.mjs';
+import { ADJUDICATION_OUTCOMES, applyReadings, proveAdjudicationReadings, vanishedRefusal, vanishedSubjects } from './reading.mjs';
 import { loadAdhocChecks } from './adhoc.mjs';
 import { railExitStoreFor } from './harness.mjs';
 import { inquestBeside } from './readings.mjs';
@@ -112,6 +112,16 @@ export async function runCommand(argv, options = {}) {
     supplied: suppliedDigestOf(runDirectoryFor(specPath)),
     suppliedDocuments: material,
   });
+  // The adjudications are proven here as they are in the phase that composes them: a rebuild
+  // reads the same file the phase path reads, and a run that refused a row for its word in one
+  // path and accepted it in the other would be two answers to one question. The refusal names
+  // the field and the words that were allowed, before anything is written.
+  const adjudicated = proveAdjudicationReadings({ readings: runInput.readings.adjudications ?? [], artifact, specLines: ground.spec.lines });
+  if (adjudicated.refused.length > 0) {
+    for (const refusal of adjudicated.refused) stderr(`refused: ${refusal.subject} ${refusal.field}: ${refusal.why}`);
+    return { exitCode: EXIT.REFUSED, artifactPath: ground.artifactPath, summary: null, verdicts: adjudicated.refused };
+  }
+
   // A run holding readings is about to replace the artifact rather than stand by it, so the
   // names it replaces are compared with the names it writes before either the checks or the
   // write. A merge is an improvement and is permitted; a merge that lost a name is refused
@@ -285,7 +295,7 @@ function previousCoverageFor(specPath) {
  * shows. The predecessor comes from the status rather than from a flag, because a number
  * that could be supplied by the caller is a number that could disagree with the run.
  */
-// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-245, PX-246, PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-245|PX-246|PX-251) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-245, PX-246, PX-251, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-245|PX-246|PX-251|PX-268) --for-spec --no-implementation-order`.
 function report(stdout, summary, previousCoverage = null) {
   const measured = coverageLine(summary);
   // The predecessor is respelled through the mapping rather than handed to `coverageLine`:
@@ -294,6 +304,10 @@ function report(stdout, summary, previousCoverage = null) {
   const predecessor = predecessorLine(previousCoverage);
   stdout(predecessor === null ? measured : `${measured} (previous generation: ${predecessor})`);
   for (const line of limbCensusLines(summary)) stdout(line);
+  // The product path prints the same measured facts the phase report does, through the same
+  // helpers: a verification that could not say what each check examined would report the
+  // same green as one that examined nothing.
+  for (const line of selectionLines(summary)) stdout(line);
   stdout(`checksRun=${summary.checksRun} of ${summary.checksDeclared} checksAdhoc=${summary.checksAdhoc}`);
   stdout(`pinsRederived=${summary.pinsRederived} of ${summary.pinsTotal}`);
   stdout(`railExits=${summary.railExits} promotionCandidates=${summary.promotionCandidates}`);

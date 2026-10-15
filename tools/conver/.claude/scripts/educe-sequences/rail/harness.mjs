@@ -16,7 +16,7 @@ import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeF
 import { join } from 'node:path';
 
 import { DIAGRAMMED_OUTCOMES, checkAll } from './engine.mjs';
-import { LIMB_RULING_OUTCOMES, PREDICATE_LIMB_FIELD } from './load.mjs';
+import { LIMB_RULING_OUTCOMES, NO_LIMB_APPLIES, PREDICATE_LIMB_FIELD } from './load.mjs';
 
 /** The file a run keeps its rail-exit records in, beside the checks it had to write. */
 export const RAIL_EXIT_FILE = 'rail-exits.jsonl';
@@ -191,6 +191,42 @@ function stripARulingLimb(artifact) {
   return next;
 }
 
+/**
+ * Patch the first adjudication the artifact holds.
+ *
+ * Aimed at a row the artifact carries rather than at a named one, for the reason the limb
+ * mutation is: a case that names a row the artifact does not have cannot run at all.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function withFirstAdjudication(artifact, patch) {
+  const next = structuredClone(artifact);
+  const [first] = next.adjudications ?? [];
+  if (first !== undefined) Object.assign(first, patch);
+  return next;
+}
+
+/**
+ * Append a ruling that names nothing.
+ *
+ * Appended rather than patched: emptying an existing adjudication's subject would also take a
+ * section's only explanation away, and a case that reddens two checks reports the first and
+ * hides the one it was written for.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function withANamelessAdjudication(artifact) {
+  const next = structuredClone(artifact);
+  const ruling = { subject: '', outcome: liveOutcomeOf(next), reader: 'adjudicate', [PREDICATE_LIMB_FIELD]: NO_LIMB_APPLIES };
+  next.adjudications = [...next.adjudications, ruling];
+  return next;
+}
+
+/** An outcome the schema declares, taken from a row the artifact already holds. */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function liveOutcomeOf(artifact) {
+  const [row] = artifact.adjudications ?? [];
+  return row?.outcome ?? 'notASequence';
+}
+
 /** The specification mutations: each must redden the check it names. */
 export const SPEC_MUTATION_CORPUS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
@@ -285,11 +321,34 @@ export const SPEC_MUTATION_CORPUS = Object.freeze([
     check: 'adjudication-cites-a-declared-limb',
     mutate: ({ artifact, specLines }) => ({ artifact: stripARulingLimb(artifact), specLines }),
   },
+  {
+    name: 'adjudication-outcome-outside-the-declared-vocabulary',
+    check: 'every-adjudication-is-in-the-declared-shape',
+    mutate: ({ artifact, specLines }) => ({ artifact: withFirstAdjudication(artifact, { outcome: 'schema_block' }), specLines }),
+  },
+  {
+    name: 'adjudication-names-nothing',
+    check: 'every-adjudication-is-in-the-declared-shape',
+    mutate: ({ artifact, specLines }) => ({ artifact: withANamelessAdjudication(artifact), specLines }),
+  },
+  {
+    name: 'adjudication-carries-an-undeclared-key',
+    check: 'every-adjudication-is-in-the-declared-shape',
+    mutate: ({ artifact, specLines }) => ({ artifact: withFirstAdjudication(artifact, { category: 'prose' }), specLines }),
+  },
 ]);
 
 /** The counter-mutations: edits that are correct but different, and must stay green. */
 export const COUNTER_MUTATION_CORPUS = Object.freeze([
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+  {
+    name: 'adjudications-reordered',
+    mutate: ({ artifact, specLines }) => ({ artifact: { ...artifact, adjudications: [...artifact.adjudications].reverse() }, specLines }),
+  },
+  {
+    name: 'an-adjudication-answers-none-applies',
+    mutate: ({ artifact, specLines }) => ({ artifact: withFirstAdjudication(artifact, { predicateLimb: NO_LIMB_APPLIES }), specLines }),
+  },
   {
     name: 'predicate-limbs-reordered',
     mutate: ({ artifact, specLines }) => {
@@ -315,10 +374,14 @@ export const COUNTER_MUTATION_CORPUS = Object.freeze([
     },
   },
   {
-    name: 'ruling-reason-rewritten',
+    name: 'adjudication-reader-renamed',
     mutate: ({ artifact, specLines }) => {
+      // The reader's own words are the reading's, and the artifact carries the name of the
+      // one who wrote the row rather than a value any check decides by: renaming it is a
+      // different record of the same ruling. It was aimed at the reason until PX-268 stopped
+      // the artifact carrying free text the schema does not declare.
       const next = structuredClone(artifact);
-      next.adjudications = next.adjudications.map((row) => ({ ...row, reason: `${row.reason} ` }));
+      next.adjudications = next.adjudications.map((row) => ({ ...row, reader: `${row.reader}/renamed` }));
       return { artifact: next, specLines };
     },
   },

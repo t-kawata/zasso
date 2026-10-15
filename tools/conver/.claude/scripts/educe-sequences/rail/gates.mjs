@@ -19,7 +19,7 @@ import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
 import { LIMB_RULING_OUTCOMES, deriveSet, readArtifact } from './load.mjs';
 import { SOURCE_ROLES, blocksFromHeadings, establishPins, findLineContainingAll, rederiveAll, sectionLevelOf } from './pins.mjs';
-import { ADJUDICATION_OUTCOMES } from './reading.mjs';
+import { ADJUDICATION_OUTCOMES, proveAdjudicationReadings } from './reading.mjs';
 import {
   DECLARATION_FILE,
   INQUEST_FILE,
@@ -30,6 +30,7 @@ import {
   readDeclarationFile,
   readInquestFile,
   readReadingsFile,
+  readingsFileName,
   signedCount,
 } from './readings.mjs';
 import { generationOf } from './run-state.mjs';
@@ -145,6 +146,7 @@ function entriesWithoutOutcome(artifact) {
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASES = Object.freeze([
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   {
     id: 1, name: 'identity', tag: PHASE_TAGS.DET, requires: [], backTo: null, maxLoops: 1,
     exit: (ctx) => (ctx.status.spec.sha256 === ctx.spec.sha256 && ctx.status.spec.lines === ctx.spec.lineCount
@@ -311,6 +313,20 @@ export const PHASES = Object.freeze([
     id: 12, name: 'adjudicate', tag: PHASE_TAGS.READ, requires: [11], backTo: 11, maxLoops: 3,
     exit: (ctx) => {
       const artifact = readArtifact(ctx.artifactPath);
+      // The brief this phase dispatched is proven here as well as at composition, because this is
+      // the gate of the phase that asked for it: a reader who has just written 954 rows in the
+      // wrong shape learns it in the phase they were working in, from the field they filled.
+      // A brief that was never written is nothing to prove rather than a refusal — this phase has
+      // no worklist when every entry already carries an outcome, and the other [read] phases treat
+      // an absent brief the same way. A file that is there and unreadable is still refused, by name.
+      const briefPath = join(ctx.directory, readingsFileName('adjudicate'));
+      const readings = readBrief(ctx.directory, 'adjudicate');
+      if (!readings.ok && existsSync(briefPath)) return refuse(readings.problems.join('; '));
+      const proved = proveAdjudicationReadings({ readings: readings.ok ? readings.readings : [], artifact, specLines: ctx.spec.lines });
+      if (proved.refused.length > 0) {
+        const first = proved.refused[0];
+        return refuse(`${proved.refused.length} adjudication(s) are not in the declared shape, first ${first.subject} ${first.field}: ${first.why}`);
+      }
       const bare = entriesWithoutOutcome(artifact);
       return bare.length > 0
         ? refuse(`${bare.length} entr(y|ies) carry no declared outcome, first ${bare[0].id}`)

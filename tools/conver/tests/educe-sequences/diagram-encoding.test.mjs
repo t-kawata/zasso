@@ -1,3 +1,4 @@
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
 // A name cannot break the drawing, and a rendering is written only from a verification
 // that passed (PX-249, C001-C006).
 //
@@ -271,7 +272,7 @@ test('C003 a step naming no sequence at all is refused rather than counted', () 
 test('C003 the registry declares the new check once and the stated count is the registry length', () => {
   assert.equal(CHECKS.filter((check) => check.id === BELONGS).length, 1);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
 });
 
 // ---------------------------------------------------------------------------

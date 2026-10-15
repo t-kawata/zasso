@@ -1,3 +1,4 @@
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The ad-hoc surface, after the run that produced it (PX-244, contracts C001-C006).
@@ -205,7 +206,7 @@ test('C001 the engine stays a function of values: no dynamic import, and its cou
 
   assert.equal(/await import|import\(/.test(source), false, 'the caller loads the modules, not the engine');
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 29);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
 });
 
 // ---------------------------------------------------------------------------
@@ -512,5 +513,5 @@ test('IT the golden run still writes the golden artifact, and its counts are the
 
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8')), golden);
-  assert.match(run.stdout, /checksRun=29 of 29/);
+  assert.match(run.stdout, /checksRun=30 of 30/);
 });

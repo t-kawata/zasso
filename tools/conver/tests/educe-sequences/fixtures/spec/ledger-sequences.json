@@ -302,62 +302,46 @@
     {
       "subject": "s1",
       "outcome": "notASequence",
-      "category": "document_description",
-      "reason": "it says what the document specifies rather than naming an actor and an act",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     },
     {
       "subject": "s2",
       "outcome": "notASequence",
-      "category": "predicate_statement",
-      "reason": "it states when a procedure counts as an operation rather than performing one",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     },
     {
       "subject": "s3",
       "outcome": "notASequence",
-      "category": "row_description",
-      "reason": "it describes the fields a row carries rather than an act an operator performs",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     },
     {
       "subject": "s4",
       "outcome": "notASequence",
-      "category": "enumeration_statement",
-      "reason": "it states the closed set of statuses rather than an act",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     },
     {
       "subject": "s7",
       "outcome": "singleStep",
-      "category": "single_step_act",
-      "reason": "one operator cancels a pending row by writing a cancelled row, which is one act",
       "reader": "adjudicate"
     },
     {
       "subject": "s8",
       "outcome": "singleStep",
-      "category": "single_step_act",
-      "reason": "one operator recovers a row by replaying the admission, which is one act",
       "reader": "adjudicate"
     },
     {
       "subject": "s9",
       "outcome": "notASequence",
-      "category": "rule_statement",
-      "reason": "it states a rule a designer may supply rather than naming an act",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     },
     {
       "subject": "s10",
       "outcome": "notASequence",
-      "category": "non_sequence_prose",
-      "reason": "it describes a section rather than an ordered procedure an actor performs",
       "reader": "adjudicate",
       "predicateLimb": "none-applies"
     }

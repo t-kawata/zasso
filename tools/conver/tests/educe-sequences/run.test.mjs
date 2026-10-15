@@ -1,3 +1,4 @@
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The command (PX-240, contracts C010, C011, C013, and the first integration test).
@@ -50,6 +51,25 @@ function recordPath(directory) {
 
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+
+test('C013 a rebuild refuses an adjudication outside the declared vocabulary, and writes nothing', async () => {
+  // The phase path proves the adjudicate readings before it composes; the rebuild path reads
+  // the same file, so it is held to the same proof rather than to a check that happens to
+  // notice afterwards. What the reader gets either way is the field and the words allowed.
+  const { specPath, artifactPath } = scratchSpec();
+  const foreign = { ...RUN_INPUT, readings: { ...RUN_INPUT.readings, adjudications: [{ subject: 's1', outcome: 'schema_block', reader: 'adjudicate' }] } };
+
+  const result = await quietly([specPath], foreign);
+
+  assert.equal(result.exitCode, EXIT.REFUSED);
+  assert.equal(existsSync(artifactPath), false, 'a refused rebuild leaves nothing behind');
+  assert.equal(result.err.includes('s1'), true, result.err);
+  assert.equal(result.err.includes('outcome'), true, result.err);
+  for (const outcome of ['direct', 'viaNeighbour', 'notASequence', 'singleStep', 'exempt']) {
+    assert.equal(result.err.includes(outcome), true, outcome);
+  }
+});
+
 test('C010 a run with one argument writes the artifact beside the specification', async () => {
   const { specPath, artifactPath } = scratchSpec();
 
@@ -58,7 +78,7 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
   assert.equal(existsSync(artifactPath), true);
-  assert.match(result.out, /checksRun=29 of 29/);
+  assert.match(result.out, /checksRun=30 of 30/);
   assert.match(result.out, /pinsRederived=5 of 5/);
 });
 
@@ -145,7 +165,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   const result = await quietly([specPath], null);
 
   assert.equal(result.exitCode, EXIT.OK);
-  assert.match(result.out, /checksRun=29 of 29/);
+  assert.match(result.out, /checksRun=30 of 30/);
 });
 
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.

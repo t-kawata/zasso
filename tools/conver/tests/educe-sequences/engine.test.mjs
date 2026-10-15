@@ -40,7 +40,8 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-247, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-247|PX-249) --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
-  checksRun: 29,
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+  checksRun: 30,
   entries: 8,
   sequences: 2,
   steps: 6,

@@ -62,13 +62,18 @@ function requireAttribution({ id, defect, refuses }) {
  * a second copy of this shape in the module that declares the checks.
  */
 // [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
-export function checkOf(contract, run) {
+export function checkOf(contract, run, { examined } = {}) {
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   return {
     id: contract.id,
     originatingDefect: contract.defect,
     refuses: contract.refuses,
     scope: contract.scope ?? DEFAULT_SCOPE,
     run,
+    // What the check iterates, where the constructor knows it. A check that examined no rows and
+    // a check that examined every row and found it sound reported the same nothing until this
+    // travelled with it, and a selection of zero is a fact a report has to be able to state.
+    ...(typeof examined === 'function' ? { examined } : {}),
   };
 }
 
@@ -144,7 +149,7 @@ export function agreeOn(contract, { left, right, key = (record) => record.id, va
       if (!first.has(name)) verdicts.push({ ...verdict(contract.id, name, 'present in the second record and absent from the first'), direction: 'forward' });
     }
     return verdicts;
-  });
+  }, { examined: (context) => left(context) ?? [] });
 }
 
 
@@ -162,7 +167,8 @@ export function coverEveryLine(contract, { spans, lineCount, label = spanLabel }
   requireAttribution(contract);
   return checkOf(contract, (context) =>
     uncoveredRanges({ spans: spans(context) ?? [], lineCount: lineCount(context) })
-      .map((range) => verdict(contract.id, label(range), contract.refuses)));
+      .map((range) => verdict(contract.id, label(range), contract.refuses)),
+  { examined: (context) => spans(context) ?? [] });
 }
 
 /**
@@ -177,7 +183,8 @@ export function coverEvery(contract, { sources, coveredBy, label }) {
   return checkOf(contract, (context) =>
     (sources(context) ?? [])
       .filter((source) => coveredBy(source, context) !== true)
-      .map((source) => verdict(contract.id, labelOf(source, label), contract.refuses)));
+      .map((source) => verdict(contract.id, labelOf(source, label), contract.refuses)),
+  { examined: (context) => sources(context) ?? [] });
 }
 
 /**
@@ -203,7 +210,7 @@ export function placeEach(contract, { members, buckets, bucketOf, label }) {
       }
       return [];
     });
-  });
+  }, { examined: (context) => members(context) ?? [] });
 }
 
 /**
@@ -228,7 +235,7 @@ export function citeInside(contract, { claims, spanOf, crossings, label }) {
       if (claim.line >= span.firstLine && claim.line <= span.lastLine) return [];
       const recorded = (crossings(span, context) ?? []).some((crossing) => crossing.line === claim.line);
       return recorded ? [] : [verdict(contract.id, subject, `line ${claim.line} is outside ${span.id} ${span.firstLine}-${span.lastLine} and is not recorded as a crossing`)];
-    }));
+    }), { examined: (context) => claims(context) ?? [] });
 }
 
 /**
@@ -267,7 +274,7 @@ export function reachEvery(contract, { claimed, declared, exempt = () => false, 
       }
     }
     return verdicts;
-  });
+  }, { examined: (context) => declared(context) ?? [] });
 }
 
 /**
@@ -284,7 +291,8 @@ export function citeFrom(contract, { claims, carriers }) {
   return checkOf(contract, (context) =>
     (claims(context) ?? [])
       .filter((claim) => !new Set(carriers(claim, context) ?? []).has(claim.carrier))
-      .map((claim) => verdict(contract.id, claim.subject, `${contract.refuses}: ${claim.carrier}`)));
+      .map((claim) => verdict(contract.id, claim.subject, `${contract.refuses}: ${claim.carrier}`)),
+  { examined: (context) => claims(context) ?? [] });
 }
 
 /**
@@ -303,7 +311,7 @@ export function groundIn(contract, { claims }) {
         return [verdict(contract.id, claim.subject, `${contract.refuses}: line ${claim.line} does not carry the quote`)];
       }
       return [];
-    }));
+    }), { examined: (context) => claims(context) ?? [] });
 }
 
 /** The rule names, re-exported so a reader can see what re-derivation means from here. */

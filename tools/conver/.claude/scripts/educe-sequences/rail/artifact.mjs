@@ -9,13 +9,31 @@
 import { basename } from 'node:path';
 
 import { demandFactsBeside } from './demand.mjs';
-import { PREDICATE_LIMB_FIELD, carriesValue, readArtifactSchema } from './load.mjs';
+import { ADJUDICATION_FIELDS, PREDICATE_LIMB_FIELD, carriesValue, readArtifactSchema } from './load.mjs';
 import { establishPins } from './pins.mjs';
 import { digestOfSupplied } from './supplied.mjs';
 
 /** The command a reader is told to run to check the artifact later. */
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
 export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>';
+
+/**
+ * The fields of an adjudication row, taken from the reading that recorded it.
+ *
+ * A reading carries more than the artifact contracts — the reader's own category and reason
+ * among them — and a pass-through would put those in the artifact as words no declaration owns
+ * and no check decides. The row keeps what the schema names; the reading keeps the rest. A key
+ * holding no answer is not carried, the rule the limb already follows: a key present and empty
+ * is a field that answered nothing.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function declaredFieldsOf(reading) {
+  return Object.fromEntries(
+    [...ADJUDICATION_FIELDS, PREDICATE_LIMB_FIELD]
+      .filter((field) => carriesValue(reading, field))
+      .map((field) => [field, reading[field]]),
+  );
+}
 
 /**
  * Compose the artifact.
@@ -62,7 +80,7 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
     }),
     steps: readings.steps,
     operations: readings.operations,
-    adjudications: readings.adjudications,
+    adjudications: (readings.adjudications ?? []).map((reading) => declaredFieldsOf(reading)),
     sections: declaration.sections,
     exemptions: declaration.exemptions,
     verify: { command: VERIFY_COMMAND, expected_exit: 0 },
