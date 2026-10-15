@@ -22,6 +22,7 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -41,7 +42,7 @@ function resolveSessionDir(argument, rfcDir) {
   return path.resolve(argument.slice(SESSION_DIR_FLAG_PREFIX.length));
 }
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rfcDirArgument, ...rest] = argv;
   if (rfcDirArgument === undefined) {
@@ -53,6 +54,7 @@ function main(argv = process.argv.slice(2)) {
   const answer = findSequenceMaterial({
     rfcDir,
     sessionDir: resolveSessionDir(rest.find((argument) => argument.startsWith(SESSION_DIR_FLAG_PREFIX)), rfcDir),
+    homeDirectory: os.homedir(),
     io: { ...nodeFileSystem(fs), basename: path.basename, join: path.join },
   });
   process.stdout.write(`${JSON.stringify(answer)}\n`);

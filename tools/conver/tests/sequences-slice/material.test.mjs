@@ -14,6 +14,7 @@ import {
   MATERIAL_LIST_FIELD,
   SOURCE_ARTIFACT_SUFFIX,
   collectUnitIds,
+  expandHomePath,
   findSequenceMaterial,
   isUsableSourceArtifact,
   isViewName,
@@ -37,6 +38,9 @@ const RFC_DIR = '/workspace/pkg';
 const STATUS = path.join(RFC_DIR, 'Status.json');
 const VIEW = path.join(RFC_DIR, 'SEQUENCES.md');
 const SOURCE = `/workspace/spec${SOURCE_ARTIFACT_SUFFIX}`;
+const VIEW_JSON = path.join(RFC_DIR, 'SEQUENCES.json');
+/** The home directory a recorded path beginning with a tilde is resolved against. */
+const HOME_DIRECTORY = path.join('/home', 'tester');
 
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 materialPaths is read when it is a list and researchPath only when it is absent', () => {
@@ -160,4 +164,91 @@ test('C001 the unit ids a view distributes are read in the view order, without r
 test('C001 a view that carries none of the three arrays distributes no unit', () => {
   assert.deepEqual(collectUnitIds({}), []);
   assert.deepEqual(collectUnitIds({ ownedOperationUnits: [{ unitId: 'op-a' }] }), ['op-a']);
+});
+
+// ---------------------------------------------------------------------------
+// PX-270 @verifies C001
+// PX-270 @verifies C005
+// PX-270 @verifies C006
+//
+// The view's currency, and the paths a session records.
+//
+// Existence is what the detector answered before: a view is there, so it is read. That answer is
+// what let a directory carry a projection that predates the obligation carriage while every reader
+// was told the material was current. The two facts are told apart here — a view exists, and a view
+// was written by a writer that knew about obligations — because the run repairs the second and
+// must not touch the first twice.
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C001 a view written before the carriage is stale, and the reason names which kind of absence it is', () => {
+  const io = fakeFileSystem({
+    [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
+    [VIEW]: '# sequences\n',
+    [VIEW_JSON]: JSON.stringify({ packageId: 'pkg-a', ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [] }),
+  });
+  const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
+
+  assert.equal(answer.viewExists, true);
+  assert.equal(answer.viewIsCurrent, false);
+  assert.equal(answer.viewStalenessReason, 'view-predates-the-carriage');
+});
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C005 a view written with the carriage is current, so a second run projects nothing', () => {
+  const io = fakeFileSystem({
+    [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
+    [VIEW]: '# sequences\n',
+    [VIEW_JSON]: JSON.stringify({ packageId: 'pkg-a', obligationUnits: [], obligationSource: 'undeclared' }),
+  });
+  const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
+
+  assert.equal(answer.viewIsCurrent, true);
+  assert.equal(answer.viewStalenessReason, null);
+});
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C001 a view whose JSON cannot be read is not current, and the reason is the one the verdict uses', () => {
+  const io = fakeFileSystem({
+    [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
+    [VIEW]: '# sequences\n',
+    [VIEW_JSON]: '{ not json',
+  });
+  const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
+
+  assert.equal(answer.viewIsCurrent, false);
+  assert.equal(answer.viewStalenessReason, 'unreadable-view');
+});
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C001 a directory with no view reports no-view rather than claiming a current one', () => {
+  const io = fakeFileSystem({ [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }), [SOURCE]: SOURCE_TEXT });
+  const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
+
+  assert.equal(answer.viewExists, false);
+  assert.equal(answer.viewIsCurrent, false);
+  assert.equal(answer.viewStalenessReason, 'no-view');
+});
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C006 a recorded path beginning with a tilde resolves under the home directory, and the record keeps its own spelling', () => {
+  const expandedSource = path.join(HOME_DIRECTORY, 'spec-sequences.json');
+  const io = fakeFileSystem({
+    [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: ['~/spec-sequences.json'] }),
+    [expandedSource]: SOURCE_TEXT,
+  });
+  const answer = findSequenceMaterial({ rfcDir: RFC_DIR, homeDirectory: HOME_DIRECTORY, io });
+
+  assert.deepEqual(answer.materialPaths, ['~/spec-sequences.json']);
+  assert.deepEqual(answer.staleMaterialPaths, []);
+  assert.equal(answer.source, expandedSource);
+});
+
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+test('C006 only a leading tilde is expanded, and a path that is not one is returned as given', () => {
+  assert.equal(expandHomePath('~/a/b', HOME_DIRECTORY), path.join(HOME_DIRECTORY, 'a', 'b'));
+  assert.equal(expandHomePath('~', HOME_DIRECTORY), HOME_DIRECTORY);
+  assert.equal(expandHomePath('/root/~/a', HOME_DIRECTORY), '/root/~/a');
+  assert.equal(expandHomePath('a/~/b', HOME_DIRECTORY), 'a/~/b');
+  assert.equal(expandHomePath('', HOME_DIRECTORY), '');
 });

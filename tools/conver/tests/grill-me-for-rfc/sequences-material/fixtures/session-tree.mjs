@@ -185,43 +185,26 @@ export function runPreChangeStepZero(packageDir, { arguments: args }) {
 /**
  * STEP 0 as the command definition states it, over the real scripts.
  *
- * The command is a bash block inside a markdown file, so there is no single artifact to
- * invoke. This runs the sequence the block states, using the detector's own answer to
- * decide the branch, and the order test beside it asserts the block states that sequence.
- * Between them, a command that said the wrong thing and a sequence that did the wrong
- * thing each fail.
+ * The command is a bash block inside a markdown file, so there is no single artifact to invoke.
+ * This runs the sequence the block states, and the order test beside it asserts the block states
+ * that sequence. Between them, a command that said the wrong thing and a sequence that did the
+ * wrong thing each fail.
  *
- * @returns {{ init: object, detector: object, generation: object|null, listFiles: object, settleRun: object }}
+ * There is no projection step here: initialization makes the recorded view current in the same call
+ * that records the material, so what this reports about the view is what init reported, not what a
+ * second command produced. The detector is still run after it, because its answer is what the
+ * command's next branch reads.
+ *
+ * @returns {{ init: object, report: object|null, detector: object, listFiles: object, settleRun: object }}
  */
-export function runStepZero(packageDir, { arguments: args, sessionDir = null, sourcePath = null }) {
+// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+export function runStepZero(packageDir, { arguments: args, sessionDir = null }) {
   const init = spawnSync(process.execPath, [INIT, packageDir, ...args], { encoding: 'utf8' });
 
   const detector = runDetector(packageDir, { sessionDir });
-
-  let generation = null;
-  if (detector.answer.present && detector.answer.view === null && detector.answer.source !== null) {
-    const written = spawnSync(process.execPath, [RUN, detector.answer.source, packageDir], { encoding: 'utf8' });
-    const recorded = spawnSync(
-      process.execPath,
-      [INIT, packageDir, path.join(packageDir, VIEW_MARKDOWN_NAME), path.join(packageDir, VIEW_JSON_NAME)],
-      { encoding: 'utf8' },
-    );
-    generation = { written, recorded };
-  } else if (detector.answer.view === null && sourcePath !== null) {
-    // The operator named the artifact on the command line rather than recording it, which
-    // is the shape a first run takes: init.js records it, and the branch above then sees it.
-    const written = spawnSync(process.execPath, [RUN, sourcePath, packageDir], { encoding: 'utf8' });
-    const recorded = spawnSync(
-      process.execPath,
-      [INIT, packageDir, path.join(packageDir, VIEW_MARKDOWN_NAME), path.join(packageDir, VIEW_JSON_NAME)],
-      { encoding: 'utf8' },
-    );
-    generation = { written, recorded };
-  }
-
   const listFiles = spawnSync(process.execPath, [LIST_FILES, packageDir], { encoding: 'utf8' });
   const settleRun = spawnSync(process.execPath, [SETTLE_RUN, packageDir, 'prior'], { encoding: 'utf8' });
-  return { init, detector, generation, listFiles, settleRun };
+  return { init, report: safeParse(init.stdout), detector, listFiles, settleRun };
 }
 
 /** The three artifacts a STEP 0 run produces, normalized for comparison. */
