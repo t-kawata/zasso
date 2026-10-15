@@ -103,6 +103,10 @@ export const EMPTY_ORIENTATION = Object.freeze({ previousAnswers: [], tree: '' }
  * reader opens the sentence rather than remembering it.
  */
 export function renderPredicateClause(predicate) {
+  // The words a ruling may answer with are the declared outcomes, and this clause is where they
+  // are named: every brief already carries it, so a vocabulary that moved would move for every
+  // reader at once, and no template has to carry a placeholder a brief could lose.
+  const answers = `A ruling answers with one of: ${ADJUDICATION_OUTCOMES.join(', ')}.`;
   // Before the declaration exists there is no sentence to quote, and that is the state the
   // phase that produces one runs in: the brief asking for the predicate cannot require it.
   // The clause states the requirement either way, so a brief always tells the reader what
@@ -114,6 +118,7 @@ export function renderPredicateClause(predicate) {
       'The declaration states no predicate yet.',
       '',
       'A procedure is an operation only when it effects one of the limbs of the single line that says when a procedure counts. The declaration must name that line, quote it, and list its limbs; every ruling made against this specification is decided by them, and a ruling that says an entry is not an operation names the limb it fails or says none applies.',
+      answers,
     ].join('\n');
   }
   const limbs = predicate.limbs.map((limb) => `"${limb}"`).join(', ');
@@ -125,6 +130,7 @@ export function renderPredicateClause(predicate) {
       `No line carries every declared limb: ${limbs}.`,
       '',
       'The predicate line is what the rule finds, not what the declaration names; a declaration whose limbs are paraphrases rather than quotes is refused when the phase runs.',
+      answers,
     ].join('\n');
   }
   return [
@@ -133,6 +139,7 @@ export function renderPredicateClause(predicate) {
     `  ${predicate.text}`,
     '',
     `A procedure is an operation only when it effects one of: ${limbs}. A ruling that says this is not an operation names the limb it fails, or "${NO_LIMB_APPLIES}" when no limb applies.`,
+    answers,
   ].join('\n');
 }
 
@@ -336,9 +343,18 @@ function proveRulingAppliesThePredicate({ reading, subject, artifact, refusals }
   }
 }
 
-/** Prove one reading against the artifact, the specification and the engine. */
-// [::TICKET::] PX-240, PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246) --for-spec --no-implementation-order`.
-function proveReading({ reading, artifact, specLines, refusals }) {
+/**
+ * Prove one reading against the artifact, the specification and the engine.
+ *
+ * `subjectIsAName` says the reading rules on a region rather than on an artifact row, and it is
+ * the one difference between the two collections. A ruling's subject is a name the document
+ * carries, and the rail requires rulings whose subject is a name nothing else declares — a merge
+ * keeps the name of a region it dropped by carrying a ruling for it (`vanishedRefusal` says so in
+ * as many words), so requiring the subject to resolve would refuse the repair the merge path is
+ * built on. What a ruling is held to is the vocabulary it answers in and the limb it names.
+ */
+// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
+function proveReading({ reading, artifact, specLines, refusals, subjectIsAName = false }) {
   const subject = reading.subject ?? '(unnamed)';
 
   for (const field of missingReadingFields(reading)) {
@@ -351,12 +367,19 @@ function proveReading({ reading, artifact, specLines, refusals }) {
     return;
   }
 
-  // A subject may be a sequence entry or an operation: a supplied rule is a reading
-  // about an operation, and refusing it here would force every supplied rule to be
-  // recorded as if it were a sequence.
+  if (subjectIsAName) {
+    proveRulingAppliesThePredicate({ reading, subject, artifact, refusals });
+    return;
+  }
+
+  // A subject may be a sequence entry, an operation, or a section: a supplied rule is a reading
+  // about an operation, and the ruling that explains a section is a reading about a section,
+  // which is the span no entry claimed. Refusing either here would force a reading to be
+  // recorded as something it is not.
   const entry =
     artifact.sequences.find((candidate) => candidate.id === subject) ??
-    artifact.operations.find((candidate) => candidate.id === subject);
+    artifact.operations.find((candidate) => candidate.id === subject) ??
+    (artifact.sections ?? []).find((candidate) => candidate.id === subject);
   if (entry === undefined) {
     refuse(refusals, subject, 'subject', 'the artifact declares no such entry');
     return;
@@ -407,23 +430,50 @@ function proveSuppliedRule({ reading, artifact, specLines, refusals, subject }) 
 }
 
 /**
- * Apply a set of readings to the artifact, writing only when every field is proven.
+ * Prove a set of readings against the artifact, refusing a subject claimed twice.
  *
- * @returns {{written: number} | {refused: Array<{subject: string, field: string, why: string}>}}
+ * The duplicate rule lives here rather than in either caller: two readings for one subject is
+ * the same finding whichever collection they were written for, and a second copy of the rule is
+ * a second thing that can disagree about what a repair is.
  */
-export function applyReadings({ artifactPath, readings, artifact, specLines }) {
-  const target = artifact ?? JSON.parse(readFileSync(artifactPath, 'utf8'));
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function proveReadings({ readings, artifact, specLines, subjectIsAName = false }) {
   const refusals = [];
-
   const seen = new Set();
-  for (const reading of readings) {
+  for (const reading of readings ?? []) {
     if (seen.has(reading.subject)) {
       refuse(refusals, reading.subject ?? '(unnamed)', 'subject', 'a second reading for one subject is not a repair of the first');
       continue;
     }
     seen.add(reading.subject);
-    proveReading({ reading, artifact: target, specLines, refusals });
+    proveReading({ reading, artifact, specLines, refusals, subjectIsAName });
   }
+  return refusals;
+}
+
+/**
+ * Prove the adjudicate readings, which rule on what no span reading claimed.
+ *
+ * This collection arrived unread: its rows were counted and carried, so a word outside the
+ * declared vocabulary was accepted, and the artifact held 40 words no declaration owned. The proof is the one every other reading gets — the same
+ * prover, the same refusal shape — and it is asked for wherever the collection is handled: in
+ * the phase that composes the artifact, before anything is written, and at the gate of the
+ * phase that dispatched the brief.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+export function proveAdjudicationReadings({ readings, artifact, specLines }) {
+  return { refused: proveReadings({ readings, artifact, specLines, subjectIsAName: true }) };
+}
+
+/**
+ * Apply a set of readings to the artifact, writing only when every field is proven.
+ *
+ * @returns {{written: number} | {refused: Array<{subject: string, field: string, why: string}>}}
+ */
+// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
+export function applyReadings({ artifactPath, readings, artifact, specLines }) {
+  const target = artifact ?? JSON.parse(readFileSync(artifactPath, 'utf8'));
+  const refusals = proveReadings({ readings, artifact: target, specLines });
 
   if (refusals.length > 0) return { refused: refusals };
 

@@ -52,6 +52,7 @@ export function healthLines({ summary, status, inquest = null, demand = null }) 
     `checksRun=${summary?.checksRun ?? 0} of ${summary?.checksDeclared ?? 0} checksAdhoc=${summary?.checksAdhoc ?? 0}`,
     `pinsRederived=${summary?.pinsRederived ?? 0} of ${summary?.pinsTotal ?? 0}`,
     ...limbCensusLines(summary),
+    ...selectionLines(summary),
     `readPhasesSettled=${settled.length} of ${reads.length} (${vacuous.length} had nothing to read)`,
     `railExits=${summary?.railExits ?? 0} promotionCandidates=${summary?.promotionCandidates ?? 0}`,
     ...inquestLines(inquest),
@@ -104,6 +105,32 @@ export function limbCensusLines(summary) {
   if (summary === null || summary === undefined) return [];
   if (typeof summary.predicateLimbs !== 'number') return [];
   return [`predicateLimbs=${summary.predicateLimbs} cited=${summary.limbsCited ?? 0} unused=${summary.limbsUnused ?? 0}`];
+}
+
+/** How many of a check's selection the report names before it counts the rest. */
+const SELECTION_NAMES_PRINTED = 8;
+
+/**
+ * How many rows each check that declares a selection examined.
+ *
+ * Printed and compared to nothing, and a zero is printed rather than omitted: a check that
+ * examined no rows read exactly like a check that examined every row and found them sound until
+ * this line existed, which is how a selection of nothing survived nine generations of a run
+ * whose every phase passed. The names are capped so the line stays a fact rather than a list.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+export function selectionLines(summary) {
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+  const examinations = summary?.examinations;
+  if (examinations === undefined || examinations === null) return [];
+  const ids = Object.keys(examinations);
+  const examinedNothing = ids.filter((id) => examinations[id] === 0);
+  const named = examinedNothing.slice(0, SELECTION_NAMES_PRINTED);
+  const rest = examinedNothing.length - named.length;
+  const silent = examinedNothing.length === 0
+    ? ''
+    : ` examiningNothing=${named.join(', ')}${rest > 0 ? ` …and ${rest} more` : ''}`;
+  return [`checksExaminingRows=${ids.length - examinedNothing.length} of ${ids.length}${silent}`];
 }
 
 /** How far a count moved, spelled with its sign so a fall cannot read as a small rise. */

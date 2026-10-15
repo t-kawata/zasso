@@ -31,6 +31,10 @@
   "outcomes": ["direct", "viaNeighbour", "notASequence", "singleStep", "exempt"],
   "positions": ["positioned", "singleStep", "suppliedRule", "excluded"],
   "escapes": ["suppliedRule", "excluded"],
+
+  "adjudications": {
+    "required": ["subject", "outcome", "reader"]
+  },
   "predicateRulings": {
     "outcomes": ["notASequence"],
     "field": "predicateLimb",

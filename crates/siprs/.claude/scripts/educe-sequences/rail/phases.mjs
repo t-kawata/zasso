@@ -20,7 +20,7 @@ import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
 import { establishPins } from './pins.mjs';
-import { applyReadings, buildWorklist, vanishedRefusal, vanishedSubjects } from './reading.mjs';
+import { applyReadings, buildWorklist, proveAdjudicationReadings, vanishedRefusal, vanishedSubjects } from './reading.mjs';
 import {
   DECLARATION_FILE,
   INQUEST_FILE,
@@ -165,6 +165,7 @@ function claimedInBrief(directory, brief) {
  * the substitution the whole design refuses.
  */
 const ACTIONS = Object.freeze({
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   6: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -215,8 +216,15 @@ const ACTIONS = Object.freeze({
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
     });
     // A merge is an improvement and is permitted; a merge that loses a name is not, so the
-    // names are compared before anything is written. Refusing here rather than at the gate
-    // is what leaves the artifact byte-identical, which is the state a reader repairs from.
+    // names are compared before anything is written. The adjudications are proven here, beside
+    // the span readings, because this is where the artifact is composed: a row whose word the
+    // schema does not declare is refused before it can be carried, rather than after.
+    const adjudicated = proveAdjudicationReadings({ readings: adjudicate, artifact, specLines: ctx.spec.lines });
+    if (adjudicated.refused.length > 0) {
+      return { ok: false, problems: adjudicated.refused.map((refusal) => `${refusal.subject} ${refusal.field}: ${refusal.why}`) };
+    }
+    // Refusing here rather than at the gate is what leaves the artifact byte-identical, which is
+    // the state a reader repairs from.
     const vanished = vanishedSubjects({ previous, next: artifact });
     if (vanished.length > 0) {
       return { ok: false, problems: vanished.map(vanishedRefusal) };

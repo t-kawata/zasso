@@ -111,6 +111,17 @@ export const SOURCE_ENTRY_KINDS = Object.freeze(readArtifactSchema().pins.source
 export const ENTRY_OUTCOMES = Object.freeze(readArtifactSchema().outcomes);
 
 /**
+ * The fields an adjudication row carries, which is what the schema declares and nothing else.
+ *
+ * A row composed from whatever a reader wrote is a row no check can judge: the artifact's words
+ * are the ones its schema names, and a key the schema does not declare answers a question the
+ * rail never asked. The field a ruling answers with is not repeated here — it is declared once,
+ * in `predicateRulings.field`, and allowed on these rows from there.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+export const ADJUDICATION_FIELDS = Object.freeze(readArtifactSchema().adjudications.required);
+
+/**
  * The rulings that apply the predicate, and what one of them owes.
  *
  * A ruling that something is not an operation is applying the predicate to it, so it names the

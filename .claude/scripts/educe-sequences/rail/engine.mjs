@@ -14,10 +14,13 @@
 import { agreeOn, checkOf, citeFrom, citeInside, coverEvery, coverEveryLine, groundIn, pinCheck, placeEach, reachEvery, verdict } from './checks.mjs';
 import { coverageOf } from './coverage.mjs';
 import {
+  ADJUDICATION_FIELDS,
   DIAGRAMMED_OUTCOMES,
+  ENTRY_OUTCOMES,
   OPERATION_POSITIONS,
   PREDICATE_LIMB_FIELD,
   UNREACHED_ESCAPES,
+  carriesValue,
   isSpanCensusPin,
   parseSpan,
   readArtifactSchema,
@@ -663,6 +666,65 @@ const adjudicationCitesADeclaredLimb = coverEvery(
 );
 
 /**
+ * How many rows each check that declares a selection examined.
+ *
+ * The count is of what the check iterated rather than of what it refused, so a zero here is the
+ * fact a refusal list cannot state: a check with no subjects is silent in every other line of
+ * the report, and a selection of zero read exactly like a sound one until this was measured. The
+ * selectors are the ones `run` already called, and a selector that throws has produced a verdict
+ * by now — this runs only on the path where nothing was refused.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function selectionCounts(checks, context) {
+  return {
+    examinations: Object.fromEntries(
+      checks
+        .filter((check) => typeof check.examined === 'function')
+        .map((check) => [check.id, (check.examined(context) ?? []).length]),
+    ),
+  };
+}
+
+/**
+ * Whether an adjudication answers the predicate in the declared shape.
+ *
+ * The limbs are one requirement: the artifact carries a ruling, not a record. A key the schema
+ * does not declare is a word no declaration owns, and an outcome outside the vocabulary is an
+ * answer nobody asked for — which is what the collection held unread, 954 rows of it over the
+ * real specification, every one of them naming a word no declaration carried.
+ *
+ * The subject is a name rather than a reference, and this check does not require it to resolve:
+ * the rail requires rulings whose subject is a name nothing else declares, because that is how a
+ * merge keeps the name of a region it dropped (`vanishedRefusal`). What the row owes is a name,
+ * which is what `carriesValue` asks of every declared field.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+function answersInTheDeclaredShape(row) {
+  const allowed = new Set([...ADJUDICATION_FIELDS, PREDICATE_LIMB_FIELD]);
+  if (!ADJUDICATION_FIELDS.every((field) => carriesValue(row, field))) return false;
+  if (Object.keys(row).some((key) => !allowed.has(key))) return false;
+  return ENTRY_OUTCOMES.includes(row.outcome);
+}
+
+/**
+ * Every adjudication answers the predicate in the shape the schema declares.
+ *
+ * The collection was carried into the artifact by whatever the reader wrote: its rows were counted
+ * and named nothing a check could judge, so the census's section arm rested on words like
+ * "schema_block" rather than on a ruling. The subjects are the artifact's adjudications, whatever
+ * a project calls them, and the vocabulary is the one the schema declares.
+ */
+// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+const everyAdjudicationIsInTheDeclaredShape = coverEvery(
+  { id: 'every-adjudication-is-in-the-declared-shape', defect: 'an adjudication rode into the artifact as whatever the reader wrote, so a word outside the declared vocabulary and a key the schema does not declare were carried unread and decided by no check', refuses: 'an adjudication outside the declared shape: a word outside the declared vocabulary, a key the schema does not declare, or a declared field left empty', scope: 'every artifact, over its adjudications' },
+  {
+    sources: (context) => context.artifact.adjudications ?? [],
+    coveredBy: (row) => answersInTheDeclaredShape(row),
+    label: (row) => row.subject,
+  },
+);
+
+/**
  * How many of the declared limbs a ruling cited, and how many it did not.
  *
  * A count of what the artifact holds, so it lives beside the other measurements and in
@@ -775,6 +837,7 @@ export const CHECKS = Object.freeze([
   stepIsGroundedInItsLine,
   stepCitesInsideItsEntrySpan,
   adjudicationCitesADeclaredLimb,
+  everyAdjudicationIsInTheDeclaredShape,
   neighbourCitesInsideSpan,
   suppliedRuleHasNoDefiningSection,
   inquestCoversEverySubjectAndLens,
@@ -864,6 +927,7 @@ export function checkAll({ specLines, artifact, rederivePins = true, recorded = 
       // and the number recorded in history are the same value and cannot disagree.
       ...coverageOf(artifact),
       ...limbCensus(artifact),
+      ...selectionCounts(runnable, context),
       pinsRederived: flattenPins(artifact.pins).length,
       pinsTotal: flattenPins(artifact.pins).length,
       railExits: railExits.length,
