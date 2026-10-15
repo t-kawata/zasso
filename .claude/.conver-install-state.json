@@ -529,6 +529,7 @@
     "scripts/sequences-slice/lib/obligation-ground.mjs": "d27b01f8fb5aa4ebc9684a79ea817c7c127072d8e5c93d2ec21ce18cf30b128f",
     "scripts/sequences-slice/lib/obligation.mjs": "d8c4ccf0d5be5699496212d5baaea18556a1d5b3e935c16ff71a967ffd11c814",
     "scripts/sequences-slice/lib/ownership.mjs": "c205f9522b0f75db725f2e7ee931c8d756c490759d4e32309ec302d9e320fc6f",
+    "scripts/sequences-slice/lib/package-verdict.mjs": "a3755520ca0f046b339fed5d18c9df1a8f03168fd4d0f0086a168f1ea3047fce",
     "scripts/sequences-slice/lib/packages.mjs": "1fb77a5b551e2b315b4fec3aca0915e649c271cc13a9dd0bfebc6cda057135c6",
     "scripts/sequences-slice/lib/report.mjs": "9900fc8917a1a16d134e88295b1eecbb400ef3a12b0267e7ac2916068333fbed",
     "scripts/sequences-slice/lib/residuals.mjs": "604510736a697fe69a5827e992e679aae7ebb7191e5f2146d63e98cd84ee4eaf",
@@ -740,9 +741,9 @@
     "scripts/workspacify-allocate/schemas/workspacify-allocate-decisions.schema.json": "2e23e9845f2fb045aaf6a221431ad73352fb45624c71a8cbe18051622a6768f7",
     "scripts/workspacify-allocate/walk-seed-contracts.mjs": "bbfe93ca363c295c222e0f3aac9ce8fb14b546f51367cd8823e1955c551f1981",
     "scripts/workspacify-order/lib/errors.mjs": "7ce84826d5d572e9dcf22bd71a0b036330e82ae031a46f41e9c19ebf97cfa7ab",
-    "scripts/workspacify-order/lib/levels.mjs": "5c7fd42c165ed59797a9f6633e95560353c83ff8d7031e9bd7bc42e05f743777",
-    "scripts/workspacify-order/lib/render.mjs": "eef15f15359fdb5a697b094eb86451df5476519dec4a7bf5eb990e6b9e04e286",
-    "scripts/workspacify-order/lib/workspace.mjs": "5fcf27f98174e35c11a37e279cb5088fe93d1bcd5914613e4fc765d28c5b93c8",
+    "scripts/workspacify-order/lib/levels.mjs": "49c1dfecac0e783a431a8f78a271f36f322ca62d1ff5d034de2a6d3a6ae6c2fe",
+    "scripts/workspacify-order/lib/render.mjs": "4b2c4508925873b01e5b58bd56b6711cc60bc45dd6add63de6d6d4d127ce23fd",
+    "scripts/workspacify-order/lib/workspace.mjs": "92d8a2d3644e8357d007f6237cf467ed095bb3ccc1b602f5f5925a6af97dd17d",
     "scripts/workspacify-order/run.mjs": "887d11c4e839df6c1e7995649ccdcea095da390582c5de39f78562f01d9a6731",
     "scripts/workspacify-reverse/lib/analysis-tech.mjs": "7492af25160821489759718de4606b891f2f935a7b37406ff2cec6e5f640b9c1",
     "scripts/workspacify-reverse/lib/build-database.mjs": "4fd9f188799bc3e9c43d93583b22a889d386bac82266714b17b447875e5898fc",
@@ -951,5 +952,7 @@
     "tests/tickets/scripts.test.js": "1c5a0aafbc71c8f53fb73da40434160d9a88fc92fb25b7a9082c36d2c88dd11f",
     "tickets/queue.md": "f52290b0208f13f8ff2d68c17b121b60dd169a413584a23e7e86403ef8c3c84d"
   },
-  "observed": {}
+  "observed": {
+    "scripts/workspacify-order/lib/verdicts.mjs": "9b8eae964dbee68b999a44ebb41975be164e46f9da95a55d82a90e70d2051c22"
+  }
 }

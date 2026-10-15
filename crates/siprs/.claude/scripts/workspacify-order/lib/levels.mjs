@@ -11,7 +11,8 @@
  */
 import { basename, dirname, resolve, sep } from 'node:path';
 
-import { holdsExplanation, holdsRfc, holdsSequences, SEED_FILE_NAME } from './workspace.mjs';
+import { holdsExplanation, holdsRfc, SEED_FILE_NAME } from './workspace.mjs';
+import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
 
 /** Provider-first levels: the rule computeImplementationOrder in stage one applies. */
@@ -203,6 +204,7 @@ function assertEdgesReferencePackages(packages, edges) {
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function buildModel({ root, treeManifest, allocateManifest }) {
+// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
   const packageRecords = requirePackageList(treeManifest);
   assertEveryPackageIsComplete(packageRecords);
   const packages = packageRecords.map((pkg) => ({
@@ -227,26 +229,25 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   for (const list of providersOf.values()) list.sort();
   for (const list of consumersOf.values()) list.sort();
 
-  // The marks are probed once per package, and only after the manifest is proven complete, so
-  // a package with no path fails with the message that names the field rather than reaching
-  // the filesystem with an undefined segment. No probe reads the document it finds, and none
-  // of the three implies another, so the sets are built independently.
+  // The marks are settled once per package, and only after the manifest is proven complete, so a
+  // package with no path fails with the message that names the field rather than reaching the
+  // filesystem with an undefined segment. The first two are probes that read nothing; the third is
+  // a verdict, so it is read from the directory's own documents and answers for every package
+  // whether or not they are there.
   const explainedIds = new Set(
     packages.filter((pkg) => holdsExplanation({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
   const grilledIds = new Set(
     packages.filter((pkg) => holdsRfc({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
-  const sequencedIds = new Set(
-    packages.filter((pkg) => holdsSequences({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
+  const sequenceVerdicts = readSequenceVerdicts({ root, packages });
 
   return {
     workspaceName: basename(resolve(root)),
     packages,
     explainedIds,
     grilledIds,
-    sequencedIds,
+    sequenceVerdicts,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),
