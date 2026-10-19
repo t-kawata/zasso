@@ -8,11 +8,8 @@
  */
 import { createHash } from 'node:crypto';
 
-import { contributionKindsIn } from './index.mjs';
-
 export const SCHEMA_V2 = 2;
 export const SCHEMA_V3 = 3;
-export const OBJECT_PREFIX = '@object:';
 
 /** One typed fact. */
 // [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
@@ -180,41 +177,31 @@ function typedContractFor(input) {
   return { pre, post, invariants, errors, consumes, produces, crosses };
 }
 
-/** The sentence a package RFC uses to put an operation outside its registry contribution. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-function registryGroundFrom(rfcText) {
-  if (typeof rfcText !== 'string') return null;
-  const coreOnly = rfcText.match(/[^\n.]*only unit of this package that is a Core Operation[^\n.]*\.?/i);
-  if (coreOnly !== null) return coreOnly[0].trim();
-  const owesOnly = rfcText.match(/[^\n.]*only one that owes a row to the Procedure Registry[^\n.]*\.?/i);
-  if (owesOnly !== null) return owesOnly[0].trim();
-  if (/CONTRIBUTED_ROWS[^\n]*\/\* one entry per contributed kind \*\//.test(rfcText)) {
-    return 'the contribution constant declares the row schema; the framework surface supplies the kind, not a domain row';
-  }
-  return null;
-}
-
 /** The contribution value an operation carries after the migration. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-function contributionOf(operation, ownerPackages, contributedKinds, rfcTexts) {
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+function contributionOf(operation, annotation) {
+  if (annotation?.registry_contribution === 'required' || annotation?.registry_contribution === 'not_required') {
+    const declared = { registry_contribution: annotation.registry_contribution };
+    if (typeof annotation.registry_contribution_ground === 'string' && annotation.registry_contribution_ground.trim() !== '') {
+      declared.registry_contribution_ground = annotation.registry_contribution_ground;
+    }
+    return declared;
+  }
   if (operation.disposition !== 'active' || operation.mutates_protocol_state !== true) {
     return {
       registry_contribution: 'not_required',
-      registry_contribution_ground: `disposition ${operation.disposition}; position ${operation.position}; see the artifact evidence`,
+      registry_contribution_ground: `disposition ${operation.disposition}; position ${operation.position}`,
     };
   }
-  const contributed = [...ownerPackages].some((packageId) => (contributedKinds.get(packageId) ?? new Set()).has(operation.id));
-  if (contributed) return { registry_contribution: 'required' };
-  for (const packageId of ownerPackages) {
-    const ground = registryGroundFrom(rfcTexts.get(packageId));
-    if (ground !== null) return { registry_contribution: 'not_required', registry_contribution_ground: ground };
-  }
-  const evidence = operation.evidence ?? {};
-  const ground = evidence.grounding?.note ?? evidence.note;
-  if (operation.position === 'excluded' && typeof ground === 'string' && ground.trim() !== '') {
-    return { registry_contribution: 'not_required', registry_contribution_ground: ground };
-  }
   return { registry_contribution: 'required' };
+}
+
+/** Split an annotations document into its step map and its operation map. */
+export function splitAnnotations(document = {}) {
+  return {
+    stepAnnotations: document.annotations ?? document.steps ?? document,
+    operationAnnotations: document.operations ?? {},
+  };
 }
 
 /** Make every transition target a declared status, so the graph is closed. */
@@ -243,18 +230,12 @@ function boundaryEffectsOf(operationId, owners, boundaries) {
   return effects;
 }
 
-/** The grounded object rows the v2 artifact already explains. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+/** The grounded object rows the v2 artifact declares. */
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function groundedObjectsOf(artifact) {
   const grounded = new Map();
   for (const object of artifact.groundedObjects ?? []) {
     if (object && typeof object.object === 'string' && typeof object.ground === 'string') grounded.set(object.object, object);
-  }
-  for (const operation of artifact.operations ?? []) {
-    if (!operation.id.startsWith(OBJECT_PREFIX)) continue;
-    const object = operation.id.slice(OBJECT_PREFIX.length);
-    const ground = operation.evidence?.note ?? operation.evidence?.grounding?.note ?? 'no producer';
-    grounded.set(object, { object, ground });
   }
   return [...grounded.values()];
 }
@@ -281,13 +262,12 @@ export function migrateArtifactToV3(input) {
   const contractsByBoundary = new Map((allocateManifest.contract_registry ?? []).map((contract) => [contract.boundary_id, contract]));
   const ownersByOperation = operationOwnersOf(packages);
   const sequenceUnits = sequenceCrossUnitsOf(packages);
-  const contributedKinds = new Map(packages.map((pkg) => [pkg.id, contributionKindsIn(pkg.rfc)]));
-  const rfcTexts = new Map(packages.map((pkg) => [pkg.id, pkg.rfc]));
+  const { stepAnnotations, operationAnnotations } = splitAnnotations(annotations);
 
   const typedSteps = (artifact.steps ?? []).map((step) => {
     const operation = (artifact.operations ?? []).find((entry) => entry.id === step.operation) ?? {};
     const owners = ownersByOperation.get(step.operation) ?? new Set();
-    const annotation = annotations[step.id] ?? annotations[`${step.sequence}/${step.operation}`];
+    const annotation = stepAnnotations[step.id] ?? stepAnnotations[`${step.sequence}/${step.operation}`];
     return {
       ...step,
       ...(annotation === undefined ? {} : { annotation }),
@@ -308,7 +288,7 @@ export function migrateArtifactToV3(input) {
 
   const typedOperations = (artifact.operations ?? []).map((operation) => {
     const owners = ownersByOperation.get(operation.id) ?? new Set();
-    const contribution = contributionOf(operation, owners, contributedKinds, rfcTexts);
+    const contribution = contributionOf(operation, operationAnnotations[operation.id]);
     return {
       ...operation,
       allowed_status_transitions: normalizeStatusGraph(operation),

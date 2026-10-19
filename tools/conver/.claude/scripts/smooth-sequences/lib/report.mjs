@@ -19,6 +19,7 @@ const FINDING_CLASSES = Object.freeze(['omission', 'contradiction', 'deficiency'
 
 /** The stable order every report uses. */
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function compareFindings(left, right) {
   return `${left.checkId}\u0000${left.subject}`.localeCompare(`${right.checkId}\u0000${right.subject}`);
 }
@@ -59,7 +60,7 @@ export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } =
     '',
     `workspace: ${report.workspace}`,
     `checks: run=${report.checks.run} failed=${report.checks.failed}`,
-    `withheld: ${report.withheld.length === 0 ? 'none' : report.withheld.map((entry) => `${entry.layer} (${entry.reason})`).join(', ')}`,
+    `withheld: ${report.withheld.length === 0 ? 'none' : report.withheld.map((entry) => `${entry.layer}${entry.check ? `:${entry.check}` : ''} (${entry.reason})`).join(', ')}`,
     `findings: ${report.findingsByClass.omission} omission, ${report.findingsByClass.contradiction} contradiction, ${report.findingsByClass.deficiency} deficiency, ${report.findingsByClass.danger} danger`,
     '',
     '## Findings',

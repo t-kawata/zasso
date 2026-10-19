@@ -6,10 +6,12 @@
  * contribution name an operation its package owns. None of them reads prose, so none of
  * them can disagree with a reader about what a sentence means.
  */
+import { readLedgerRows } from '../../sequences-slice/lib/distribution-ledger.mjs';
 import { finding } from './index.mjs';
 
 const DRAWN_OUTCOMES = new Set(['direct', 'viaNeighbour', 'singleStep']);
 const ACTIVE_DISPOSITION = 'active';
+const V3 = 3;
 
 /** The contiguous and referential integrity of the enumeration. */
 export function checkEnumerationIntegrity(index) {
@@ -41,9 +43,11 @@ export function checkEnumerationIntegrity(index) {
   return findings;
 }
 
-/** The operation envelope: status graph, finality, and the three interface mappings. */
+/** The operation envelope: status graph, finality, and the declared interface mappings. */
 export function checkOperationEnvelope(index) {
   const findings = [];
+  const terminalStatuses = index.rules.terminalStatuses === null ? null : new Set(index.rules.terminalStatuses);
+  const requiredInterfaces = index.rules.requiredInterfaces;
   for (const operation of index.artifact.operations ?? []) {
     if (operation.disposition !== ACTIVE_DISPOSITION) continue;
     const transitions = operation.allowed_status_transitions ?? {};
@@ -62,9 +66,9 @@ export function checkOperationEnvelope(index) {
         }
       }
       if ((targets ?? []).length === 0) continue;
-      if (isTerminalName(source) && (targets ?? []).length > 0) {
-        findings.push(finding('S3.transition-out-of-terminal', 'contradiction', operation.id, `terminal status ${source} declares an outgoing transition`, {
-          repair: `Remove the outgoing transition from ${source} or stop calling it terminal.`,
+      if (terminalStatuses !== null && terminalStatuses.has(source)) {
+        findings.push(finding('S3.transition-out-of-terminal', 'contradiction', operation.id, `declared terminal status ${source} declares an outgoing transition`, {
+          repair: `Remove the outgoing transition from ${source} or remove it from terminalStatuses.`,
         }));
       }
     }
@@ -73,31 +77,26 @@ export function checkOperationEnvelope(index) {
         repair: 'Declare finality_predicate so the caller knows when the external step is complete.',
       }));
     }
-    const objectRegistry = new Set((index.artifact.objects ?? [])
-      .map((entry) => (typeof entry === 'string' ? entry : entry?.id))
-      .filter(Boolean));
-    if (objectRegistry.size > 0) {
-      for (const objectClass of operation.result_object_classes ?? []) {
-        if (!objectRegistry.has(objectClass)) {
-          findings.push(finding('S3.result-object-unknown', 'deficiency', operation.id, `operation ${operation.id} names result object ${objectClass}, which the object registry does not declare`, {
-            repair: `Declare ${objectClass} in the object registry or correct the result class.`,
+    if (requiredInterfaces !== null) {
+      for (const interfaceName of requiredInterfaces) {
+        if (!isInterfaceMappingPresent(operation[interfaceName])) {
+          findings.push(finding('S3.interface-mapping-missing', 'omission', operation.id, `operation ${operation.id} does not map to declared interface ${interfaceName}`, {
+            repair: `Declare ${interfaceName} for the operation or remove it from requiredInterfaces.`,
           }));
         }
       }
-    }
-    if (!operation.rest || !operation.websocket || !operation.cli) {
-      findings.push(finding('S3.interface-mapping-missing', 'omission', operation.id, `operation ${operation.id} does not map to REST, WebSocket and CLI`, {
-        repair: 'Declare rest, websocket and cli for the operation.',
-      }));
     }
   }
   return findings;
 }
 
-/** Whether a status name is one the protocol treats as terminal. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-function isTerminalName(name) {
-  return name === 'finalized' || name === 'rejected' || name === 'cancelled' || name === 'expired' || name === 'failed';
+/** Whether an operation carries a non-empty mapping for one declared interface. */
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+function isInterfaceMappingPresent(value) {
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.length > 0;
+  if (value !== null && typeof value === 'object') return Object.keys(value).length > 0;
+  return false;
 }
 
 /** The boundary clauses and the two sides that carry them. */
@@ -168,33 +167,52 @@ export function checkBoundaryClauses(index) {
   return findings;
 }
 
-/** Every owned active operation is contributed, and no contribution is unowned. */
+/** The contribution surface a v2 artifact does not carry. */
+export function contributionWithheld(index) {
+  if (index.schemaVersion === V3) return [];
+  return [{
+    layer: 'S4',
+    check: 'S4.contribution',
+    reason: 'v2 artifact carries no registry_contribution',
+  }];
+}
+
+/** Whether a not_required declaration explains itself. */
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+function hasContributionGround(operation) {
+  return typeof operation.registry_contribution_ground === 'string'
+    && operation.registry_contribution_ground.trim() !== '';
+}
+
+/** Whether the package distribution ledger records the operation as a unit. */
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+function ledgerRecordsOperation(pkg, operationId) {
+  return (readLedgerRows(pkg.rfc ?? '') ?? []).some((row) => row.unit === `op-${operationId}`);
+}
+
+/** Every owned active operation declares its contribution and is recorded by its owner. */
 export function checkContributionCompleteness(index) {
+  if (index.schemaVersion !== V3) return [];
   const findings = [];
   for (const [packageId, units] of index.ownedOperationUnitsByPackage) {
-    const rows = index.contributedOperationKindsByPackage.get(packageId) ?? new Set();
+    const pkg = index.packagesById.get(packageId);
     for (const unit of units) {
       const operation = index.operationsById.get(unit.operationId);
       if (operation === undefined || operation.disposition !== ACTIVE_DISPOSITION) continue;
-      if (rows.has(unit.operationId)) continue;
-      if (operation.registry_contribution === 'not_required' && typeof operation.registry_contribution_ground === 'string' && operation.registry_contribution_ground.trim() !== '') continue;
-      findings.push(finding('S4.contribution-missing', 'omission', `${packageId}/${unit.operationId}`, `owned active operation ${unit.operationId} has no contribution row and no grounded not_required`, {
-        repair: `Add ${unit.operationId} to ${packageId}'s CONTRIBUTED_ROWS or record a grounded registry_contribution=not_required.`,
-      }));
-    }
-  }
-  // A contribution is unowned only when another package owns the operation. When no
-  // package owns it, the contribution is the only ownership record the workspace holds,
-  // and flagging it would demand a repair the ownership join cannot express.
-  const allOwnedOperationIds = new Set(
-    [...index.ownedOperationIdsByPackage.values()].flatMap((ids) => [...ids]),
-  );
-  for (const [packageId, kinds] of index.contributedOperationKindsByPackage) {
-    const owned = index.ownedOperationIdsByPackage.get(packageId) ?? new Set();
-    for (const kind of kinds) {
-      if (!owned.has(kind) && allOwnedOperationIds.has(kind)) {
-        findings.push(finding('S4.contribution-unowned', 'contradiction', `${packageId}/${kind}`, `${packageId} contributes ${kind}, which another package owns and its own operation units do not name`, {
-          repair: `Remove ${kind} from ${packageId}'s contribution or transfer ownership of the operation.`,
+      const value = operation.registry_contribution;
+      if (value !== 'required' && value !== 'not_required') {
+        findings.push(finding('S4.contribution-missing', 'omission', `${packageId}/${unit.operationId}`, `operation ${unit.operationId} declares registry_contribution ${value}, which is neither required nor not_required`, {
+          repair: 'Set registry_contribution to required or not_required.',
+        }));
+      }
+      if (value === 'not_required' && !hasContributionGround(operation)) {
+        findings.push(finding('S4.contribution-ground-missing', 'omission', `${packageId}/${unit.operationId}`, `operation ${unit.operationId} declares not_required with no ground`, {
+          repair: 'Record registry_contribution_ground naming why no registry row is owed.',
+        }));
+      }
+      if (pkg === undefined || !ledgerRecordsOperation(pkg, unit.operationId)) {
+        findings.push(finding('S4.contribution-missing', 'omission', `${packageId}/${unit.operationId}`, `owned active operation ${unit.operationId} has no op-${unit.operationId} row in ${packageId}'s distribution ledger`, {
+          repair: `Add the op-${unit.operationId} row to ${packageId}'s RFC distribution ledger, or record the unit as declared-residual with a ground.`,
         }));
       }
     }
@@ -234,7 +252,8 @@ export function checkArtifactViewConsistency(index) {
       }
     }
     for (const unit of pkg.view.obligationUnits ?? []) {
-      if (unit.unitId?.startsWith('ctr-boundary-') && pkg.rfc !== null && !pkg.rfc.includes(unit.subject)) {
+      const carriesDeclaredBoundary = unit.relation === 'carries' && index.boundariesById.has(unit.subject);
+      if (carriesDeclaredBoundary && pkg.rfc !== null && !pkg.rfc.includes(unit.subject)) {
         findings.push(finding('S7.rfc-boundary-missing', 'omission', `${pkg.id}/${unit.subject}`, `view carries ${unit.subject}, and the package RFC does not name it`, {
           repair: `Add the ${unit.subject} obligations to ${pkg.path}/RFC.md.`,
         }));

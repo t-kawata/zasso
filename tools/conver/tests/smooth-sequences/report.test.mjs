@@ -1,3 +1,4 @@
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -33,6 +34,18 @@ test('the Markdown report caps the list and names the remainder', () => {
   }));
   const markdown = renderReportMarkdown(buildReport({ workspace: { root: '/tmp/x' }, findings: many, withheld: [], checks: { run: 205, failed: 205 } }));
   assert.match(markdown, /…and 5 more findings/);
+});
+
+// @verifies C001
+test('the Markdown report names each withheld surface and its check', () => {
+  const report = buildReport({
+    workspace: { root: '/tmp/x' },
+    findings: [],
+    withheld: [{ layer: 'rules', check: 'S3.terminal-status', reason: 'terminalStatuses is not declared' }],
+    checks: { run: 7, failed: 0 },
+  });
+  const markdown = renderReportMarkdown(report);
+  assert.match(markdown, /rules:S3\.terminal-status \(terminalStatuses is not declared\)/);
 });
 
 test('writeReport writes both documents and returns their paths', () => {

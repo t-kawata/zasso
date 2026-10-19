@@ -11,6 +11,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { resolveWorkspaceRoot as resolveOrderRoot } from '../../workspacify-order/lib/workspace.mjs';
 import { SmoothSequencesError } from './errors.mjs';
+import { loadRules } from './rules.mjs';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
@@ -20,6 +21,7 @@ export const ARTIFACT_SUFFIX = '-sequences.json';
 
 /** Read one JSON file, or raise the error a caller can repair. */
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function readJsonFile(filePath, { code, artefact }) {
   if (!existsSync(filePath)) {
     throw new SmoothSequencesError(`${artefact} does not exist: ${filePath}`, {
@@ -104,6 +106,7 @@ export function loadWorkspace(root) {
     allocateManifest,
     artifact,
     packages,
+    rules: loadRules(root),
   });
 }
 

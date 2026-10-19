@@ -3,16 +3,16 @@
  * check-contribution-completeness.js <workspace-root>
  *
  * The workspace-wide contribution gate: every operation a package owns and marks active
- * must have a Procedure Registry row, or a recorded not_required with a ground. A row
- * that names an operation the contributor does not own is reported in the other
- * direction. The gate is shared with /smooth-sequences so the two surfaces cannot
- * disagree about one workspace.
+ * must declare registry_contribution=required, or not_required with a ground, and must
+ * be recorded by its owner's distribution ledger. The gate is shared with
+ * /smooth-sequences so the two surfaces cannot disagree about one workspace.
  *
- * Exit 0 — every contribution is accounted for.
+ * Exit 0 — every contribution is accounted for, or the artifact is v2 and the check is
+ *          withheld with a named reason.
  * Exit 1 — at least one finding; each is printed with its repair.
  * Exit 2 — the workspace could not be read.
  */
-import { checkContributionCompleteness } from '../smooth-sequences/lib/checks-layer-a.mjs';
+import { checkContributionCompleteness, contributionWithheld } from '../smooth-sequences/lib/checks-layer-a.mjs';
 import { indexArtifact } from '../smooth-sequences/lib/index.mjs';
 import { SmoothSequencesError } from '../smooth-sequences/lib/errors.mjs';
 import { loadWorkspace, resolveWorkspaceRoot } from '../smooth-sequences/lib/workspace.mjs';
@@ -21,13 +21,17 @@ const EXIT_PASS = 0;
 const EXIT_FINDINGS = 1;
 const EXIT_MISUSE = 2;
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-275) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
     const root = resolveWorkspaceRoot(argv[0] ?? process.cwd());
-    const findings = checkContributionCompleteness(indexArtifact(loadWorkspace(root)));
+    const index = indexArtifact(loadWorkspace(root));
+    const findings = checkContributionCompleteness(index);
     if (findings.length === 0) {
-      process.stdout.write('proved: every owned active operation is contributed or grounded\n');
+      const withheld = contributionWithheld(index);
+      process.stdout.write(withheld.length === 0
+        ? 'proved: every owned active operation declares its contribution and is recorded by its owner\n'
+        : `withheld: ${withheld.map((entry) => `${entry.check} (${entry.reason})`).join(', ')}\n`);
       return EXIT_PASS;
     }
     process.stderr.write(`contribution: ${findings.length} finding(s)\n`);

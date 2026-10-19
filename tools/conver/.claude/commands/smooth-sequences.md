@@ -37,6 +37,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 - The single `*-sequences.json` artifact at the workspace root.
 - Each package's `SEQUENCES.json` and `RFC.md`.
 - `WORKSPACIFY-ALLOCATE-MANIFEST.json`'s `contract_registry`.
+- `SMOOTH-SEQUENCES-RULES.json` (optional): the project vocabulary. `schemaVersion: 1`, `terminalStatuses` and `requiredInterfaces`. A key the file does not declare withholds its check; the detector never invents a default name. A malformed file is misuse (exit 2), not a finding.
 
 ## Outputs
 
@@ -59,8 +60,8 @@ With no argument the command walks up from the current directory. With one argum
 The command checks, without reading prose:
 
 - S1 enumeration integrity: duplicate ids, unresolved step operation/sequence, a drawn sequence with no step.
-- S3 operation envelope: initial status, transition targets, terminal transitions, finality for external dependencies, the three interface mappings.
-- S4 boundary clauses: required `stage2_contract_scope` clauses, extra clauses, provider/consumer direction and counterpart, contribution completeness.
+- S3 operation envelope: initial status, transition targets, transitions out of a declared terminal status, finality for external dependencies, and every declared required interface. The terminal names and the interface names are read from `SMOOTH-SEQUENCES-RULES.json`; an undeclared list withholds that check.
+- S4 boundary clauses: required `stage2_contract_scope` clauses, extra clauses, provider/consumer direction and counterpart, and contribution completeness. A v3 operation must declare `registry_contribution` in `required`/`not_required`, a `not_required` must carry `registry_contribution_ground`, and the owner's distribution ledger must record an `op-<operationId>` row. The ledger `Kind` is not mapped to a contribution value.
 - S7 artifact/view/RFC consistency: missing view, package-id mismatch, owned unit mismatch, boundary not named in the RFC.
 
 ### Step 2 — Run Layer B (contract meshing)
@@ -73,6 +74,16 @@ When the artifact is `schema_version: 3`, the command compares the typed step co
 - S5 crossing-boundary resolution: every `crosses` entry must resolve to a declared boundary.
 
 When the artifact is `schema_version: 2`, Layer B is **withheld**: the report names `B (v3 step contract absent)` and the run can still exit 0 if Layer A holds. A v2 field is never rewritten or required to be v3.
+
+### Step 2b — Withheld surfaces
+
+A withheld check is named in the report and is **not** a pass. The report's `withheld` array carries `{layer, check, reason}`:
+
+- `B` — the artifact is v2 and carries no typed step contract, so Layer B is withheld.
+- `rules:S3.terminal-status` / `rules:S3.interface-mapping` — `SMOOTH-SEQUENCES-RULES.json` does not declare the corresponding list.
+- `S4.contribution` — the artifact is v2 and carries no `registry_contribution`.
+
+A run with findings zero and a non-empty withheld list exits 0, and the reader must see the list before calling the workspace proved.
 
 ### Step 3 — Run S6 (danger)
 
@@ -108,8 +119,8 @@ Exit 0 is the only passing verdict. The command prints the does-not-guarantee bo
 ## Example
 
 ```bash
-node .claude/scripts/smooth-sequences/run.mjs ~/shyme/gaia
-# smooth-sequences: 0 finding(s); ~/shyme/gaia/SMOOTH-SEQUENCES.json
+node .claude/scripts/smooth-sequences/run.mjs /path/to/workspace
+# smooth-sequences: 0 finding(s); /path/to/workspace/SMOOTH-SEQUENCES.json
 ```
 
 ## Related

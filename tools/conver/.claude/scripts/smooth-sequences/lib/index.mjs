@@ -14,6 +14,7 @@ export function finding(checkId, className, subject, reason, extra = {}) {
 
 /** Index rows by id and report duplicate ids without dropping either row. */
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function indexRows(rows, label, duplicates) {
   const byId = new Map();
   const positions = new Map();
@@ -38,32 +39,6 @@ function indexRows(rows, label, duplicates) {
     positions.set(id, index);
   }
   return byId;
-}
-
-/** Whether a quoted value is an operation kind rather than a filename in prose or a table. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-function isOperationKind(value) {
-  return typeof value === 'string'
-    && value.trim() !== ''
-    && !value.endsWith('.md')
-    && !value.includes('/')
-    && !value.startsWith('EXPLAIN-')
-    && !value.startsWith('INFO-')
-    && !value.startsWith('RFC-');
-}
-
-/** The quoted names a registry contribution declares in one RFC. */
-export function contributionKindsIn(rfcText) {
-  const kinds = new Set();
-  for (const match of String(rfcText ?? '').matchAll(/operation_kind\s*:\s*"([^"]+)"/g)) {
-    if (isOperationKind(match[1])) kinds.add(match[1]);
-  }
-  for (const block of String(rfcText ?? '').matchAll(/CONTRIBUTED_OPERATION_KINDS[^=]*=\s*\[([\s\S]*?)\]/g)) {
-    for (const match of block[1].matchAll(/"([^"]+)"/g)) {
-      if (isOperationKind(match[1])) kinds.add(match[1]);
-    }
-  }
-  return kinds;
 }
 
 /** Build the operation-id to owning-package map from every view's owned units. */
@@ -117,16 +92,11 @@ export function indexArtifact(loaded) {
   const viewsByPackage = new Map(loaded.packages.filter((pkg) => pkg.view !== null).map((pkg) => [pkg.id, pkg.view]));
   const ownedOperationUnitsByPackage = new Map();
   const ownedOperationIdsByPackage = new Map();
-  const contributedOperationKindsByPackage = new Map();
   for (const pkg of loaded.packages) {
     const units = pkg.view?.ownedOperationUnits ?? [];
     ownedOperationUnitsByPackage.set(pkg.id, units);
     ownedOperationIdsByPackage.set(pkg.id, new Set(units.map((unit) => unit.operationId)));
-    contributedOperationKindsByPackage.set(pkg.id, contributionKindsIn(pkg.rfc));
   }
-  const contributedOperationKinds = new Set(
-    [...contributedOperationKindsByPackage.values()].flatMap((kinds) => [...kinds]),
-  );
 
   return Object.freeze({
     artifact,
@@ -134,6 +104,7 @@ export function indexArtifact(loaded) {
     allocateManifest: loaded.allocateManifest,
     packages: loaded.packages,
     schemaVersion: artifact.schema_version,
+    rules: loaded.rules,
     operationsById,
     sequencesById,
     stepsById,
@@ -146,8 +117,6 @@ export function indexArtifact(loaded) {
     viewsByPackage,
     ownedOperationUnitsByPackage,
     ownedOperationIdsByPackage,
-    contributedOperationKindsByPackage,
-    contributedOperationKinds,
     operationOwners: operationOwners(loaded.packages),
     duplicates,
   });

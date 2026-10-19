@@ -1,3 +1,4 @@
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -15,6 +16,8 @@ test('the detector and the order plan read the same package set', () => {
     const smoothIds = smooth.treeManifest.workspace.packages.map((pkg) => pkg.id).sort();
     assert.deepEqual(smoothIds, orderIds);
     assert.equal(smooth.allocateManifest.contract_registry.length, 1);
+    assert.deepEqual(smooth.rules.terminalStatuses, ['closed']);
+    assert.deepEqual(smooth.rules.requiredInterfaces, ['rest', 'grpc', 'cli']);
   } finally {
     workspace.remove();
   }

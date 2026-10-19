@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 
 import { SmoothSequencesError } from './lib/errors.mjs';
-import { applyStepAnnotations, migrateArtifactToV3, renderArtifact, SCHEMA_V3 } from './lib/migrate-v3.mjs';
+import { applyStepAnnotations, migrateArtifactToV3, renderArtifact, SCHEMA_V3, splitAnnotations } from './lib/migrate-v3.mjs';
 import { loadWorkspace, resolveWorkspaceRoot, startDirectoryFor } from './lib/workspace.mjs';
 
 const EXIT_OK = 0;
@@ -21,6 +21,7 @@ const EXIT_MISUSE = 2;
 
 /** The digest of the artifact bytes, before the migration. */
 // [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function digestOf(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
@@ -53,9 +54,8 @@ export function main(argv) {
     const root = resolveWorkspaceRoot(startDirectoryFor(paths[0]));
     const loaded = loadWorkspace(root);
     const annotationDocument = annotationsPath === null ? {} : JSON.parse(readFileSync(annotationsPath, 'utf8'));
-    const annotations = annotationDocument.annotations ?? annotationDocument;
     if (loaded.artifact.schema_version === SCHEMA_V3) {
-      const annotated = applyStepAnnotations(loaded.artifact, annotations);
+      const annotated = applyStepAnnotations(loaded.artifact, splitAnnotations(annotationDocument).stepAnnotations);
       const rendered = renderArtifact(annotated);
       if (rendered === readFileSync(loaded.artifactPath, 'utf8')) {
         process.stdout.write('migrate-v3: already v3; nothing to do\n');
@@ -72,7 +72,7 @@ export function main(argv) {
     }
 
     const sourceDigest = digestOf(loaded.artifactPath);
-    const migrated = migrateArtifactToV3({ ...loaded, sourceDigest, annotations });
+    const migrated = migrateArtifactToV3({ ...loaded, sourceDigest, annotations: annotationDocument });
     process.stdout.write(`migrate-v3: dry-run=${dryRun} ${summaryOf(loaded.artifact, migrated)}\n`);
     if (dryRun) return EXIT_OK;
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 /**
  * smooth-sequences — the final mechanical acceptance gate of the design pipeline.
  *
@@ -12,7 +13,7 @@
  * check holds, 1 means at least one blocking finding, and 2 means the workspace could
  * not be read.
  */
-import { checkArtifactViewConsistency, checkBoundaryClauses, checkContributionCompleteness, checkEnumerationIntegrity, checkOperationEnvelope } from './lib/checks-layer-a.mjs';
+import { checkArtifactViewConsistency, checkBoundaryClauses, checkContributionCompleteness, checkEnumerationIntegrity, checkOperationEnvelope, contributionWithheld } from './lib/checks-layer-a.mjs';
 import { checkCrossingContracts, layerBWithheld } from './lib/checks-layer-b.mjs';
 import { checkDangers } from './lib/checks-danger.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
@@ -53,7 +54,11 @@ export function runCommand(argv, io = {}) {
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);
     const findings = CHECK_FAMILIES.flatMap((check) => check(index));
-    const withheld = layerBWithheld(index);
+    const withheld = [
+      ...layerBWithheld(index),
+      ...index.rules.withheld,
+      ...contributionWithheld(index),
+    ];
     const checks = { run: CHECK_FAMILIES.length, failed: findings.length };
     const report = buildReport({ workspace: loaded, findings, withheld, checks });
     const paths = writeReport({ report, outputDirectory: root });

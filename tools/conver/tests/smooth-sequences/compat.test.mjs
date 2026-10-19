@@ -1,3 +1,4 @@
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -31,7 +32,7 @@ test('a v3 artifact is valid and carries the typed contract', () => {
   try {
     const loaded = loadWorkspace(workspace.root);
     assert.deepEqual(validateArtifactShape(loaded.artifact, schema), []);
-    assert.equal(loaded.artifact.steps[0].contract.post[0].factId, 'soul_id');
+    assert.equal(loaded.artifact.steps[0].contract.post[0].factId, 'order_id');
   } finally {
     workspace.remove();
   }

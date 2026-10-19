@@ -1,3 +1,4 @@
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,8 @@ test('the command document names its entry point, reports and repair surface', (
   assert.match(command, /run\.mjs/);
   assert.match(command, /SMOOTH-SEQUENCES\.json/);
   assert.match(command, /SMOOTH-SEQUENCES\.md/);
+  assert.match(command, /SMOOTH-SEQUENCES-RULES\.json/);
+  assert.match(command, /withheld/);
   assert.match(command, /RFC\.md/);
   assert.match(command, /OBLIGATION\.json/);
 });

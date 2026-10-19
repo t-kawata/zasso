@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -12,10 +11,8 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
-const GAIA_WORKSPACE_ROOT = '/Users/kawata/shyme/gaia';
-const gaiaExists = existsSync(GAIA_WORKSPACE_ROOT);
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
 function workspaceWithRepairRecord() {
   return materializeSmoothWorkspace();
 }
@@ -26,9 +23,9 @@ test('C008 a repair record names the finding, the file and the evidence', () => 
   try {
     const record = closeFinding(workspace.root, {
       checkId: 'S4.contribution-missing',
-      subject: 'pkg-0009/TransitionHeatState',
+      subject: 'pkg-0001/ProduceFact',
     }, {
-      file: 'crates/protocol/gaia-heat/RFC.md',
+      file: 'crates/alpha/RFC.md',
       evidence: 'the RFC line declares the registry contribution set',
     });
     assert.equal(record.checkId, 'S4.contribution-missing');
@@ -36,7 +33,7 @@ test('C008 a repair record names the finding, the file and the evidence', () => 
     assert.ok(record.evidence.length > 0);
     const saved = readRepairRecord(workspace.root);
     assert.equal(saved.repairs.length, 1);
-    assert.equal(saved.repairs[0].subject, 'pkg-0009/TransitionHeatState');
+    assert.equal(saved.repairs[0].subject, 'pkg-0001/ProduceFact');
   } finally {
     workspace.remove();
   }
@@ -45,7 +42,10 @@ test('C008 a repair record names the finding, the file and the evidence', () => 
 test('a repair without evidence is refused', () => {
   const workspace = workspaceWithRepairRecord();
   try {
-    assert.throws(() => closeFinding(workspace.root, { checkId: 'S4.contribution-missing', subject: 'x' }, { file: 'RFC.md', evidence: '' }), /evidence/);
+    assert.throws(
+      () => closeFinding(workspace.root, { checkId: 'S4.contribution-missing', subject: 'x' }, { file: 'RFC.md', evidence: '' }),
+      /evidence/,
+    );
     assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES-REPAIRS.json')), false);
   } finally {
     workspace.remove();
@@ -61,7 +61,7 @@ test('C005 closeFindings records every finding and the detector is green afterwa
       { checkId: 'S4.contribution-missing', subject: 'pkg-0002/ConsumeFact' },
     ];
     const record = closeFindings(workspace.root, findings, {
-      file: 'crates/protocol/pkg-0001/RFC.md',
+      file: 'crates/alpha/RFC.md',
       evidence: 'the artifact records the operation on the package view',
     });
     assert.equal(record.length, 2);
@@ -72,39 +72,55 @@ test('C005 closeFindings records every finding and the detector is green afterwa
 });
 
 // @verifies C003
-test('C003 the allocation names 29 packages and every one carries a view', { skip: !gaiaExists }, () => {
-  const index = indexArtifact(loadWorkspace(GAIA_WORKSPACE_ROOT));
-  assert.equal(index.packages.length, 29);
-  assert.equal(index.viewsByPackage.size, 29);
-  assert.equal(checkArtifactViewConsistency(index).filter((finding) => finding.checkId === 'S7.view-missing').length, 0);
+test('C003 every package carries a view', () => {
+  const workspace = workspaceWithRepairRecord();
+  try {
+    const index = indexArtifact(loadWorkspace(workspace.root));
+    assert.equal(index.packages.length, 2);
+    assert.equal(index.viewsByPackage.size, 2);
+    assert.equal(checkArtifactViewConsistency(index).filter((finding) => finding.checkId === 'S7.view-missing').length, 0);
+  } finally {
+    workspace.remove();
+  }
 });
 
 // @verifies C004
-test('C004 the registry names 84 boundaries and every one keeps both sides', { skip: !gaiaExists }, () => {
-  const index = indexArtifact(loadWorkspace(GAIA_WORKSPACE_ROOT));
-  assert.equal(index.boundariesById.size, 84);
-  assert.equal(index.contractsByBoundary.size, 84);
-  assert.equal(checkBoundaryClauses(index).filter((finding) => finding.checkId === 'S4.boundary-side-mismatch').length, 0);
+test('C004 every boundary keeps both sides', () => {
+  const workspace = workspaceWithRepairRecord();
+  try {
+    const index = indexArtifact(loadWorkspace(workspace.root));
+    assert.equal(index.boundariesById.size, 1);
+    assert.equal(index.contractsByBoundary.size, 1);
+    assert.equal(checkBoundaryClauses(index).filter((finding) => finding.checkId === 'S4.boundary-side-mismatch').length, 0);
+  } finally {
+    workspace.remove();
+  }
 });
 
 // @verifies C007
-test('C007 the detector leaves every generated file byte-identical', () => {
+test('C007 the detector leaves every generated and upstream file byte-identical', () => {
   const workspace = workspaceWithRepairRecord();
   try {
     const before = {
       artifact: readFileSync(workspace.artifactPath, 'utf8'),
       tree: readFileSync(workspace.treeManifestPath, 'utf8'),
       allocate: readFileSync(workspace.allocateManifestPath, 'utf8'),
+      rules: readFileSync(workspace.rulesPath, 'utf8'),
       providerView: readFileSync(workspace.viewPathOf('pkg-0001'), 'utf8'),
       consumerView: readFileSync(workspace.viewPathOf('pkg-0002'), 'utf8'),
+      providerRfc: readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'),
+      consumerRfc: readFileSync(workspace.rfcPathOf('pkg-0002'), 'utf8'),
     };
     assert.equal(runCommand([workspace.root]).exitCode, 0);
     assert.deepEqual({
       artifact: readFileSync(workspace.artifactPath, 'utf8'),
       tree: readFileSync(workspace.treeManifestPath, 'utf8'),
       allocate: readFileSync(workspace.allocateManifestPath, 'utf8'),
+      rules: readFileSync(workspace.rulesPath, 'utf8'),
       providerView: readFileSync(workspace.viewPathOf('pkg-0001'), 'utf8'),
       consumerView: readFileSync(workspace.viewPathOf('pkg-0002'), 'utf8'),
+      providerRfc: readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'),
+      consumerRfc: readFileSync(workspace.rfcPathOf('pkg-0002'), 'utf8'),
     }, before);
   } finally {
     workspace.remove();
@@ -147,22 +163,5 @@ test('C010 the detector is green and a reintroduced finding is red', () => {
     assert.equal(runCommand([workspace.root]).exitCode, 0);
   } finally {
     workspace.remove();
-  }
-});
-
-// @verifies C009
-test('C009 all 29 status files can remain DONE', () => {
-  const root = mkdtempSync(join(tmpdir(), 'gaia-status-'));
-  try {
-    for (let index = 1; index <= 29; index += 1) {
-      const directory = join(root, `pkg-${String(index).padStart(4, '0')}`);
-      mkdirSync(directory, { recursive: true });
-      writeFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE' }));
-    }
-    const statuses = Array.from({ length: 29 }, (_, index) => JSON.parse(readFileSync(join(root, `pkg-${String(index + 1).padStart(4, '0')}`, 'Status.json'), 'utf8')));
-    assert.equal(statuses.length, 29);
-    assert.ok(statuses.every((status) => status.state === 'DONE'));
-  } finally {
-    rmSync(root, { recursive: true, force: true });
   }
 });

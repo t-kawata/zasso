@@ -3,10 +3,24 @@ import assert from 'node:assert/strict';
 
 import { indexArtifact } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';
 import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
-import { checkBoundaryClauses, checkEnumerationIntegrity, checkOperationEnvelope } from '../../.claude/scripts/smooth-sequences/lib/checks-layer-a.mjs';
-import { defaultAllocateManifest, defaultContractRegistry, defaultTreeManifest, materializeSmoothWorkspace, minimalV3Artifact, operationRow } from './helpers/workspace-fixture.mjs';
+import {
+  checkArtifactViewConsistency,
+  checkBoundaryClauses,
+  checkEnumerationIntegrity,
+  checkOperationEnvelope,
+} from '../../.claude/scripts/smooth-sequences/lib/checks-layer-a.mjs';
+import {
+  defaultAllocateManifest,
+  defaultContractRegistry,
+  defaultTreeManifest,
+  materializeSmoothWorkspace,
+  minimalV3Artifact,
+  operationRow,
+  rfcBody,
+} from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+
 function indexOf(input) {
   const workspace = materializeSmoothWorkspace(input);
   return { workspace, index: indexArtifact(loadWorkspace(workspace.root)) };
@@ -28,7 +42,7 @@ test('S1 rejects a step whose operation does not resolve', () => {
 
 test('S3 rejects an initial status outside the transition graph', () => {
   const artifact = minimalV3Artifact();
-  artifact.operations[0] = operationRow('ProduceFact', { result_object_classes: ['Soul'], initial_status: 'unknown' });
+  artifact.operations[0] = operationRow('ProduceFact', { result_object_classes: ['Order'], initial_status: 'unknown' });
   const { workspace, index } = indexOf({ artifact });
   try {
     const findings = checkOperationEnvelope(index);
@@ -38,29 +52,79 @@ test('S3 rejects an initial status outside the transition graph', () => {
   }
 });
 
-test('S3 rejects a transition out of a terminal status', () => {
+// @verifies C002
+test('S3 rejects a transition out of a declared terminal status', () => {
   const artifact = minimalV3Artifact();
   artifact.operations[0] = operationRow('ProduceFact', {
-    result_object_classes: ['Soul'],
-    allowed_status_transitions: { submitted: ['accepted'], accepted: ['finalized'], finalized: ['accepted'] },
+    allowed_status_transitions: { open: ['closed'], closed: ['open'] },
   });
-  const { workspace, index } = indexOf({ artifact });
+  const { workspace, index } = indexOf({
+    artifact,
+    rules: { schemaVersion: 1, terminalStatuses: ['closed'], requiredInterfaces: ['rest', 'grpc', 'cli'] },
+  });
   try {
-    const findings = checkOperationEnvelope(index);
-    assert.ok(findings.some((finding) => finding.checkId === 'S3.transition-out-of-terminal'));
+    const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.transition-out-of-terminal');
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].subject, 'ProduceFact');
   } finally {
     workspace.remove();
   }
 });
 
-test('S3 rejects a result object the object registry does not declare', () => {
+// @verifies C002
+test('S3 never treats an undeclared status name as terminal', () => {
   const artifact = minimalV3Artifact();
-  artifact.objects = [{ id: 'Known' }];
-  artifact.operations[0].result_object_classes = ['Missing'];
-  const { workspace, index } = indexOf({ artifact });
+  artifact.operations[0] = operationRow('ProduceFact', {
+    allowed_status_transitions: { finalized: ['accepted'] },
+  });
+  const { workspace, index } = indexOf({ artifact, rules: null });
   try {
     const findings = checkOperationEnvelope(index);
-    assert.ok(findings.some((finding) => finding.checkId === 'S3.result-object-unknown'));
+    assert.equal(findings.filter((finding) => finding.checkId === 'S3.transition-out-of-terminal').length, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('S3 rejects a declared required interface that the operation does not map', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0] = operationRow('ProduceFact', { grpc: undefined, rest: 'GET /v1/orders' });
+  const { workspace, index } = indexOf({
+    artifact,
+    rules: { schemaVersion: 1, requiredInterfaces: ['grpc'] },
+  });
+  try {
+    const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing');
+    assert.equal(findings.length, 1);
+    assert.match(findings[0].reason, /grpc/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('S3 requires no fixed interface triple when the workspace declares none', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations = artifact.operations.map((operation) => operationRow(operation.id, {
+    rest: undefined,
+    grpc: 'rpc Orders',
+    cli: undefined,
+  }));
+  const { workspace, index } = indexOf({ artifact, rules: null });
+  try {
+    assert.equal(checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing').length, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('S3 does not invent an object registry the artifact never declares', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0].result_object_classes = ['Order'];
+  const { workspace, index } = indexOf({ artifact });
+  try {
+    assert.equal(checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.result-object-unknown').length, 0);
   } finally {
     workspace.remove();
   }
@@ -87,6 +151,27 @@ test('S4 rejects a boundary side that names the wrong direction', () => {
     index.viewsByPackage.get('pkg-0002').obligationUnits[0].direction = 'provides';
     const findings = checkBoundaryClauses(index);
     assert.ok(findings.some((finding) => finding.checkId === 'S4.boundary-side-mismatch'));
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C005
+test('S7 selects a carried boundary by relation and subject, not by the unit-id prefix', () => {
+  const { workspace, index } = indexOf({
+    rfcBodies: {
+      'pkg-0001': '# RFC pkg-0001\n',
+      'pkg-0002': rfcBody({ packageId: 'pkg-0002', operationId: 'ConsumeFact', crossSequenceIds: ['A-1'] }),
+    },
+  });
+  try {
+    const provider = index.viewsByPackage.get('pkg-0001');
+    provider.obligationUnits[0].unitId = 'carry-001';
+    assert.ok(checkArtifactViewConsistency(index).some((finding) => finding.checkId === 'S7.rfc-boundary-missing'));
+
+    provider.obligationUnits[0].unitId = 'ctr-boundary-999';
+    provider.obligationUnits[0].subject = 'boundary-unknown';
+    assert.equal(checkArtifactViewConsistency(index).filter((finding) => finding.checkId === 'S7.rfc-boundary-missing').length, 0);
   } finally {
     workspace.remove();
   }

@@ -4,6 +4,8 @@
  * The detector reads a workspace and writes only its two reports, so the fixture is the
  * whole input surface. Every value a check compares is authored here rather than derived
  * from the implementation, so a green test never compares the detector with itself.
+ * The vocabulary is deliberately neutral: a project that declares its own status names
+ * and interfaces must receive the same verdict as the project this gate was first run on.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,15 +13,23 @@ import { join } from 'node:path';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
-export const ARTIFACT_FILE_NAME = 'GaiaSekkeiShiyousho_v32-sequences.json';
+export const ARTIFACT_FILE_NAME = 'example-sequences.json';
 export const VIEW_FILE_NAME = 'SEQUENCES.json';
 export const RFC_FILE_NAME = 'RFC.md';
+export const RULES_FILE_NAME = 'SMOOTH-SEQUENCES-RULES.json';
 
 const PROVIDER = 'pkg-0001';
 const CONSUMER = 'pkg-0002';
 const BOUNDARY = 'boundary-001';
-const PROVIDER_PATH = 'crates/protocol/pkg-0001';
-const CONSUMER_PATH = 'crates/protocol/pkg-0002';
+const PROVIDER_PATH = 'crates/alpha';
+const CONSUMER_PATH = 'crates/beta';
+
+/** The vocabulary a workspace may declare in SMOOTH-SEQUENCES-RULES.json. */
+export const DEFAULT_RULES = Object.freeze({
+  schemaVersion: 1,
+  terminalStatuses: ['closed'],
+  requiredInterfaces: ['rest', 'grpc', 'cli'],
+});
 
 const OPERATION_DEFAULTS = Object.freeze({
   mutates_protocol_state: true,
@@ -29,16 +39,16 @@ const OPERATION_DEFAULTS = Object.freeze({
   required_pre_state_checkpoint: false,
   required_proof_classes: [],
   idempotency_scope: 'operation identity tuple',
-  initial_status: 'submitted',
-  allowed_status_transitions: { submitted: ['accepted'], accepted: ['finalized'], finalized: [] },
+  initial_status: 'open',
+  allowed_status_transitions: { open: ['accepted'], accepted: ['closed'], closed: [] },
   external_dependency_class: 'none',
   result_object_classes: [],
-  finality_predicate: 'finalized when the accepted transition completes',
+  finality_predicate: 'closed when the accepted transition completes',
   cancellation_rule: 'cancellable before the first external action',
   reversal_or_recovery_rule: 'follows the OperationStatus map',
-  rest: { method: 'POST', path: '/v1/operations/{operation-kind}' },
-  websocket: 'operation.submit',
-  cli: 'gaia operation submit',
+  rest: 'GET /v1/orders',
+  grpc: 'orders.v1.Orders/Create',
+  cli: 'example order create',
   reject_code_families: ['core'],
 });
 
@@ -48,7 +58,7 @@ export function operationRow(id, overrides = {}) {
 }
 
 /** The two operations the clean fixture owns, one on each side of boundary-001. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function defaultOperations() {
   return [
     operationRow('ProduceFact', { registry_contribution: 'required' }),
@@ -56,22 +66,22 @@ function defaultOperations() {
   ];
 }
 
-/** The two steps of the clean fixture: one produces soul_id, the next consumes it. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-function defaultSteps() {
+/** The two steps of the clean fixture: one produces order_id, the next consumes it. */
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+export function defaultSteps() {
   return [
     {
       id: 'A-1__ProduceFact',
       sequence: 'A-1',
       operation: 'ProduceFact',
       line: 1,
-      quote: 'the producer derives soul_id',
+      quote: 'the producer derives order_id',
       contract: {
         pre: [],
-        post: [{ factId: 'soul_id', text: 'soul_id is derived', source: `${BOUNDARY}/postconditions/0` }],
+        post: [{ factId: 'order_id', text: 'order_id is derived', source: `${BOUNDARY}/postconditions/0` }],
         invariants: [],
         consumes: [],
-        produces: ['soul_id'],
+        produces: ['order_id'],
         errors: [],
         crosses: [BOUNDARY],
       },
@@ -81,12 +91,12 @@ function defaultSteps() {
       sequence: 'A-1',
       operation: 'ConsumeFact',
       line: 2,
-      quote: 'the consumer reads soul_id',
+      quote: 'the consumer reads order_id',
       contract: {
-        pre: [{ factId: 'soul_id', text: 'soul_id is present', source: `${BOUNDARY}/preconditions/0` }],
+        pre: [{ factId: 'order_id', text: 'order_id is present', source: `${BOUNDARY}/preconditions/0` }],
         post: [],
         invariants: [],
-        consumes: ['soul_id'],
+        consumes: ['order_id'],
         produces: [],
         errors: [],
         crosses: [BOUNDARY],
@@ -161,10 +171,10 @@ export function defaultContractRegistry() {
     owners: { semantic: 'not_applicable', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' },
     clauses: {
       input: 'the producer receives the identity material',
-      output: 'the producer hands back soul_id',
+      output: 'the producer hands back order_id',
       preconditions: ['the identity material is present'],
-      postconditions: ['soul_id is derived'],
-      invariants: ['one active soul_id per identity'],
+      postconditions: ['order_id is derived'],
+      invariants: ['one active order_id per identity'],
     },
     source_refs: ['s-000001'],
   }];
@@ -236,7 +246,7 @@ export function packageView(input) {
 }
 
 /** The ledger kind a unit id declares. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function ledgerKindOf(unitId) {
   if (unitId.startsWith('op-')) return 'operation';
   if (unitId.startsWith('ctr-')) return 'contract';
@@ -244,7 +254,7 @@ function ledgerKindOf(unitId) {
   return 'sequence';
 }
 
-/** The RFC body that names the boundary, contributes the operation kind and carries its ledger. */
+/** The RFC body that names the boundary and carries its distribution ledger. */
 export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceIds = [], crossSequenceIds = [] }) {
   const units = [
     { id: `op-${operationId}`, kind: ledgerKindOf(`op-${operationId}`) },
@@ -259,10 +269,6 @@ export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceI
     '### 1.1 Design',
     '',
     boundary,
-    '',
-    '```rust',
-    `pub const CONTRIBUTED_ROWS: &[Row] = &[Row { operation_kind: "${operationId}" }];`,
-    '```',
     '',
     '## Distribution ledger',
     '',
@@ -283,16 +289,18 @@ export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceI
  * Materialize a workspace on disk.
  *
  * @param {{ artifact?: object, treeManifest?: object, allocateManifest?: object,
- *   views?: object, rfcBodies?: object }} input
- * @returns {{ root, artifactPath, treeManifestPath, allocateManifestPath,
+ *   views?: object, rfcBodies?: object, rules?: object|null }} input
+ * @returns {{ root, artifactPath, treeManifestPath, allocateManifestPath, rulesPath,
  *   directoryOf: (id: string) => string, rfcPathOf: (id: string) => string,
- *   viewPathOf: (id: string) => string, remove: () => void }}
+ *   viewPathOf: (id: string) => string, readArtifact: () => object,
+ *   readRules: () => object|null, remove: () => void }}
  */
 export function materializeSmoothWorkspace(input = {}) {
   const root = mkdtempSync(join(tmpdir(), 'smooth-sequences-'));
   const artifact = input.artifact ?? minimalV3Artifact();
   const treeManifest = input.treeManifest ?? defaultTreeManifest();
   const allocateManifest = input.allocateManifest ?? defaultAllocateManifest();
+  const rules = input.rules === undefined ? DEFAULT_RULES : input.rules;
   const crossSequences = [{ sequenceId: 'A-1', ownerPackageIds: [PROVIDER, CONSUMER] }];
   const views = input.views ?? {
     [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences }),
@@ -313,9 +321,11 @@ export function materializeSmoothWorkspace(input = {}) {
   const artifactPath = join(root, ARTIFACT_FILE_NAME);
   const treeManifestPath = join(root, TREE_MANIFEST_FILE_NAME);
   const allocateManifestPath = join(root, ALLOCATE_MANIFEST_FILE_NAME);
+  const rulesPath = join(root, RULES_FILE_NAME);
   writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   writeFileSync(treeManifestPath, JSON.stringify(treeManifest, null, 2));
   writeFileSync(allocateManifestPath, JSON.stringify(allocateManifest, null, 2));
+  if (rules !== null) writeFileSync(rulesPath, JSON.stringify(rules, null, 2));
 
   return {
     root,
@@ -323,10 +333,12 @@ export function materializeSmoothWorkspace(input = {}) {
     artifactPath,
     treeManifestPath,
     allocateManifestPath,
+    rulesPath,
     directoryOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path),
     rfcPathOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path, RFC_FILE_NAME),
     viewPathOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path, VIEW_FILE_NAME),
     readArtifact: () => JSON.parse(readFileSync(artifactPath, 'utf8')),
+    readRules: () => (rules === null ? null : JSON.parse(readFileSync(rulesPath, 'utf8'))),
     remove: () => rmSync(root, { recursive: true, force: true }),
   };
 }

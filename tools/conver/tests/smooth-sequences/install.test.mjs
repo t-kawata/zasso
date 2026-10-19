@@ -1,3 +1,4 @@
+// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -7,6 +8,7 @@ test('the command and scripts live inside the installed .claude tree', () => {
   assert.ok(existsSync('.claude/commands/smooth-sequences.md'));
   assert.ok(existsSync('.claude/scripts/smooth-sequences/run.mjs'));
   assert.ok(existsSync('.claude/scripts/smooth-sequences/lib/workspace.mjs'));
+  assert.ok(existsSync('.claude/scripts/smooth-sequences/lib/rules.mjs'));
 });
 
 test('the installer does not exclude the new command or scripts', () => {
