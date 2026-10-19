@@ -91,7 +91,7 @@ Purpose: omission-free implementation-target candidates with source traceability
 node .claude/scripts/workspacify-tree/run.mjs extract "$ARGUMENTS"
 ```
 
-Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood.
+Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood. Every boundary emitted here carries `stage2_contract_scope`; `/workspacify-allocate`'s `contract_registry` must satisfy exactly that scope, and `/smooth-sequences` checks the two against each other.
 
 ## Step 3: authoring the decision JSON (the AI's design judgement)
 

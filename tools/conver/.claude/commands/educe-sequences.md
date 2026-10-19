@@ -22,6 +22,15 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+## Schema generations
+
+The rail accepts `schema_version` 2 and 3. Generation 3 adds the typed step contract
+(`pre`, `post`, `invariants`, `consumes`, `produces`, `errors`, `crosses`) and
+`operations[].registry_contribution`; generation 2 remains valid and is read by
+`/smooth-sequences` with Layer B withheld. The 31 declared rail checks are unchanged:
+the v3 checks live in the `smooth-sequences` check family, so the rail's `31/31` gate
+still means the same thing.
+
 ## Argument Interpretation
 
 - `<spec-file>` = first whitespace-delimited token of invocation; only argument; path of existing readable file with extension.

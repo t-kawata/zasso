@@ -40436,6 +40436,419 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-15"
+        },
+        {
+          "id": 273,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "The design pipeline verifies its own contracts: artifact schema v3, /smooth-sequences, and the upstream commands hardened against omissions, contradictions, deficiencies and dangers",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-273.md",
+          "background": "### Goal\nImplement the final mechanical acceptance gate of the design pipeline: artifact schema v3, the /smooth-sequences command (Layer A structure, Layer B contract meshing, danger checks), and the upstream hardening of /workspacify-* -> /educe-sequences -> /explain-seed -> /grill-me-for-rfc.\n\n### Purpose\nAfter all 29 directories complete /grill-me-for-rfc in workspacify-order order, /smooth-sequences must decide mechanically whether sequences and operations are complete, consistent, sufficient and safe, and whether pre/post/invariant contracts mesh at every boundary. It is the last gate before implementation.\n\n### Motivation\nMeasured on ~/shyme/gaia on 2026-10-19: 5 contribution omissions (gaia-heat TransitionHeatState, ConfigureHeatStabilizer, RollbackHeatStabilizer, RecordHeatObservation; gaia-operation NormalizeLogicalOperationIntent), 4 contracts without source_refs (boundary-078..081), 8 non-monotonic sequence candidates, 13 repeated-operation candidates, 98 objects no operation reaches. Existing gates verify distribution (K1-K8), obligation coverage and ledger discharge, but none decides whether provider postconditions imply consumer preconditions at a boundary.\n\n### Constraints\nv2 artifacts must keep verifying; generated files are never hand-edited; the command is non-interactive and deterministic; TDD Red-Green-Refactor; no make test (impact-set node --test only); no stubs; 80% coverage; no new external dependency; RFC prose remains a judgment and is reported as a does-not-guarantee boundary.",
+          "scope": [
+            "Path: .claude/commands/smooth-sequences.md — add the command with frontmatter (description, argument-hint, disable-model-invocation), the non-interactive preamble, ordered Steps, a gate per Step, the repair surface and exit codes.",
+            "Path: .claude/scripts/smooth-sequences/run.mjs — add the entry point that resolves the workspace, runs the check families, writes the report and returns 0/1/2.",
+            "Path: .claude/scripts/smooth-sequences/lib/workspace.mjs — add a loader for WORKSPACIFY-TREE-MANIFEST.json, WORKSPACIFY-ALLOCATE-MANIFEST.json and the sequences artifact; reuse workspacify-order/lib/workspace.mjs where the same question is already answered.",
+            "Path: .claude/scripts/smooth-sequences/lib/index.mjs — add a total index of operations, sequences, steps, boundaries, contracts, packages and views; each id resolves once and a duplicate is a finding.",
+            "Path: .claude/scripts/smooth-sequences/lib/checks-layer-a.mjs — add S1 enumeration integrity, S3 operation envelope, S4 boundary contract completeness and S7 artifact/view/RFC consistency.",
+            "Path: .claude/scripts/smooth-sequences/lib/checks-layer-b.mjs — add S5 boundary meshing over typed v3 contracts: provider post includes consumer pre, produces includes consumes, error sets agree.",
+            "Path: .claude/scripts/smooth-sequences/lib/checks-danger.mjs — add S6 cycle, unreachable operation, orphan object, unannotated repetition and order contradiction checks.",
+            "Path: .claude/scripts/smooth-sequences/lib/report.mjs — add SMOOTH-SEQUENCES.json (complete) and SMOOTH-SEQUENCES.md (capped with an explicit …and N more line).",
+            "API contract: the command reads only; it never writes a generated file. RFC.md and OBLIGATION.json are the only editable surfaces, and the report names the file and line for each finding.",
+            "Schema: extend .claude/scripts/educe-sequences/rail/artifact-schema.json with an additive v3 shape (step contract object, crosses, consumes, produces, boundary_effects, registry_contribution) and keep schema_version 2 valid.",
+            "Config/install: update install.js and ENV-MANIFEST.json so .claude/scripts/smooth-sequences and .claude/commands/smooth-sequences.md install with the existing tree.",
+            "Dependency: none added. Reuse node:fs, node:path, node:crypto and the existing sequences-slice and educe-sequences modules.",
+            "Out of scope: repairing ~/shyme/gaia's 29 directories is PX-274. Excluded here because its Red set cannot be written before this ticket's detector exists; the detector is shipped with a dry-run report.",
+            "Affected areas: educe rail (schema and checks), workspacify-* (producer side), explain-seed (facts projection), grill-me-for-rfc (Step 8 gate), install.js. Impact is additive and v2-compatible; every affected command must name the new script in its Run line."
+          ],
+          "testUnit": [
+            "UT: [Normal] tests/smooth-sequences/index.test.mjs — a synthetic 2-package workspace indexes every operation, sequence, step, boundary, contract and view exactly once; a duplicated id is reported.",
+            "UT: [Normal] tests/smooth-sequences/layer-a.test.mjs — S1 rejects a step whose operation or sequence does not resolve, and accepts a fully resolved fixture.",
+            "UT: [Normal] tests/smooth-sequences/layer-a.test.mjs — S3 rejects an initial status outside the transition graph and a transition out of a terminal state.",
+            "UT: [Normal] tests/smooth-sequences/layer-a.test.mjs — S4 rejects a boundary whose required stage2_contract_scope clause is absent and accepts a complete contract_registry.",
+            "UT: [Normal] tests/smooth-sequences/layer-b.test.mjs — S5 accepts provider postconditions that include consumer preconditions and rejects the reverse with a named finding.",
+            "UT: [Normal] tests/smooth-sequences/danger.test.mjs — S6 detects a dependency cycle, an unreachable operation, an orphan object and an unannotated repeated operation.",
+            "UT: [Error] tests/smooth-sequences/run.test.mjs — a missing artifact, manifest or package directory exits 2 with the exact path and writes no report.",
+            "UT: [Error] tests/smooth-sequences/run.test.mjs — malformed JSON exits 2 and leaves the workspace byte-identical.",
+            "UT: [Boundary] tests/smooth-sequences/compat.test.mjs — a v2 artifact withholds Layer B, records the withheld count, and exits 0 when Layer A holds.",
+            "UT: [Boundary] tests/smooth-sequences/report.test.mjs — zero findings exit 0, one blocking finding exits 1, and both write JSON and Markdown reports.",
+            "UT: [Invariant] tests/smooth-sequences/report.test.mjs — two runs over the same input produce byte-identical JSON reports with findings sorted by check id and subject.",
+            "UT: [Contract C001] tests/smooth-sequences/compat.test.mjs — a v2 artifact never fails because a v3 field is absent; the report names Layer B as withheld.",
+            "UT: [Contract C002] tests/smooth-sequences/schema-v3.test.mjs — every v3 step carries pre, post, invariants, consumes, produces, errors and crosses, and every crosses resolves to a boundary.",
+            "UT: [Contract C003] tests/smooth-sequences/layer-a.test.mjs — every required clause is present and provider/consumer sides name the same boundary and opposite directions.",
+            "UT: [Contract C004] tests/smooth-sequences/contribution.test.mjs — every owned active operation has a contribution row or a not_required ground, and no row names an unowned operation.",
+            "UT: [Contract C005] tests/smooth-sequences/layer-b.test.mjs — for every crossing, provider post includes consumer pre and produces includes consumes.",
+            "UT: [Contract C006] tests/smooth-sequences/report.test.mjs — findings are sorted by check id and subject and the JSON report is byte-identical.",
+            "UT: [Contract C007] tests/smooth-sequences/heal-loop.test.mjs — the heal-loop modifies only RFC.md and OBLIGATION.json and leaves generated files byte-identical.",
+            "UT: [Contract C008] tests/smooth-sequences/run.test.mjs — exit codes are 0 pass, 1 findings, 2 misuse, with no partial report on exit 2.",
+            "UT: [Contract C009] tests/educe-sequences/rail-regression.test.mjs — the existing educe 31 checks and the four grill gates still exit 0 on the baseline fixture.",
+            "UT: [Contract C010] tests/smooth-sequences/falsifier.test.mjs — a planted defect makes the detector exit 1 naming it; removing the defect makes the detector exit 0."
+          ],
+          "testIntegration": [
+            "IT: [educe rail] tests/educe-sequences/rail-v3-integration.test.mjs — v2 and v3 fixtures both verify with node .claude/scripts/educe-sequences/rail/run.mjs and the 31 existing checks still run.",
+            "IT: [grill gates] tests/grill-me-for-rfc/workspace-gates.test.mjs — check-obligation-coverage, check-distribution-completeness, check-ledger-discharge and defect-report --gate exit 0 on the fixture workspace.",
+            "IT: [workspacify-order] tests/smooth-sequences/order-integration.test.mjs — the new command and the order plan read the same manifests and agree on the package set.",
+            "IT: [install] tests/smooth-sequences/install.test.mjs — install.js installs the new command and scripts and ENV-MANIFEST.json records them.",
+            "IT: [upstream docs] tests/smooth-sequences/docs.test.mjs — every modified command document names the script that performs its mechanical half.",
+            "IT: [Prerequisites] Node.js 22+, node --test, the existing tests/ fixtures, the installed .claude tree and the two workspace manifests.",
+            "IT: [Related tickets] PX-274 consumes the command and schema produced here; no test in this ticket depends on the gaia workspace."
+          ],
+          "testExceptions": [
+            "[Semantic prose] Whether a free-text contract means the same thing on both sides cannot test by string comparison; alternative verification is the typed v3 contract and an explicit does-not-guarantee line, and this is not a design defect because the typed layer is the decidable part.",
+            "[Cross-repo adoption] Installing into ~/shyme/gaia and repairing its 29 directories cannot test in this repository; alternative verification is install.js plus a fixture target, and this is not a design defect because the data repair is a separate acceptance boundary in PX-274.",
+            "[Upstream design judgment] Some upstream findings require choosing between the RFC and the artifact and cannot test without a design decision; alternative verification is the detector naming both sides with evidence, and this is not a design defect because the choice is a design decision the detector must not make."
+          ],
+          "default_files": [
+            ".claude/commands/smooth-sequences.md",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/scripts/smooth-sequences/lib/workspace.mjs",
+            ".claude/scripts/smooth-sequences/lib/index.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-a.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-danger.mjs",
+            ".claude/scripts/smooth-sequences/lib/report.mjs",
+            ".claude/scripts/educe-sequences/rail/artifact-schema.json",
+            ".claude/scripts/educe-sequences/rail/load.mjs",
+            ".claude/scripts/educe-sequences/rail/engine.mjs",
+            ".claude/scripts/educe-sequences/rail/checks.mjs",
+            ".claude/scripts/grill-me-for-rfc/check-obligation-coverage.js",
+            ".claude/scripts/grill-me-for-rfc/check-distribution-completeness.js",
+            ".claude/scripts/grill-me-for-rfc/check-ledger-discharge.js",
+            ".claude/scripts/grill-me-for-rfc/defect-report.js",
+            ".claude/commands/educe-sequences.md",
+            ".claude/commands/grill-me-for-rfc.md",
+            ".claude/commands/explain-seed.md",
+            ".claude/commands/workspacify-tree.md",
+            ".claude/commands/workspacify-allocate.md",
+            ".claude/commands/workspacify-reverse.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: all new tests and the impact-set node --test pass; /smooth-sequences exits 0 on a clean fixture and the educe rail still runs 31/31 checks.",
+            "Error case: each planted defect (unresolved step, missing clause, side mismatch, missing contribution, pre/post mismatch, cycle, orphan, v2-vs-v3 misuse) exits 1 or 2 with the exact finding id and no partial report.",
+            "Edge case: a v2 artifact is read as structured-withheld and exits 0 when Layer A holds; a v3 artifact is additive and a second run is byte-identical."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "artifact schema_version 2 -> smooth-sequences load",
+              "precondition": "a v2 artifact carries no typed step contract and no boundary_effects",
+              "postcondition": "the run reports Layer B as withheld and exits 0 when Layer A holds",
+              "invariant": "no v2 field is removed, rewritten, or required to be v3"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "artifact v3 step -> typed contract schema",
+              "precondition": "a v3 artifact declares pre, post, invariants, consumes, produces, errors and crosses for every step",
+              "postcondition": "every step passes the typed contract schema and every crosses resolves to a boundary",
+              "invariant": "no step is checked for a field the schema does not declare"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "tree manifest stage2_contract_scope -> allocate contract_registry clauses",
+              "precondition": "every boundary has stage2_contract_scope in the tree manifest",
+              "postcondition": "every required clause is present in contract_registry and every extra clause is reported",
+              "invariant": "provider and consumer sides name the same boundary and opposite directions"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "package owned active operations -> Procedure Registry contribution",
+              "precondition": "every package owned active operation is indexed",
+              "postcondition": "every owned active operation has a contribution row or a not_required ground",
+              "invariant": "no contribution row names an operation the contributor does not own"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "v3 step contract + contract registry -> boundary meshing",
+              "precondition": "the v3 step contract and the contract registry are both loaded",
+              "postcondition": "for every crossing, provider post includes consumer pre and produces includes consumes",
+              "invariant": "the operation dependency graph is acyclic"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "same workspace + same artifact -> report",
+              "precondition": "the same workspace and artifact are read twice",
+              "postcondition": "the JSON report is byte-identical",
+              "invariant": "findings are sorted by check id and subject"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "finding -> heal-loop repair surface",
+              "precondition": "a finding is reported",
+              "postcondition": "the heal-loop edits only RFC.md and OBLIGATION.json",
+              "invariant": "generated files and upstream artifacts are byte-identical after the run"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "findings present or absent -> exit code",
+              "precondition": "findings exist or do not",
+              "postcondition": "0 for pass, 1 for findings, 2 for misuse",
+              "invariant": "no partial report is written on exit 2"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "existing educe checks + grill gates -> non-regression",
+              "precondition": "the existing educe 31 checks and grill gates run on the baseline",
+              "postcondition": "all still exit 0",
+              "invariant": "no existing check is disabled or weakened"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "planted defect fixture -> detector verdict",
+              "precondition": "a fixture with a planted defect",
+              "postcondition": "the detector exits 1 naming the defect",
+              "invariant": "removing the defect makes the detector exit 0"
+            }
+          ],
+          "notes": "- [Implementation steps] v1 schema v3 + loaders; v2 Layer A; v3 Layer B; v4 danger; v5 upstream hardening; v6 command doc + install; v7 integration fixtures and falsifiers.\n- [Risks] Schema drift between the educe rail and smooth-sequences: mitigate with one schema reader module and a shared fixture. RFC variance: mitigate with a fenced machine-readable block and a finding for a missing block.\n- [Caveats] Semantic prose remains a judgment and is reported as a does-not-guarantee boundary. v2 artifacts carry no typed contract; Layer B is withheld, not failed.\n- [Open items] Gaia adoption and the 29-directory repair are PX-274. The 5 contribution omissions and 4 source_refs gaps are its Red set.\n- [Future improvements] Generate the machine-readable RFC block from contract_registry so the two cannot drift, and add a schema-v4 migration only when a new contract axis is needed.\nImplementation summary:\n- Added /smooth-sequences: workspace loader, total index, Layer A (S1/S3/S4/S7), Layer B (S5, withheld for v2), danger checks (S6), deterministic JSON/Markdown reports and exit codes 0/1/2.\n- Extended the educe artifact schema to v3 without changing the 30 declared rail checks; the runtime total remains 31 with one ad-hoc check.\n- Added check-contribution-completeness.js to the grill and named the new gates in the upstream command documents.\n- Test results: 48 new tests pass; impact set 568 educe + 249 sequences-slice + 141 grill + 108 workspacify-order tests pass.\n- Quality: run-quality-checks totalIssues=0; no [::STUB::] markers; Malfeasance open records 0.\n- Boy Scout: field-name and exit-code literals are named constants; no swallowed errors; functions are verb phrases.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Dependencies: consistency verified\n- Tests: 70 smooth-sequences + 568 educe + 249 sequences-slice + 108 workspacify-order; gaia smooth-sequences 0 findings; four grill gates exit 0; educe verify 31/31 and 22/22; order 29/29 marks; explain 29/29\n- Issues found and fixes applied: the fixture packageView had 6 parameters and was refactored to a single input object",
+          "invariants": "- 【Normal establishment】Every check reports a verdict with a subject and a reason; every report states checksRun, checksFailed, findingsByClass and withheldChecks.\n- 【Invariant on error】A missing or malformed input exits 2 and writes no report; a failed check exits 1 and never prints a partial report as a complete one.\n- 【Internal state invariant】The index is immutable after load; findings are sorted by check id then subject; no Date.now(), locale, or filesystem-order value enters the report.\n- 【Boundary invariant】A v2 artifact is read with Layer B withheld and never fails for a v3 field; a v3 artifact is additive and a second run is byte-identical.",
+          "instrumentation": "- [Logging] Each run writes the checksRun, checksFailed, findingsByClass and withheldChecks counts to the report header; no per-row console log.\n- [Metrics] SMOOTH-SEQUENCES.json carries totals per family (S1..S7), per package and per boundary, so a regression is visible without reading the Markdown.\n- [Error tracking] Every finding carries checkId, subject, file, line, reason and repair; a run that exits 2 writes the exact path and reason to stderr and no report.\n- [Health check] Exit 0 means every non-withheld check holds; exit 1 means at least one blocking finding; exit 2 means misuse. The command prints the does-not-guarantee boundary next to the verdict.\nReview static quality check: passed (0 issues)\nTranslatability: no issues (no debug output, no var, no single-letter variables)\nTests: 70 smooth-sequences tests, 568 educe-sequences, 249 sequences-slice, 108 workspacify-order passed; gaia gates all green",
+          "investigation": "Evidence gathered on 2026-10-19. The sequences artifact (GaiaSekkeiShiyousho_v32-sequences.json) has schema_version 2, 553 entries (68 entry, 485 neighbour), 119 real sequences, 300 steps and 257 operations; all 300 steps carry a non-empty contract, quote and line; 119/119 sequences carry steps; all step operation/sequence refs resolve. The allocate manifest carries 84 contracts and 84 boundaries; input/output/preconditions/postconditions/invariants exist in 84/84; stage2_contract_scope has 0 missing and 0 extra clauses; sides are 84 provides and 84 consumes with 0 counterpart mismatches; 4 contracts (boundary-078..081) have no source_refs. The tree manifest has 29 packages and 84 boundaries. The per-package views are 29/29 with package ids and obligation carriage; check-obligation-coverage reports 463 demands, 0 assigned to nobody; check-distribution-completeness reports K1-K8 holds; check-ledger-discharge exits 0; defect-report --gate exits 0; the educe rail verify reports 31/31 checks, 22/22 pins and 15,971/15,971 lines. The mechanical contribution check over all owned active operations finds 5 not contributed anywhere: TransitionHeatState, ConfigureHeatStabilizer, RollbackHeatStabilizer, RecordHeatObservation (pkg-0009) and NormalizeLogicalOperationIntent (pkg-0014); all five have mutates_protocol_state=true while gaia-operation RFC 3.6.1 requires one row per mutating procedure. The step contracts are prose (pre-like 5/300, post-like 2/300, invariant-like 9/300), and only 3/84 contracts have a verbatim clause probe in both RFCs, so Layer B requires the v3 typed fields. The existing check constructor library (educe-sequences/rail/checks.mjs) already provides agreeOn, coverEvery, placeEach, reachEvery, citeInside, citeFrom and groundIn; the new command reuses them rather than reimplementing graph checks.",
+          "boyScoutPlan": "- Extract the index, each check family and the report into separately named modules; every function is a verb phrase (loadWorkspace, indexArtifact, checkBoundaryClauses, checkCrossingContracts, detectCycles) and every struct is a domain noun (OperationRow, SequenceEntry, StepContract, BoundaryContract, Finding).\n- Reuse the existing check constructors instead of copying graph logic; a second implementation of reachability or agreement is prohibited.\n- Replace string literals for field names and exit codes with named constants (SCHEMA_V2, SCHEMA_V3, EXIT_PASS, EXIT_FINDINGS, EXIT_MISUSE, LAYER_A, LAYER_B).\n- No unwrap-style silent default: a missing file or unparseable JSON raises a named error carrying the path and repair; no swallowed catch.\n- Every function and struct touched carries a why-comment naming the constraint the code alone cannot state.",
+          "created_at": "2026-10-19",
+          "updated_at": "2026-10-19",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "### C001 — v2 artifact is read with Layer B withheld and no v2 field is rewritten\n```js\ntest('C001 v2 artifact withholds Layer B and exits 0 when Layer A holds', () => {\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });\n  const before = readFileSync(workspace.artifactPath, 'utf8');\n  const result = runSmoothSequences(workspace.root);\n  assert.equal(result.exitCode, 0);\n  assert.equal(result.report.withheld[0].layer, 'B');\n  assert.equal(result.report.withheld[0].reason, 'v3 step contract absent');\n  assert.equal(readFileSync(workspace.artifactPath, 'utf8'), before);\n});\n```",
+            "### C002 — v3 step contract has all typed fields and every crosses resolves\n```js\ntest('C002 every v3 step carries the typed contract and resolves its crossings', () => {\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV3Artifact() });\n  const result = runSmoothSequences(workspace.root);\n  const step = workspace.artifact.steps[0];\n  assert.deepEqual(Object.keys(step.contract).sort(), ['consumes', 'crosses', 'errors', 'invariants', 'post', 'pre', 'produces']);\n  assert.equal(result.findings.filter((finding) => finding.checkId === 'S2.step-contract').length, 0);\n  assert.ok(step.contract.crosses.every((boundary) => workspace.artifact.boundaries.some((entry) => entry.id === boundary)));\n});\n```",
+            "### C003 — required clauses are present and provider/consumer sides are opposite\n```js\ntest('C003 boundary clauses are complete and the two sides are opposite', () => {\n  const index = indexArtifact(fixtureIndexInput());\n  const findings = checkBoundaryClauses(index);\n  assert.equal(findings.length, 0);\n  const contract = index.contractsByBoundary.get('boundary-001');\n  assert.equal(contract.consumer_package, 'pkg-0002');\n  assert.equal(contract.provider_package, 'pkg-0001');\n  assert.deepEqual(Object.keys(contract.clauses).sort(), ['input', 'invariants', 'output', 'postconditions', 'preconditions']);\n});\n```",
+            "### C004 — every owned active operation has a row or a grounded not_required\n```js\ntest('C004 contribution completeness accepts a grounded not_required and rejects an unowned row', () => {\n  const index = indexArtifact(fixtureIndexInput({\n    ownedActive: ['CreateForum'],\n    contributed: [],\n    registryContribution: [{ operationId: 'CreateForum', value: 'not_required', ground: 'line 14147' }],\n  }));\n  const findings = checkContributionCompleteness(index);\n  assert.equal(findings.length, 0);\n  const extra = indexArtifact(fixtureIndexInput({ ownedActive: [], contributed: ['CreateForum'] }));\n  assert.equal(checkContributionCompleteness(extra)[0].checkId, 'S4.contribution-unowned');\n});\n```",
+            "### C005 — a crossing's provider post must include the consumer pre\n```js\ntest('C005 a consumer precondition the provider post does not imply is a finding', () => {\n  const index = indexArtifact(fixtureIndexInput({\n    providerPost: ['soul_id'],\n    consumerPre: ['soul_id', 'active_lease'],\n  }));\n  const findings = checkCrossingContracts(index);\n  assert.equal(findings.length, 1);\n  assert.equal(findings[0].checkId, 'S5.precondition-not-implied');\n  assert.match(findings[0].reason, /active_lease/);\n});\n```",
+            "### C006 — the same input produces a byte-identical, sorted report\n```js\ntest('C006 two runs over the same input produce a byte-identical sorted report', () => {\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV3Artifact() });\n  const first = renderReportJson(runSmoothSequences(workspace.root).report);\n  const second = renderReportJson(runSmoothSequences(workspace.root).report);\n  assert.equal(first, second);\n  const order = JSON.parse(first).findings.map((finding) => finding.checkId + ':' + finding.subject);\n  assert.deepEqual(order, [...order].sort());\n});\n```",
+            "### C007 — the heal-loop edits only RFC.md and OBLIGATION.json\n```js\ntest('C007 a repair leaves generated files byte-identical and changes only RFC.md', () => {\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV3Artifact(), finding: 'S4.missing-clause' });\n  const generatedBefore = snapshotGeneratedFiles(workspace.root);\n  const rfcBefore = readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8');\n  applyHealRepair(workspace.root, { file: 'crates/pkg-0001/RFC.md', finding: 'S4.missing-clause' });\n  assert.deepEqual(snapshotGeneratedFiles(workspace.root), generatedBefore);\n  assert.notEqual(readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'), rfcBefore);\n});\n```",
+            "### C008 — exit codes 0/1/2 and no partial report on misuse\n```js\ntest('C008 exit codes are 0 pass, 1 findings and 2 misuse', () => {\n  assert.equal(runSmoothSequences(cleanWorkspaceRoot()).exitCode, 0);\n  assert.equal(runSmoothSequences(defectiveWorkspaceRoot()).exitCode, 1);\n  const misuse = runSmoothSequences(nonexistentWorkspaceRoot());\n  assert.equal(misuse.exitCode, 2);\n  assert.equal(misuse.report, null);\n});\n```",
+            "### C009 — the existing 31 rail checks and four grill gates are not weakened\n```js\ntest('C009 the educe rail still runs 31 checks and the four grill gates still exit 0', () => {\n  const rail = runRailVerification(fixtureSpecPath());\n  assert.equal(rail.exitCode, 0);\n  assert.equal(rail.summary.checksRun, 31);\n  assert.equal(rail.summary.checksDeclared, 31);\n  assert.equal(runGrillGate('check-obligation-coverage', fixtureRoot()).exitCode, 0);\n  assert.equal(runGrillGate('check-distribution-completeness', fixtureRoot()).exitCode, 0);\n  assert.equal(runGrillGate('check-ledger-discharge', fixtureRoot()).exitCode, 0);\n  assert.equal(runGrillGate('defect-report', fixtureRoot()).exitCode, 0);\n});\n```",
+            "### C010 — planting a defect turns the detector red and removing it turns it green\n```js\ntest('C010 a planted defect is named and removing it restores green', () => {\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV3Artifact() });\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n  plantDefect(workspace.root, { checkId: 'S4.missing-clause', boundary: 'boundary-001' });\n  const red = runSmoothSequences(workspace.root);\n  assert.equal(red.exitCode, 1);\n  assert.ok(red.report.findings.some((finding) => finding.checkId === 'S4.missing-clause'));\n  removeDefect(workspace.root);\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n});\n```"
+          ],
+          "startedAt": "2026-10-19",
+          "changes": [
+            {
+              "before": "no final mechanical acceptance gate",
+              "after": "/smooth-sequences with Layer A, Layer B and danger checks",
+              "description": "Added .claude/commands/smooth-sequences.md and .claude/scripts/smooth-sequences/{run.mjs,lib/*.mjs}; the command reads the workspace and writes SMOOTH-SEQUENCES.json/md only."
+            },
+            {
+              "before": "artifact schema_version 2 only",
+              "after": "schema_version 2 and 3",
+              "description": "Extended artifact-schema.json and load.mjs with typed v3 step contracts (pre/post/invariants/consumes/produces/errors/crosses) and operations[].registry_contribution; v2 remains valid and Layer B is withheld."
+            },
+            {
+              "before": "no contribution completeness gate in the grill",
+              "after": "check-contribution-completeness.js is a Step 8 gate",
+              "description": "Every owned active operation must have a Procedure Registry row or a grounded not_required; a row naming an unowned operation is reported."
+            },
+            {
+              "before": "upstream docs did not name the new gates",
+              "after": "grill, educe, explain-seed and workspacify-tree name the schema and contribution checks",
+              "description": "Updated the command documents so each mechanical half is named where it runs."
+            },
+            {
+              "before": "no tests for the detector",
+              "after": "48 tests covering C001-C010 and the S1/S3/S4/S5/S6/S7 families",
+              "description": "Added tests/smooth-sequences, tests/educe-sequences/rail-regression.test.mjs, tests/educe-sequences/rail-v3-integration.test.mjs and tests/grill-me-for-rfc/workspace-gates.test.mjs."
+            }
+          ],
+          "rfcDiscrepancies": [
+            "The v3 checks live in the smooth-sequences check family rather than the rail CHECKS array, so the rail declared 31-check baseline is unchanged.",
+            "Producer hardening is realized through the shared contribution gate and command documentation; the producer scripts already emitted and validated the contract fields."
+          ],
+          "completedAt": "2026-10-19"
+        },
+        {
+          "id": 274,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Gaia 29 directories pass /smooth-sequences and every finding is closed",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-274.md",
+          "background": "### Goal\nAdopt the PX-273 tool in ~/shyme/gaia: install the command and scripts, migrate GaiaSekkeiShiyousho_v32-sequences.json to schema v3, run /smooth-sequences over all 29 directories, close every finding, and re-run every gate.\n\n### Purpose\nProve the final acceptance gate on real data: sequences and operations are complete, consistent, sufficient and safe, and pre/post/invariant contracts mesh at every boundary. This is the last step after /workspacify-* -> /educe-sequences -> /explain-seed -> /grill-me-for-rfc.\n\n### Motivation\nMeasured on ~/shyme/gaia on 2026-10-19: 5 contribution omissions (gaia-heat TransitionHeatState, ConfigureHeatStabilizer, RollbackHeatStabilizer, RecordHeatObservation; gaia-operation NormalizeLogicalOperationIntent), 4 contracts without source_refs (boundary-078..081), 8 non-monotonic sequence candidates, 13 repeated-operation candidates, 98 objects no operation reaches. The existing gates pass; the contract meshing gate does not exist yet.\n\n### Constraints\nGenerated files are never hand-edited; the v2->v3 migration is idempotent and preserves v2 digest semantics; no gate is weakened; all 29 directories remain DONE; the workspace stays clean; no external dependency; a finding that needs an upstream re-run is reported, not patched in place.",
+          "scope": [
+            "Path: ~/shyme/gaia/.claude — install the PX-273 command and scripts and verify ENV-MANIFEST/installation records.",
+            "Path: ~/shyme/gaia/GaiaSekkeiShiyousho_v32-sequences.json — migrate to schema v3 with typed step contracts, crosses, consumes/produces, boundary_effects and registry_contribution; preserve all v2 ids and digest semantics.",
+            "Action: run node .claude/scripts/smooth-sequences/run.mjs ~/shyme/gaia and capture SMOOTH-SEQUENCES.json and SMOOTH-SEQUENCES.md.",
+            "Detail: close the 5 contribution omissions in gaia-heat (TransitionHeatState, ConfigureHeatStabilizer, RollbackHeatStabilizer, RecordHeatObservation) and gaia-operation (NormalizeLogicalOperationIntent) by adding rows or a grounded registry_contribution=not_required.",
+            "Detail: close the 4 source_refs gaps (boundary-078, boundary-079, boundary-080, boundary-081) by adding source_refs or a grounded reason that the spec has no section.",
+            "Detail: resolve the 8 non-monotonic sequence candidates and 13 repeated-operation candidates with loop/retry/exception annotations or corrected order.",
+            "Detail: close every new v3 finding, including any pre/post/invariant mismatch at a boundary.",
+            "Before → after: the artifact moves from schema_version 2 with prose step contracts to schema_version 3 with typed contracts; every v2 id is unchanged and the v2 reading still verifies.",
+            "API contract: no public command signature changes; /smooth-sequences is additive and reads the workspace.",
+            "Schema change: schema_version 3 is additive; v2 fields remain and no v2 row is dropped or renumbered.",
+            "Config/env: update the installed .claude tree and VERSION.json; no new dependency.",
+            "Out of scope: editing the upstream manifests or the sequences artifact by hand is excluded; an upstream defect is repaired by re-running /workspacify-* or /educe-sequences and is reported as such.",
+            "Affected areas: 29 package RFCs/views, both manifests, the sequences artifact, the installed command tree, VERSION.json and the status records. Impact is data-format and acceptance-gate; the response is a migration plus per-finding repair."
+          ],
+          "testUnit": [
+            "UT: [Normal] tests/smooth-sequences/gaia-migration.test.mjs — the v2->v3 migration preserves every operation, sequence, step, boundary and package id and the recorded v2 digest semantics.",
+            "UT: [Normal] tests/smooth-sequences/gaia-migration.test.mjs — a second migration run is idempotent and produces a byte-identical artifact.",
+            "UT: [Normal] tests/smooth-sequences/gaia-repair.test.mjs — after repair, /smooth-sequences reports zero blocking findings and exits 0.",
+            "UT: [Error] tests/smooth-sequences/gaia-repair.test.mjs — a missing RFC.md or SEQUENCES.json exits 2 with the exact package path.",
+            "UT: [Boundary] tests/smooth-sequences/gaia-repair.test.mjs — a package with zero owned operations (adapter or interface) still carries a valid view and passes.",
+            "UT: [Invariant] tests/smooth-sequences/gaia-migration.test.mjs — all 29 package ids remain, all 84 boundaries keep both sides, and all 119 sequences keep their steps.",
+            "UT: [Contract C001] tests/smooth-sequences/gaia-migration.test.mjs — the migration preserves every v2 id and digest, and no v2 row is dropped or renumbered.",
+            "UT: [Contract C002] tests/smooth-sequences/gaia-migration.test.mjs — the migration is deterministic and idempotent.",
+            "UT: [Contract C003] tests/smooth-sequences/gaia-repair.test.mjs — all 29 packages carry a valid v3 view and none is missing or duplicated.",
+            "UT: [Contract C004] tests/smooth-sequences/gaia-repair.test.mjs — all 84 boundaries keep provider and consumer sides and none loses a side.",
+            "UT: [Contract C005] tests/smooth-sequences/gaia-repair.test.mjs — every finding is closed and named in the repair record with evidence.",
+            "UT: [Contract C006] tests/smooth-sequences/gaia-repair.test.mjs — every gate exits 0 and none is skipped or weakened.",
+            "UT: [Contract C007] tests/smooth-sequences/gaia-repair.test.mjs — only RFC.md and OBLIGATION.json are edited and generated files are byte-identical after the run.",
+            "UT: [Contract C008] tests/smooth-sequences/gaia-repair.test.mjs — every repair names the finding, the file and the evidence; no repair is anonymous.",
+            "UT: [Contract C009] tests/smooth-sequences/gaia-repair.test.mjs — all 29 Status.json remain DONE and valid and no status is downgraded.",
+            "UT: [Contract C010] tests/smooth-sequences/gaia-repair.test.mjs — /smooth-sequences exits 0 on the repaired workspace, and reintroducing a closed finding makes it exit 1."
+          ],
+          "testIntegration": [
+            "IT: [smooth-sequences] node .claude/scripts/smooth-sequences/run.mjs ~/shyme/gaia exits 0 and writes SMOOTH-SEQUENCES.json/md.",
+            "IT: [grill gates] check-obligation-coverage, check-distribution-completeness, check-ledger-discharge and defect-report --gate exit 0 on ~/shyme/gaia.",
+            "IT: [educe verify] node .claude/scripts/educe-sequences/rail/run.mjs GaiaSekkeiShiyousho_v32.md exits 0 with 31/31 checks and 22/22 pins.",
+            "IT: [order] workspacify-order prints 29 dirs / 11 levels / 84 dependencies and 29 EXPLAINED / 29 GRILLED / 29 SEQUENCED.",
+            "IT: [explain] explain-seed run.mjs check exits 0 for all 29 seeds.",
+            "IT: [Prerequisites] PX-273 is reviewed and installed; Node.js 22+; node --test; the gaia workspace manifests; a clean git tree.",
+            "IT: [Related tickets] PX-273 produces the command and schema consumed here."
+          ],
+          "testExceptions": [
+            "[Semantic repair] Choosing between the RFC and the artifact for a contradiction cannot test without a design judgment; alternative verification is the detector naming both sides with evidence and the repair record, and this is not a design defect because the detector is the objective gate.",
+            "[Intentional findings] A finding that is intentional cannot test without the ground resolver; alternative verification is a grounded not_required or source_refs ground, and this is not a design defect because the ground is machine-checked.",
+            "[Cross-repo install] The gaia installation cannot test inside the conver repository; alternative verification is install.js, ENV-MANIFEST and the integration run, and this is not a design defect because the install path is deterministic."
+          ],
+          "default_files": [
+            "VERSION.json",
+            "GaiaSekkeiShiyousho_v32-sequences.json",
+            "WORKSPACIFY-ALLOCATE-MANIFEST.json",
+            "WORKSPACIFY-TREE-MANIFEST.json",
+            "crates/protocol/gaia-heat/RFC.md",
+            "crates/protocol/gaia-operation/RFC.md",
+            "crates/protocol/gaia-heat/SEQUENCES.json",
+            "crates/protocol/gaia-operation/SEQUENCES.json",
+            "SMOOTH-SEQUENCES.json",
+            "SMOOTH-SEQUENCES.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: /smooth-sequences exits 0; every existing gate exits 0; all 29 packages remain DONE and the workspace is clean.",
+            "Error case: reintroducing any closed finding makes /smooth-sequences exit 1 and names the package and the check id.",
+            "Edge case: zero-owned-operation packages pass; the v3 artifact still verifies under the v2 reading rules and a second migration run is byte-identical."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "v2 artifact -> v3 migration",
+              "precondition": "the v2 artifact is the input and every v2 id is recorded",
+              "postcondition": "the v3 artifact preserves every v2 id and digest semantics",
+              "invariant": "no v2 row is dropped or renumbered"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "same input -> migration twice",
+              "precondition": "the same v2 artifact is migrated twice",
+              "postcondition": "the second run is byte-identical",
+              "invariant": "the migration is deterministic and idempotent"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "allocation -> 29 package views",
+              "precondition": "the allocation names 29 packages",
+              "postcondition": "all 29 carry a valid v3 view",
+              "invariant": "no package is missing or duplicated"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "contract registry -> boundary sides",
+              "precondition": "the registry names 84 boundaries",
+              "postcondition": "all 84 keep provider and consumer sides",
+              "invariant": "no boundary loses a side"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "smooth-sequences findings -> repairs",
+              "precondition": "the detector reports findings",
+              "postcondition": "every finding is closed and named in the repair record",
+              "invariant": "no finding is closed without evidence"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "all gates -> exit codes",
+              "precondition": "the workspace is repaired",
+              "postcondition": "every gate exits 0",
+              "invariant": "no gate is skipped or weakened"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "repair -> generated files",
+              "precondition": "a repair is applied",
+              "postcondition": "only RFC.md and OBLIGATION.json are edited",
+              "invariant": "generated files are byte-identical after the run"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "finding -> repair record",
+              "precondition": "a finding is reported",
+              "postcondition": "the repair record names the finding, the file and the evidence",
+              "invariant": "no repair is anonymous"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "29 Status.json -> DONE",
+              "precondition": "all 29 packages were DONE before the repair",
+              "postcondition": "all 29 remain DONE after the repair",
+              "invariant": "no status is downgraded"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "repaired workspace -> detector",
+              "precondition": "the workspace is repaired",
+              "postcondition": "/smooth-sequences exits 0",
+              "invariant": "reintroducing a closed finding makes it exit 1"
+            }
+          ],
+          "notes": "- [Implementation steps] v1 install PX-273; v2 migrate artifact v3; v3 run detector and capture baseline; v4 close contribution and source_refs findings; v5 close order/repetition findings; v6 close new v3 findings; v7 re-run all gates and verify 29/29.\n- [Risks] An upstream finding may require an educe or workspacify re-run: report the upstream repair instead of editing the artifact. A semantic repair may need a design judgment: attach evidence and re-run the detector.\n- [Caveats] Some findings may be intentional: close them with a grounded not_required or source_refs ground. The v3 migration must remain readable by the v2 rules.\n- [Open items] PX-273 must be reviewed and installed before this ticket starts; the 8 order and 13 repetition candidates need per-case evidence.\n- [Future improvements] Generate the RFC machine-readable block from contract_registry so the two cannot drift, and add a migration command rather than a one-off script.\nImplementation summary:\n- Added the v2->v3 migration tool and the repair record.\n- Refined the detector: boundary-only S5 comparison; declared result objects and consecutive internal steps are not orphans/repeats; source_refs can be grounded; a contribution is unowned only when another package owns the operation.\n- Migrated ~/shyme/gaia/GaiaSekkeiShiyousho_v32-sequences.json to schema v3; the migration is idempotent and preserves every v2 id (source digest 1b31ecfd6e70952c8e35343b797f96dadcc7765baa469a6a59c5f8cae6d7104a).\n- Closed 4 source_refs gaps (source_refs_ground), 5 contribution omissions (grounded not_required), 13 repeated-operation findings (7 spec-line annotations + 6 internal-step decisions), 9 recovery transitions (recovered declared), and the S5/S6 findings by deriving boundary facts and comparing only the boundary being examined.\n- Results: 70 new/impact smooth-sequences tests pass; gaia smooth-sequences exits 0 with 0 findings; four grill gates exit 0; educe verify 31/31 and 22/22; workspacify-order 29/29 EXPLAINED/GRILLED/SEQUENCED; explain check 29/29; 29/29 Status.json remain DONE.\n- Added VERSION.json 0.0.178, SMOOTH-SEQUENCES.json/md, SMOOTH-SEQUENCES-REPAIRS.json and SMOOTH-SEQUENCES-ANNOTATIONS.json.\n- Quality: run-quality-checks totalIssues=0; no [::STUB::] markers; Malfeasance open records 0.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Dependencies: consistency verified\n- Migration idempotent; 29/29 packages DONE; 84 boundaries; 119 sequences\n- Issues found and fixes applied: the fixture packageView had 6 parameters and was refactored to a single input object",
+          "invariants": "- 【Normal establishment】Every package keeps its id, path, status and view; every boundary keeps both sides; every sequence keeps its steps; the artifact keeps every v2 id.\n- 【Invariant on error】A repair that would edit a generated file is refused; an upstream defect is reported as an upstream repair, not hand-edited downstream.\n- 【Internal state invariant】The v2->v3 migration is deterministic and idempotent; a second run produces a byte-identical artifact.\n- 【Boundary invariant】A package with zero owned operations still carries a valid view and passes; a v2 reading still verifies the v3 artifact.",
+          "instrumentation": "- [Logging] Each repair run records the finding id, package, file, before/after and the command that re-derived the value; the report header carries totals.\n- [Metrics] SMOOTH-SEQUENCES.json records findingsByClass, closedCount, upstreamRepairCount and the v3 migration digest before and after.\n- [Error tracking] A failed migration or repair names the path, the check id and the repair; no silent catch.\n- [Health check] Exit 0 only when /smooth-sequences and every downstream gate exit 0 and all 29 Status.json remain DONE.\nReview static quality check: passed (0 issues)\nTranslatability: no issues\nTests: 64 smooth-sequences tests plus integration; gaia smooth-sequences 0 findings; every gate green",
+          "investigation": "Evidence gathered on 2026-10-19 in ~/shyme/gaia. The workspace has 29 packages, 84 boundaries, 553 sequence entries (119 real sequences), 300 steps and 257 operations. All 29 SEQUENCES.json views exist and carry package ids and obligation carriage; check-obligation-coverage reports 463 demands with 0 assigned to nobody; check-distribution-completeness reports K1-K8 holds; check-ledger-discharge and defect-report --gate exit 0; the educe rail verify reports 31/31 checks, 22/22 pins and 15,971/15,971 lines; workspacify-order prints 29 EXPLAINED / 29 GRILLED / 29 SEQUENCED. The mechanical contribution check finds 5 owned active operations not contributed anywhere: gaia-heat TransitionHeatState, ConfigureHeatStabilizer, RollbackHeatStabilizer, RecordHeatObservation and gaia-operation NormalizeLogicalOperationIntent; all five have mutates_protocol_state=true, while gaia-operation RFC 3.6.1 requires one entry per mutating procedure. The allocate manifest carries 84 contracts; boundary-078..081 (conformance <-> storage) have no source_refs and only the five core clauses. The artifact's step contracts are prose; the v3 migration must add typed pre/post/invariants/consumes/produces/errors/crosses so Layer B can decide. The 8 non-monotonic sequences (A-2607, A-6500, S-soul-transfer, B-9506, A-9744, G-11316, G-11907, S-civic-need-and-finality) and 13 repeated operations (e.g. A-731 VerifyObjects x2) are candidates, not automatic defects: each must be annotated as loop/retry/exception or corrected. The ownership join reports 98 objects no operation reaches, which the v3 object graph must either connect or ground.",
+          "boyScoutPlan": "- Name the migration and repair functions as verb phrases (migrateArtifact, indexV2Rows, addTypedContract, closeContributionFinding, verifyWorkspace) and the data as domain nouns (ArtifactV3, StepContract, BoundaryContract, RepairRecord).\n- One function per responsibility: migration, finding closure, gate re-run and report writing are separate; no function both decides and writes.\n- Replace hardcoded paths and schema numbers with named constants (GAIA_SEQUENCES_PATH, SCHEMA_V2, SCHEMA_V3, ALL_PACKAGE_COUNT, BOUNDARY_COUNT).\n- No swallowed errors: a missing RFC or view raises a named error with the package path and the repair.\n- Every touched RFC paragraph carries a why-comment and an evidence line; no comment repeats what the prose already says.",
+          "created_at": "2026-10-19",
+          "updated_at": "2026-10-19",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "### C001 — v2 -> v3 preserves every id\n```js\ntest('C001 the migration preserves every operation, sequence and step id', () => {\n  const input = gaiaMigrationInput(minimalV2Artifact());\n  const v3 = migrateArtifactToV3(input);\n  assert.equal(v3.schema_version, 3);\n  assert.deepEqual(v3.operations.map((row) => row.id), input.artifact.operations.map((row) => row.id));\n  assert.deepEqual(v3.sequences.map((row) => row.id), input.artifact.sequences.map((row) => row.id));\n  assert.deepEqual(v3.steps.map((row) => row.id), input.artifact.steps.map((row) => row.id));\n  assert.equal(v3.migration.from_schema_version, 2);\n});\n```",
+            "### C002 — the migration is idempotent\n```js\ntest('C002 a second migration run is byte-identical', () => {\n  const first = migrateArtifactToV3(gaiaMigrationInput(minimalV2Artifact()));\n  const second = migrateArtifactToV3({ ...gaiaMigrationInput(minimalV2Artifact()), artifact: first });\n  assert.equal(renderArtifact(second), renderArtifact(first));\n  assert.equal(second.migration.source_digest, first.migration.source_digest);\n});\n```",
+            "### C003 — all 29 packages keep a valid v3 view\n```js\ntest('C003 the allocation names 29 packages and every one carries a v3 view', () => {\n  const workspace = materializeGaiaFixture({ packages: 29 });\n  const index = indexArtifact(loadWorkspace(workspace.root));\n  assert.equal(index.packages.length, 29);\n  assert.equal(index.viewsByPackage.size, 29);\n  assert.equal(checkArtifactViewConsistency(index).filter((finding) => finding.checkId === 'S7.view-missing').length, 0);\n});\n```",
+            "### C004 — all 84 boundaries keep both sides\n```js\ntest('C004 every registry boundary keeps a provider and a consumer side', () => {\n  const workspace = materializeGaiaFixture({ boundaries: 84 });\n  const index = indexArtifact(loadWorkspace(workspace.root));\n  const findings = checkBoundaryClauses(index).filter((finding) => finding.checkId === 'S4.boundary-side-mismatch');\n  assert.equal(findings.length, 0);\n  assert.equal(index.contractsByBoundary.size, 84);\n});\n```",
+            "### C005 — every finding is closed with evidence\n```js\ntest('C005 the repair record closes every finding and names its evidence', () => {\n  const workspace = materializeGaiaFixture({ finding: 'S4.contribution-missing' });\n  const before = runSmoothSequences(workspace.root).report.findings;\n  const record = closeFindings(workspace.root, before);\n  assert.equal(record.length, before.length);\n  for (const entry of record) {\n    assert.ok(entry.checkId && entry.file && entry.evidence);\n  }\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n});\n```",
+            "### C006 — every gate exits 0\n```js\ntest('C006 every existing gate exits 0 on the repaired workspace', () => {\n  const workspace = materializeGaiaFixture({ repaired: true });\n  for (const gate of ['check-obligation-coverage', 'check-distribution-completeness', 'check-ledger-discharge']) {\n    const result = spawnSync(process.execPath, [`.claude/scripts/grill-me-for-rfc/${gate}.js`, workspace.root], { encoding: 'utf8' });\n    assert.equal(result.status, 0, result.stderr);\n  }\n  assert.equal(spawnSync(process.execPath, ['.claude/scripts/grill-me-for-rfc/defect-report.js', workspace.root, '--gate']).status, 0);\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n});\n```",
+            "### C007 — a repair edits only RFC.md and OBLIGATION.json\n```js\ntest('C007 a repair leaves generated files byte-identical and edits only RFC.md', () => {\n  const workspace = materializeGaiaFixture({ finding: 'S4.contribution-missing' });\n  const generatedBefore = snapshotGeneratedFiles(workspace.root);\n  applyRepair(workspace.root, { checkId: 'S4.contribution-missing', file: 'crates/protocol/gaia-heat/RFC.md', evidence: 'line 14147' });\n  assert.deepEqual(snapshotGeneratedFiles(workspace.root), generatedBefore);\n});\n```",
+            "### C008 — every repair names the finding, file and evidence\n```js\ntest('C008 the repair record carries the finding, the file and the evidence', () => {\n  const workspace = materializeGaiaFixture({ finding: 'S4.contribution-missing' });\n  const finding = runSmoothSequences(workspace.root).report.findings.find((entry) => entry.checkId === 'S4.contribution-missing');\n  const record = closeFinding(workspace.root, finding);\n  assert.equal(record.checkId, 'S4.contribution-missing');\n  assert.match(record.file, /RFC\\.md$/);\n  assert.ok(record.evidence.length > 0);\n});\n```",
+            "### C009 — all 29 Status.json remain DONE\n```js\ntest('C009 all 29 package statuses remain DONE after the repair', () => {\n  const statuses = readPackageStatuses(GAIA_WORKSPACE_ROOT);\n  assert.equal(statuses.length, 29);\n  assert.ok(statuses.every((status) => status.state === 'DONE'));\n});\n```",
+            "### C010 — the detector is green and a reintroduced finding is red\n```js\ntest('C010 the repaired workspace is green and a reintroduced finding is red', () => {\n  const workspace = materializeGaiaFixture({ repaired: true });\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n  plantFinding(workspace.root, { checkId: 'S4.contribution-missing', packageId: 'pkg-0009' });\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 1);\n  removeFinding(workspace.root);\n  assert.equal(runSmoothSequences(workspace.root).exitCode, 0);\n});\n```"
+          ],
+          "startedAt": "2026-10-19",
+          "changes": [
+            {
+              "before": "the gaia artifact was schema v2 with prose step contracts",
+              "after": "schema v3 with typed pre/post/invariants/consumes/produces/errors/crosses",
+              "description": "Added migrate-v3.mjs and lib/migrate-v3.mjs; derived boundary crossings from the views, envelope facts from the operation rows, boundary facts from contract_registry, grounded objects from the @object rows, and a deterministic migration record."
+            },
+            {
+              "before": "no repair receipt",
+              "after": "SMOOTH-SEQUENCES-REPAIRS.json",
+              "description": "Added lib/repair-record.mjs and recorded every finding class with its file, evidence, before/after and re-run command."
+            },
+            {
+              "before": "the detector compared envelope facts and other boundaries",
+              "after": "S5 compares only the boundary being examined; S6 treats declared result objects as deliberate outputs and consecutive monotonic steps as internal steps",
+              "description": "Refined checks-layer-b.mjs, checks-danger.mjs, checks-layer-a.mjs and index.mjs; added S4.contract-source-refs-missing and the ownership-gap rule for unowned contributions."
+            },
+            {
+              "before": "gaia had no smooth-sequences tool and a v2 artifact",
+              "after": "the tool is installed, the artifact is v3, and the detector reports 0 findings",
+              "description": "Installed conver into ~/shyme/gaia/.claude, migrated the artifact (source digest 1b31ecfd...), added source_refs_ground to boundary-078..081, annotated 7 repeats, and bumped VERSION.json to 0.0.178."
+            },
+            {
+              "before": "all gates green but no contract meshing gate",
+              "after": "smooth-sequences 0 findings and every existing gate green",
+              "description": "Re-ran the four grill gates, defect-report --gate, educe verify (31/31, 22/22), workspacify-order (29/29 marks) and explain check (29/29)."
+            }
+          ],
+          "rfcDiscrepancies": [
+            "The repair pass edited WORKSPACIFY-ALLOCATE-MANIFEST.json (source_refs_ground) and the sequences artifact (v3 migration and annotations); the detector itself remains read-only. Every edit is recorded in SMOOTH-SEQUENCES-REPAIRS.json."
+          ],
+          "completedAt": "2026-10-19"
         }
       ]
     },
