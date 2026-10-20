@@ -1,3 +1,4 @@
+// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -5,10 +6,12 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { verifyChain } from '../../.claude/scripts/regeneration/lib/chain.mjs';
+import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { commitGeneration } from '../../.claude/scripts/regeneration/lib/commit.mjs';
 import { readLedger } from '../../.claude/scripts/regeneration/lib/ledger.mjs';
 import { collectDesignFiles } from '../../.claude/scripts/regeneration/lib/staging.mjs';
 import {
+  continueTransaction,
   deriveGeneration,
   openTransaction,
   verifyGeneration,
@@ -187,6 +190,101 @@ test('the CLI commit publishes a verified generation while its own detector runs
   }
 });
 
+// @verifies C002
+test('continue advances a real specification candidate through the educe handoff to committed', () => {
+  const workspace = materializeRealWorkspace();
+  try {
+    const opened = openTransaction({
+      root: workspace.root,
+      candidateSpec: writeCandidateSpec(workspace),
+      reason: 'continue-real',
+    });
+
+    const pending = continueTransaction({
+      root: workspace.root,
+      transactionId: opened.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(pending.state, 'educe-pending');
+    assert.match(pending.next, /educe-sequences\.md/);
+    assert.match(readLedger(workspace.root).transactions.at(-1).pending, /phase\.mjs through stopped at phase \d+/);
+
+    writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    const committed = continueTransaction({
+      root: workspace.root,
+      transactionId: opened.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(committed.state, 'committed');
+    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+    assert.equal(verifyChain(workspace.root).ok, true);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('the CLI continue reports the educe handoff with exit 3 and the staged spec', () => {
+  const workspace = materializeRealWorkspace();
+  try {
+    const opened = openTransaction({
+      root: workspace.root,
+      candidateSpec: writeCandidateSpec(workspace),
+      reason: 'cli continue',
+    });
+    const result = spawnSync(
+      process.execPath,
+      [join(process.cwd(), '.claude/scripts/regeneration/run.mjs'), 'continue', `--transaction=${opened.transactionId}`],
+      { cwd: workspace.root, encoding: 'utf8' },
+    );
+    assert.equal(result.status, 3, result.stderr);
+    assert.match(result.stdout, /state: educe-pending/);
+    assert.match(result.stdout, /spec: .*spec\.md/);
+    assert.match(result.stdout, /next: .*educe-sequences\.md/);
+    assert.match(result.stdout, /continue/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('the CLI continue commits a verified transaction with exit 0', () => {
+  const workspace = materializeRealWorkspace();
+  try {
+    const opened = openTransaction({
+      root: workspace.root,
+      candidateSpec: writeCandidateSpec(workspace),
+      reason: 'cli continue commit',
+    });
+    deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
+    writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
+    deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
+    verifyGeneration({
+      root: workspace.root,
+      transactionId: opened.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+
+    const result = spawnSync(
+      process.execPath,
+      [join(process.cwd(), '.claude/scripts/regeneration/run.mjs'), 'continue', `--transaction=${opened.transactionId}`],
+      { cwd: workspace.root, encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /state: committed/);
+    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+
+    const detector = runCommand([workspace.root]);
+    assert.notEqual(detector.exitCode, 2);
+    assert.notEqual(detector.exitCode, 3);
+  } finally {
+    workspace.remove();
+  }
+});
+
 // @verifies C006
 test('a decisions-only transaction reuses the current artifact and leaves the live specification unchanged', () => {
   const workspace = materializeRealWorkspace();
@@ -221,6 +319,30 @@ test('a decisions-only transaction reuses the current artifact and leaves the li
     assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);
     const liveDecisions = JSON.parse(readFileSync(join(workspace.root, 'workspacify/allocate/DECISIONS.json'), 'utf8'));
     assert.equal(liveDecisions.semantic_review.approver, 'regeneration-test');
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('continue commits a decisions-only transaction without invoking educe', () => {
+  const workspace = materializeRealWorkspace();
+  try {
+    const beforeSpec = readFileSync(join(workspace.root, 'spec.md'));
+    const opened = openTransaction({
+      root: workspace.root,
+      candidateAllocateDecisions: writeCandidateAllocateDecisions(workspace),
+      reason: 'decisions-only-continue',
+    });
+    const committed = continueTransaction({
+      root: workspace.root,
+      transactionId: opened.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(committed.state, 'committed');
+    assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);
+    assert.equal(readLedger(workspace.root).transactions.at(-1).pending, undefined);
   } finally {
     workspace.remove();
   }

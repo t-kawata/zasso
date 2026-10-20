@@ -1,14 +1,21 @@
+// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
-import { readLedger } from '../../.claude/scripts/regeneration/lib/ledger.mjs';
+import { verifyChain } from '../../.claude/scripts/regeneration/lib/chain.mjs';
+import { commitGeneration, writeCommitJournal } from '../../.claude/scripts/regeneration/lib/commit.mjs';
+import { readLedger, transition } from '../../.claude/scripts/regeneration/lib/ledger.mjs';
+import { collectDesignFiles } from '../../.claude/scripts/regeneration/lib/staging.mjs';
 import {
   abortTransaction,
+  continueTransaction,
   deriveGeneration,
-  openTransaction,
   describeStatus,
+  describeThroughHandoff,
+  groundHandoff,
+  openTransaction,
   verifyGeneration,
 } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
 import {
@@ -299,10 +306,10 @@ test('status reports the state and the next action', () => {
   try {
     const opened = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'status' });
     assert.equal(describeStatus(workspace.root).state, 'open');
-    assert.match(describeStatus(workspace.root).next, /derive/);
+    assert.match(describeStatus(workspace.root).next, /continue/);
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId, runProducer: fixtureProducer });
     assert.equal(describeStatus(workspace.root).state, 'derived');
-    assert.match(describeStatus(workspace.root).next, /verify/);
+    assert.match(describeStatus(workspace.root).next, /continue/);
   } finally {
     workspace.remove();
   }
@@ -328,7 +335,7 @@ test('the derive-failed next action names abort and open', () => {
 });
 
 // @verifies C005
-test('status names derive after an unverified generation', () => {
+test('status names continue after an unverified generation', () => {
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'unverified' });
@@ -340,7 +347,7 @@ test('status names derive after an unverified generation', () => {
       runDetector: () => ({ exitCode: 1, findings: [{ checkId: 'S1.duplicate-id', subject: 'x' }], withheld: [] }),
     });
     assert.equal(verified.state, 'unverified');
-    assert.match(describeStatus(workspace.root).next, /derive/);
+    assert.match(describeStatus(workspace.root).next, /continue/);
   } finally {
     workspace.remove();
   }
@@ -365,7 +372,7 @@ test('status repeats the educe handoff until the artifact is current', () => {
     assert.match(describeStatus(workspace.root).next, /educe-sequences/);
 
     deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
-    assert.match(describeStatus(workspace.root).next, /verify/);
+    assert.match(describeStatus(workspace.root).next, /continue/);
   } finally {
     workspace.remove();
   }
@@ -396,5 +403,271 @@ test('the transaction CLI rejects force and hash arguments', async () => {
     const result = spawnSync(process.execPath, [cli, 'open', flag], { encoding: 'utf8' });
     assert.notEqual(result.status, 0, flag);
     assert.match(result.stderr, /unknown|reject|force|hash/i, flag);
+  }
+});
+
+// @verifies C001
+test('continue drives an open transaction to committed in one call', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'continue' });
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: fixtureProducer,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'committed');
+    assert.equal(readLedger(workspace.root).transactions.at(-1).state, 'committed');
+    assert.equal(verifyChain(workspace.root).ok, true);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('continue commits a verified transaction without running derive again', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const { transaction } = verifiedTransaction(workspace);
+    let deriveCalls = 0;
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: () => {
+        deriveCalls += 1;
+        throw new Error('derive must not run for a verified transaction');
+      },
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'committed');
+    assert.equal(deriveCalls, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('continue returns a terminal state without rewriting the ledger', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'terminal' });
+    abortTransaction({ root: workspace.root, transactionId: transaction.transactionId });
+    const before = readLedger(workspace.root);
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'aborted');
+    assert.deepEqual(readLedger(workspace.root), before);
+    assert.throws(
+      () => deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId }),
+      (error) => error.code === 'TRANSACTION_TERMINAL',
+    );
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('continue stops at the educe handoff and names the staged spec', () => {
+  const workspace = materializeChainWorkspace();
+  const before = snapshotDesignTree(workspace.root);
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'educe' });
+    const pending = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: ({ stagingRoot }) => ({
+        state: 'educe-pending',
+        setupDone: true,
+        stagingSpecPath: join(stagingRoot, 'spec.md'),
+        next: 'the artifact is stale',
+      }),
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(pending.state, 'educe-pending');
+    assert.match(pending.next, /educe-sequences\.md/);
+    assert.equal(pending.stagingSpecPath, join(transaction.stagingRoot, 'spec.md'));
+    assert.deepEqual(snapshotDesignTree(workspace.root), before);
+    assert.throws(
+      () => commitGeneration({ root: workspace.root, transactionId: transaction.transactionId, runDetector: fixtureDetectorOk }),
+      (error) => error.code === 'UNVERIFIED_GENERATION',
+    );
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('describeThroughHandoff names the phase or the reason and always returns to educe', () => {
+  assert.match(
+    describeThroughHandoff({ exitCode: 3, stdout: 'phase 02 [read] FAIL — a reader must answer\n', stderr: '' }, '/tmp/staging/spec.md'),
+    /phase 02 \[read\].*educe-sequences\.md/,
+  );
+  assert.match(
+    describeThroughHandoff({ exitCode: 1, stdout: '', stderr: 'refused: the specification has no chapters\n' }, '/tmp/staging/spec.md'),
+    /no chapters.*educe-sequences\.md/,
+  );
+});
+
+// @verifies C003
+test('continue turns a ground failure into an AI handoff, not a human stop', () => {
+  const workspace = materializeChainWorkspace();
+  const before = snapshotDesignTree(workspace.root);
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'ground' });
+    const judged = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: fixtureProducer,
+      runGrounds: () => ({ ok: false, checked: 1, reason: 'grill-me-for-rfc/check-obligation-coverage.js: OBL-1 is uncovered' }),
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(judged.state, 'judgment-required');
+    assert.match(judged.next, /grill-me-for-rfc/);
+    assert.ok(judged.next.includes(transaction.stagingRoot));
+    assert.doesNotMatch(judged.next, /human|stop and report/i);
+    assert.deepEqual(snapshotDesignTree(workspace.root), before);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('continue re-verifies a judgment-required transaction after the AI settles the ground', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'settle' });
+    deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
+    verifyGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runGrounds: () => ({ ok: false, checked: 1, reason: 'the ground no longer resolves' }),
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(readLedger(workspace.root).transactions.at(-1).state, 'judgment-required');
+
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: fixtureProducer,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'committed');
+    assert.equal(readLedger(workspace.root).transactions.at(-1).state, 'committed');
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('groundHandoff routes an RFC seed to explain-seed with the seed named', () => {
+  const handoff = groundHandoff({ stagingRoot: '/tmp/staging', reason: 'RFC-SEED.md line 12 has no evidence' });
+  assert.match(handoff, /explain-seed/);
+  assert.match(handoff, /RFC seed/);
+  assert.match(handoff, /continue/);
+  assert.doesNotMatch(handoff, /human|stop and report/i);
+});
+
+// @verifies C003
+test('continue returns the abort/open action for a derive-failed transaction without retrying setup', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'failed' });
+    deriveGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: () => ({ state: 'derive-failed', setupDone: false, failedStep: 'workspacify-allocate', stderr: 'planned directory is not empty' }),
+    });
+    let retries = 0;
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: () => {
+        retries += 1;
+        throw new Error('a failed setup must not be retried');
+      },
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'derive-failed');
+    assert.match(result.next, /abort/);
+    assert.equal(retries, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('continue returns commit-failed and restores the live tree when the post-commit detector fails', () => {
+  const workspace = materializeChainWorkspace();
+  const before = snapshotDesignTree(workspace.root);
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'rollback' });
+    deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
+    verifyGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    const detector = ({ allowTransaction }) => (allowTransaction === undefined
+      ? fixtureDetectorOk()
+      : { exitCode: 1, findings: [{ checkId: 'S1.duplicate-id', subject: 'x' }], withheld: [] });
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: fixtureProducer,
+      runGrounds: fixtureGroundsOk,
+      runDetector: detector,
+    });
+    assert.equal(result.state, 'commit-failed');
+    assert.match(result.next, /archive/);
+    assert.deepEqual(snapshotDesignTree(workspace.root), before);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('continue recovers an interrupted commit before doing anything else', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'recover' });
+    deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
+    const archiveRoot = join(workspace.root, 'regeneration', 'archive', 'manual');
+    mkdirSync(archiveRoot, { recursive: true });
+    const targets = collectDesignFiles(workspace.root).map((path) => {
+      const backupPath = join(archiveRoot, path);
+      mkdirSync(dirname(backupPath), { recursive: true });
+      copyFileSync(join(workspace.root, path), backupPath);
+      return { path, existed: true, backupPath };
+    });
+    writeFileSync(join(workspace.root, 'spec.md'), '# partial write\n');
+    writeCommitJournal(workspace.root, {
+      transactionId: transaction.transactionId,
+      state: 'prepared',
+      archiveRoot,
+      targets,
+    });
+    transition(workspace.root, transaction.transactionId, 'committing');
+
+    const result = continueTransaction({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: fixtureProducer,
+      runGrounds: fixtureGroundsOk,
+      runDetector: fixtureDetectorOk,
+    });
+    assert.equal(result.state, 'commit-failed');
+    assert.match(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), /^# Spec/);
+    assert.equal(readLedger(workspace.root).transactions.at(-1).state, 'commit-failed');
+  } finally {
+    workspace.remove();
   }
 });

@@ -7,6 +7,7 @@
  *   node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason="..."
  *   node .claude/scripts/regeneration/run.mjs open --tree-decisions=<candidate> --reason="..."
  *   node .claude/scripts/regeneration/run.mjs status
+ *   node .claude/scripts/regeneration/run.mjs continue [--transaction=<id>]
  *   node .claude/scripts/regeneration/run.mjs derive [--transaction=<id>]
  *   node .claude/scripts/regeneration/run.mjs verify [--transaction=<id>]
  *   node .claude/scripts/regeneration/run.mjs commit [--transaction=<id>]
@@ -22,22 +23,29 @@ import { cwd, exit } from 'node:process';
 import { runCommand } from '../smooth-sequences/run.mjs';
 import { commitGeneration, recoverCommit } from './lib/commit.mjs';
 import { RegenerationError } from './lib/errors.mjs';
-import { STATES, activeTransaction } from './lib/ledger.mjs';
+import { STATES, activeTransaction, readEntry } from './lib/ledger.mjs';
 import {
   abortTransaction,
+  continueTransaction,
   deriveGeneration,
+  groundHandoff,
   openTransaction,
   describeStatus,
   verifyGeneration,
 } from './lib/transaction.mjs';
 
-const USAGE = 'usage: run.mjs <open|status|derive|verify|commit|abort|recover> [--spec=] [--allocate-decisions=] [--tree-decisions=] [--reason=] [--transaction=]';
+const USAGE = 'usage: run.mjs <open|status|continue|derive|verify|commit|abort|recover> [--spec=] [--allocate-decisions=] [--tree-decisions=] [--reason=] [--transaction=]';
 const FORBIDDEN = new Set(['--force', '--hash', '--source-hash']);
 const NEXT_OPEN = 'node .claude/scripts/regeneration/run.mjs open';
+const NEXT_CONTINUE = 'node .claude/scripts/regeneration/run.mjs continue';
 const NEXT_DERIVE = 'node .claude/scripts/regeneration/run.mjs derive';
 const NEXT_VERIFY = 'node .claude/scripts/regeneration/run.mjs verify';
 const NEXT_COMMIT = 'node .claude/scripts/regeneration/run.mjs commit';
 const NEXT_ABORT_OPEN = 'node .claude/scripts/regeneration/run.mjs abort, fix the candidate, then open a new transaction';
+const EXIT_OK = 0;
+const EXIT_UNVERIFIED = 1;
+const EXIT_MISUSE = 2;
+const EXIT_HANDOFF = 3;
 
 /** A value a one-line console report can carry. */
 // [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
@@ -100,16 +108,16 @@ function transactionIdOf(root, options) {
 }
 
 /** Print the identity and next command of one transaction. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
-function printTransaction(entry, current) {
+// [::TICKET::] PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280) --for-spec --no-implementation-order`.
+function printTransaction(entry, status) {
   process.stdout.write(`id: ${entry.id}\n`);
   process.stdout.write(`state: ${entry.state}\n`);
   process.stdout.write(`staging: ${display(entry.stagingRoot)}\n`);
-  process.stdout.write(`spec: ${display(current.stagingSpecPath)}\n`);
+  process.stdout.write(`spec: ${display(status.stagingSpecPath)}\n`);
   process.stdout.write(`candidate-spec: ${display(entry.candidateSpec)}\n`);
   process.stdout.write(`candidate-allocate-decisions: ${display(entry.candidateAllocateDecisions)}\n`);
   process.stdout.write(`candidate-tree-decisions: ${display(entry.candidateTreeDecisions)}\n`);
-  process.stdout.write(`next: ${current.next}\n`);
+  process.stdout.write(`next: ${status.next}\n`);
 }
 
 /** Print the unverified chain links and detector findings. */
@@ -125,7 +133,7 @@ function printUnverified(receipt) {
 }
 
 /** Run one command and print its outcome. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280) --for-spec --no-implementation-order`.
 function run(argv) {
   const root = cwd();
   const { command, options } = parseArguments(argv);
@@ -146,18 +154,32 @@ function run(argv) {
     process.stdout.write(`opened ${opened.transactionId}\n`);
     process.stdout.write(`staging: ${opened.stagingRoot}\n`);
     process.stdout.write(`spec: ${opened.stagingSpecPath}\n`);
-    process.stdout.write(`next: ${NEXT_DERIVE}\n`);
-    return 0;
+    process.stdout.write(`next: ${NEXT_CONTINUE}\n`);
+    return EXIT_OK;
   }
   if (command === 'status') {
-    const current = describeStatus(root);
-    if (current.transaction === null) {
+    const status = describeStatus(root);
+    if (status.transaction === null) {
       process.stdout.write('state: none\n');
       process.stdout.write(`next: ${NEXT_OPEN}\n`);
-      return 0;
+      return EXIT_OK;
     }
-    printTransaction(current.transaction, current);
-    return current.state === STATES.JUDGMENT_REQUIRED ? 3 : 0;
+    printTransaction(status.transaction, status);
+    return status.state === STATES.JUDGMENT_REQUIRED ? EXIT_HANDOFF : EXIT_OK;
+  }
+  if (command === 'continue') {
+    const transactionId = transactionIdOf(root, options);
+    const continued = continueTransaction({ root, transactionId, runDetector: detect });
+    const entry = readEntry(root, transactionId);
+    const stagingDisplay = continued.state === STATES.COMMITTED ? 'none' : display(entry?.stagingRoot);
+    process.stdout.write(`id: ${transactionId}\n`);
+    process.stdout.write(`state: ${continued.state}\n`);
+    process.stdout.write(`staging: ${stagingDisplay}\n`);
+    process.stdout.write(`spec: ${display(continued.stagingSpecPath)}\n`);
+    process.stdout.write(`next: ${display(continued.next)}\n`);
+    if (continued.state === STATES.COMMITTED) return EXIT_OK;
+    if (continued.state === 'educe-pending' || continued.state === STATES.JUDGMENT_REQUIRED) return EXIT_HANDOFF;
+    return EXIT_UNVERIFIED;
   }
   if (command === 'derive') {
     const derived = deriveGeneration({ root, transactionId: transactionIdOf(root, options) });
@@ -165,31 +187,33 @@ function run(argv) {
     if (derived.state === 'educe-pending') {
       process.stdout.write(`spec: ${display(derived.stagingSpecPath)}\n`);
       process.stdout.write(`next: ${display(derived.next)}\n`);
-      return 0;
+      return EXIT_HANDOFF;
     }
     if (derived.state === STATES.DERIVE_FAILED) {
       process.stdout.write(`failed: ${display(derived.failedStep)}\n`);
       process.stdout.write(`stderr: ${(derived.stderr ?? derived.error ?? '').trim()}\n`);
       process.stdout.write(`next: ${NEXT_ABORT_OPEN}\n`);
-      return 1;
+      return EXIT_UNVERIFIED;
     }
     process.stdout.write(`next: ${NEXT_VERIFY}\n`);
-    return 0;
+    return EXIT_OK;
   }
   if (command === 'verify') {
-    const verified = verifyGeneration({ root, transactionId: transactionIdOf(root, options), runDetector: detect });
+    const transactionId = transactionIdOf(root, options);
+    const verified = verifyGeneration({ root, transactionId, runDetector: detect });
     process.stdout.write(`state: ${verified.state}\n`);
     if (verified.state === 'unverified') {
       printUnverified(verified.receipt);
-      return 1;
+      return EXIT_UNVERIFIED;
     }
     if (verified.state === STATES.JUDGMENT_REQUIRED) {
+      const entry = readEntry(root, transactionId);
       process.stdout.write(`reason: ${display(verified.reason)}\n`);
-      process.stdout.write(`next: fix the named ground in staging, then ${NEXT_VERIFY}\n`);
-      return 3;
+      process.stdout.write(`next: ${groundHandoff({ stagingRoot: entry.stagingRoot, reason: verified.reason })}\n`);
+      return EXIT_HANDOFF;
     }
     process.stdout.write(`next: ${NEXT_COMMIT}\n`);
-    return 0;
+    return EXIT_OK;
   }
   if (command === 'commit') {
     const transactionId = transactionIdOf(root, options);
@@ -201,21 +225,21 @@ function run(argv) {
     process.stdout.write(`state: ${committed.state}\n`);
     process.stdout.write(`archive: ${committed.archiveRoot}\n`);
     process.stdout.write('next: node .claude/scripts/smooth-sequences/run.mjs\n');
-    return 0;
+    return EXIT_OK;
   }
   if (command === 'abort') {
     abortTransaction({ root, transactionId: transactionIdOf(root, options) });
     process.stdout.write('state: aborted\n');
     process.stdout.write(`next: ${NEXT_OPEN}\n`);
-    return 0;
+    return EXIT_OK;
   }
   if (command === 'recover') {
     const recovered = recoverCommit(root);
     process.stdout.write(`state: ${recovered.state}\n`);
-    return 0;
+    return EXIT_OK;
   }
   process.stderr.write(`${USAGE}\n`);
-  return 2;
+  return EXIT_MISUSE;
 }
 
 try {
@@ -223,8 +247,8 @@ try {
 } catch (error) {
   if (error instanceof RegenerationError) {
     process.stderr.write(`regeneration: ${error.code}: ${error.message}${error.repair ? ` — ${error.repair}` : ''}\n`);
-    exit(error.code === 'FORBIDDEN_ARGUMENT' || error.code === 'UNKNOWN_ARGUMENT' || error.code === 'MISSING_ARGUMENT' ? 2 : 1);
+    exit(error.code === 'FORBIDDEN_ARGUMENT' || error.code === 'UNKNOWN_ARGUMENT' || error.code === 'MISSING_ARGUMENT' ? EXIT_MISUSE : EXIT_UNVERIFIED);
   }
   process.stderr.write(`regeneration: ${error.message}\n`);
-  exit(1);
+  exit(EXIT_UNVERIFIED);
 }

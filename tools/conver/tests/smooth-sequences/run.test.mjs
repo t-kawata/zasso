@@ -1,3 +1,4 @@
+// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -230,6 +231,36 @@ test('a judgment-required transaction exits 3 even when the live checks pass', (
     const result = runCommand([workspace.root], output.io);
     assert.equal(result.exitCode, 3);
     assert.match(output.stdout.join('\n'), /judgment-required/);
+    assert.match(output.stdout.join('\n'), /grill-me-for-rfc/);
+    assert.match(output.stdout.join('\n'), /\/tmp\/staging/);
+    assert.doesNotMatch(output.stdout.join('\n'), /human|stop and report/i);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('a pending transaction prints the educe handoff and the continue command', () => {
+  const workspace = materializeSmoothWorkspace();
+  const output = capture();
+  try {
+    mkdirSync(join(workspace.root, 'regeneration'), { recursive: true });
+    writeFileSync(join(workspace.root, 'regeneration', 'GENERATIONS.json'), `${JSON.stringify({
+      schemaVersion: 1,
+      transactions: [{
+        id: 'tx-handoff',
+        state: 'open',
+        reason: 'test',
+        stagingRoot: '/tmp/staging',
+        pending: 'run .claude/commands/educe-sequences.md with /tmp/staging/spec.md, then continue',
+      }],
+    }, null, 2)}\n`);
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 2);
+    assert.match(output.stderr.join('\n'), /REGENERATION_HANDOFF/);
+    assert.match(output.stderr.join('\n'), /educe-sequences\.md/);
+    assert.match(output.stderr.join('\n'), /continue/);
+    assert.doesNotMatch(output.stderr.join('\n'), /human|stop and report/i);
   } finally {
     workspace.remove();
   }

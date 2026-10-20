@@ -21,6 +21,7 @@ import { verifyChain } from '../regeneration/lib/chain.mjs';
 import { recoverCommit } from '../regeneration/lib/commit.mjs';
 import { RegenerationError } from '../regeneration/lib/errors.mjs';
 import { STATES, activeTransaction } from '../regeneration/lib/ledger.mjs';
+import { groundHandoff } from '../regeneration/lib/transaction.mjs';
 import { indexArtifact } from './lib/index.mjs';
 import { annotatePersisted, buildReport, EXIT_FINDINGS, EXIT_JUDGMENT, EXIT_MISUSE, EXIT_PASS, readPreviousReport, renderConsoleReport, writeReport } from './lib/report.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
@@ -48,7 +49,7 @@ const CHECK_FAMILIES = Object.freeze([
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 
 /** Resolve an interrupted commit, refuse an open transaction, and verify the chain. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280) --for-spec --no-implementation-order`.
 function regenerationGate(root, stderr, { allowTransaction } = {}) {
   // A commit verifies its own live write while the ledger still says committing.
   // Recovering first would close the journal before the detector judged the result,
@@ -69,8 +70,13 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
   recoverCommit(root);
   const active = activeTransaction(root);
   if (active !== null && active.state !== STATES.JUDGMENT_REQUIRED) {
+    if (typeof active.pending === 'string' && active.pending.length > 0) {
+      stderr(`smooth-sequences: REGENERATION_HANDOFF: transaction ${active.id} is waiting for the educe handoff`);
+      stderr(`next: ${active.pending}`);
+      return { active, refused: true, handoff: true };
+    }
     stderr(`smooth-sequences: TRANSACTION_OPEN: transaction ${active.id} is ${active.state}`);
-    stderr('next: finish the transaction (derive, verify, commit) or abort it, then rerun.');
+    stderr('next: node .claude/scripts/regeneration/run.mjs continue');
     return { active, refused: true };
   }
   const chain = verifyChain(root);
@@ -113,7 +119,7 @@ export function runCommand(argv, io = {}) {
     if (gate.active?.state === STATES.JUDGMENT_REQUIRED) {
       exitCode = EXIT_JUDGMENT;
       consoleLines.push(`transaction: judgment-required — ${gate.active.reason ?? 'a ground no longer resolves'}`);
-      consoleLines.push('next: resolve the ground in staging, then verify the transaction again.');
+      consoleLines.push(`next: ${groundHandoff(gate.active)}`);
     }
     for (const line of consoleLines) stdout(line);
     return { exitCode, report };
