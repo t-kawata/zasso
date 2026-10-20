@@ -133,6 +133,7 @@ test('declared_interfaces wins over the pinned columns instead of merging with t
 });
 
 // @verifies C003
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('a required column stays required when one active operation lacks it', () => {
   const artifact = artifactWithoutVocabulary();
   artifact.operations[1].grpc = undefined;
@@ -147,7 +148,7 @@ test('a required column stays required when one active operation lacks it', () =
     const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing');
     assert.equal(findings.length, 1);
     assert.equal(findings[0].subject, 'ConsumeFact');
-    assert.match(findings[0].reason, /grpc/);
+    assert.match(findings[0].why, /grpc/);
   } finally {
     workspace.remove();
   }

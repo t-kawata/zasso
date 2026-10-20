@@ -86,6 +86,7 @@ test('S3 never treats an undeclared status name as terminal', () => {
 });
 
 // @verifies C003
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('S3 rejects a declared required interface that the operation does not map', () => {
   const artifact = minimalV3Artifact();
   artifact.vocabulary = { terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] };
@@ -94,7 +95,7 @@ test('S3 rejects a declared required interface that the operation does not map',
   try {
     const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing');
     assert.equal(findings.length, 1);
-    assert.match(findings[0].reason, /grpc/);
+    assert.match(findings[0].why, /grpc/);
   } finally {
     workspace.remove();
   }

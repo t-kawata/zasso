@@ -12,6 +12,15 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+
+/** Capture what a run writes without touching the test runner's streams. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function capture() {
+  const stdout = [];
+  const stderr = [];
+  return { stdout, stderr, io: { stdout: (line) => stdout.push(line), stderr: (line) => stderr.push(line) } };
+}
 
 // @verifies C008
 test('a clean workspace exits 0, writes both reports and withholds nothing', () => {
@@ -100,4 +109,76 @@ test('more than one argument exits 2', () => {
   const result = runCommand(['a', 'b']);
   assert.equal(result.exitCode, 2);
   assert.equal(result.report, null);
+});
+
+// @verifies C004
+test('exit 1 prints the route block and a next line on stdout', () => {
+  const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root], output.io);
+    const text = output.stdout.join('\n');
+    assert.equal(result.exitCode, 1);
+    assert.match(text, /^smooth-sequences: \d+ finding\(s\) in \d+ repair route\(s\)/m);
+    assert.match(text, /^route: .+ \| rerun: .+$/m);
+    assert.match(text, /S1\.step-unresolved-operation .+ \| why: .+ \| fix: /);
+    assert.match(output.stdout.at(-1), /^next: fix every finding above, then rerun this command\./);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('a clean run prints next: none and no finding line', () => {
+  const workspace = materializeSmoothWorkspace();
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 0);
+    assert.equal(output.stdout.at(-1), 'next: none. verdict: pass.');
+    assert.doesNotMatch(output.stdout.join('\n'), /^route: /m);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('a clean v2 run names the withheld surface and says not proved', () => {
+  const artifact = { ...minimalV3Artifact(), schema_version: 2 };
+  const workspace = materializeSmoothWorkspace({ artifact });
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root], output.io);
+    const text = output.stdout.join('\n');
+    assert.equal(result.exitCode, 0);
+    assert.match(text, /withheld: B \(v3 step contract absent\), S4:S4\.contribution \(v2 artifact carries no registry_contribution\) — not proved/);
+    assert.match(output.stdout.at(-1), /^next: none\. verdict: pass with 2 unproven surfaces\./);
+    assert.doesNotMatch(text, /verdict: proved/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('exit 2 prints the misuse repair and a next line and writes no report', () => {
+  const output = capture();
+  const result = runCommand(['/tmp/smooth-sequences-does-not-exist'], output.io);
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.report, null);
+  assert.match(output.stderr.at(-1), /^next: fix the workspace and rerun; no report was written\./);
+});
+
+// @verifies C005
+test('a finding that survives a rerun is marked persisted', () => {
+  const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
+  try {
+    const first = capture();
+    runCommand([workspace.root], first.io);
+    const second = capture();
+    runCommand([workspace.root], second.io);
+    assert.doesNotMatch(first.stdout.join('\n'), /\| persisted/);
+    assert.match(second.stdout.join('\n'), /\| persisted/);
+  } finally {
+    workspace.remove();
+  }
 });

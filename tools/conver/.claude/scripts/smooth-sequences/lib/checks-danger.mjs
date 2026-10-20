@@ -7,9 +7,20 @@
  * typed facts, so the graph checks are withheld with Layer B.
  */
 import { finding } from './index.mjs';
+import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const ESCAPES = new Set(['suppliedRule', 'excluded']);
 const REPEAT_ANNOTATIONS = new Set(['loop', 'retry', 'exception']);
+
+/** One finding with its route already resolved. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function addFinding(findings, checkId, subject, entry) {
+  findings.push(finding(checkId, entry.className, subject, {
+    ...entry.route,
+    why: entry.why,
+    fix: entry.fix,
+  }));
+}
 
 /** The operation graph edges implied by consumed and produced facts. */
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
@@ -60,7 +71,7 @@ export function findCycles(edges) {
 }
 
 /** Operations no step reaches and no escape covers. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
 function unreachableOperations(index) {
   const findings = [];
   for (const operation of index.artifact.operations ?? []) {
@@ -68,26 +79,35 @@ function unreachableOperations(index) {
     if ((index.stepsByOperation.get(operation.id) ?? []).length > 0) continue;
     if (ESCAPES.has(operation.position)) continue;
     if (operation.registry_contribution === 'not_required' && typeof operation.registry_contribution_ground === 'string' && operation.registry_contribution_ground.trim() !== '') continue;
-    findings.push(finding('S6.unreachable-operation', 'danger', operation.id, `active operation ${operation.id} is reached by no step and carries no grounded escape`, {
-      repair: `Add a step that performs ${operation.id}, or record a grounded position escape.`,
-    }));
+    addFinding(findings, 'S6.unreachable-operation', operation.id, {
+      className: 'danger',
+      route: routeForOperation('S6.unreachable-operation', index, operation),
+      why: `active operation ${operation.id} is reached by no step and carries no grounded escape`,
+      fix: `add a step that performs ${operation.id}, or record a grounded position escape`,
+    });
   }
   return findings;
 }
 
 /** Facts produced but never consumed, and facts consumed but never produced. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
 function orphanFacts(index) {
   if (index.schemaVersion !== 3) return [];
+  const context = collectFactContext(index);
+  return [
+    ...unconsumedProduced(index, context),
+    ...unproducedConsumed(index, context),
+  ];
+}
+
+/** The object facts and the exemptions the orphan question must respect. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function collectFactContext(index) {
   const grounded = new Set((index.artifact.groundedObjects ?? []).map((entry) => entry.object));
-  const isGrounded = (fact) => grounded.has(fact) || (fact.startsWith('object:') && grounded.has(fact.slice('object:'.length)));
   // The orphan question is about objects, not about boundary clauses: a boundary
   // contract fact is consumed by the edge's own protocol, and treating it as a data
   // object would report every edge as an orphan. Only `object:` facts participate.
   const isObjectFact = (fact) => typeof fact === 'string' && fact.startsWith('object:');
-  const declaredOutputs = new Set(
-    (index.artifact.operations ?? []).flatMap((operation) => operation.result_object_classes ?? []),
-  );
   const produced = new Set();
   const consumed = new Set();
   const terminalOutputs = new Set();
@@ -105,31 +125,54 @@ function orphanFacts(index) {
       if (isObjectFact(fact)) consumed.add(fact);
     }
   }
+  return {
+    produced,
+    consumed,
+    terminalOutputs,
+    declaredOutputs: new Set((index.artifact.operations ?? []).flatMap((operation) => operation.result_object_classes ?? [])),
+    isGrounded: (fact) => grounded.has(fact) || (fact.startsWith('object:') && grounded.has(fact.slice('object:'.length))),
+  };
+}
+
+/** Produced object facts nothing consumes, unless a ground or a declared output explains them. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function unconsumedProduced(index, context) {
   const findings = [];
-  for (const fact of produced) {
+  for (const fact of context.produced) {
     const objectName = fact.slice('object:'.length);
     // A result object an operation declares is a deliberate output of that operation.
     // The danger the orphan check exists to catch is an object with no producer at all,
     // not an output nothing consumes later in the enumerated sequence.
-    if (declaredOutputs.has(objectName)) continue;
-    if (!consumed.has(fact) && !isGrounded(fact) && !terminalOutputs.has(fact)) {
-      findings.push(finding('S6.orphan-object', 'danger', fact, `fact ${fact} is produced by a step and consumed by none`, {
-        repair: `Consume ${fact} in a later step or declare it as an external output.`,
-      }));
-    }
+    if (context.declaredOutputs.has(objectName)) continue;
+    if (context.consumed.has(fact) || context.isGrounded(fact) || context.terminalOutputs.has(fact)) continue;
+    addFinding(findings, 'S6.orphan-object', fact, {
+      className: 'danger',
+      route: routeForSpecRow('S6.orphan-object', index, fact),
+      why: `fact ${fact} is produced by a step and consumed by none`,
+      fix: `consume ${fact} in a later step or declare it as an external output`,
+    });
   }
-  for (const fact of consumed) {
-    if (!produced.has(fact) && !isGrounded(fact)) {
-      findings.push(finding('S6.orphan-object', 'danger', fact, `fact ${fact} is consumed by a step and produced by none`, {
-        repair: `Produce ${fact} in an earlier step or declare it as an external input.`,
-      }));
-    }
+  return findings;
+}
+
+/** Consumed object facts nothing produces, unless a ground explains them. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function unproducedConsumed(index, context) {
+  const findings = [];
+  for (const fact of context.consumed) {
+    if (context.produced.has(fact) || context.isGrounded(fact)) continue;
+    addFinding(findings, 'S6.orphan-object', fact, {
+      className: 'danger',
+      route: routeForSpecRow('S6.orphan-object', index, fact),
+      why: `fact ${fact} is consumed by a step and produced by none`,
+      fix: `produce ${fact} in an earlier step or declare it as an external input`,
+    });
   }
   return findings;
 }
 
 /** Repeated operations without a loop, retry or exception annotation. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
 function unannotatedRepeats(index) {
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
@@ -150,16 +193,19 @@ function unannotatedRepeats(index) {
       const contiguous = positions.every((position, index) => index === 0 || position === positions[index - 1] + 1);
       const monotonic = repeated.every(({ step }, index) => index === 0 || step.line >= repeated[index - 1].step.line);
       if (contiguous && monotonic) continue;
-      findings.push(finding('S6.unannotated-repeat', 'danger', `${sequenceId}/${operationId}`, `operation ${operationId} appears ${repeated.length} times in ${sequenceId} with no loop, retry or exception annotation`, {
-        repair: `Annotate the repetition as loop, retry or exception, or remove the duplicate step.`,
-      }));
+      addFinding(findings, 'S6.unannotated-repeat', `${sequenceId}/${operationId}`, {
+        className: 'danger',
+        route: routeForStep('S6.unannotated-repeat', index, repeated[0].step),
+        why: `operation ${operationId} appears ${repeated.length} times in ${sequenceId} with no loop, retry or exception annotation`,
+        fix: 'annotate the repetition as loop, retry or exception, or remove the duplicate step',
+      });
     }
   }
   return findings;
 }
 
 /** A step that consumes a fact a later step produces without an exception annotation. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
 function orderContradictions(index) {
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
@@ -168,9 +214,12 @@ function orderContradictions(index) {
         const later = steps.find((candidate) => candidate.line > step.line && (candidate.contract?.produces ?? []).includes(consumed));
         if (later === undefined) continue;
         if (step.annotation === 'exception' || later.annotation === 'exception') continue;
-        findings.push(finding('S6.order-contradiction', 'danger', `${sequenceId}/${step.id}`, `step ${step.id} consumes ${consumed}, and ${later.id} produces it later`, {
-          repair: `Move the producing step earlier or annotate the inversion as an exception.`,
-        }));
+        addFinding(findings, 'S6.order-contradiction', `${sequenceId}/${step.id}`, {
+          className: 'danger',
+          route: routeForStep('S6.order-contradiction', index, step),
+          why: `step ${step.id} consumes ${consumed}, and ${later.id} produces it later`,
+          fix: 'move the producing step earlier or annotate the inversion as an exception',
+        });
       }
     }
   }
@@ -181,9 +230,12 @@ function orderContradictions(index) {
 export function checkDangers(index) {
   const findings = [];
   for (const cycle of findCycles(operationEdges(index))) {
-    findings.push(finding('S6.cycle', 'danger', cycle.join(' -> '), `the operation dependency graph contains the cycle ${cycle.join(' -> ')}`, {
-      repair: 'Break the cycle by removing a consumed fact or reordering the steps.',
-    }));
+    addFinding(findings, 'S6.cycle', cycle.join(' -> '), {
+      className: 'danger',
+      route: routeForSpecRow('S6.cycle', index, cycle.join(' -> ')),
+      why: `the operation dependency graph contains the cycle ${cycle.join(' -> ')}`,
+      fix: 'break the cycle by removing a consumed fact or reordering the steps',
+    });
   }
   findings.push(...unreachableOperations(index));
   findings.push(...orphanFacts(index));

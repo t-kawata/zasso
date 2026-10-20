@@ -11,6 +11,8 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 # /smooth-sequences
 
+The repair loop is the command. The script decides; the executing AI repairs. The only terminal state is a fresh run that exits 0.
+
 ## Language Protocol
 
 | Context | Language |
@@ -28,7 +30,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 → /smooth-sequences → { /graphify-rfc → /boundify-graph → /split-to-tickets (all directories in order) } ...
 ```
 
-`/smooth-sequences` is the last gate before implementation. It reads what the earlier commands wrote and decides whether the enumeration and the contracts hold. It never replaces `/educe-sequences` or `/grill-me-for-rfc`; a defect whose repair belongs upstream is reported as an upstream repair.
+`/smooth-sequences` is the last gate before implementation. It reads what the earlier commands wrote and decides whether the enumeration and the contracts hold. It never replaces `/educe-sequences` or `/grill-me-for-rfc`; a defect whose repair belongs upstream is repaired upstream and re-derived, never by editing a generated file.
 
 ## Inputs
 
@@ -40,91 +42,107 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 ## Outputs
 
-- `SMOOTH-SEQUENCES.json` — the complete report. No truncation.
-- `SMOOTH-SEQUENCES.md` — the human view, capped at 200 findings with an explicit `…and N more findings` line.
+- `SMOOTH-SEQUENCES.json` — the complete report at `schemaVersion: 2`.
+- `SMOOTH-SEQUENCES.md` — the human repair view, capped at 200 findings with an explicit `…and N more findings` line.
+- Console: one `route:` header per authored surface, one finding line per finding, and a final `next:` line.
 - Exit codes: `0` pass, `1` blocking findings, `2` misuse (no report written).
 
 ## Steps
 
-### Step 0 — Check the workspace root
+### Step 0 — Prepare
+
+Run once from the workspace root:
 
 ```bash
 node .claude/scripts/smooth-sequences/run.mjs
 ```
 
-The command judges the current directory. That directory must directly hold both manifests and exactly one `*-sequences.json` artifact. It does not search parent directories, so a directory below a workspace is never promoted to that workspace. A missing manifest or a missing or ambiguous artifact is misuse: exit 2, no report. If Step 0 exits 2, change directory to the workspace root and rerun; do not pass a different path.
+The command judges the current directory. That directory must directly hold both manifests and exactly one `*-sequences.json` artifact. It does not search parent directories, so a directory below a workspace is never promoted to that workspace.
 
-### Step 1 — Run Layer A (structure)
+| exit | meaning | next |
+|---|---|---|
+| `0` | no finding | Step 2 |
+| `1` | findings; the report was written | Step 1 |
+| `2` | misuse; no report exists | fix the cause named on stderr, then Step 0 |
 
-The command checks, without reading prose:
+### Step 1 — Repair loop (the body)
 
-- S1 enumeration integrity: duplicate ids, unresolved step operation/sequence, a drawn sequence with no step.
-- S3 operation envelope: initial status, transition targets, transitions out of a terminal status, finality for external dependencies, and every required interface. The terminal names come from the artifact's `vocabulary`, else from the union of statuses an active operation ends at; the interface names come from `vocabulary`, else from the allocate manifest's `declared_interfaces` columns, else from the columns the artifact pins reach. A vocabulary no record states withholds that check.
-- S4 boundary clauses: required `stage2_contract_scope` clauses, extra clauses, provider/consumer direction and counterpart, and contribution completeness. A v3 operation must declare `registry_contribution` in `required`/`not_required`, a `not_required` must carry `registry_contribution_ground`, and the owner's distribution ledger must record an `op-<operationId>` row. The ledger `Kind` is not mapped to a contribution value.
-- S7 artifact/view/RFC consistency: missing view, package-id mismatch, owned unit mismatch, boundary not named in the RFC.
+Exit 1 is an input to this loop, never an output of the command. A report that still carries findings is not completion.
 
-### Step 2 — Run Layer B (contract meshing)
+For each `route:` header in the console output:
 
-When the artifact is `schema_version: 3`, the command compares the typed step contracts:
+1. Open the `where` path. The fragment names the row to change.
+2. Apply `fix` at that row.
+3. Run the `rerun:` command.
+4. Return to Step 0.
 
-- S5 precondition implication: a consumer precondition fact must be in the provider postcondition facts.
-- S5 produced/consumed closure: a consumed fact must be produced earlier in the sequence or by the provider.
-- S5 error-set agreement: a consumer expectation the provider does not declare is a finding.
-- S5 crossing-boundary resolution: every `crosses` entry must resolve to a declared boundary.
+```
+route: <authored file>#<row> | rerun: <producer>
+  <checkId> <subject> | why: <defect> | fix: <change>
+next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
+```
 
-When the artifact is `schema_version: 2`, Layer B is **withheld**: the report names `B (v3 step contract absent)` and the run can still exit 0 if Layer A holds. A v2 field is never rewritten or required to be v3.
+Rules:
 
-### Step 2b — Withheld surfaces
+- **Never hand-edit a generated file.** `SEQUENCES.json`, `*-sequences.json` and `WORKSPACIFY-*` are written by their producers. A finding about one is repaired by editing its authored input and rerunning the producer.
+- **`persisted` means the previous repair did not address the finding.** Diagnose before repeating the same edit.
+- **The loop has no iteration cap.** It ends only when a fresh run exits 0.
 
-A withheld check is named in the report and is **not** a pass. The report's `withheld` array carries `{layer, check, reason}`:
+Editable surfaces:
+
+| surface | authored file | producer |
+|---|---|---|
+| spec | `artifact.spec.path` | `/educe-sequences <spec>` |
+| package RFC | `<package>/RFC.md` | `/grill-me-for-rfc` |
+| package obligation | `<package>/OBLIGATION.json` | `/grill-me-for-rfc` |
+| allocate decisions | `workspacify/allocate/DECISIONS.json` | `node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json` |
+| package view | `<package>/SEQUENCES.json` (generated) | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
+
+### Step 2 — Complete
+
+Only a fresh exit 0 completes the command.
+
+- Zero findings and zero withheld: `verdict: pass`.
+- Zero findings and a non-empty withheld list: list every withheld surface and end with `verdict: pass with N unproven surface(s)`. Never call such a run proved.
+- Report the verdict and this boundary verbatim:
+
+> does not guarantee: whether the enumeration is complete relative to the world; semantic prose equivalence remains a judgment.
+
+## Reference — what each check reads
+
+The detector runs every check family in one invocation; the console groups the results by repair route.
+
+- **S1 enumeration integrity:** duplicate ids, unresolved step operation/sequence, a drawn sequence with no step.
+- **S3 operation envelope:** initial status, transition targets, transitions out of a terminal status, finality for external dependencies, and every required interface. The terminal names come from the artifact's `vocabulary`, else from the union of statuses an active operation ends at; the interface names come from `vocabulary`, else from the allocate manifest's `declared_interfaces` columns, else from the columns the artifact pins reach. A vocabulary no record states withholds that check.
+- **S4 boundary clauses:** required `stage2_contract_scope` clauses, extra clauses, provider/consumer direction and counterpart, and contribution completeness. A v3 operation must declare `registry_contribution` in `required`/`not_required`, a `not_required` must carry `registry_contribution_ground`, and the owner's distribution ledger must record an `op-<operationId>` row. The ledger `Kind` is not mapped to a contribution value.
+- **S7 artifact/view/RFC consistency:** missing view, package-id mismatch, owned unit mismatch, boundary not named in the RFC.
+- **S5 contract meshing (v3 only):** precondition implication, produced/consumed closure, error-set agreement, crossing-boundary resolution.
+- **S6 danger:** a cycle in the operation dependency graph, an active operation no step reaches and no grounded escape covers, an orphan object fact, a repeated operation with no `loop`/`retry`/`exception` annotation, and a step that depends on a later step.
+
+### Withheld surfaces
+
+A withheld check is named in the report and is **not** a pass. The `withheld` array carries `{layer, check, reason}`:
 
 - `B` — the artifact is v2 and carries no typed step contract, so Layer B is withheld.
 - `vocabulary:S3.terminal-status` / `vocabulary:S3.interface-mapping` — neither the artifact's `vocabulary` nor any derivable record states the corresponding list.
 - `S4.contribution` — the artifact is v2 and carries no `registry_contribution`.
 
-A run with findings zero and a non-empty withheld list exits 0, and the reader must see the list before calling the workspace proved.
-
-### Step 3 — Run S6 (danger)
-
-- A cycle in the operation dependency graph.
-- An active operation no step reaches and no grounded escape covers.
-- A produced fact no step consumes, or a consumed fact no step produces.
-- A repeated operation in one sequence with no `loop`/`retry`/`exception` annotation.
-- A step that consumes a fact a later step produces without an exception annotation.
-
-### Step 4 — Report and heal-loop
-
-The command writes both reports and exits:
-
-- `0`: no blocking finding; proceed.
-- `1`: findings. Repair them in the editable surface and re-run until 0.
-
-Repair surface:
-
-- **Editable:** `RFC.md`, `OBLIGATION.json`.
-- **Never hand-edited:** `SEQUENCES.json`, `SEQUENCES.md`, `*-sequences.json`, `WORKSPACIFY-*`.
-- A finding caused by a generated file is repaired by re-running its producer (`sequences-slice`, `/educe-sequences`, `/workspacify-*`), not by editing the generated file.
-
-### Step 5 — Final gate
-
-```bash
-node .claude/scripts/smooth-sequences/run.mjs
-```
-
-Exit 0 is the only passing verdict. The command prints the does-not-guarantee boundary beside every verdict:
-
-> does not guarantee: whether the enumeration is complete relative to the world; semantic prose equivalence remains a judgment.
+A v2 artifact is never rewritten or required to be v3.
 
 ## Example
 
 ```bash
 cd /path/to/workspace
 node .claude/scripts/smooth-sequences/run.mjs
-# smooth-sequences: 0 finding(s); /path/to/workspace/SMOOTH-SEQUENCES.json
+# smooth-sequences: 1 finding(s) in 1 repair route(s); /path/to/workspace/SMOOTH-SEQUENCES.json
+# route: spec.md#L20 | rerun: /educe-sequences spec.md
+#   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
+# next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
 ```
 
 ## Related
 
 - `/educe-sequences` — produces the artifact and the 31 rail checks.
 - `/grill-me-for-rfc` — resolves demands and writes the package RFC and obligation record.
+- `/workspacify-allocate` — produces the allocate manifest and its decisions input.
 - `/workspacify-order` — prints the implementation order the same workspace implies.

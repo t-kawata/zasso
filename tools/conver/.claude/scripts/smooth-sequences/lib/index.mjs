@@ -7,21 +7,50 @@
  * because the finding must name both rows a reader has to reconcile.
  */
 
-/** A finding shape shared by every check family. */
-export function finding(checkId, className, subject, reason, extra = {}) {
-  return { checkId, class: className, subject, reason, repair: extra.repair ?? '', ...extra };
+import { repairRouteFor } from './repair-route.mjs';
+
+/** The fields every finding must carry so a reader can repair it without opening JSON. */
+const REQUIRED_REPAIR_FIELDS = Object.freeze(['where', 'why', 'fix', 'producer']);
+
+/**
+ * A finding shape shared by every check family.
+ *
+ * A finding that cannot say where to edit and what to rerun is not a finding but a
+ * complaint; the constructor refuses it rather than rendering a blank repair line.
+ */
+export function finding(checkId, className, subject, details = {}) {
+  for (const field of REQUIRED_REPAIR_FIELDS) {
+    const value = details[field];
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new Error(`finding ${checkId} (${subject}) is missing ${field}`);
+    }
+  }
+  return Object.freeze({
+    checkId,
+    class: className,
+    subject,
+    where: details.where,
+    why: details.why,
+    fix: details.fix,
+    producer: details.producer,
+  });
 }
 
 /** Index rows by id and report duplicate ids without dropping either row. */
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
-function indexRows(rows, label, duplicates) {
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function indexRows(rows, label, duplicates, routeContext) {
   const byId = new Map();
   const positions = new Map();
   for (const [index, row] of rows.entries()) {
     const id = row?.id;
     if (typeof id !== 'string' || id.length === 0) {
-      duplicates.push(finding('S1.duplicate-id', 'deficiency', `${label}[${index}]`, `${label} row ${index} has no id`, { repair: `Give ${label} row ${index} a stable id.` }));
+      duplicates.push(finding('S1.duplicate-id', 'deficiency', `${label}[${index}]`, {
+        ...repairRouteFor('S1.duplicate-id', { ...routeContext, locator: `${label}[${index}]` }),
+        why: `${label} row ${index} has no id`,
+        fix: `give ${label} row ${index} a stable id`,
+      }));
       continue;
     }
     if (byId.has(id)) {
@@ -30,8 +59,11 @@ function indexRows(rows, label, duplicates) {
         'S1.duplicate-id',
         'contradiction',
         `${label}:${id}`,
-        `${label} id ${id} appears at positions ${first} and ${index}`,
-        { repair: `Keep one ${label} row for ${id} and remove or rename the other.` },
+        {
+          ...repairRouteFor('S1.duplicate-id', { ...routeContext, locator: `${label}:${id}` }),
+          why: `${label} id ${id} appears at positions ${first} and ${index}`,
+          fix: `keep one ${label} row for ${id} and remove or rename the other`,
+        },
       ));
       continue;
     }
@@ -65,10 +97,29 @@ function operationOwners(packages) {
 export function indexArtifact(loaded) {
   const duplicates = [];
   const artifact = loaded.artifact;
-  const operationsById = indexRows(artifact.operations ?? [], 'operations', duplicates);
-  const sequencesById = indexRows(artifact.sequences ?? [], 'sequences', duplicates);
-  const stepsById = indexRows(artifact.steps ?? [], 'steps', duplicates);
+  const routeContext = { artifact, artifactPath: loaded.artifactPath };
+  return Object.freeze({
+    artifact,
+    artifactPath: loaded.artifactPath,
+    treeManifest: loaded.treeManifest,
+    allocateManifest: loaded.allocateManifest,
+    packages: loaded.packages,
+    schemaVersion: artifact.schema_version,
+    vocabulary: loaded.vocabulary,
+    operationsById: indexRows(artifact.operations ?? [], 'operations', duplicates, routeContext),
+    sequencesById: indexRows(artifact.sequences ?? [], 'sequences', duplicates, routeContext),
+    stepsById: indexRows(artifact.steps ?? [], 'steps', duplicates, routeContext),
+    ...buildStepMaps(artifact),
+    ...buildBoundaryMaps(loaded),
+    ...buildPackageMaps(loaded.packages),
+    operationOwners: operationOwners(loaded.packages),
+    duplicates,
+  });
+}
 
+/** The two directions a step is looked up by: its sequence and its operation. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function buildStepMaps(artifact) {
   const stepsBySequence = new Map();
   const stepsByOperation = new Map();
   for (const step of artifact.steps ?? []) {
@@ -77,9 +128,13 @@ export function indexArtifact(loaded) {
     if (!stepsByOperation.has(step.operation)) stepsByOperation.set(step.operation, []);
     stepsByOperation.get(step.operation).push(step);
   }
+  return { stepsBySequence, stepsByOperation };
+}
 
+/** The declared boundaries and the contract rows that bind them. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function buildBoundaryMaps(loaded) {
   const boundaries = loaded.treeManifest.dependencies?.boundaries ?? [];
-  const boundariesById = new Map(boundaries.map((boundary) => [boundary.id, boundary]));
   const contracts = loaded.allocateManifest.contract_registry ?? [];
   const contractsByBoundary = new Map();
   const contractsByBoundaryAll = new Map();
@@ -88,37 +143,27 @@ export function indexArtifact(loaded) {
     contractsByBoundaryAll.get(contract.boundary_id).push(contract);
     if (!contractsByBoundary.has(contract.boundary_id)) contractsByBoundary.set(contract.boundary_id, contract);
   }
+  return {
+    boundariesById: new Map(boundaries.map((boundary) => [boundary.id, boundary])),
+    contractsByBoundary,
+    contractsByBoundaryAll,
+  };
+}
 
-  const packagesById = new Map(loaded.packages.map((pkg) => [pkg.id, pkg]));
-  const viewsByPackage = new Map(loaded.packages.filter((pkg) => pkg.view !== null).map((pkg) => [pkg.id, pkg.view]));
+/** The package records, their views, and the operations each view owns. */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+function buildPackageMaps(packages) {
   const ownedOperationUnitsByPackage = new Map();
   const ownedOperationIdsByPackage = new Map();
-  for (const pkg of loaded.packages) {
+  for (const pkg of packages) {
     const units = pkg.view?.ownedOperationUnits ?? [];
     ownedOperationUnitsByPackage.set(pkg.id, units);
     ownedOperationIdsByPackage.set(pkg.id, new Set(units.map((unit) => unit.operationId)));
   }
-
-  return Object.freeze({
-    artifact,
-    treeManifest: loaded.treeManifest,
-    allocateManifest: loaded.allocateManifest,
-    packages: loaded.packages,
-    schemaVersion: artifact.schema_version,
-    vocabulary: loaded.vocabulary,
-    operationsById,
-    sequencesById,
-    stepsById,
-    stepsBySequence,
-    stepsByOperation,
-    boundariesById,
-    contractsByBoundary,
-    contractsByBoundaryAll,
-    packagesById,
-    viewsByPackage,
+  return {
+    packagesById: new Map(packages.map((pkg) => [pkg.id, pkg])),
+    viewsByPackage: new Map(packages.filter((pkg) => pkg.view !== null).map((pkg) => [pkg.id, pkg.view])),
     ownedOperationUnitsByPackage,
     ownedOperationIdsByPackage,
-    operationOwners: operationOwners(loaded.packages),
-    duplicates,
-  });
+  };
 }

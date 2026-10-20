@@ -18,7 +18,7 @@ import { checkCrossingContracts, layerBWithheld } from './lib/checks-layer-b.mjs
 import { checkDangers } from './lib/checks-danger.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { indexArtifact } from './lib/index.mjs';
-import { buildReport, EXIT_FINDINGS, EXIT_MISUSE, EXIT_PASS, writeReport } from './lib/report.mjs';
+import { annotatePersisted, buildReport, EXIT_FINDINGS, EXIT_MISUSE, EXIT_PASS, readPreviousReport, renderConsoleReport, writeReport } from './lib/report.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 
 /** Every check family, in report order. */
@@ -41,6 +41,7 @@ const CHECK_FAMILIES = Object.freeze([
  */
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = io.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -54,7 +55,8 @@ export function runCommand(argv, io = {}) {
     const root = assertWorkspaceRoot(startDirectoryFor(argv[0]));
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);
-    const findings = CHECK_FAMILIES.flatMap((check) => check(index));
+    const rawFindings = CHECK_FAMILIES.flatMap((check) => check(index));
+    const findings = annotatePersisted(rawFindings, readPreviousReport(root));
     const withheld = [
       ...layerBWithheld(index),
       ...index.vocabulary.withheld,
@@ -64,7 +66,7 @@ export function runCommand(argv, io = {}) {
     const report = buildReport({ workspace: loaded, findings, withheld, checks });
     const paths = writeReport({ report, outputDirectory: root });
     const exitCode = findings.length === 0 ? EXIT_PASS : EXIT_FINDINGS;
-    stdout(`smooth-sequences: ${findings.length} finding(s); ${paths.jsonPath}`);
+    for (const line of renderConsoleReport(report, paths)) stdout(line);
     return { exitCode, report };
   } catch (error) {
     if (error instanceof SmoothSequencesError) {
@@ -72,6 +74,7 @@ export function runCommand(argv, io = {}) {
     } else {
       stderr(`smooth-sequences: ${error.message}`);
     }
+    stderr('next: fix the workspace and rerun; no report was written.');
     return { exitCode: EXIT_MISUSE, report: null };
   }
 }

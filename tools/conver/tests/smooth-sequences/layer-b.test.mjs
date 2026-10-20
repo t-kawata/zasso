@@ -23,6 +23,7 @@ test('S5 accepts a consumer precondition the provider postcondition implies', ()
   }
 });
 
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('S5 rejects a consumer precondition the provider does not imply', () => {
   const artifact = minimalV3Artifact();
   artifact.steps[1].contract.pre.push({ factId: 'boundary:boundary-001/preconditions/99', text: 'the lease is active', source: 'boundary:boundary-001/preconditions/99' });
@@ -31,7 +32,7 @@ test('S5 rejects a consumer precondition the provider does not imply', () => {
     const findings = checkCrossingContracts(index);
     assert.equal(findings.length, 1);
     assert.equal(findings[0].checkId, 'S5.precondition-not-implied');
-    assert.match(findings[0].reason, /preconditions\/99/);
+    assert.match(findings[0].why, /preconditions\/99/);
   } finally {
     workspace.remove();
   }
