@@ -178,7 +178,7 @@ function loadPair(workspace) {
 }
 
 // [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
-test('C005 postcondition: markColumn is the smallest tab stop after the longest path', (t) => {
+test('C005 postcondition: markColumn is one column after the longest rendered path', (t) => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
     edges: [['pkg-0002', 'pkg-0001'], ['pkg-0003', 'pkg-0002']],
@@ -194,16 +194,50 @@ test('C005 postcondition: markColumn is the smallest tab stop after the longest 
   const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
 
   assert.equal(model.pathWidth, 43);
+  // The prefix is four columns, so the longest line ends at 47 and the mark starts at 48.
+  // A tab-stop calculation would round 29 up to 32 for a 24-column path; the exact gap
+  // is one column, which keeps the view compact and independent of the viewer's tab width.
   assert.equal(model.markColumn, 48);
   assert.equal(markColumnFor(43), 48);
-  assert.equal(markColumnFor(27), 32);
-  assert.equal(markColumnFor(24), 32);
+  assert.equal(markColumnFor(29), 34);
+  assert.equal(markColumnFor(24), 29);
 });
 
-test('C005 invariant: displayWidth counts a wide code point as two columns', () => {
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+test('C005 postcondition: a full-width path is measured in terminal columns, not code units', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    paths: {
+      'pkg-0001': 'crates/core/日本',
+      'pkg-0002': 'crates/core/日本語パッケージ',
+    },
+  });
+  t.after(() => workspace.remove());
+
+  const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
+
+  assert.equal(model.pathWidth, 28);
+  assert.equal(model.markColumn, 33);
+  assert.equal(markColumnFor(28), 33);
+});
+
+test('C005 invariant: displayWidth counts wide, zero-width and emoji clusters', () => {
   assert.equal(displayWidth('crates/protocol/package-1'), 25);
   assert.equal(displayWidth('aあ'), 3);
   assert.equal(displayWidth('🟤'), 2);
+  // U+274C is East Asian Wide even though it sits below the CJK block, so a path carrying
+  // it must reserve two columns.
+  assert.equal(displayWidth('❌'), 2);
+  // A base plus a combining mark is one terminal column, not two.
+  assert.equal(displayWidth('e\u0301'), 1);
+  // A ZWJ sequence and an emoji presentation selector are each one two-column glyph.
+  assert.equal(displayWidth('👨\u200D👩\u200D👧'), 2);
+  assert.equal(displayWidth('❤\uFE0F'), 2);
+  assert.equal(displayWidth('❤'), 1);
+  assert.equal(displayWidth('Ａ'), 2);
+  assert.equal(displayWidth('ｱ'), 1);
 });
 
 test('C001/C002/C003 postcondition: buildModel carries the root and per-package counters', (t) => {

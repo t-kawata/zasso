@@ -219,11 +219,11 @@ test('IT: an explained workspace prints the label after the path and exits 0', (
       `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
-      '  * crates/protocol/package-1	🔴 EXP',
+      '  * crates/protocol/package-1 🔴 EXP',
       '',
       'level  1    parallel  2 dirs',
       '  * crates/protocol/package-2',
-      '    crates/protocol/package-3	🔴 EXP',
+      '    crates/protocol/package-3 🔴 EXP',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -254,7 +254,7 @@ test('IT: the mark follows the directory and not the manifest, so writing the do
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3	🔴 EXP\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🔴 EXP\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -266,7 +266,7 @@ test('IT: a seed run prints the mark in the plan and no mark in the focused bloc
   assert.equal(result.status, 0);
   // The rule of dashes opens the focused block, so everything before it is the plan.
   const [plan, block] = result.stdout.split('─'.repeat(66));
-  assert.ok(plan.includes('    crates/protocol/package-3	🔴 EXP\n'));
+  assert.ok(plan.includes('    crates/protocol/package-3 🔴 EXP\n'));
   assert.ok(plan.includes('\n  * crates/protocol/package-2\n'));
   assert.match(block, /▶ crates\/protocol\/package-3 +level 1 · 3rd\n/);
   assert.doesNotMatch(block, /🔴 EXP/);
@@ -302,8 +302,8 @@ test('IT: a grilled workspace prints the grill mark after the path and exits 0',
       '  * crates/protocol/package-1',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2	🟠 GRILLED',
-      '    crates/protocol/package-3	🟠 GRILLED',
+      '  * crates/protocol/package-2 🟠 GRILLED',
+      '    crates/protocol/package-3 🟠 GRILLED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -327,11 +327,11 @@ test('IT: a directory holding both documents prints both marks, explained first'
       `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
-      '  * crates/protocol/package-1	🔴 EXP 🟠 GRILLED',
+      '  * crates/protocol/package-1 🔴 EXP 🟠 GRILLED',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2	🟠 GRILLED',
-      '    crates/protocol/package-3	🔴 EXP',
+      '  * crates/protocol/package-2 🟠 GRILLED',
+      '    crates/protocol/package-3 🔴 EXP',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -352,7 +352,7 @@ test('IT: the grill mark follows the directory and not the manifest, so writing 
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3	🟠 GRILLED\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟠 GRILLED\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -373,8 +373,8 @@ test('IT: a workspace the distribution reached prints the judged mark after the 
       '  * crates/protocol/package-1',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2	🟠 GRILLED 🟡 SEQUENCED',
-      '    crates/protocol/package-3	🟠 GRILLED 🟡 SEQUENCED',
+      '  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🟠 GRILLED 🟡 SEQUENCED',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -400,11 +400,11 @@ test('IT: a directory the pipeline reached prints the three marks in pipeline or
       `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       'level  0    alone     1 dir',
-      '  * crates/protocol/package-1	🔴 EXP 🟠 GRILLED 🟡 SEQUENCED',
+      '  * crates/protocol/package-1 🔴 EXP 🟠 GRILLED 🟡 SEQUENCED',
       '',
       'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2	🟠 GRILLED 🟡 SEQUENCED',
-      '    crates/protocol/package-3	🔴 EXP',
+      '  * crates/protocol/package-2 🟠 GRILLED 🟡 SEQUENCED',
+      '    crates/protocol/package-3 🔴 EXP',
       '',
       'parallel width   level   0  1',
       '                 dirs    1  2',
@@ -427,7 +427,7 @@ test('IT: the judged mark follows the directory and not the manifest, so writing
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3	🟠 GRILLED 🟡 SEQUENCED\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🟠 GRILLED 🟡 SEQUENCED\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -453,7 +453,7 @@ test('IT: a failed verdict prints its mark, writes nothing to stderr and exits 0
 
   assert.equal(result.stderr, '');
   assert.equal(result.status, 0, 'a verdict is a reading and never a blocking point');
-  assert.ok(result.stdout.includes('    crates/protocol/package-3	🟠 GRILLED ❌ FAILED-SEQ\n'));
+  assert.ok(result.stdout.includes('    crates/protocol/package-3 🟠 GRILLED ❌ FAILED-SEQ\n'));
   assert.equal(result.stdout.includes('🟡 SEQUENCED'), false);
 });
 
@@ -473,6 +473,6 @@ test('IT: the counters render on the package line and the command still writes n
 
   assert.equal(result.stderr, '');
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('  * crates/protocol/package-1\t🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3 🟢 SMO:2\n'));
+  assert.ok(result.stdout.includes('  * crates/protocol/package-1 🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3 🟢 SMO:2\n'));
   assert.deepEqual([readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')], manifestsBefore);
 });

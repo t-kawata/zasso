@@ -13,7 +13,7 @@ import {
   SEQUENCE_VERDICT_COMPLETE,
   SEQUENCE_VERDICT_FAILED,
 } from '../../sequences-slice/lib/package-verdict.mjs';
-import { displayWidth, tabCountFor } from './levels.mjs';
+import { displayWidth } from './levels.mjs';
 
 export const LEVEL_LABEL = 'level';
 export const ALONE_LABEL = 'alone';
@@ -80,6 +80,13 @@ export function formatOrdinal(value) {
 /** The widest line in a rendered block, used to prove nothing wraps. */
 export function maxLineWidth(text) {
   return Math.max(...text.split('\n').map(displayWidth));
+}
+
+/** Pad a string with spaces to a terminal column, never truncating it. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function padToDisplayWidth(text, width) {
+  const padding = width - displayWidth(text);
+  return padding > 0 ? `${text}${' '.repeat(padding)}` : text;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -149,7 +156,7 @@ export function buildFieldLayout(model) {
     for (const key of FIELD_SEQUENCE) {
       const cell = cellFor(model, id, key);
       if (cell === null) continue;
-      widths.set(key, Math.max(widths.get(key) ?? 0, cell.text.length));
+      widths.set(key, Math.max(widths.get(key) ?? 0, displayWidth(cell.text)));
     }
   }
   return { widths };
@@ -183,10 +190,10 @@ function renderFields(model, id, layout) {
 }
 
 /**
- * One package line: the prefix, the path, the minimal tab run, then the fields.
+ * One package line: the prefix, the path, the padding to the common column, then the fields.
  *
- * A line with no fields ends at its path and carries no tab, which keeps a workspace with
- * no counters byte-identical to the output before this field existed.
+ * A line with no fields ends at its path and carries no padding, which keeps a workspace
+ * with no counters byte-identical to the output before this field existed.
  */
 // [::TICKET::] PX-223, PX-228, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228|PX-282) --for-spec --no-implementation-order`.
 function renderPackageLine(model, id, layout) {
@@ -195,8 +202,8 @@ function renderPackageLine(model, id, layout) {
   const fields = renderFields(model, id, layout);
   const linePrefix = `${prefix}${model.pathOf.get(id)}`;
   if (fields.length === 0) return linePrefix;
-  const tabs = '\t'.repeat(tabCountFor(displayWidth(linePrefix), model.markColumn));
-  return `${linePrefix}${tabs}${fields}`.trimEnd();
+  const padding = ' '.repeat(model.markColumn - displayWidth(linePrefix));
+  return `${linePrefix}${padding}${fields}`.trimEnd();
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -222,7 +229,7 @@ function renderChainRow(model) {
   let current = label;
   names.forEach((name, index) => {
     const piece = index === 0 ? name : CHAIN_ARROW + name;
-    if (index > 0 && current.length + piece.length > CHAIN_WRAP_WIDTH) {
+    if (index > 0 && displayWidth(current) + displayWidth(piece) > CHAIN_WRAP_WIDTH) {
       lines.push(current);
       // The arrow opens the continuation line, so a wrapped chain still reads as one chain.
       current = continuation + CHAIN_ARROW_GLYPH + ' ' + name;
@@ -261,7 +268,9 @@ function renderRelated(model, ids) {
     (left, right) =>
       model.levelOf.get(left) - model.levelOf.get(right) || model.nameOf.get(left).localeCompare(model.nameOf.get(right)),
   );
-  return ordered.map((id) => `${LIST_INDENT}${model.pathOf.get(id).padEnd(model.pathWidth)}  level ${model.levelOf.get(id)}`);
+  return ordered.map(
+    (id) => `${LIST_INDENT}${padToDisplayWidth(model.pathOf.get(id), model.pathWidth)}  level ${model.levelOf.get(id)}`,
+  );
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -277,7 +286,7 @@ export function renderFocus({ model, packageId }) {
   const peers = model.levels[level].filter((id) => id !== packageId);
 
   const heading =
-    `${FOCUS_MARKER} ${model.pathOf.get(packageId).padEnd(model.pathWidth)}` +
+    `${FOCUS_MARKER} ${padToDisplayWidth(model.pathOf.get(packageId), model.pathWidth)}` +
     `  level ${level} · ${formatOrdinal(position)}` +
     (onChain ? ' · on the critical path' : '');
 
