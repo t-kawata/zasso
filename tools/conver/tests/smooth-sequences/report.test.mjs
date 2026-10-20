@@ -55,6 +55,7 @@ function reportOf(overrides = {}) {
 
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // @verifies C001
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 test('the JSON report is byte-identical, sorted and at schemaVersion 2', () => {
   const first = renderReportJson(reportOf());
   const second = renderReportJson(reportOf());
@@ -67,7 +68,7 @@ test('the JSON report is byte-identical, sorted and at schemaVersion 2', () => {
   for (const finding of parsed.findings) {
     assert.deepEqual(
       Object.keys(finding).sort(),
-      ['checkId', 'class', 'fix', 'persisted', 'producer', 'subject', 'where', 'why'],
+      ['checkId', 'class', 'fix', 'persisted', 'producer', 'repairClass', 'subject', 'where', 'why'],
     );
   }
 });

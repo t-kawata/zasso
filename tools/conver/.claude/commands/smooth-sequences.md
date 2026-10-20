@@ -11,7 +11,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 # /smooth-sequences
 
-The repair loop is the command. The script decides; the executing AI repairs. The only terminal state is a fresh run that exits 0.
+The repair loop is the command. The script decides; the executing AI repairs. The only terminal state is a fresh run that exits 0. Frozen inputs are changed only through the regeneration transaction, never in place.
 
 ## Language Protocol
 
@@ -30,22 +30,23 @@ The repair loop is the command. The script decides; the executing AI repairs. Th
 → /smooth-sequences → { /graphify-rfc → /boundify-graph → /split-to-tickets (all directories in order) } ...
 ```
 
-`/smooth-sequences` is the last gate before implementation. It reads what the earlier commands wrote and decides whether the enumeration and the contracts hold. It never replaces `/educe-sequences` or `/grill-me-for-rfc`; a defect whose repair belongs upstream is repaired upstream and re-derived, never by editing a generated file.
+`/smooth-sequences` is the last gate before implementation. It reads what the earlier commands wrote and decides whether the enumeration and the contracts hold.
 
 ## Inputs
 
-- The current working directory, which is the workspace root. It must directly hold `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json`.
+- The current working directory, which is the workspace root. It must directly hold `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json`. It does not search parent directories, so a directory below a workspace is never promoted to that workspace.
 - The single `*-sequences.json` artifact at the workspace root.
 - Each package's `SEQUENCES.json` and `RFC.md`.
 - `WORKSPACIFY-ALLOCATE-MANIFEST.json`'s `contract_registry` and optional `declared_interfaces`.
 - The artifact's optional `vocabulary` field: `terminalStatuses` and `requiredInterfaces`. When it is absent, the detector derives the names from the active operation status graphs and the allocate manifest's `declared_interfaces`, with the artifact pins as the last source. A name no record states withholds that check; the detector never invents a default name. A malformed `vocabulary` field is misuse (exit 2), not a finding. No separate vocabulary file is read.
+- The hash chain: `input.source_hash` and `integrity.manifest_hash` in the tree manifest, `input_tree_manifest` in the allocate manifest, and `artifact.spec.path` with `spec.sha256` in the artifact.
 
 ## Outputs
 
 - `SMOOTH-SEQUENCES.json` — the complete report at `schemaVersion: 2`.
 - `SMOOTH-SEQUENCES.md` — the human repair view, capped at 200 findings with an explicit `…and N more findings` line.
 - Console: one `route:` header per authored surface, one finding line per finding, and a final `next:` line.
-- Exit codes: `0` pass, `1` blocking findings, `2` misuse (no report written).
+- Exit codes: `0` pass, `1` blocking findings, `2` misuse or a refusal (broken chain, open transaction), `3` a judgment-required regeneration.
 
 ## Steps
 
@@ -57,30 +58,43 @@ Run once from the workspace root:
 node .claude/scripts/smooth-sequences/run.mjs
 ```
 
-The command judges the current directory. That directory must directly hold both manifests and exactly one `*-sequences.json` artifact. It does not search parent directories, so a directory below a workspace is never promoted to that workspace.
+The command judges the current directory and, before reading the design, resolves an interrupted regeneration commit, refuses while a transaction owns the workspace, and verifies the hash chain. It does not search parent directories.
 
 | exit | meaning | next |
 |---|---|---|
 | `0` | no finding | Step 2 |
 | `1` | findings; the report was written | Step 1 |
-| `2` | misuse; no report exists | fix the cause named on stderr, then Step 0 |
+| `2` | misuse or refusal; no new report | fix the cause named on stderr, then Step 0 |
+| `3` | a regeneration awaits a judgment | fix the ground in staging, then verify the transaction |
 
 ### Step 1 — Repair loop (the body)
 
 Exit 1 is an input to this loop, never an output of the command. A report that still carries findings is not completion.
 
-For each `route:` header in the console output:
+Every finding carries a repair class:
+
+| class | surfaces | action |
+|---|---|---|
+| `in-place` | package `RFC.md` (distribution ledger, boundary name), package view | edit the named file or re-project the view, then rerun this command |
+| `regeneration` | specification-derived artifact findings and allocate decisions | never edit the live specification; copy it to a candidate, change the candidate or the decisions, then run the transaction |
+| `judgment-required` | an RFC or obligation ground that no longer resolves | resolve the ground in the staging tree, then verify again |
+
+For an `in-place` finding:
 
 1. Open the `where` path. The fragment names the row to change.
-2. Apply `fix` at that row.
+2. Apply `fix`.
 3. Run the `rerun:` command.
 4. Return to Step 0.
 
-```
-route: <authored file>#<row> | rerun: <producer>
-  <checkId> <subject> | why: <defect> | fix: <change>
-next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
-```
+For a `regeneration` finding:
+
+1. Copy the specification to a candidate file. The `where` path names the evidence and is marked read-only; never edit the live specification, `WORKSPACIFY-*` or the artifact in place.
+2. Apply the change to the candidate, or to `workspacify/allocate/DECISIONS.json` when that is the named surface.
+3. Run `node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason="<why>"`.
+4. Follow the transaction: `derive`, the educe phase handoff, `verify`, `commit`. The transaction stages a new generation, verifies its chain and grounds, and commits atomically with rollback.
+5. Return to Step 0.
+
+A transaction that reaches `judgment-required` stops the loop with exit 3. It is not completion.
 
 Rules:
 
@@ -92,15 +106,15 @@ Editable surfaces:
 
 | surface | authored file | producer |
 |---|---|---|
-| spec | `artifact.spec.path` | `/educe-sequences <spec>` |
-| package RFC | `<package>/RFC.md` | `/grill-me-for-rfc` |
-| package obligation | `<package>/OBLIGATION.json` | `/grill-me-for-rfc` |
-| allocate decisions | `workspacify/allocate/DECISIONS.json` | `node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json` |
+| package RFC | `<package>/RFC.md` | `node .claude/scripts/smooth-sequences/run.mjs` (edit only) |
+| package obligation | `<package>/OBLIGATION.json` | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
 | package view | `<package>/SEQUENCES.json` (generated) | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
+| specification (candidate) | `regeneration/candidates/<id>.md` | `node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=...` |
+| allocate decisions | `workspacify/allocate/DECISIONS.json` | the same regeneration transaction |
 
 ### Step 2 — Complete
 
-Only a fresh exit 0 completes the command.
+Only a fresh exit 0 completes the command. The chain must verify, the transaction must be closed, and the findings must be empty.
 
 - Zero findings and zero withheld: `verdict: pass`.
 - Zero findings and a non-empty withheld list: list every withheld surface and end with `verdict: pass with N unproven surface(s)`. Never call such a run proved.
@@ -119,6 +133,10 @@ The detector runs every check family in one invocation; the console groups the r
 - **S5 contract meshing (v3 only):** precondition implication, produced/consumed closure, error-set agreement, crossing-boundary resolution.
 - **S6 danger:** a cycle in the operation dependency graph, an active operation no step reaches and no grounded escape covers, an orphan object fact, a repeated operation with no `loop`/`retry`/`exception` annotation, and a step that depends on a later step.
 
+### Frozen inputs and the transaction
+
+The specification, `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json` and the artifact are hash-chained. Their recorded hashes must agree before the detector runs; a disagreement is `SILENT_CHANGE_DETECTED` and exit 2. A change is made by opening a regeneration transaction, deriving in a staging tree, verifying the chain and every ground, and committing with rollback. The live design files are byte-identical until commit.
+
 ### Withheld surfaces
 
 A withheld check is named in the report and is **not** a pass. The `withheld` array carries `{layer, check, reason}`:
@@ -135,7 +153,7 @@ A v2 artifact is never rewritten or required to be v3.
 cd /path/to/workspace
 node .claude/scripts/smooth-sequences/run.mjs
 # smooth-sequences: 1 finding(s) in 1 repair route(s); /path/to/workspace/SMOOTH-SEQUENCES.json
-# route: spec.md#L20 | rerun: /educe-sequences spec.md
+# route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>
 #   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
 # next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
 ```

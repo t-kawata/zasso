@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
+import { materializeChainWorkspace } from '../regeneration/helpers/chain-fixture.mjs';
 import {
   defaultAllocateManifest,
   defectiveWorkspace,
@@ -178,6 +179,57 @@ test('a finding that survives a rerun is marked persisted', () => {
     runCommand([workspace.root], second.io);
     assert.doesNotMatch(first.stdout.join('\n'), /\| persisted/);
     assert.match(second.stdout.join('\n'), /\| persisted/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C005
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+test('a declared chain broken by a spec edit exits 2 and names SILENT_CHANGE_DETECTED', () => {
+  const workspace = materializeChainWorkspace();
+  const output = capture();
+  try {
+    writeFileSync(join(workspace.root, 'spec.md'), '# changed out of band\n');
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 2);
+    assert.match(output.stderr.join('\n'), /SILENT_CHANGE_DETECTED/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C006
+test('an open transaction refuses the detector with TRANSACTION_OPEN', () => {
+  const workspace = materializeSmoothWorkspace();
+  const output = capture();
+  try {
+    mkdirSync(join(workspace.root, 'regeneration'), { recursive: true });
+    writeFileSync(join(workspace.root, 'regeneration', 'GENERATIONS.json'), `${JSON.stringify({
+      schemaVersion: 1,
+      transactions: [{ id: 'tx-open', state: 'open', reason: 'test', stagingRoot: '/tmp/staging' }],
+    }, null, 2)}\n`);
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 2);
+    assert.match(output.stderr.join('\n'), /TRANSACTION_OPEN/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C006
+test('a judgment-required transaction exits 3 even when the live checks pass', () => {
+  const workspace = materializeSmoothWorkspace();
+  const output = capture();
+  try {
+    mkdirSync(join(workspace.root, 'regeneration'), { recursive: true });
+    writeFileSync(join(workspace.root, 'regeneration', 'GENERATIONS.json'), `${JSON.stringify({
+      schemaVersion: 1,
+      transactions: [{ id: 'tx-judge', state: 'judgment-required', reason: 'the cited line no longer holds', stagingRoot: '/tmp/staging' }],
+    }, null, 2)}\n`);
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 3);
+    assert.match(output.stdout.join('\n'), /judgment-required/);
   } finally {
     workspace.remove();
   }

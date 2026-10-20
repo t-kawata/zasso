@@ -12,13 +12,11 @@
 import { readLedgerRows } from '../../sequences-slice/lib/distribution-ledger.mjs';
 import { finding } from './index.mjs';
 import {
-  ALLOCATE_FINALIZE_COMMAND,
   repairRouteFor,
   routeForOperation,
   routeForPackage,
   routeForSpecRow,
   routeForStep,
-  SEQUENCES_SLICE_COMMAND,
   SURFACE,
 } from './repair-route.mjs';
 
@@ -226,17 +224,9 @@ function checkContractClauses(boundary, contract, findings) {
 }
 
 /** The two sides a boundary names, checked against the direction and counterpart it fixes. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-278) --for-spec --no-implementation-order`.
 function checkBoundarySides(index, boundary, findings) {
-  // A side mismatch lives in the allocate decision, but the view is derived after the
-  // decision changes; the producer names both steps so a repair cannot stop halfway.
-  const boundarySideRoute = (locator, packageId) => {
-    const packagePath = index.packagesById.get(packageId)?.path ?? packageId;
-    return {
-      ...repairRouteFor('S4.boundary-side-mismatch', { locator }),
-      producer: `${ALLOCATE_FINALIZE_COMMAND} && ${SEQUENCES_SLICE_COMMAND} ${index.artifactPath} ${packagePath}`,
-    };
-  };
+  const boundarySideRoute = (locator) => repairRouteFor('S4.boundary-side-mismatch', { locator });
   const sides = new Map();
   for (const pkg of index.packages) {
     const units = (pkg.view?.obligationUnits ?? []).filter((unit) => unit.subject === boundary.id);
@@ -251,7 +241,7 @@ function checkBoundarySides(index, boundary, findings) {
     if (unit === undefined) {
       addFinding(findings, 'S4.boundary-side-mismatch', locator, {
         className: 'omission',
-        route: boundarySideRoute(locator, packageId),
+        route: boundarySideRoute(locator),
         why: `${packageId} carries no side of ${boundary.id}`,
         fix: `project the ${expectedDirection} side of ${boundary.id} into ${packageId} from the allocate decision, then re-project its view`,
       });
@@ -260,7 +250,7 @@ function checkBoundarySides(index, boundary, findings) {
     if (unit.direction !== expectedDirection) {
       addFinding(findings, 'S4.boundary-side-mismatch', locator, {
         className: 'contradiction',
-        route: boundarySideRoute(locator, packageId),
+        route: boundarySideRoute(locator),
         why: `${packageId} declares ${unit.direction} for ${boundary.id}, and the registry makes it ${expectedDirection}`,
         fix: `correct the direction to ${expectedDirection} in the allocate decisions, then re-project the view`,
       });
@@ -269,7 +259,7 @@ function checkBoundarySides(index, boundary, findings) {
     if (unit.counterpart !== expectedCounterpart) {
       addFinding(findings, 'S4.boundary-side-mismatch', locator, {
         className: 'contradiction',
-        route: boundarySideRoute(locator, packageId),
+        route: boundarySideRoute(locator),
         why: `${packageId} names counterpart ${unit.counterpart}, not ${expectedCounterpart}`,
         fix: `correct the counterpart to ${expectedCounterpart} in the allocate decisions, then re-project the view`,
       });

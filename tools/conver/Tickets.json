@@ -41396,6 +41396,203 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-20"
+        },
+        {
+          "id": 278,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make thaw and refreeze a script-owned transaction that guarantees a verified rollback",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-278.md",
+          "invariants": "- [Normal establishment] The live design files are byte-identical during open, derive and verify; only commit writes them.\n- [Error invariant] Any failure leaves the live generation valid and unchanged, or fully rolled back byte-identically.\n- [Internal state invariant] The ledger moves monotonically through open, derived, verified, committing and committed; a failed commit ends in commit-failed after rollback.\n- [Boundary invariant] No hash is accepted as input, no frozen file is written outside commit, and a broken baseline never opens a transaction.",
+          "background": "### Goal\nMake thaw and refreeze a script-owned transaction: once a thaw is opened, the workspace either commits a fully verified new generation or is restored byte-identically to the old one. The AI never decides whether the chain is valid, never supplies a hash, and never edits a frozen file in place.\n\n### Purpose\nPX-277 made every finding name an authored surface and a producer, but it routed 22 of 31 checkIds to the specification and to allocate finalize. Both are frozen, hash-chained, one-shot artifacts: the tree refuses a different input hash, allocate refuses an existing target, and the grill guard refuses the specification by name. Following PX-277's routes can therefore either desynchronize the manifests silently or deadlock the repair loop.\n\n### Motivation\nThe pipeline must support change. A freeze is a provenance rule (no silent change), not a ban on change. The safe way to change a frozen artifact is an explicit transaction that derives a new generation in isolation, verifies every link and every grounded judgment, and publishes atomically with rollback. Without that path, /smooth-sequences cannot satisfy its own 'exit 0 only when every finding is closed' gate.\n\n### Constraints\n- The live design files are byte-identical during open, derive and verify; only commit writes them.\n- No force flag and no hash argument; hashes are computed by the script.\n- A broken baseline opens no transaction; a failed refreeze leaves the old generation usable.\n- Each link verifies with the digest function of the producer that wrote it.\n- The educe reading phases and the grill judgments remain AI work; the transaction orchestrates and verifies them, it does not replace them.\n- No new dependency.",
+          "scope": [
+            "**File/module path:** `.claude/scripts/regeneration/lib/chain.mjs` (new). **Action:** add. **Detail:** `verifyChain(root)` reads the spec, `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json` and the `*-sequences.json` artifact, and checks each link with the function that wrote it: spec bytes to `tree.input.source_hash` (LF-normalized SHA-256), tree self-hash (`integrity.manifest_hash`), `allocate.input_tree_manifest.hash` to the tree self-hash, `allocate.input_tree_manifest.spec.sha256` and `artifact.spec.sha256` to the spec digest, allocate self-hash, every `seed_index[].sha256`, and every view's package id and unit set. **Before -> After:** no link was checked -> a named link result `{link, ok, expected, actual, code}` for every link. **API:** `verifyChain(root) -> { ok, links }` with codes `SPEC_DIGEST_MISMATCH`, `TREE_SELF_HASH_MISMATCH`, `TREE_LINK_MISMATCH`, `SPEC_LINK_MISMATCH`, `ALLOCATE_SELF_HASH_MISMATCH`, `SEED_DIGEST_MISMATCH`, `VIEW_LINK_MISMATCH`. **Schema:** none. **Config:** none. **Dependency:** reuses the tree and allocate self-hash modules rather than re-implementing canonicalization.",
+            "**File/module path:** `.claude/scripts/regeneration/lib/ledger.mjs` (new). **Action:** add. **Detail:** `workspaceRoot/regeneration/GENERATIONS.json` records one entry per transaction: `{id, state, reason, openedAt, committedAt, base, candidateSpec, stagingRoot, archiveRoot, verification, error}`. States: `open`, `derived`, `verified`, `committing`, `committed`, `aborted`, `commit-failed`, `judgment-required`. `assertNoOpenTransaction(root)` refuses when an entry is `open`, `derived`, `verified` or `committing`. **Before -> After:** no generation record existed -> every thaw and refreeze is auditable. **API:** `readLedger`, `writeLedger`, `openEntry`, `transition`, `assertNoOpenTransaction`. **Schema:** ledger schemaVersion 1.",
+            "**File/module path:** `.claude/scripts/regeneration/lib/staging.mjs` (new). **Action:** add. **Detail:** create the staging root at `<workspaceRoot>.regeneration/<transactionId>/`, on the same filesystem for atomic rename. Copy the design copy set: the candidate spec under the basename the producers expect, `workspacify/tree/DECISIONS.json`, `workspacify/allocate/DECISIONS.json`, every package's `RFC-SEED.md`, `RFC.md`, `DesignTree.json`, `CheckList.md`, `Status.json`, `OBLIGATION.json`, `SEQUENCES.json` and `SEQUENCES.md`, plus the existing `educe-sequences/` run directory. Never copy implementation files. **Before -> After:** no staged generation existed -> the live workspace is never the place a candidate is derived. **API:** `createStaging({root, specPath, transactionId}) -> {stagingRoot, copied}`. **Schema:** none.",
+            "**File/module path:** `.claude/scripts/regeneration/lib/transaction.mjs` (new). **Action:** add. **Detail:** the state machine `open -> derived -> verified -> committing -> committed`, with `abort`, `judgment-required` and `commit-failed` branches. `open` first calls `verifyChain(root)`; a non-ok chain refuses with `SILENT_CHANGE_DETECTED` and writes nothing. A second open while an entry is active refuses with `TRANSACTION_OPEN`. A candidate spec identical to the live one refuses with `NO_CHANGE`. **Before -> After:** no transaction existed -> thaw is one script-owned operation with a recorded reason. **API:** `openTransaction({root, candidateSpec, reason}) -> {transactionId, stagingRoot}`; `abortTransaction(root)`. **Schema:** ledger state transitions.",
+            "**File/module path:** `.claude/scripts/regeneration/lib/derive.mjs` (new). **Action:** add. **Detail:** run the deterministic producers with `cwd = stagingRoot`: `node .claude/scripts/workspacify-tree/run.mjs finalize --spec=<candidate>`, then `node .claude/scripts/workspacify-allocate/run.mjs finalize <stagingRoot>/WORKSPACIFY-TREE-MANIFEST.json`, then hand off the educe generation (`phase.mjs begin <spec>` in staging; the AI completes the phases), then run the grill's mechanical gates (`check-obligation-coverage.js`, `check-contribution-completeness.js`, `check-distribution-completeness.js`, `defect-report.js --gate`), then project every package view with `node .claude/scripts/sequences-slice/run.mjs <artifact> <package-dir>`. A producer failure stops the state at `derived` with the producer's stderr; the live workspace is untouched. **Before -> After:** producers could only publish once -> every step runs against the staging root. **API:** `deriveGeneration({stagingRoot, candidateSpec}) -> {state, failedStep, stderr}`.",
+            "**File/module path:** `.claude/scripts/regeneration/lib/commit.mjs` (new). **Action:** add. **Detail:** commit is a journaled multi-file swap. Verify the live base hashes are unchanged since open; write `regeneration/COMMIT-JOURNAL.json` with the target list and backup root; move the old targets to `regeneration/archive/<oldGenerationId>/`; move the staged targets into place; run the post-commit chain verification and the detector; only then mark `committed`. An injected failure at any rename or at post-commit verification restores every target from the archive byte-identically. `recoverCommit(root)` resolves a journal left by a crash: it completes when every new target is present and verified, otherwise it rolls back; consumers call it before reading. **Before -> After:** a failed publish could leave a mixed workspace -> commit either publishes a verified generation or restores the old one. **API:** `commitGeneration({root, transactionId, fileSystem}) -> {state, archiveRoot, verification}`; `recoverCommit(root) -> {state}`.",
+            "**File/module path:** `.claude/scripts/smooth-sequences/lib/repair-route.mjs`. **Action:** modify. **Detail:** add `repairClass` to every route: `in-place` for `RFC.md` ledger/boundary edits and package view projection; `regeneration` for spec, tree and allocate findings; `judgment-required` when a copied RFC or obligation ground no longer resolves. Remove the spec and allocate-finalize producers. Regeneration findings name the transaction operation (`node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=...`). **Before -> After:** 22 checkIds routed to frozen inputs -> they route to a transaction whose commit is the only writer. **API:** `repairRouteFor` returns `{where, why, fix, producer, repairClass}`.",
+            "**File/module path:** `.claude/scripts/smooth-sequences/run.mjs`. **Action:** modify. **Detail:** call `recoverCommit(root)` and `assertNoOpenTransaction(root)` before loading the workspace; call `verifyChain(root)` and emit a danger finding for every broken link; exit 3 when any finding is `judgment-required`; exit 0 only when findings are empty, the chain verifies and no transaction is open. **Before -> After:** exit 0 could be reached on a mixed workspace -> a mixed or half-committed workspace cannot pass. **API:** `runCommand` keeps `{exitCode, report}`; exit codes 0 pass, 1 findings, 2 misuse, 3 judgment required.",
+            "**File/module path:** `.claude/commands/smooth-sequences.md`. **Action:** modify. **Detail:** document the three repair classes; state that the specification, `WORKSPACIFY-*`, and the artifact are never edited in place; state that `regeneration` findings call the transaction and that `judgment-required` stops with exit 3; replace the 'edit the spec' example with an `open` example. **Before -> After:** the document told the AI to edit frozen inputs -> it exposes one script-owned transaction.",
+            "**File/module path:** `tests/regeneration/chain.test.mjs`, `tests/regeneration/transaction.test.mjs`, `tests/regeneration/commit.test.mjs` (new) and `tests/smooth-sequences/repair-route.test.mjs` (modified). **Action:** add/modify. **Detail:** cover the contracts with real fixtures: a consistent chain, each broken link, a broken baseline, an open transaction, isolation, a ground failure, a detector finding, a changed live baseline, a successful commit with archive, an injected rename failure, an injected post-commit verification failure, journal recovery, rejected force/hash arguments, and the smooth-sequences exit 3 path. **Before -> After:** no transaction tests existed -> every failure path asserts byte-identical restoration.",
+            "**Out of scope:** the semantic quality of educe readings and the grill's judgments. **Why:** the transaction orchestrates and verifies them; deciding what a reading or a judgment should say is the AI's work, not the transaction's.",
+            "**Out of scope:** rewriting the tree, allocate or educe algorithms. **Why:** the transaction runs them unchanged in staging; their one-shot publish rules are preserved.",
+            "**Affected component:** every `/smooth-sequences` run. **Nature:** exit codes and repair instructions. **Response:** regeneration findings no longer instruct a frozen edit; judgment-required findings stop with exit 3.",
+            "**Affected component:** the design workspace. **Nature:** new `regeneration/` records and archive. **Response:** the ledger and archive make every thaw and refreeze auditable.",
+            "**File/module path:** `.claude/scripts/workspacify-tree/run.mjs`, `.claude/scripts/workspacify-allocate/run.mjs`, `.claude/scripts/educe-sequences/rail/phase.mjs`, `.claude/scripts/sequences-slice/run.mjs`. **Action:** modify. **Detail:** each entry point calls `recoverCommit(root)` and `assertNoOpenTransaction(root)` from the shared regeneration module before reading or writing; an unresolved commit journal is completed or rolled back before the producer acts, and a live publish is refused while a transaction is open. **Before -> After:** a crash could leave a half-committed workspace that a producer reads -> every consumer resolves the journal first. **API:** the guard returns the resolved state or throws a named refusal. **Schema:** none."
+          ],
+          "testUnit": [
+            "UT: [Normal] a consistent spec, tree manifest, allocate manifest and artifact verify with every link ok (C001)",
+            "UT: [Error] changed spec bytes without a new tree source_hash report SPEC_DIGEST_MISMATCH (C001)",
+            "UT: [Error] a tampered tree manifest reports TREE_SELF_HASH_MISMATCH (C001)",
+            "UT: [Error] an allocate input_tree_manifest.hash that differs from the tree self-hash reports TREE_LINK_MISMATCH (C001)",
+            "UT: [Error] an artifact spec.sha256 that differs from the allocate spec hash reports SPEC_LINK_MISMATCH (C001)",
+            "UT: [Error] a tampered allocate manifest reports ALLOCATE_SELF_HASH_MISMATCH (C001)",
+            "UT: [Error] a seed file whose bytes differ from seed_index reports SEED_DIGEST_MISMATCH (C001)",
+            "UT: [Normal] open on a valid baseline creates a transaction and leaves every live design file byte-identical (C001, C002)",
+            "UT: [Error] open on a broken baseline reports SILENT_CHANGE_DETECTED and writes no transaction (C001)",
+            "UT: [Error] a second open while an entry is active reports TRANSACTION_OPEN (C001)",
+            "UT: [Error] a candidate spec identical to the live spec reports NO_CHANGE (C002)",
+            "UT: [Normal] derive runs every producer with the staging root as cwd and leaves the live workspace byte-identical (C002)",
+            "UT: [Error] a derivation failure leaves the live workspace byte-identical and the transaction failed (C002)",
+            "UT: [Normal] verify passes only when the chain verifies, every RFC and obligation ground resolves and the staging detector exits 0 (C003)",
+            "UT: [Error] a failing chain link blocks commit and leaves the live workspace byte-identical (C003)",
+            "UT: [Error] a ground that no longer resolves records judgment-required and blocks commit (C003)",
+            "UT: [Error] a staging detector finding blocks commit and names the finding (C003)",
+            "UT: [Normal] commit replaces exactly the design artifacts, archives the old generation and passes the post-commit chain and detector run (C004)",
+            "UT: [Error] commit refuses when the live baseline changed since open and leaves the live workspace byte-identical (C004)",
+            "UT: [Error] an injected rename failure restores every live design file byte-identically and records commit-failed (C004)",
+            "UT: [Error] an injected post-commit verification failure restores the old generation byte-identically (C004)",
+            "UT: [Boundary] recoverCommit resolves a prepared or applying journal by completing or rolling back before a consumer reads (C004)",
+            "UT: [Error] the CLI rejects force, source-hash and hash arguments (C005)",
+            "UT: [Error] smooth-sequences refuses a broken live chain with SILENT_CHANGE_DETECTED and never exits 0 (C005)",
+            "UT: [Error] smooth-sequences refuses while a transaction is open with TRANSACTION_OPEN (C005)",
+            "UT: [Boundary] no code path writes a frozen basename outside commitGeneration (C005)",
+            "UT: [Normal] in-place findings keep the RFC and view routes; regeneration findings name the transaction; judgment-required findings exit 3 (C006)",
+            "UT: [Invariant] exit 0 requires zero findings, a verified live chain and no open transaction (C006)",
+            "UT: [Normal] the ledger records reason, base hashes, candidate hash, old and new generation hashes and the verification receipt (C004)",
+            "UT: [Boundary] status reports the state and the next action for open, derived, verified, committing, committed, aborted and commit-failed (C004)",
+            "UT: [Boundary] every producer entry resolves an unresolved commit journal before reading and refuses until recoverCommit completes or rolls back (C004)",
+            "UT: [Boundary] a stale open entry blocks a second open until abort clears it, and the live design files stay byte-identical (C001)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] chain.mjs + real tree and allocate fixtures. [Verification] a tiny spec with real tree/allocate outputs produces every link ok; editing the spec out-of-band breaks the spec link. [Prerequisites] a fixture workspace with real manifest input blocks. [Related tickets] PX-273, PX-277.",
+            "IT: [Integration point] transaction + staging + commit. [Verification] open, a fixture-derived generation, verify and commit produce a live workspace byte-identical to staging, an archived old generation and a passing post-commit detector. [Prerequisites] a consistent fixture chain and a deterministic fixture derive. [Related tickets] PX-278.",
+            "IT: [Integration point] commit + fault injection. [Verification] a failure at each rename and at post-commit verification restores the live workspace byte-identically and leaves the ledger commit-failed. [Prerequisites] the commit fileSystem seam. [Related tickets] PX-278.",
+            "IT: [Integration point] smooth-sequences + chain + transaction. [Verification] a broken chain produces a danger finding and no pass; an open transaction produces TRANSACTION_OPEN; a judgment-required finding exits 3; after a committed regeneration the run exits 0. [Prerequisites] the smooth-sequences fixtures plus a regeneration fixture. [Related tickets] PX-277, PX-278.",
+            "IT: [Integration point] the producer entry guards + commit journal. [Verification] a persisted applying journal makes tree, allocate, educe and sequences-slice refuse until recoverCommit resolves it; after recovery each reads a valid generation. [Prerequisites] the commit journal fixture. [Related tickets] PX-278."
+          ],
+          "testExceptions": [
+            "The educe reading phases cannot test automatically: the reader is the AI and its reading is not a deterministic function of the spec. This is not a design defect and not an architectural defect. Alternative verification: the transaction tests the educe handoff state, the artifact-presence check, and the post-artifact chain and detector verification; the reading quality remains a judgment recorded by the existing educe gates.",
+            "A real SIGKILL during the commit renames cannot test deterministically. This is not a design defect and not an architectural defect. Alternative verification: the commit journal is persisted at each intermediate state and recoverCommit is tested against every persisted state, asserting either completion or byte-identical rollback."
+          ],
+          "instrumentation": "- Logging: stdout reports the transaction id, state and next action; stderr reports the failing link, ground or producer.\n- Metrics: the ledger records the number of links, grounds and findings verified per transaction.\n- Error tracking: dedicated codes SILENT_CHANGE_DETECTED, TRANSACTION_OPEN, NO_CHANGE, UNVERIFIED_GENERATION, COMMIT_ROLLED_BACK, JUDGMENT_REQUIRED.\n- Health check: smooth-sequences prints the chain verdict and refuses a broken or half-committed workspace.\nStatic quality check: passed (0 issues)\nTranslatability: renamed noun-phrase helpers (describeStatus, compareLink, failedLink, computeFileDigest, collectTargetPaths); no generic variables or debug output\nTests: 178 tests, 177 passed, 0 failed, 1 opt-in skipped\nConventions: pass",
+          "notes": "- Implementation steps: (1) chain.mjs with the producer self-hash functions; (2) ledger and staging; (3) open/abort/status; (4) derive and educe handoff; (5) verify with grounds and detector; (6) commit journal, rollback and recovery; (7) smooth-sequences integration and exit 3; (8) the documentation; (9) the test matrix.\n- Risks: the staging copy set must include every input the producers read; a missing RFC-SEED or decisions file makes derive fail. The copy set is enumerated in scope and tested by deriving from a complete fixture.\n- Caveats: regeneration is a design transaction; implementation files are never copied or replaced. The archive and ledger live under `regeneration/` and are records, not inputs.\n- Open items: the exact CLI smoke command for an educe handoff is `phase.mjs begin <spec>` followed by the phase loop; the transaction prints the next phase and waits for the AI.\n- Future improvements: a signed generation ledger and a remote audit sink.\nImplementation summary:\n- Added .claude/scripts/regeneration with chain, ledger, staging, transaction, commit and the CLI.\n- chain.mjs verifies spec->tree, tree self, tree->allocate, spec->allocate, spec->artifact, allocate self, seeds and views with the producer's own digest.\n- transaction.mjs opens only from a declared, consistent chain; derive runs in a sibling staging root; verify requires the chain, the grounds and a detector exit 0; judgment-required is recorded.\n- commit.mjs journals targets and backups, writes through temp-and-rename, verifies after the write, restores byte-identically, and recoverCommit resolves an interrupted journal.\n- smooth-sequences now recovers before reading, refuses an open transaction and a broken chain with exit 2, classifies findings, and exits 3 on judgment-required. The specification route is read-only and names the regeneration command.\n- Commands, tests and the module table were updated; annotations: 19 files, 0 missing, 0 ambiguous.\n- Test results: 176 tests, 175 passed, 0 failed, 1 opt-in skipped (smooth-sequences, regeneration and the three external suites).\n- Quality checks: 0 issues. Conventions: pass.\n- Residual: the default pipeline producer and the grill gates are exercised by the CLI wiring, not end-to-end in tests; the transaction behavior is tested with a deterministic producer and an injected detector.\nReview report:\n- Static quality check: passed, 0 issues.\n- Translatability: no generic names or debug output; renamed noun-phrase helpers to verb phrases.\n- Dependencies: the chain links were verified against real tree/allocate self-hash functions; no RFC graph is available for this ticket (pipelineAvailable false).\n- Annotation verify: 19 files, 0 missing, 0 ambiguous.\n- Conventions: pass after adding regeneration to the module table.\n- Tests: 178 tests, 177 passed, 0 failed, 1 opt-in skipped (smooth-sequences, regeneration and the three external suites).\n- Issues found and fixed in review:\n  1. A second derive after the educe handoff reran allocate finalize and would BLOCK on the existing staging targets; derive now passes resume=true and skips tree/allocate/begin.\n  2. The commit target list was the union of live and staged paths, so a live design file absent from staging (for example a rendering the producer did not rewrite) could be deleted; commit now writes staged targets only and leaves live-only files untouched.\n  3. recoverCommit completed a verifying journal but left the staging tree behind; it now removes it.\n- Residual risk: the default pipeline producer and the grill gates are exercised through the CLI wiring, not end-to-end on a real workspace; the transaction behavior is covered by the deterministic producer and the injected detector.",
+          "acceptanceCriteria": [
+            "[Happy path] A consistent workspace opens a transaction, derives and verifies a candidate, commits, and leaves the live design files byte-identical to staging with the old generation archived and the post-commit detector exiting 0.",
+            "[Error case] A candidate that breaks a chain link or a grounded judgment refuses commit, leaves every live design file byte-identical, and reports the failing link or ground.",
+            "[Edge case] An injected failure at any commit rename or at post-commit verification restores the old generation byte-identically; a persisted journal is recovered before any consumer reads."
+          ],
+          "investigation": "- The chain is explicit: `tree.input.source_hash` is the LF-normalized spec SHA-256; `tree.integrity.manifest_hash` is the tree self-hash; `allocate.input_tree_manifest.hash` equals it; `allocate.input_tree_manifest.spec.sha256` and `artifact.spec.sha256` equal the spec hash; `allocate.integrity.manifest_hash` is the allocate self-hash; `seed_index[].sha256` covers every seed (verified on gaia: 5ccc..., 684c..., eb5d...).\n- tree refuses an existing manifest with a different input hash (`workspacify-tree/lib/atomic-publish.mjs:33-42`). allocate refuses an existing target (`workspacify-allocate/lib/tree-staging.mjs:123-126`) and re-hashes the co-located spec (`workspacify-allocate/lib/tree-manifest-input.mjs:224`). grill refuses the specification and WORKSPACIFY-* by name (`grill-me-for-rfc.md:47-51`, `guard-edit-surface.js:36-53`).\n- educe already opens generations and archives readings (`educe-sequences.md:53,139-142`); the new transaction wraps it rather than replacing it.\n- smooth-sequences has no chain check (`grep source_hash` finds none) and PX-277 routes 22 of 31 checkIds to the spec (`repair-route.mjs:26-69,102`).\n- `/educe-sequences` and `/grill-me-for-rfc` are `disable-model-invocation: true`; the transaction therefore calls their node scripts, not the slash commands.\n- The detector writes only SMOOTH-SEQUENCES.json and .md (`heal-loop.test.mjs`), so the transaction is the only writer of the design artifacts.",
+          "boyScoutPlan": "- Name every hash link, state and error code as a constant; no producer string is repeated.\n- Keep each module one responsibility: chain verification, ledger, staging, derive, commit.\n- Inject the fileSystem seam for commit so the rollback tests are real and deterministic; no mock objects.\n- Replace the smooth-sequences spec/allocate routes with a single transaction route rather than adding a second special case.\n- Update the stale PX-277 comment that describes the spec as an editable surface.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "frozen baseline",
+              "precondition": "the live workspace holds the spec, the tree manifest, the allocate manifest and the sequences artifact with matching recorded hashes",
+              "postcondition": "open creates a staging generation and leaves every live design file byte-identical",
+              "invariant": "a baseline with any broken link opens no transaction and reports SILENT_CHANGE_DETECTED"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "staging isolation",
+              "precondition": "an open transaction holds a candidate specification and a staging root outside the live workspace",
+              "postcondition": "every derivation step reads and writes only the staging root, and the live design files stay byte-identical",
+              "invariant": "a derivation failure leaves the live workspace byte-identical and the transaction failed"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "pre-commit verification",
+              "precondition": "a derived generation exists in staging",
+              "postcondition": "commit is allowed only after the chain verifies, every RFC and obligation ground resolves, and the detector on staging exits 0",
+              "invariant": "any failing link, ground or finding keeps the live workspace byte-identical and blocks commit"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "commit transaction",
+              "precondition": "a verified generation exists and the live baseline is unchanged since open",
+              "postcondition": "commit replaces exactly the design artifacts, archives the old generation, and a post-commit chain and detector run passes",
+              "invariant": "a failure at any rename restores the live design files byte-identically, and an interrupted commit is resolved before any consumer proceeds"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "no bypass",
+              "precondition": "the CLI is invoked with a hash or force argument, or a frozen file is edited outside the transaction",
+              "postcondition": "the CLI rejects the argument and the consumers refuse the broken chain",
+              "invariant": "a hash is never accepted as input and no frozen file is written outside commit"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "repair loop",
+              "precondition": "smooth-sequences emits a finding classified in-place, regeneration or judgment-required",
+              "postcondition": "in-place findings keep the existing edit route, regeneration findings name the transaction, and judgment-required findings exit 3",
+              "invariant": "exit 0 requires zero findings, a verified chain and no open transaction"
+            }
+          ],
+          "created_at": "2026-10-20",
+          "updated_at": "2026-10-20",
+          "default_files": [
+            ".claude/scripts/regeneration/run.mjs",
+            ".claude/scripts/regeneration/lib/chain.mjs",
+            ".claude/scripts/regeneration/lib/transaction.mjs",
+            ".claude/scripts/regeneration/lib/staging.mjs",
+            ".claude/scripts/regeneration/lib/derive.mjs",
+            ".claude/scripts/regeneration/lib/commit.mjs",
+            ".claude/scripts/regeneration/lib/ledger.mjs",
+            ".claude/scripts/smooth-sequences/lib/repair-route.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/regeneration/chain.test.mjs",
+            "tests/regeneration/transaction.test.mjs",
+            "tests/regeneration/commit.test.mjs",
+            "tests/smooth-sequences/repair-route.test.mjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 frozen baseline — chain verification and broken-baseline refusal\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { writeFileSync } from 'node:fs';\nimport { join } from 'node:path';\n\nimport { verifyChain } from '../../.claude/scripts/regeneration/lib/chain.mjs';\nimport { materializeChainWorkspace } from './helpers/chain-fixture.mjs';\n\ntest('a consistent chain verifies every link', () => {\n  const workspace = materializeChainWorkspace();\n  try {\n    const result = verifyChain(workspace.root);\n    assert.equal(result.ok, true);\n    assert.deepEqual(result.links.filter((link) => !link.ok), []);\n  } finally {\n    workspace.remove();\n  }\n});\n\ntest('changed spec bytes without a new tree source_hash report SPEC_DIGEST_MISMATCH', () => {\n  const workspace = materializeChainWorkspace();\n  try {\n    writeFileSync(join(workspace.root, 'spec.md'), '# changed\\n');\n    const result = verifyChain(workspace.root);\n    assert.equal(result.ok, false);\n    assert.ok(result.links.some((link) => link.code === 'SPEC_DIGEST_MISMATCH'));\n  } finally {\n    workspace.remove();\n  }\n});\n```",
+            "UT: C001/C002 open — byte-identical live tree, broken baseline refused\n```js\nimport assert from 'node:assert/strict';\nimport { openTransaction } from '../../.claude/scripts/regeneration/lib/transaction.mjs';\nimport { materializeBrokenChainWorkspace, materializeChainWorkspace, snapshotDesignTree } from './helpers/chain-fixture.mjs';\n\nconst workspace = materializeChainWorkspace();\nconst before = snapshotDesignTree(workspace.root);\nconst transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'test thaw' });\nassert.ok(transaction.transactionId);\nassert.deepEqual(snapshotDesignTree(workspace.root), before);\n\nconst broken = materializeBrokenChainWorkspace();\nconst brokenBefore = snapshotDesignTree(broken.root);\nassert.throws(\n  () => openTransaction({ root: broken.root, candidateSpec: broken.candidatePath, reason: 'test' }),\n  (error) => error.code === 'SILENT_CHANGE_DETECTED',\n);\nassert.deepEqual(snapshotDesignTree(broken.root), brokenBefore);\n```",
+            "UT: C002 staging isolation — derive writes only the staging root\n```js\nimport assert from 'node:assert/strict';\nimport { deriveGeneration } from '../../.claude/scripts/regeneration/lib/derive.mjs';\nimport { snapshotDesignTree } from './helpers/chain-fixture.mjs';\n\nconst before = snapshotDesignTree(workspace.root);\nconst derived = deriveGeneration({\n  root: workspace.root,\n  transactionId: transaction.transactionId,\n  runProducer: (step) => runFixtureProducer(step, transaction.stagingRoot),\n});\nassert.equal(derived.state, 'derived');\nassert.deepEqual(snapshotDesignTree(workspace.root), before);\n\nconst failed = deriveGeneration({\n  root: workspace.root,\n  transactionId: transaction.transactionId,\n  runProducer: () => { throw new Error('producer refused'); },\n});\nassert.equal(failed.state, 'derive-failed');\nassert.deepEqual(snapshotDesignTree(workspace.root), before);\n```",
+            "UT: C003 pre-commit verification — chain, ground and detector\n```js\nimport assert from 'node:assert/strict';\nimport { verifyGeneration } from '../../.claude/scripts/regeneration/lib/transaction.mjs';\n\nconst verified = verifyGeneration({ root: workspace.root, transactionId: transaction.transactionId });\nassert.equal(verified.state, 'verified');\nassert.equal(verified.receipt.chain.ok, true);\nassert.equal(verified.receipt.detector.exitCode, 0);\n\nwriteBrokenGround(transaction.stagingRoot);\nconst judged = verifyGeneration({ root: workspace.root, transactionId: transaction.transactionId });\nassert.equal(judged.state, 'judgment-required');\nassert.match(judged.reason, /ground/);\n\nwriteDetectorFinding(transaction.stagingRoot);\nconst blocked = verifyGeneration({ root: workspace.root, transactionId: transaction.transactionId });\nassert.equal(blocked.state, 'derived');\nassert.ok(blocked.receipt.detector.findings.length > 0);\n```",
+            "UT: C004 commit and rollback — injected rename failure restores byte-identically\n```js\nimport assert from 'node:assert/strict';\nimport * as nodeFs from 'node:fs';\nimport { commitGeneration, recoverCommit } from '../../.claude/scripts/regeneration/lib/commit.mjs';\nimport { readLedger } from '../../.claude/scripts/regeneration/lib/ledger.mjs';\nimport { snapshotDesignTree } from './helpers/chain-fixture.mjs';\n\nconst before = snapshotDesignTree(workspace.root);\nconst failingFs = {\n  ...nodeFs,\n  renameSync: (from, to) => {\n    if (String(from).endsWith('/RFC.md')) throw new Error('injected rename failure');\n    return nodeFs.renameSync(from, to);\n  },\n};\nassert.throws(\n  () => commitGeneration({ root: workspace.root, transactionId: transaction.transactionId, fileSystem: failingFs }),\n  /injected rename failure/,\n);\nassert.deepEqual(snapshotDesignTree(workspace.root), before);\nassert.equal(readLedger(workspace.root).transactions.at(-1).state, 'commit-failed');\n\nconst recovered = recoverCommit(workspace.root);\nassert.ok(['rolled-back', 'completed'].includes(recovered.state));\nassert.equal(verifyChain(workspace.root).ok, true);\n```",
+            "UT: C005/C006 no bypass — CLI rejection, regeneration route and exit 3\n```js\nimport assert from 'node:assert/strict';\nimport { spawnSync } from 'node:child_process';\n\nimport { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';\nimport { repairRouteFor } from '../../.claude/scripts/smooth-sequences/lib/repair-route.mjs';\n\nconst forced = spawnSync(process.execPath, [CLI, 'open', '--force'], { encoding: 'utf8' });\nassert.notEqual(forced.status, 0);\nassert.match(forced.stderr, /force/);\n\nconst route = repairRouteFor('S3.transition-target-unknown', { artifact: { spec: { path: 'spec.md' } }, locator: 'L4' });\nassert.equal(route.repairClass, 'regeneration');\nassert.match(route.producer, /regeneration\\/run\\.mjs open/);\n\nconst stderr = [];\nconst result = runCommand([judgmentRequiredWorkspace.root], { stdout: () => {}, stderr: (line) => stderr.push(line) });\nassert.equal(result.exitCode, 3);\nassert.match(stderr.join('\\n'), /judgment-required/);\n```"
+          ],
+          "startedAt": "2026-10-20",
+          "changes": [
+            {
+              "before": "no code verified the spec/tree/allocate/artifact hash chain",
+              "after": "regeneration/lib/chain.mjs verifies every link with the producer's own digest and returns a named result per link",
+              "description": "add chain verification"
+            },
+            {
+              "before": "a thaw had no state, no staging tree and no record",
+              "after": "regeneration/lib/ledger.mjs and staging.mjs record each transaction, copy only the design inputs to a sibling staging root, and expose the active-transaction guard",
+              "description": "add the generation ledger and staging"
+            },
+            {
+              "before": "open/derive/verify were not script-owned",
+              "after": "transaction.mjs opens only from a valid chain, derives in staging, verifies the chain, the grounds and the detector, and records judgment-required",
+              "description": "add the transaction state machine"
+            },
+            {
+              "before": "a failed publish could leave a mixed workspace",
+              "after": "commit.mjs journals the targets and backups, writes through atomic temp-and-rename, verifies after the write, restores byte-identically on any failure, and recovers an interrupted journal before a consumer reads",
+              "description": "add the journaled commit and rollback"
+            },
+            {
+              "before": "22 checkIds routed to the frozen spec or to allocate finalize",
+              "after": "smooth-sequences classifies every finding as in-place or regeneration, names the transaction for regeneration, marks the spec route read-only, and exits 2 on TRANSACTION_OPEN or SILENT_CHANGE_DETECTED and 3 on judgment-required",
+              "description": "integrate the transaction into the repair loop"
+            },
+            {
+              "before": "the command document told the AI to edit the specification",
+              "after": "it documents the three repair classes, the candidate/transaction path, and the frozen inputs",
+              "description": "update the command document"
+            },
+            {
+              "before": "no transaction tests existed",
+              "after": "35 chain/transaction/commit tests cover every link, open/derive/verify/abort, commit success, baseline change, injected rename failure, post-commit failure, and journal recovery; the smooth-sequences tests cover the chain and exit gates",
+              "description": "add the test matrix"
+            },
+            {
+              "before": "the module table did not name regeneration",
+              "after": "the table names regeneration as module and check-conventions passes",
+              "description": "keep the conventions table current"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-20"
         }
       ]
     },

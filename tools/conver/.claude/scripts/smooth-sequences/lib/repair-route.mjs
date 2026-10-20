@@ -18,9 +18,8 @@ export const SURFACE = Object.freeze({
 });
 
 export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
-export const EDUCE_SEQUENCES_COMMAND = '/educe-sequences';
-export const GRILL_COMMAND = '/grill-me-for-rfc';
-export const ALLOCATE_FINALIZE_COMMAND = 'node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json';
+export const REGENERATION_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>';
+export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
 export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
 
 const SPEC_CHECK_IDS = Object.freeze([
@@ -92,14 +91,14 @@ function requirePackage(context) {
   return pkg;
 }
 
-/** The spec path a finding points at, falling back to the artifact when the spec is unnamed. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+/** A regeneration route: the live spec is evidence, never an edit surface. */
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function specTarget(context) {
   const specPath = context.artifact?.spec?.path;
-  if (typeof specPath === 'string' && specPath.trim() !== '') {
-    return { where: withLocator(specPath, context.locator), producer: `${EDUCE_SEQUENCES_COMMAND} ${specPath}` };
-  }
-  return { where: context.artifactPath ?? 'the sequences artifact', producer: EDUCE_SEQUENCES_COMMAND };
+  const where = typeof specPath === 'string' && specPath.trim() !== ''
+    ? `${withLocator(specPath, context.locator)} (read-only; copy it to a candidate first)`
+    : 'candidate spec (the artifact records no spec path)';
+  return { where, producer: REGENERATION_COMMAND, repairClass: 'regeneration' };
 }
 
 /** The route for one finding, resolved from its checkId unless the caller overrides the surface. */
@@ -115,22 +114,31 @@ export function repairRouteFor(checkId, context = {}) {
     case SURFACE.SPEC:
       return specTarget(context);
     case SURFACE.ALLOCATE_DECISIONS:
-      return { where: withLocator(ALLOCATE_DECISIONS_PATH, context.locator), producer: ALLOCATE_FINALIZE_COMMAND };
+      return {
+        where: withLocator(ALLOCATE_DECISIONS_PATH, context.locator),
+        producer: REGENERATION_COMMAND,
+        repairClass: 'regeneration',
+      };
     case SURFACE.PACKAGE_RFC:
       return {
         where: withLocator(`${requirePackage({ ...context, checkId }).path}/RFC.md`, context.locator),
-        producer: GRILL_COMMAND,
+        producer: DETECTOR_COMMAND,
+        repairClass: 'in-place',
       };
-    case SURFACE.PACKAGE_OBLIGATION:
+    case SURFACE.PACKAGE_OBLIGATION: {
+      const pkg = requirePackage({ ...context, checkId });
       return {
-        where: withLocator(`${requirePackage({ ...context, checkId }).path}/OBLIGATION.json`, context.locator),
-        producer: GRILL_COMMAND,
+        where: withLocator(`${pkg.path}/OBLIGATION.json`, context.locator),
+        producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
+        repairClass: 'in-place',
       };
+    }
     case SURFACE.PACKAGE_VIEW: {
       const pkg = requirePackage({ ...context, checkId });
       return {
         where: withLocator(`${pkg.path}/SEQUENCES.json`, context.locator),
         producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
+        repairClass: 'in-place',
       };
     }
     default:

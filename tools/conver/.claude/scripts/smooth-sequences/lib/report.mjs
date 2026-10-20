@@ -13,6 +13,7 @@ import { join } from 'node:path';
 export const EXIT_PASS = 0;
 export const EXIT_FINDINGS = 1;
 export const EXIT_MISUSE = 2;
+export const EXIT_JUDGMENT = 3;
 export const REPORT_SCHEMA_VERSION = 2;
 export const MAX_MARKDOWN_FINDINGS = 200;
 export const JSON_FILE_NAME = 'SMOOTH-SEQUENCES.json';
@@ -77,9 +78,10 @@ export function readPreviousReport(root) {
  * @returns {object}
  */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 export function buildReport({ workspace, findings, withheld, checks }) {
   const sorted = [...findings]
-    .map((finding) => ({ ...finding, persisted: finding.persisted ?? false }))
+    .map((finding) => ({ ...finding, persisted: finding.persisted ?? false, repairClass: finding.repairClass ?? 'in-place' }))
     .sort(compareFindings);
   const findingsByClass = Object.fromEntries(FINDING_CLASSES.map((name) => [name, 0]));
   for (const finding of sorted) {

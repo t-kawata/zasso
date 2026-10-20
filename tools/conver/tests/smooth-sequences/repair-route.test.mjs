@@ -72,33 +72,46 @@ test('every emitted checkId has a route and no route is stale', () => {
 });
 
 // @verifies C002
-test('a specification check resolves to the spec path and the educe producer', () => {
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+test('a specification check resolves to a regeneration route, never an editable spec', () => {
   const route = repairRouteFor('S1.duplicate-id', {
     artifact: { spec: { path: 'spec.md' } },
     artifactPath: '/w/example-sequences.json',
     locator: 'L4',
   });
-  assert.deepEqual(route, { where: 'spec.md#L4', producer: '/educe-sequences spec.md' });
+  assert.equal(route.where, 'spec.md#L4 (read-only; copy it to a candidate first)');
+  assert.match(route.producer, /regeneration\/run\.mjs open --spec=<candidate>/);
+  assert.equal(route.repairClass, 'regeneration');
 });
 
 // @verifies C002
-test('an allocate clause resolves to the decisions document and the finalize producer', () => {
+test('a specification check with no recorded spec path never points at the artifact', () => {
+  const route = repairRouteFor('S1.duplicate-id', { artifactPath: '/w/example-sequences.json' });
+  assert.doesNotMatch(route.where, /-sequences\.json/);
+  assert.equal(route.repairClass, 'regeneration');
+});
+
+// @verifies C002
+test('an allocate clause resolves to the decisions document and the regeneration producer', () => {
   const route = repairRouteFor('S4.boundary-clause-missing', {
     artifact: { spec: { path: 'spec.md' } },
     locator: 'boundary-001/authority',
   });
   assert.equal(route.where, 'workspacify/allocate/DECISIONS.json#boundary-001/authority');
-  assert.match(route.producer, /workspacify-allocate\/run\.mjs finalize/);
+  assert.match(route.producer, /regeneration\/run\.mjs open/);
+  assert.equal(route.repairClass, 'regeneration');
 });
 
 // @verifies C002
-test('a package RFC check resolves to the RFC and the grill producer', () => {
+test('a package RFC check is an in-place edit followed by the detector', () => {
   const route = repairRouteFor('S7.rfc-boundary-missing', {
     packagesById: new Map([['pkg-0001', { id: 'pkg-0001', path: 'crates/alpha' }]]),
     packageId: 'pkg-0001',
     locator: 'boundaries/boundary-001',
   });
-  assert.deepEqual(route, { where: 'crates/alpha/RFC.md#boundaries/boundary-001', producer: '/grill-me-for-rfc' });
+  assert.equal(route.where, 'crates/alpha/RFC.md#boundaries/boundary-001');
+  assert.equal(route.producer, 'node .claude/scripts/smooth-sequences/run.mjs');
+  assert.equal(route.repairClass, 'in-place');
 });
 
 // @verifies C002

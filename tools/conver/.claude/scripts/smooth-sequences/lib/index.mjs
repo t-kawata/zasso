@@ -18,6 +18,7 @@ const REQUIRED_REPAIR_FIELDS = Object.freeze(['where', 'why', 'fix', 'producer']
  * A finding that cannot say where to edit and what to rerun is not a finding but a
  * complaint; the constructor refuses it rather than rendering a blank repair line.
  */
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 export function finding(checkId, className, subject, details = {}) {
   for (const field of REQUIRED_REPAIR_FIELDS) {
     const value = details[field];
@@ -33,6 +34,7 @@ export function finding(checkId, className, subject, details = {}) {
     why: details.why,
     fix: details.fix,
     producer: details.producer,
+    repairClass: details.repairClass ?? 'in-place',
   });
 }
 

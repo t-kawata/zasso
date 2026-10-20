@@ -17,8 +17,12 @@ import { checkArtifactViewConsistency, checkBoundaryClauses, checkContributionCo
 import { checkCrossingContracts, layerBWithheld } from './lib/checks-layer-b.mjs';
 import { checkDangers } from './lib/checks-danger.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
+import { verifyChain } from '../regeneration/lib/chain.mjs';
+import { recoverCommit } from '../regeneration/lib/commit.mjs';
+import { RegenerationError } from '../regeneration/lib/errors.mjs';
+import { STATES, activeTransaction } from '../regeneration/lib/ledger.mjs';
 import { indexArtifact } from './lib/index.mjs';
-import { annotatePersisted, buildReport, EXIT_FINDINGS, EXIT_MISUSE, EXIT_PASS, readPreviousReport, renderConsoleReport, writeReport } from './lib/report.mjs';
+import { annotatePersisted, buildReport, EXIT_FINDINGS, EXIT_JUDGMENT, EXIT_MISUSE, EXIT_PASS, readPreviousReport, renderConsoleReport, writeReport } from './lib/report.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 
 /** Every check family, in report order. */
@@ -42,6 +46,27 @@ const CHECK_FAMILIES = Object.freeze([
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+
+/** Resolve an interrupted commit, refuse an open transaction, and verify the chain. */
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+function regenerationGate(root, stderr) {
+  recoverCommit(root);
+  const active = activeTransaction(root);
+  if (active !== null && active.state !== STATES.JUDGMENT_REQUIRED) {
+    stderr(`smooth-sequences: TRANSACTION_OPEN: transaction ${active.id} is ${active.state}`);
+    stderr('next: finish the transaction (derive, verify, commit) or abort it, then rerun.');
+    return { active, refused: true };
+  }
+  const chain = verifyChain(root);
+  if (chain.declared && !chain.ok) {
+    const codes = chain.links.filter((entry) => !entry.ok).map((entry) => `${entry.link}:${entry.code}`);
+    stderr(`smooth-sequences: SILENT_CHANGE_DETECTED: ${codes.join(', ')}`);
+    stderr('next: restore the generation from the archive or open a regeneration; never edit a frozen input in place.');
+    return { active, refused: true };
+  }
+  return { active, refused: false };
+}
+
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = io.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -53,6 +78,8 @@ export function runCommand(argv, io = {}) {
 
   try {
     const root = assertWorkspaceRoot(startDirectoryFor(argv[0]));
+    const gate = regenerationGate(root, stderr);
+    if (gate.refused) return { exitCode: EXIT_MISUSE, report: null };
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);
     const rawFindings = CHECK_FAMILIES.flatMap((check) => check(index));
@@ -65,10 +92,21 @@ export function runCommand(argv, io = {}) {
     const checks = { run: CHECK_FAMILIES.length, failed: findings.length };
     const report = buildReport({ workspace: loaded, findings, withheld, checks });
     const paths = writeReport({ report, outputDirectory: root });
-    const exitCode = findings.length === 0 ? EXIT_PASS : EXIT_FINDINGS;
-    for (const line of renderConsoleReport(report, paths)) stdout(line);
+    let exitCode = findings.length === 0 ? EXIT_PASS : EXIT_FINDINGS;
+    const consoleLines = renderConsoleReport(report, paths);
+    if (gate.active?.state === STATES.JUDGMENT_REQUIRED) {
+      exitCode = EXIT_JUDGMENT;
+      consoleLines.push(`transaction: judgment-required — ${gate.active.reason ?? 'a ground no longer resolves'}`);
+      consoleLines.push('next: resolve the ground in staging, then verify the transaction again.');
+    }
+    for (const line of consoleLines) stdout(line);
     return { exitCode, report };
   } catch (error) {
+    if (error instanceof RegenerationError) {
+      stderr(`smooth-sequences: ${error.code}: ${error.message}${error.repair ? ` — ${error.repair}` : ''}`);
+      stderr('next: fix the workspace and rerun; no report was written.');
+      return { exitCode: EXIT_MISUSE, report: null };
+    }
     if (error instanceof SmoothSequencesError) {
       stderr(`smooth-sequences: ${error.code}: ${error.message}${error.repair ? ` — ${error.repair}` : ''}`);
     } else {
