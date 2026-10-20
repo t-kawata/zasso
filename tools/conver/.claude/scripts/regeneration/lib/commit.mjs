@@ -42,17 +42,17 @@ export function writeCommitJournal(root, journal) {
 }
 
 /** Write through a temp file beside the target, then rename over it. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
 function atomicWrite(fileSystem, target, bytes) {
   mkdirSync(dirname(target), { recursive: true });
   tempCounter += 1;
-  const temp = `${target}.${process.pid}.${tempCounter}.tmp`;
+  const temporaryPath = `${target}.${process.pid}.${tempCounter}.tmp`;
   try {
-    fileSystem.writeFileSync(temp, bytes);
-    fileSystem.renameSync(temp, target);
+    fileSystem.writeFileSync(temporaryPath, bytes);
+    fileSystem.renameSync(temporaryPath, target);
   } catch (error) {
     try {
-      nodeFs.rmSync(temp, { force: true });
+      nodeFs.rmSync(temporaryPath, { force: true });
     } catch {
       // The temp file is already gone; the original failure is the one to report.
     }
@@ -129,7 +129,7 @@ export function commitGeneration({ root, transactionId, fileSystem = nodeFs, run
 }
 
 /** The entry a commit may act on, or a refusal that names why not. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
 function requireVerifiedEntry(root, transactionId, runDetector) {
   const entry = readEntry(root, transactionId);
   if (entry === null) {
@@ -151,6 +151,20 @@ function requireVerifiedEntry(root, transactionId, runDetector) {
       code: 'DETECTOR_REQUIRED',
       path: root,
       repair: 'Pass runDetector when committing a generation.',
+    });
+  }
+  if (entry.verifiedSnapshot === undefined) {
+    throw new RegenerationError('the transaction has no verified snapshot', {
+      code: 'UNVERIFIED_GENERATION',
+      path: root,
+      repair: 'Run verify before commit.',
+    });
+  }
+  if (JSON.stringify(snapshotDesignFiles(entry.stagingRoot)) !== JSON.stringify(entry.verifiedSnapshot)) {
+    throw new RegenerationError('the staging tree changed after verify', {
+      code: 'STAGING_CHANGED',
+      path: entry.stagingRoot,
+      repair: 'Abort, reopen, and verify the new generation.',
     });
   }
   if (JSON.stringify(snapshotDesignFiles(root)) !== JSON.stringify(entry.base)) {

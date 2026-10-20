@@ -14,6 +14,9 @@ import { dirname, join } from 'node:path';
 import { TREE_MANIFEST_FILE_NAME } from './chain.mjs';
 import { LEDGER_FILE_NAME, REGENERATION_DIRECTORY } from './ledger.mjs';
 
+export const TREE_DECISIONS_PATH = 'workspacify/tree/DECISIONS.json';
+export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
+
 export const PACKAGE_DESIGN_FILES = Object.freeze([
   'RFC-SEED.md',
   'RFC.md',
@@ -21,14 +24,29 @@ export const PACKAGE_DESIGN_FILES = Object.freeze([
   'CheckList.md',
   'Status.json',
   'OBLIGATION.json',
+  'INFO-RFC-SEED.md',
+  'EXPLAIN-RFC-SEED.md',
   'SEQUENCES.json',
   'SEQUENCES.md',
 ]);
 
-const ROOT_DECISION_FILES = Object.freeze([
-  'workspacify/tree/DECISIONS.json',
-  'workspacify/allocate/DECISIONS.json',
+/**
+ * The package documents the derivation does not author.
+ *
+ * RFC-SEED.md and the package view are written by allocate and sequences-slice, so
+ * merging the live copies would overwrite the generation the transaction just derived.
+ */
+export const PACKAGE_AUTHORED_FILES = Object.freeze([
+  'RFC.md',
+  'DesignTree.json',
+  'CheckList.md',
+  'Status.json',
+  'OBLIGATION.json',
+  'INFO-RFC-SEED.md',
+  'EXPLAIN-RFC-SEED.md',
 ]);
+
+const ROOT_DECISION_FILES = Object.freeze([TREE_DECISIONS_PATH, ALLOCATE_DECISIONS_PATH]);
 
 const SKIPPED_NAMES = new Set(['node_modules', '.git', REGENERATION_DIRECTORY, LEDGER_FILE_NAME, 'SMOOTH-SEQUENCES.json', 'SMOOTH-SEQUENCES.md']);
 
@@ -115,37 +133,53 @@ function copyIfPresent(from, to) {
   return true;
 }
 
-/** Create the staging tree for one transaction. */
-export function createStaging({ root, candidateSpec, transactionId }) {
+/** Copy a directory when it exists. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function copyIfDirectory(from, to) {
+  if (!existsSync(from)) return false;
+  cpSync(from, to, { recursive: true });
+  return true;
+}
+
+/**
+ * Create the derivation root for one transaction.
+ *
+ * Only the frozen inputs and the inherited run state are copied: the specification,
+ * the two decisions documents, the artifact and the educe run directory. Package
+ * documents are deliberately absent because workspacify-allocate refuses a non-empty
+ * planned directory; mergeAuthoredDocuments adds them after allocate publishes.
+ */
+export function prepareDerivationRoot({ root, candidates, transactionId }) {
   const stagingRoot = stagingRootFor(root, transactionId);
   rmSync(stagingRoot, { recursive: true, force: true });
   mkdirSync(stagingRoot, { recursive: true });
 
-  const specPath = liveSpecPath(root);
-  copyFileSync(candidateSpec, join(stagingRoot, specPath));
+  copyFileSync(candidates.specPath, join(stagingRoot, liveSpecPath(root)));
+  copyIfPresent(candidates.treeDecisionsPath, join(stagingRoot, TREE_DECISIONS_PATH));
+  copyIfPresent(candidates.allocateDecisionsPath, join(stagingRoot, ALLOCATE_DECISIONS_PATH));
 
-  const copied = [specPath];
-  for (const path of ROOT_DECISION_FILES) {
-    if (copyIfPresent(join(root, path), join(stagingRoot, path))) copied.push(path);
-  }
   for (const name of readdirSync(root)) {
     if (name.endsWith('-sequences.json') || name.endsWith('-sequences.md')) {
-      if (copyIfPresent(join(root, name), join(stagingRoot, name))) copied.push(name);
+      copyIfPresent(join(root, name), join(stagingRoot, name));
     }
   }
-  const educeDirectory = join(root, 'educe-sequences');
-  if (existsSync(educeDirectory)) {
-    cpSync(educeDirectory, join(stagingRoot, 'educe-sequences'), { recursive: true });
-    copied.push('educe-sequences/');
-  }
-  const tree = readTreeManifest(root);
-  for (const pkg of tree?.workspace?.packages ?? []) {
-    for (const name of PACKAGE_DESIGN_FILES) {
-      const path = `${pkg.path}/${name}`;
-      if (copyIfPresent(join(root, path), join(stagingRoot, path))) copied.push(path);
+  copyIfDirectory(join(root, 'educe-sequences'), join(stagingRoot, 'educe-sequences'));
+  return { stagingRoot };
+}
+
+/**
+ * Add the package documents the derivation does not author.
+ *
+ * allocate has already published the tree, so its empty-directory gate saw a fresh
+ * package set. The authored records are merged before the detector and the views read
+ * them; RFC-SEED.md and the package view stay as the producers wrote them.
+ */
+export function mergeAuthoredDocuments({ root, stagingRoot, treeManifest }) {
+  for (const pkg of treeManifest.workspace?.packages ?? []) {
+    for (const name of PACKAGE_AUTHORED_FILES) {
+      copyIfPresent(join(root, pkg.path, name), join(stagingRoot, pkg.path, name));
     }
   }
-  return { stagingRoot, copied };
 }
 
 /** Remove a staging tree. */

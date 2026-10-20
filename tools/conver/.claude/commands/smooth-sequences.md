@@ -88,11 +88,15 @@ For an `in-place` finding:
 
 For a `regeneration` finding:
 
-1. Copy the specification to a candidate file. The `where` path names the evidence and is marked read-only; never edit the live specification, `WORKSPACIFY-*` or the artifact in place.
-2. Apply the change to the candidate, or to `workspacify/allocate/DECISIONS.json` when that is the named surface.
-3. Run `node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason="<why>"`.
-4. Follow the transaction: `derive`, the educe phase handoff, `verify`, `commit`. The transaction stages a new generation, verifies its chain and grounds, and commits atomically with rollback.
-5. Return to Step 0.
+1. Read the finding's `where` and `producer`. The `where` path is evidence, never an edit surface.
+2. Write the candidate the finding names: a copy of the specification under `regeneration/candidates/<id>.md`, a copy of the allocate decisions under `regeneration/candidates/<id>-ALLOCATE.json`, or a copy of the tree decisions under `regeneration/candidates/<id>-TREE.json`.
+3. Apply the change to the candidate only. Never edit the live specification, `WORKSPACIFY-*`, the artifact or the live decisions.
+4. Run the `producer` line, choosing the candidate flag the finding names:
+   - `--spec=<candidate>` for a specification-derived finding;
+   - `--allocate-decisions=<candidate>` for an allocate decisions finding;
+   - `--tree-decisions=<candidate>` when tree finalize names a tree decision.
+5. Follow the operating guide under Reference: `status`, `derive`, the educe handoff, `verify`, `commit`.
+6. Return to Step 0.
 
 A transaction that reaches `judgment-required` stops the loop with exit 3. It is not completion.
 
@@ -110,7 +114,8 @@ Editable surfaces:
 | package obligation | `<package>/OBLIGATION.json` | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
 | package view | `<package>/SEQUENCES.json` (generated) | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
 | specification (candidate) | `regeneration/candidates/<id>.md` | `node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=...` |
-| allocate decisions | `workspacify/allocate/DECISIONS.json` | the same regeneration transaction |
+| allocate decisions (candidate) | `regeneration/candidates/<id>-ALLOCATE.json` | `node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=...` |
+| tree decisions (candidate) | `regeneration/candidates/<id>-TREE.json` | `node .claude/scripts/regeneration/run.mjs open --tree-decisions=<candidate> --reason=...` |
 
 ### Step 2 — Complete
 
@@ -147,6 +152,115 @@ A withheld check is named in the report and is **not** a pass. The `withheld` ar
 
 A v2 artifact is never rewritten or required to be v3.
 
+## Regeneration transaction — operating guide
+
+The transaction is the only path that changes a frozen input. It stages a candidate, derives in a sibling tree, verifies the chain, the grounds and the detector, and commits atomically. The live design files are byte-identical until commit.
+
+### When it is required
+
+Only a finding whose `repairClass` is `regeneration`. An `in-place` finding never opens a transaction. The specification, the tree manifest, the allocate manifest and the artifact are never edited in place.
+
+### Choose the candidate
+
+| finding surface | candidate | open flag |
+|---|---|---|
+| specification-derived (`spec.md#Lnn`) | `regeneration/candidates/<id>.md` | `--spec=<candidate>` |
+| allocate decisions (`workspacify/allocate/DECISIONS.json#...`) | `regeneration/candidates/<id>-ALLOCATE.json` | `--allocate-decisions=<candidate>` |
+| tree decisions (a derive failure names a tree decision) | `regeneration/candidates/<id>-TREE.json` | `--tree-decisions=<candidate>` |
+| both | both candidates | both flags |
+
+A candidate is a complete copy with the intended change, not a patch. At least one candidate must differ from its live counterpart; otherwise `open` returns `NO_CHANGE`.
+
+### Preconditions
+
+- `pwd` is the workspace root.
+- `node .claude/scripts/smooth-sequences/run.mjs` exits 0 or 1. Exit 2 names a broken chain or an open transaction; resolve that first.
+- No transaction is active. `status` shows `state: none` or a terminal state.
+
+### Steps
+
+```bash
+# 1. Write the candidate outside the frozen files.
+mkdir -p regeneration/candidates
+cp "$(node -e "const t=require('./WORKSPACIFY-TREE-MANIFEST.json');process.stdout.write(t.input.spec_path)")" regeneration/candidates/<id>.md
+$EDITOR regeneration/candidates/<id>.md
+
+# 2. Open the transaction.
+node .claude/scripts/regeneration/run.mjs open \
+  --spec=regeneration/candidates/<id>.md \
+  --reason="<checkId>: <evidence and why the change is correct>"
+
+# 3. Read the state and the staging specification path.
+node .claude/scripts/regeneration/run.mjs status
+
+# 4. Derive.
+node .claude/scripts/regeneration/run.mjs derive
+
+# 5. On educe-pending, run the educe handoff on the printed spec, then derive again.
+node .claude/scripts/regeneration/run.mjs derive
+
+# 6. Verify.
+node .claude/scripts/regeneration/run.mjs verify
+
+# 7. Commit.
+node .claude/scripts/regeneration/run.mjs commit
+
+# 8. Rerun the detector from Step 0.
+node .claude/scripts/smooth-sequences/run.mjs
+```
+
+### The educe handoff
+
+`derive` runs tree finalize, allocate finalize and `phase.mjs begin` once, then accepts the inherited artifact only when `artifact.spec.sha256` equals the raw digest of the staged specification. Otherwise it prints `state: educe-pending` and the staging spec path. Execute `.claude/commands/educe-sequences.md` with that spec as its single argument, in order, through every gate; the artifact must appear beside the spec. Then `derive` again: it resumes without rerunning the setup.
+
+### State table
+
+| state | meaning | exact next command |
+|---|---|---|
+| `open` | staged, not derived | `node .claude/scripts/regeneration/run.mjs derive` |
+| `educe-pending` (printed by derive; the ledger stays `open`) | the artifact does not record the staged spec | run the educe handoff on the printed spec, then `... derive` |
+| `derived` | the staging chain is built | `... verify` |
+| `verified` | the verified bytes are bound | `... commit` |
+| `committing` | an interrupted commit owns the live tree | `node .claude/scripts/regeneration/run.mjs recover` |
+| `judgment-required` | a grill ground no longer resolves | fix only the named ground in staging, then `... verify`; if a human is needed, stop |
+| `derive-failed` | a producer refused | `... abort`, fix the candidate, then `... open` again |
+| `unverified` | the chain or the detector refused | fix the named link or finding, derive or hand off, then `... verify` |
+| `commit-failed` | the live tree was restored | inspect the archive, then open a new transaction |
+| `committed` | the generation is live | rerun `node .claude/scripts/smooth-sequences/run.mjs` |
+| `aborted` | the staging tree was discarded | open a new transaction |
+
+### Failure handling
+
+- `CANDIDATE_CHANGED`: the staged specification or decisions no longer match the candidate recorded at open. Abort, edit the candidate, open again.
+- `STAGING_CHANGED`: the staging tree changed after verify. Abort, open again, verify the new generation.
+- `SILENT_CHANGE_DETECTED`: the live chain is broken. Do not thaw; restore the generation from the archive or repair the frozen input outside the workspace.
+- `TRANSACTION_OPEN`: finish or abort the current transaction before opening another.
+- `TRANSACTION_TERMINAL`: the named transaction is committed or aborted; it is a record, not an edit surface. Open a new transaction.
+- `UNVERIFIED_GENERATION`: run `verify` before `commit`.
+- `BASELINE_CHANGED`: a live design file changed since open. Abort and open from the current baseline.
+
+### Interrupted commit
+
+The detector calls `recover` before it reads. To do it by hand:
+
+```bash
+node .claude/scripts/regeneration/run.mjs recover
+```
+
+A `prepared` or `applying` journal is rolled back; a `verifying` journal whose live chain is valid is completed. Never delete `regeneration/GENERATIONS.json` or `regeneration/COMMIT-JOURNAL.json`.
+
+### Forbidden
+
+- Edit the live specification, `WORKSPACIFY-*`, the artifact or the live decisions.
+- Edit the staged specification or decisions after open (`CANDIDATE_CHANGED`).
+- Edit the staging tree after verify (`STAGING_CHANGED`).
+- Delete the ledger, the journal or the archive.
+- Pass `--force`, `--hash` or `--source-hash`; the chain is computed by the transaction.
+
+### judgment-required is a stop
+
+A `judgment-required` state means a ground the mechanical gates cannot settle, such as an RFC or obligation whose evidence a human must supply. Fix only the named ground in staging and verify again. If the repair needs explain-seed answers or another human decision, stop and report; do not edit the frozen files and do not commit. It is not completion.
+
 ## Example
 
 ```bash
@@ -157,10 +271,3 @@ node .claude/scripts/smooth-sequences/run.mjs
 #   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
 # next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
 ```
-
-## Related
-
-- `/educe-sequences` — produces the artifact and the 31 rail checks.
-- `/grill-me-for-rfc` — resolves demands and writes the package RFC and obligation record.
-- `/workspacify-allocate` — produces the allocate manifest and its decisions input.
-- `/workspacify-order` — prints the implementation order the same workspace implies.

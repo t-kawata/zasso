@@ -12,6 +12,7 @@ import {
   verifyGeneration,
 } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
 import {
+  ARTIFACT_FILE_NAME,
   CANDIDATE_TEXT,
   SPEC_TEXT,
   fixtureDetectorOk,
@@ -150,6 +151,45 @@ test('a derivation failure leaves the live tree byte-identical and the transacti
 });
 
 // @verifies C002
+test('derive remembers setupDone and resumes after a verify failure', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'setup once' });
+    const resumes = [];
+    const first = deriveGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: (input) => {
+        resumes.push(input.resume);
+        fixtureProducer(input);
+        return { state: 'derived', setupDone: true };
+      },
+    });
+    assert.equal(first.state, 'derived');
+    assert.equal(readLedger(workspace.root).transactions.at(-1).setupDone, true);
+    verifyGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: () => ({ exitCode: 1, findings: [{ checkId: 'S1.duplicate-id', subject: 'x' }], withheld: [] }),
+    });
+    const second = deriveGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: (input) => {
+        resumes.push(input.resume);
+        return { state: 'derived', setupDone: true };
+      },
+    });
+    assert.equal(second.state, 'derived');
+    assert.deepEqual(resumes, [false, true]);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
 test('derive resumes after an educe handoff without rerunning the producers', () => {
   const workspace = materializeChainWorkspace();
   try {
@@ -194,11 +234,14 @@ test('verify passes only when the chain, the grounds and the detector agree', ()
 
 // @verifies C003
 test('a broken staging chain keeps commit unverified', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'chain' });
     deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
-    writeFileSync(join(transaction.stagingRoot, 'spec.md'), '# changed in staging\n');
+    // Break a chain link that is not a candidate input: the artifact no longer records
+    // the staged specification. A staged spec edit is now CANDIDATE_CHANGED instead.
+    writeFileSync(join(transaction.stagingRoot, ARTIFACT_FILE_NAME), `${JSON.stringify({ spec: { sha256: 'broken' } })}\n`);
     const verified = verifyGeneration({
       root: workspace.root,
       transactionId: transaction.transactionId,
@@ -259,6 +302,69 @@ test('status reports the state and the next action', () => {
     assert.match(describeStatus(workspace.root).next, /derive/);
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId, runProducer: fixtureProducer });
     assert.equal(describeStatus(workspace.root).state, 'derived');
+    assert.match(describeStatus(workspace.root).next, /verify/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('the derive-failed next action names abort and open', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'fail' });
+    const derived = deriveGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: () => ({ state: 'derive-failed', setupDone: false, failedStep: 'workspacify-allocate', stderr: 'planned directory is not empty' }),
+    });
+    assert.equal(derived.state, 'derive-failed');
+    assert.match(describeStatus(workspace.root).next, /abort/);
+    assert.match(describeStatus(workspace.root).next, /open/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C005
+test('status names derive after an unverified generation', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'unverified' });
+    deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
+    const verified = verifyGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runGrounds: fixtureGroundsOk,
+      runDetector: () => ({ exitCode: 1, findings: [{ checkId: 'S1.duplicate-id', subject: 'x' }], withheld: [] }),
+    });
+    assert.equal(verified.state, 'unverified');
+    assert.match(describeStatus(workspace.root).next, /derive/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C005
+test('status repeats the educe handoff until the artifact is current', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'handoff' });
+    const first = deriveGeneration({
+      root: workspace.root,
+      transactionId: transaction.transactionId,
+      runProducer: ({ stagingRoot }) => ({
+        state: 'educe-pending',
+        setupDone: true,
+        stagingSpecPath: join(stagingRoot, 'spec.md'),
+        next: `run .claude/commands/educe-sequences.md with ${join(stagingRoot, 'spec.md')}, then derive again`,
+      }),
+    });
+    assert.equal(first.state, 'educe-pending');
+    assert.match(describeStatus(workspace.root).next, /educe-sequences/);
+
+    deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
     assert.match(describeStatus(workspace.root).next, /verify/);
   } finally {
     workspace.remove();

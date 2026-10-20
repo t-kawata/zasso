@@ -36,6 +36,13 @@ export const ACTIVE_STATES = Object.freeze(new Set([
   STATES.JUDGMENT_REQUIRED,
 ]));
 
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+/** The states a transaction never leaves; they are records, not edit surfaces. */
+export const TERMINAL_STATES = Object.freeze(new Set([
+  STATES.COMMITTED,
+  STATES.ABORTED,
+]));
+
 /** The ledger path. */
 export function ledgerPath(root) {
   return join(root, REGENERATION_DIRECTORY, LEDGER_FILE_NAME);

@@ -48,8 +48,24 @@ const CHECK_FAMILIES = Object.freeze([
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 
 /** Resolve an interrupted commit, refuse an open transaction, and verify the chain. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function regenerationGate(root, stderr) {
+// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+function regenerationGate(root, stderr, { allowTransaction } = {}) {
+  // A commit verifies its own live write while the ledger still says committing.
+  // Recovering first would close the journal before the detector judged the result,
+  // so the named transaction is allowed through; every other consumer is refused.
+  if (allowTransaction !== undefined) {
+    const committing = activeTransaction(root);
+    if (committing !== null && committing.id === allowTransaction) {
+      const chain = verifyChain(root);
+      if (chain.declared && !chain.ok) {
+        const codes = chain.links.filter((entry) => !entry.ok).map((entry) => `${entry.link}:${entry.code}`);
+        stderr(`smooth-sequences: SILENT_CHANGE_DETECTED: ${codes.join(', ')}`);
+        stderr('next: restore the generation from the archive or open a regeneration; never edit a frozen input in place.');
+        return { active: committing, refused: true };
+      }
+      return { active: committing, refused: false };
+    }
+  }
   recoverCommit(root);
   const active = activeTransaction(root);
   if (active !== null && active.state !== STATES.JUDGMENT_REQUIRED) {
@@ -78,7 +94,7 @@ export function runCommand(argv, io = {}) {
 
   try {
     const root = assertWorkspaceRoot(startDirectoryFor(argv[0]));
-    const gate = regenerationGate(root, stderr);
+    const gate = regenerationGate(root, stderr, { allowTransaction: io.allowTransaction });
     if (gate.refused) return { exitCode: EXIT_MISUSE, report: null };
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);

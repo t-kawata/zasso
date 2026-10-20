@@ -46,6 +46,19 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   assert.match(command, /never hand-edit|never edit a generated file|not hand-edited/i);
 });
 
+test('the command documents the regeneration transaction operating guide', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  assert.match(command, /Regeneration transaction — operating guide/);
+  assert.match(command, /--allocate-decisions/);
+  assert.match(command, /--tree-decisions/);
+  assert.match(command, /educe-pending/);
+  assert.match(command, /CANDIDATE_CHANGED/);
+  assert.match(command, /STAGING_CHANGED/);
+  assert.match(command, /judgment-required/);
+  assert.match(command, /recover/);
+});
+
 test('the command document fixes the workspace root to the current directory', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   assert.doesNotMatch(command, /argument-hint/);

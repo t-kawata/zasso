@@ -12,11 +12,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { digestOf } from '../../educe-sequences/rail/load.mjs';
 import { ARTIFACT_SUFFIX, verifyChain } from './chain.mjs';
 import { RegenerationError } from './errors.mjs';
 import {
   ACTIVE_STATES,
   STATES,
+  TERMINAL_STATES,
   activeTransaction,
   assertNoOpenTransaction,
   openEntry,
@@ -24,19 +26,28 @@ import {
   readLedger,
   transition,
 } from './ledger.mjs';
-import { createStaging, liveSpecPath, removeStaging, snapshotDesignFiles } from './staging.mjs';
+import {
+  ALLOCATE_DECISIONS_PATH,
+  TREE_DECISIONS_PATH,
+  liveSpecPath,
+  mergeAuthoredDocuments,
+  prepareDerivationRoot,
+  removeStaging,
+  snapshotDesignFiles,
+} from './staging.mjs';
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS_DIRECTORY = join(MODULE_DIRECTORY, '..', '..');
 
 /** The next action a state names. */
 const NEXT_ACTION = Object.freeze({
-  [STATES.OPEN]: 'derive',
-  [STATES.DERIVED]: 'verify',
-  [STATES.VERIFIED]: 'commit',
-  [STATES.JUDGMENT_REQUIRED]: 'fix the grounds in staging, then verify again',
+  [STATES.OPEN]: 'node .claude/scripts/regeneration/run.mjs derive',
+  [STATES.DERIVED]: 'node .claude/scripts/regeneration/run.mjs verify',
+  [STATES.VERIFIED]: 'node .claude/scripts/regeneration/run.mjs commit',
+  [STATES.COMMITTING]: 'node .claude/scripts/regeneration/run.mjs recover',
+  [STATES.JUDGMENT_REQUIRED]: 'fix the named ground in staging, then node .claude/scripts/regeneration/run.mjs verify',
   [STATES.COMMIT_FAILED]: 'inspect the archive, then open a new transaction',
-  [STATES.DERIVE_FAILED]: 'fix the candidate or the decisions, then derive again',
+  [STATES.DERIVE_FAILED]: 'node .claude/scripts/regeneration/run.mjs abort, fix the candidate, then open a new transaction',
   [STATES.COMMITTED]: 'none',
   [STATES.ABORTED]: 'none',
 });
@@ -53,35 +64,107 @@ function computeFileDigest(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
+/** The hash of a file, or null when it does not exist. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function hashIfPresent(path) {
+  return existsSync(path) ? computeFileDigest(path) : null;
+}
+
+/** Refuse a candidate path a caller named but did not write. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function assertCandidateExists(candidatePath) {
+  if (candidatePath === null || candidatePath === undefined) return;
+  if (existsSync(candidatePath)) return;
+  throw new RegenerationError(`the candidate does not exist: ${candidatePath}`, {
+    code: 'CANDIDATE_MISSING',
+    path: candidatePath,
+    repair: 'Write the candidate before opening the transaction.',
+  });
+}
+
+/**
+ * Resolve the three authored inputs and refuse a change set with no difference.
+ *
+ * The spec always participates because the chain records it. The two decisions
+ * documents participate only when supplied; a missing live decisions document is a
+ * null hash, so supplying one is a change.
+ */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions }) {
+  const specRelativePath = liveSpecPath(root);
+  const liveSpecPathAbs = join(root, specRelativePath);
+  const liveTreeDecisions = join(root, TREE_DECISIONS_PATH);
+  const liveAllocateDecisions = join(root, ALLOCATE_DECISIONS_PATH);
+  const specPath = candidateSpec ?? liveSpecPathAbs;
+  const treeDecisionsPath = candidateTreeDecisions ?? liveTreeDecisions;
+  const allocateDecisionsPath = candidateAllocateDecisions ?? liveAllocateDecisions;
+
+  assertCandidateExists(candidateSpec);
+  assertCandidateExists(candidateTreeDecisions);
+  assertCandidateExists(candidateAllocateDecisions);
+
+  const specHash = computeFileDigest(specPath);
+  const treeDecisionsHash = hashIfPresent(treeDecisionsPath);
+  const allocateDecisionsHash = hashIfPresent(allocateDecisionsPath);
+  const changedInputs = [];
+  if (specHash !== hashIfPresent(liveSpecPathAbs)) changedInputs.push('spec');
+  if (treeDecisionsHash !== hashIfPresent(liveTreeDecisions)) changedInputs.push('tree-decisions');
+  if (allocateDecisionsHash !== hashIfPresent(liveAllocateDecisions)) changedInputs.push('allocate-decisions');
+  if (changedInputs.length === 0) {
+    throw new RegenerationError('no candidate differs from the live input', {
+      code: 'NO_CHANGE',
+      path: root,
+      repair: 'Change at least one candidate before opening a generation.',
+    });
+  }
+  return {
+    specPath,
+    specRelativePath,
+    specHash,
+    treeDecisionsPath,
+    treeDecisionsHash,
+    allocateDecisionsPath,
+    allocateDecisionsHash,
+    changedInputs,
+  };
+}
+
 /**
  * Open a transaction from a valid baseline.
  *
- * @param {{ root: string, candidateSpec: string, reason: string }} input
- * @returns {{ transactionId: string, stagingRoot: string }}
+ * @param {{ root: string, candidateSpec?: string, candidateAllocateDecisions?: string, candidateTreeDecisions?: string, reason: string }} input
+ * @returns {{ transactionId: string, stagingRoot: string, stagingSpecPath: string }}
  */
-export function openTransaction({ root, candidateSpec, reason }) {
-  const specPath = assertThawable({ root, candidateSpec, reason });
+export function openTransaction({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, reason }) {
+  assertThawable({ root, reason });
+  const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions });
   const transactionId = newTransactionId();
   const base = snapshotDesignFiles(root);
-  const { stagingRoot } = createStaging({ root, candidateSpec, transactionId });
+  const { stagingRoot } = prepareDerivationRoot({ root, candidates, transactionId });
   openEntry(root, {
     id: transactionId,
     state: STATES.OPEN,
     reason,
     openedAt: new Date().toISOString(),
-    candidateSpec,
-    candidateHash: computeFileDigest(candidateSpec),
+    candidateSpec: candidateSpec ?? null,
+    candidateHash: candidates.specHash,
+    candidateAllocateDecisions: candidateAllocateDecisions ?? null,
+    candidateAllocateDecisionsHash: candidates.allocateDecisionsHash,
+    candidateTreeDecisions: candidateTreeDecisions ?? null,
+    candidateTreeDecisionsHash: candidates.treeDecisionsHash,
+    changedInputs: candidates.changedInputs,
+    specRelativePath: candidates.specRelativePath,
     stagingRoot,
     archiveRoot: join(root, 'regeneration', 'archive', transactionId),
     base,
   });
-  return { transactionId, stagingRoot };
+  return { transactionId, stagingRoot, stagingSpecPath: join(stagingRoot, candidates.specRelativePath) };
 }
 
 
-/** Refuse a thaw that cannot safely start, returning the live spec path. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function assertThawable({ root, candidateSpec, reason }) {
+/** Refuse a thaw that cannot safely start. */
+// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+function assertThawable({ root, reason }) {
   const chain = verifyChain(root);
   if (!chain.declared) {
     throw new RegenerationError('the workspace does not declare a hash chain', {
@@ -106,22 +189,17 @@ function assertThawable({ root, candidateSpec, reason }) {
       repair: 'Pass --reason with the change and the evidence that motivates it.',
     });
   }
-  if (!existsSync(candidateSpec)) {
-    throw new RegenerationError(`the candidate spec does not exist: ${candidateSpec}`, {
-      code: 'CANDIDATE_MISSING',
-      path: candidateSpec,
-      repair: 'Write the candidate spec before opening the transaction.',
-    });
-  }
-  const specPath = liveSpecPath(root);
-  if (computeFileDigest(join(root, specPath)) === computeFileDigest(candidateSpec)) {
-    throw new RegenerationError('the candidate is identical to the live spec', {
-      code: 'NO_CHANGE',
-      path: candidateSpec,
-      repair: 'Change the candidate before opening a generation.',
-    });
-  }
-  return specPath;
+}
+
+/** Refuse an action that would rewrite a committed or aborted record. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function assertMutable(entry) {
+  if (!TERMINAL_STATES.has(entry.state)) return;
+  throw new RegenerationError(`transaction ${entry.id} is ${entry.state}`, {
+    code: 'TRANSACTION_TERMINAL',
+    path: entry.stagingRoot ?? entry.id,
+    repair: 'Open a new transaction; a terminal transaction is a record, not an edit surface.',
+  });
 }
 
 /** Abort an open transaction and discard its staging tree. */
@@ -134,6 +212,7 @@ export function abortTransaction({ root, transactionId }) {
       repair: 'Name an existing transaction.',
     });
   }
+  assertMutable(entry);
   removeStaging(entry.stagingRoot);
   transition(root, transactionId, STATES.ABORTED, { abortedAt: new Date().toISOString() });
   return { state: STATES.ABORTED };
@@ -154,33 +233,95 @@ function runNode(cwd, script, args) {
   }
 }
 
-/** The single artifact at a root, or null. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function findArtifact(root) {
-  const candidates = readdirSync(root).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
-  return candidates.length === 1 ? join(root, candidates[0]) : null;
+/**
+ * The artifact that records the staged spec, or the reason none does.
+ *
+ * The educe product path names the artifact after the spec, but a decisions-only
+ * regeneration inherits the live artifact. The raw digest is the same function the
+ * chain uses, so an artifact the chain would reject is never reported current.
+ */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+export function readArtifactCurrency({ stagingRoot, specPath }) {
+  const names = readdirSync(stagingRoot).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
+  if (names.length === 0) return { state: 'missing' };
+  if (names.length > 1) return { state: 'ambiguous', reason: `multiple artifacts: ${names.sort().join(', ')}` };
+  const artifactPath = join(stagingRoot, names[0]);
+  let artifact;
+  try {
+    artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+  } catch (error) {
+    return { state: 'stale', reason: `${names[0]} is not valid JSON: ${error.message}` };
+  }
+  return artifact?.spec?.sha256 === digestOf(specPath)
+    ? { state: 'current', artifactPath }
+    : { state: 'stale', artifactPath };
 }
 
-/** The default producer: tree, allocate, educe begin, views. */
-export function runPipelineProducer({ stagingRoot, candidateSpec, resume = false }) {
-  if (!resume) {
-    const tree = runNode(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
-    if (!tree.ok) return { state: STATES.DERIVE_FAILED, failedStep: 'workspacify-tree', stderr: tree.stderr };
-    const allocate = runNode(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize', join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json')]);
-    if (!allocate.ok) return { state: STATES.DERIVE_FAILED, failedStep: 'workspacify-allocate', stderr: allocate.stderr };
-    const educe = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
-    if (!educe.ok) return { state: STATES.DERIVE_FAILED, failedStep: 'educe-sequences', stderr: educe.stderr };
-  }
-  const artifactPath = findArtifact(stagingRoot);
-  if (artifactPath === null) {
-    return { state: 'educe-pending', next: 'run the educe phases against the staging spec, then derive again' };
-  }
-  const treeManifest = JSON.parse(readFileSync(join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
+/** Run the one-time setup: tree, allocate, educe begin and the authored-document merge. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function runSetup({ root, stagingRoot, candidateSpec }) {
+  const tree = runNode(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
+  if (!tree.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-tree', stderr: tree.stderr } };
+
+  const treeManifestPath = join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json');
+  const allocate = runNode(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize', treeManifestPath]);
+  if (!allocate.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-allocate', stderr: allocate.stderr } };
+
+  const educe = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
+  if (!educe.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'educe-sequences', stderr: educe.stderr } };
+
+  const treeManifest = JSON.parse(readFileSync(treeManifestPath, 'utf8'));
+  mergeAuthoredDocuments({ root, stagingRoot, treeManifest });
+  return { ok: true, treeManifest };
+}
+
+/** Project every package view from the current artifact. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function runPackageViews({ stagingRoot, treeManifest, artifactPath }) {
   for (const pkg of treeManifest.workspace?.packages ?? []) {
     const view = runNode(stagingRoot, 'sequences-slice/run.mjs', [artifactPath, join(stagingRoot, pkg.path)]);
-    if (!view.ok) return { state: STATES.DERIVE_FAILED, failedStep: `sequences-slice:${pkg.id}`, stderr: view.stderr };
+    if (!view.ok) return { ok: false, failedStep: `sequences-slice:${pkg.id}`, stderr: view.stderr };
   }
-  return { state: STATES.DERIVED };
+  return { ok: true };
+}
+
+/**
+ * The default producer: one setup, then artifact currency, then the views.
+ *
+ * Setup runs once per transaction. A later derive, after the educe handoff or after
+ * a verify failure, skips it because the staging manifests now exist and the
+ * producers would refuse to publish over them.
+ */
+export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume = false }) {
+  let treeManifest;
+  if (resume) {
+    const treeManifestPath = join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json');
+    if (!existsSync(treeManifestPath)) {
+      return { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'setup', stderr: 'the setup manifest is missing; abort and open a new transaction' };
+    }
+    treeManifest = JSON.parse(readFileSync(treeManifestPath, 'utf8'));
+  } else {
+    const setup = runSetup({ root, stagingRoot, candidateSpec });
+    if (!setup.ok) return setup.failure;
+    treeManifest = setup.treeManifest;
+  }
+
+  const artifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+  if (artifact.state === 'missing' || artifact.state === 'stale') {
+    return {
+      state: 'educe-pending',
+      setupDone: true,
+      stagingSpecPath: candidateSpec,
+      next: `run .claude/commands/educe-sequences.md with ${candidateSpec}, then derive again`,
+    };
+  }
+  if (artifact.state === 'ambiguous') {
+    return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'artifact', stderr: artifact.reason };
+  }
+
+  const views = runPackageViews({ stagingRoot, treeManifest, artifactPath: artifact.artifactPath });
+  if (!views.ok) return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: views.failedStep, stderr: views.stderr };
+  return { state: STATES.DERIVED, setupDone: true };
 }
 
 /** The default ground checks: the grill's mechanical gates over staging. */
@@ -212,25 +353,50 @@ export function deriveGeneration({ root, transactionId, runProducer = runPipelin
       repair: 'Open the transaction first.',
     });
   }
+  assertMutable(entry);
   try {
     const result = runProducer({
       root,
       transactionId,
       stagingRoot: entry.stagingRoot,
-      candidateSpec: join(entry.stagingRoot, liveSpecPath(root)),
-      resume: entry.pending !== undefined,
+      candidateSpec: join(entry.stagingRoot, entry.specRelativePath ?? liveSpecPath(root)),
+      resume: entry.setupDone === true,
     });
+    const setupDone = result.setupDone ?? (result.state !== STATES.DERIVE_FAILED);
+    if (setupDone === true) transition(root, transactionId, entry.state, { setupDone: true });
     if (result.state === STATES.DERIVED) {
-      transition(root, transactionId, STATES.DERIVED, { derivedAt: new Date().toISOString() });
+      transition(root, transactionId, STATES.DERIVED, { derivedAt: new Date().toISOString(), pending: undefined });
     } else if (result.state === 'educe-pending') {
-      transition(root, transactionId, STATES.OPEN, { pending: result.next });
+      transition(root, transactionId, STATES.OPEN, {
+        pending: result.next,
+        stagingSpecPath: result.stagingSpecPath ?? join(entry.stagingRoot, entry.specRelativePath ?? liveSpecPath(root)),
+      });
     } else {
-      transition(root, transactionId, STATES.DERIVE_FAILED, { failedStep: result.failedStep, error: result.stderr });
+      transition(root, transactionId, STATES.DERIVE_FAILED, { failedStep: result.failedStep, error: result.stderr, pending: undefined });
     }
     return result;
   } catch (error) {
     transition(root, transactionId, STATES.DERIVE_FAILED, { error: error.message });
     return { state: STATES.DERIVE_FAILED, error: error.message };
+  }
+}
+
+/** Refuse a staged authored input that no longer matches the candidate recorded at open. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function assertStagedCandidatesMatch(entry) {
+  const specRelativePath = entry.specRelativePath ?? liveSpecPath(entry.stagingRoot);
+  const mismatches = [];
+  if (computeFileDigest(join(entry.stagingRoot, specRelativePath)) !== entry.candidateHash) mismatches.push('spec');
+  if (entry.candidateTreeDecisionsHash !== undefined
+    && hashIfPresent(join(entry.stagingRoot, TREE_DECISIONS_PATH)) !== entry.candidateTreeDecisionsHash) mismatches.push('tree-decisions');
+  if (entry.candidateAllocateDecisionsHash !== undefined
+    && hashIfPresent(join(entry.stagingRoot, ALLOCATE_DECISIONS_PATH)) !== entry.candidateAllocateDecisionsHash) mismatches.push('allocate-decisions');
+  if (mismatches.length > 0) {
+    throw new RegenerationError(`the staged input changed after open: ${mismatches.join(', ')}`, {
+      code: 'CANDIDATE_CHANGED',
+      path: entry.stagingRoot,
+      repair: 'Abort, edit the candidate, then open a new transaction.',
+    });
   }
 }
 
@@ -251,9 +417,11 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
       repair: 'Open the transaction first.',
     });
   }
+  assertMutable(entry);
   if (entry.state === STATES.VERIFIED) {
     return { state: STATES.VERIFIED, receipt: entry.receipt ?? null };
   }
+  assertStagedCandidatesMatch(entry);
   const chain = verifyChain(entry.stagingRoot);
   if (!chain.ok) {
     const receipt = { chain, grounds: null, detector: null };
@@ -272,8 +440,23 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
     transition(root, transactionId, STATES.DERIVED, { receipt });
     return { state: 'unverified', receipt };
   }
-  transition(root, transactionId, STATES.VERIFIED, { receipt, verifiedAt: new Date().toISOString() });
+  transition(root, transactionId, STATES.VERIFIED, {
+    receipt,
+    verifiedAt: new Date().toISOString(),
+    verifiedSnapshot: snapshotDesignFiles(entry.stagingRoot),
+  });
   return { state: STATES.VERIFIED, receipt };
+}
+
+/** The exact next command for one entry, including a failed verification. */
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+function nextCommandFor(entry) {
+  if (entry.state === STATES.DERIVED && entry.receipt !== undefined) {
+    const chainFailed = entry.receipt.chain !== undefined && entry.receipt.chain !== null && entry.receipt.chain.ok === false;
+    const detectorFailed = entry.receipt.detector !== undefined && entry.receipt.detector !== null && entry.receipt.detector.exitCode !== 0;
+    if (chainFailed || detectorFailed) return NEXT_ACTION[STATES.OPEN];
+  }
+  return NEXT_ACTION[entry.state] ?? 'inspect the ledger';
 }
 
 /** The current transaction state and next action. */
@@ -281,8 +464,16 @@ export function describeStatus(root) {
   const ledger = readLedger(root);
   const active = activeTransaction(root);
   const entry = active ?? ledger.transactions.at(-1) ?? null;
-  if (entry === null) return { state: 'none', next: 'open a transaction', transaction: null };
-  return { state: entry.state, next: NEXT_ACTION[entry.state] ?? 'inspect the ledger', transaction: entry };
+  if (entry === null) return { state: 'none', next: 'open a transaction', transaction: null, stagingSpecPath: null };
+  const stagingSpecPath = entry.stagingRoot !== undefined
+    ? join(entry.stagingRoot, entry.specRelativePath ?? liveSpecPath(entry.stagingRoot))
+    : null;
+  return {
+    state: entry.state,
+    next: entry.pending ?? nextCommandFor(entry),
+    transaction: entry,
+    stagingSpecPath,
+  };
 }
 
 /** Whether a transaction is active; re-exported for the detector. */

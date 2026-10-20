@@ -19,6 +19,7 @@ export const SURFACE = Object.freeze({
 
 export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
 export const REGENERATION_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>';
+export const REGENERATION_ALLOCATE_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=<reason>';
 export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
 export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
 
@@ -103,6 +104,7 @@ function specTarget(context) {
 
 /** The route for one finding, resolved from its checkId unless the caller overrides the surface. */
 export function repairRouteFor(checkId, context = {}) {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const surface = context.surface ?? REPAIR_ROUTE_BY_CHECK_ID[checkId];
   if (surface === undefined) {
     throw new SmoothSequencesError(`no repair route for finding ${checkId}`, {
@@ -116,7 +118,7 @@ export function repairRouteFor(checkId, context = {}) {
     case SURFACE.ALLOCATE_DECISIONS:
       return {
         where: withLocator(ALLOCATE_DECISIONS_PATH, context.locator),
-        producer: REGENERATION_COMMAND,
+        producer: REGENERATION_ALLOCATE_COMMAND,
         repairClass: 'regeneration',
       };
     case SURFACE.PACKAGE_RFC:

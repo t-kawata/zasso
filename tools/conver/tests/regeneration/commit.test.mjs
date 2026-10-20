@@ -11,9 +11,12 @@ import {
   writeCommitJournal,
 } from '../../.claude/scripts/regeneration/lib/commit.mjs';
 import { collectDesignFiles } from '../../.claude/scripts/regeneration/lib/staging.mjs';
-import { readLedger } from '../../.claude/scripts/regeneration/lib/ledger.mjs';
+import { readLedger, transition } from '../../.claude/scripts/regeneration/lib/ledger.mjs';
+import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import {
+  abortTransaction,
   deriveGeneration,
+  describeStatus,
   openTransaction,
   verifyGeneration,
 } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
@@ -227,6 +230,68 @@ test('recoverCommit completes a verifying journal whose live chain is valid', ()
     const recovered = recoverCommit(workspace.root);
     assert.equal(recovered.state, 'completed');
     assert.equal(readCommitJournal(workspace.root), null);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('the post-commit detector may run while its own transaction is committing', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'committing' });
+    transition(workspace.root, transaction.transactionId, 'committing');
+
+    const refusedLines = [];
+    const refused = runCommand([workspace.root], {
+      stdout: () => {},
+      stderr: (line) => refusedLines.push(line),
+    });
+    assert.equal(refused.exitCode, 2);
+    assert.match(refusedLines.join('\n'), /TRANSACTION_OPEN/);
+
+    const allowedLines = [];
+    const allowed = runCommand([workspace.root], {
+      stdout: () => {},
+      stderr: (line) => allowedLines.push(line),
+      allowTransaction: transaction.transactionId,
+    });
+    assert.notEqual(allowed.exitCode, 2);
+    assert.doesNotMatch(allowedLines.join('\n'), /TRANSACTION_OPEN/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C005
+test('status names recover while a commit is in progress', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'committing' });
+    transition(workspace.root, transaction.transactionId, 'committing');
+    assert.match(describeStatus(workspace.root).next, /recover/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('a committed transaction refuses abort and derive without changing its record', () => {
+  const workspace = materializeChainWorkspace();
+  try {
+    const transaction = verifiedTransaction(workspace);
+    commitGeneration({ root: workspace.root, transactionId: transaction.transactionId, runDetector: fixtureDetectorOk });
+
+    assert.throws(
+      () => abortTransaction({ root: workspace.root, transactionId: transaction.transactionId }),
+      (error) => error.code === 'TRANSACTION_TERMINAL',
+    );
+    assert.throws(
+      () => deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer }),
+      (error) => error.code === 'TRANSACTION_TERMINAL',
+    );
+    assert.equal(readLedger(workspace.root).transactions.at(-1).state, 'committed');
   } finally {
     workspace.remove();
   }

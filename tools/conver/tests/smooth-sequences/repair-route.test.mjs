@@ -93,12 +93,13 @@ test('a specification check with no recorded spec path never points at the artif
 
 // @verifies C002
 test('an allocate clause resolves to the decisions document and the regeneration producer', () => {
+// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const route = repairRouteFor('S4.boundary-clause-missing', {
     artifact: { spec: { path: 'spec.md' } },
     locator: 'boundary-001/authority',
   });
   assert.equal(route.where, 'workspacify/allocate/DECISIONS.json#boundary-001/authority');
-  assert.match(route.producer, /regeneration\/run\.mjs open/);
+  assert.match(route.producer, /regeneration\/run\.mjs open --allocate-decisions=<candidate>/);
   assert.equal(route.repairClass, 'regeneration');
 });
 

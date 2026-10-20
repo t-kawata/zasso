@@ -41593,6 +41593,226 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-20"
+        },
+        {
+          "id": 279,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make the regeneration transaction operable end to end and document its operating procedure",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-279.md",
+          "background": "The PX-278 regeneration transaction has the right states and rollback, but its default producer has never run against a populated workspace. Allocate finalize refuses a non-empty planned directory, so derive fails on a workspace with existing package directories such as the 29 packages in gaia. Derive also accepts the inherited artifact as current, so a changed spec never reaches the educe handoff and verify fails without a machine-readable explanation. Open rejects a decisions-only thaw because it requires a changed spec, although the allocate findings route to regeneration. Verify records a candidate hash that nothing checks and does not bind the verified staging bytes, so a post-verify edit could be committed if the chain and detector still pass. The smooth-sequences command names the transaction but gives no case-by-case operating guide.\n\n### Goal\n\nMake every regeneration finding class completable through one script-owned transaction on a real populated workspace, and make the command document state exactly how to run it for each case.\n\n### Purpose\n\nGive the executing AI, not its memory or judgment, the path from a finding to a refrozen generation: the script owns the change set, the staging isolation, the handoff state, the verified bytes and the atomic commit.\n\n### Motivation\n\nThe user asked for a careful execution guide after PX-278. Writing a guide before the default producer works would document a dead path and would let the AI improvise edits to frozen files. The decisive defects must be fixed first, because the discipline must be enforced by the scripts and their internal concealment rather than by AI thinking.\n\n### Constraints\n\n- The current working directory is the workspace root; no parent-directory search.\n- Live design files are byte-identical until commit.\n- The educe phases remain AI judgment; the script owns the boundary and verifies the artifact digest.\n- No new dependency; Node ESM .mjs; node:test with assert/strict.\n- Do not change the detector checkIds, hash functions, archive layout or rollback semantics.\n- Preserve backward-readable GENERATIONS.json by adding fields, not renaming existing ones.",
+          "scope": [
+            "Change .claude/scripts/regeneration/lib/staging.mjs: split staging into an empty derivation root and a merged authored-document tree; copy only the candidate spec, the candidate tree and allocate decisions, the artifact and the educe run directory before tree/allocate; merge authored package documents after allocate publishes.",
+            "Change .claude/scripts/regeneration/lib/transaction.mjs: record setupDone in the ledger so tree finalize, allocate finalize, educe begin and the authored-document merge run once per transaction, and resume after the educe handoff and after a verify failure.",
+            "Change .claude/scripts/regeneration/lib/transaction.mjs: accept an artifact only when artifact.spec.sha256 equals the educe raw digest of the staged spec; return educe-pending with the staging spec path and the handoff instruction otherwise.",
+            "Change .claude/scripts/regeneration/lib/transaction.mjs and run.mjs: open accepts --spec, --allocate-decisions and --tree-decisions; at least one candidate must differ; record every candidate hash; NO_CHANGE only when none differs.",
+            "Change .claude/scripts/regeneration/lib/transaction.mjs and ledger.mjs: verify success records verifiedSnapshot; verify refuses CANDIDATE_CHANGED when a staged candidate no longer matches its recorded hash; commit refuses STAGING_CHANGED when the staged snapshot differs from verifiedSnapshot.",
+            "Change .claude/scripts/regeneration/run.mjs: print transaction id, state, staging root, staging spec path, candidate paths and the exact next command from open and status; print failed chain link codes, failed producer stderr, detector findings and the ground reason from derive and verify; map exit 0 success, 1 refusal, 2 usage, 3 judgment-required.",
+            "Change .claude/scripts/regeneration/lib/transaction.mjs: correct NEXT_ACTION for derive-failed to abort, fix the candidate, then open a new transaction, not derive again.",
+            "Change .claude/scripts/regeneration/lib/staging.mjs: merge INFO-RFC-SEED.md and EXPLAIN-RFC-SEED.md as authored package documents; keep RFC-SEED.md and the package view owned by the producers.",
+            "Change .claude/commands/smooth-sequences.md: add a Regeneration transaction operating guide under Reference with the four cases (spec, allocate decisions, both, tree decisions), exact commands, the state table, the failure table, the forbidden actions and recover.",
+            "Change .claude/commands/smooth-sequences.md: state that judgment-required is a terminal stop for the transaction, not completion, and name what a human must resolve.",
+            "Add tests/regeneration/default-producer.test.mjs: real workspacify-tree and workspacify-allocate producers against a populated live workspace; assert educe-pending without an allocate refusal, derived after a digest-matching artifact, and a byte-identical live tree until commit.",
+            "Add tests/regeneration/input-set.test.mjs: spec-only, allocate-only, both, tree-only and no-change open; candidate tamper; verified snapshot tamper.",
+            "Update tests/regeneration/transaction.test.mjs, commit.test.mjs, tests/smooth-sequences/docs.test.mjs and tests/smooth-sequences/run.test.mjs for the new flags, states, snapshot binding and CLI output.",
+            "Change detail for staging.mjs: before, createStaging copies PACKAGE_DESIGN_FILES at open and allocate finalize refuses the populated planned directories; after, a prepareDerivationRoot step copies only the spec, the two decisions, the artifact and the educe run directory, and a mergeAuthoredDocuments step copies the authored package documents after allocate publishes. API: createStaging is replaced by prepareDerivationRoot and mergeAuthoredDocuments. Schema: none. Config: none. Dependency: none.",
+            "Change detail for transaction.mjs: before, runPipelineProducer always reruns tree, allocate and begin and accepts any inherited artifact; after, it runs a one-time setup, then accepts only a digest-matching artifact, then runs the package views. API: deriveGeneration calls runSetupOnce and completeDerivation. Schema: ledger gains setupDone, candidate hashes, verifiedSnapshot and the receipt. Config: none. Dependency: none.",
+            "Change detail for run.mjs: before, status prints state and a bare next word and verify prints only state; after, every command prints the transaction id, staging root, staging spec path and an exact next command, and verify prints failed link codes and blocking findings. API: the CLI flags gain --allocate-decisions and --tree-decisions. Schema: none. Config: none. Dependency: none.",
+            "Out of scope: adding a --force or --hash override; the chain remains computed by the script and a broken baseline is never overridden.",
+            "Out of scope: changing the detector checkIds, the hash functions, the archive layout or the rollback semantics; this ticket wires and documents them.",
+            "Out of scope: running the full 29-package gaia workspace in the automated suite; the real producers are exercised on a populated fixture and the gaia procedure is documented for a manual run.",
+            "Out of scope: automating explain-seed human answers; judgment-required remains a declared terminal state and the human procedure is documented, not executed.",
+            "Affected component: /smooth-sequences repair loop; nature: workflow behavior and repair route; response Y: the regeneration route text and the Reference guide are updated.",
+            "Affected component: regeneration CLI operators; nature: output contract and exit codes; response Y: open, status, derive and verify print the exact next command and the failed link, producer, finding or ground.",
+            "Affected component: GENERATIONS.json readers; nature: additive data format; response Y: setupDone, candidate hashes and verifiedSnapshot are optional to old readers and never replace existing fields.",
+            "Affected component: live workspace; nature: no write before commit and byte-identical rollback; response N: the existing commit journal and archive already provide this and are not redesigned.",
+            "Affected component: gaia workspace; nature: the first real end-to-end run; response Y: the procedure is documented and the chain is verified read-only before the ticket is implemented."
+          ],
+          "testUnit": [
+            "UT: [Normal] open with only an allocate decisions candidate succeeds, copies the candidate into staging, and records its hash in GENERATIONS.json.",
+            "UT: [Normal] open with only a tree decisions candidate succeeds and copies it into staging.",
+            "UT: [Normal] open with candidateSpec, candidateAllocateDecisions and candidateTreeDecisions records a SHA-256 hash for every supplied candidate.",
+            "UT: [Error] open with no candidate that differs from the live input returns NO_CHANGE.",
+            "UT: [Error] open with an unknown flag or a missing candidate path exits non-zero and writes nothing.",
+            "UT: [Normal] a spec candidate whose digest differs from the inherited artifact reaches educe-pending and names the staging spec path.",
+            "UT: [Normal] an inherited artifact whose spec digest matches the staged spec is reported derived without an educe handoff.",
+            "UT: [Normal] a decisions-only transaction with a digest-matching artifact and a fixture producer reaches derived, verified and committed without an educe handoff.",
+            "UT: [Invariant] derive setup runs once; a second derive after the educe handoff or after a verify failure does not rerun tree finalize or allocate finalize.",
+            "UT: [Normal] verify success records verifiedSnapshot for every staged design file.",
+            "UT: [Invariant] verifiedSnapshot lists every design file under the staging root, and commit compares the whole snapshot, so an added, removed or changed file is STAGING_CHANGED.",
+            "UT: [Error] editing a staged package document after verify makes commit fail with STAGING_CHANGED before any live write.",
+            "UT: [Error] commit with STAGING_CHANGED leaves the live tree byte-identical and does not write the journal targets.",
+            "UT: [Error] editing the staged spec after open makes verify fail with CANDIDATE_CHANGED.",
+            "UT: [Error] editing the staged allocate decisions after open makes verify fail with CANDIDATE_CHANGED.",
+            "UT: [Error] verify with a broken staging chain prints every failed link code.",
+            "UT: [Normal] status prints the transaction id, staging root, staging spec path and the exact next command for open, derived, verified, judgment-required and derive-failed.",
+            "UT: [Normal] open prints the transaction id, staging root, staging spec path and next command.",
+            "UT: [Normal] derive prints the staging spec path and the educe-sequences document on educe-pending.",
+            "UT: [Normal] verify prints each failed chain link code and each blocking finding checkId.",
+            "UT: [Error] the derive-failed next action names abort and open, not derive.",
+            "UT: [Invariant] the artifact currency check uses the educe raw digest, not the normalized tree input hash.",
+            "UT: [Boundary] open, verify and commit exit 0 on success, 1 on refusal, 2 on usage and 3 on judgment-required.",
+            "UT: [Boundary] a workspace with zero packages still opens, derives and commits; the populated multi-package path is exercised by the integration fixture."
+          ],
+          "testIntegration": [
+            "IT: real workspacify-tree finalize and workspacify-allocate finalize run through derive against a populated live workspace; allocate does not refuse the planned directories and the live tree stays byte-identical.",
+            "IT: the merged staging tree produces a valid hash chain and the detector run inside staging exits 0 with a matching artifact.",
+            "IT: decisions-only regeneration reuses a digest-matching artifact, rewrites the allocate manifest and views, and commits.",
+            "IT: an interrupted commit journal is recovered before a consumer reads, and staging is removed after completion.",
+            "IT: tests/smooth-sequences/docs.test.mjs asserts the guide contains the four cases, every state and the exact next command for each state.",
+            "IT: [Integration point] derive calls workspacify-tree/run.mjs finalize, workspacify-allocate/run.mjs finalize, educe-sequences/rail/phase.mjs begin, then sequences-slice/run.mjs per package.",
+            "IT: [Verification] the default-producer test asserts the first derive returns educe-pending, not derive-failed and not derived, the staging tree has no package directory before allocate, and allocate publishes every planned directory.",
+            "IT: [Verification] after a matching artifact is written for the staged spec, derive returns derived, verify with an injected passing ground and detector returns verified, and commit changes the live snapshot only at commit.",
+            "IT: [Prerequisites] the fixture builds a live workspace with the real tree and allocate producers, writes a v3 artifact whose spec.sha256 is digestOf(live spec), and writes one SEQUENCES.json per package with the package id.",
+            "IT: [Related tickets] PX-277 (repair route and finding contract), PX-278 (transaction, ledger, commit), PX-273 and PX-274 (detector gate and schema v3).",
+            "IT: [Verification] the CLI test runs open, status, derive, verify, commit, abort and recover as child processes and asserts the exit code and the named next command.",
+            "IT: [Prerequisites] the test runs only the impact set with node --test and never make test, and it removes every temporary workspace."
+          ],
+          "testExceptions": [
+            "Item: the AI-driven educe phase execution. Reason: it is not testable as a deterministic unit because the phase gates depend on reader judgment; this is not a design defect because the transaction contract around the handoff is fully testable. Alternative verification: the integration test writes an artifact whose spec digest matches the staged spec and asserts stale-rejected, matching-accepted and handoff-printed behavior.",
+            "Item: a grill ground repair that needs explain-seed human answers. Reason: it is not testable without a human answer; this is not a design defect because judgment-required is a declared terminal state. Alternative verification: the test asserts judgment-required stops with exit 3 and names the ground; the human procedure is documented.",
+            "Item: a full 29-package gaia run in the automated suite. Reason: it mutates a large external workspace and is not testable inside the repository fixture; this is not a design defect because the real producers are exercised on a populated fixture. Alternative verification: the default-producer integration test, plus the documented manual gaia procedure."
+          ],
+          "default_files": [
+            ".claude/scripts/regeneration/lib/staging.mjs",
+            ".claude/scripts/regeneration/lib/transaction.mjs",
+            ".claude/scripts/regeneration/lib/commit.mjs",
+            ".claude/scripts/regeneration/lib/ledger.mjs",
+            ".claude/scripts/regeneration/run.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/regeneration/default-producer.test.mjs",
+            "tests/regeneration/input-set.test.mjs",
+            "tests/regeneration/transaction.test.mjs",
+            "tests/regeneration/commit.test.mjs",
+            "tests/smooth-sequences/docs.test.mjs",
+            "tests/smooth-sequences/run.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: on a populated workspace, open with a spec candidate, derive with the real producers, complete the educe handoff, derive again, verify and commit; the live design is byte-identical until commit and the detector exits 0 after commit.",
+            "Happy path: an allocate decisions only finding opens with --allocate-decisions, derives without rerunning educe, verifies and commits, and the live spec bytes never change.",
+            "Error case: a staged spec or decisions tamper after open returns CANDIDATE_CHANGED; a staged byte tamper after verify returns STAGING_CHANGED; the live tree is restored byte-identically and nothing is committed.",
+            "Edge case: no candidate differs returns NO_CHANGE; an active transaction returns TRANSACTION_OPEN; derive-failed names abort and open as the next action.",
+            "Guide: every regeneration finding class and every transaction state has one exact command, and judgment-required is documented as a stop rather than completion.",
+            "Guide structure: the Reference section contains a case table, a step list, a state table, a failure table and a forbidden-actions list; docs.test.mjs asserts the headings and the exact commands.",
+            "No silent write: every test snapshots the live design tree before open and after each state, and asserts equality until commit."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "staging-lib -> transaction-lib: open change set",
+              "precondition": "The live hash chain verifies, no transaction is active, the reason is non-empty, and at least one supplied candidate path exists.",
+              "postcondition": "The staging root contains the candidate spec and decisions, and GENERATIONS.json records candidateSpec with candidateHash, candidateAllocateDecisions with its hash, and candidateTreeDecisions with its hash.",
+              "invariant": "NO_CHANGE is returned if and only if every supplied candidate equals its live counterpart; no live design file is written before open returns."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "transaction-lib -> workspacify-tree and workspacify-allocate: one-time setup",
+              "precondition": "A transaction is open.",
+              "postcondition": "Tree finalize, allocate finalize, educe begin and the authored-document merge run once, setupDone is true in the ledger, and a later derive skips them.",
+              "invariant": "Allocate finalize never sees a non-empty planned directory, and the live design tree is byte-identical throughout derive."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "transaction-lib -> educe artifact: currency check",
+              "precondition": "The staging root holds a spec and may hold an inherited artifact.",
+              "postcondition": "The transaction reports derived if and only if the artifact spec.sha256 equals the educe raw digest of the staged spec; otherwise it reports educe-pending with the staging spec path and the handoff instruction.",
+              "invariant": "A stale artifact is never reported as derived."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "transaction-lib -> commit-lib: verified bytes binding",
+              "precondition": "The transaction is in the derived state with a staged snapshot.",
+              "postcondition": "Verify success stores verifiedSnapshot; commit requires the staged snapshot and the staged candidates to match their recorded values.",
+              "invariant": "The committed design bytes equal the verified design bytes, and any mismatch writes nothing."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "regeneration-cli -> operator: guidance output",
+              "precondition": "Any subcommand runs and reaches any outcome.",
+              "postcondition": "Output names the transaction id, state, staging root, staging spec path and exact next command; a non-zero outcome names the failed chain link, producer, finding or ground.",
+              "invariant": "Every non-zero exit either names a runnable repair command or is exit 3 judgment-required."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "repair-route -> regeneration: decisions-only finding",
+              "precondition": "Only workspacify/allocate/DECISIONS.json differs from the baseline and the live chain verifies.",
+              "postcondition": "Open succeeds with --allocate-decisions, derive reuses the digest-matching artifact, verify passes, and commit publishes a new allocate manifest without an educe handoff.",
+              "invariant": "The live spec bytes are unchanged before and after the transaction."
+            }
+          ],
+          "notes": "Implementation steps:\n1. Red: add tests/regeneration/default-producer.test.mjs and input-set.test.mjs first, plus the output assertions; confirm they fail for the missing behavior.\n2. Green: change staging to derive in an empty root and merge authored documents after allocate; add setupDone and the artifact currency check; add the three candidate flags; add verifiedSnapshot and candidate binding; extend the CLI output.\n3. Green: write the smooth-sequences operating guide and update the docs test.\n4. Refactor: extract the producer steps into verb-named functions and name the next-command strings as constants.\n\nRisks:\n- The real allocate producer is strict about empty planned directories; the test must prove the derivation root is empty at finalize time.\n- The educe handoff is AI judgment; the test simulates it with a matching artifact and must not weaken the digest check.\n- The live workspace must remain byte-identical until commit; every test asserts snapshots before and after each state.\n\nCaveats:\n- The transaction never edits live decisions; decisions are supplied as candidates and committed through staging.\n- judgment-required remains a terminal stop until the named ground is resolved; it is not completion.\n- The guide is written for the executing AI; it names commands, not intentions.\n\nOpen items:\n- None. The guide covers spec, allocate decisions, tree decisions, both, educe handoff, judgment-required, derive-failed, unverified, commit-failed and interrupted commit.\n\nFuture improvements:\n- A transaction-aware explain-seed handoff can be added when its human gate can be represented; out of scope here.\n- A status --json sidecar can be added if another consumer needs machine parsing; the console remains the human view.\nImplementation summary:\n- Changed files: .claude/scripts/regeneration/lib/{staging,transaction,commit,ledger}.mjs where needed, .claude/scripts/regeneration/run.mjs, .claude/scripts/smooth-sequences/{run.mjs,lib/repair-route.mjs}, .claude/commands/smooth-sequences.md.\n- Key changes: the derivation root is empty at allocate time; the artifact is accepted only by raw digest; setup runs once; the input set is spec/allocate-decisions/tree-decisions; verify binds the candidate and the staged snapshot; the detector allows its own committing transaction; the CLI prints the exact next command; the guide covers every case and state.\n- Tests: 101 impact-set tests passed; all 134 smooth-sequences tests passed (133 pass, 1 opt-in skip); 55 regeneration tests passed.\n- Quality checks: 0 issues across the changed source and test files.\n- Annotations: 14 files, 0 missing, 0 ambiguous.\n- Residual risks:\n  - The educe phase execution remains AI judgment; the transaction verifies the artifact digest, not the phase transcripts.\n  - The synthetic real-producer fixture does not satisfy the real grill gates; verify with the real gates on it reaches judgment-required, which is the declared terminal state. The guide names the human resolution.\n  - A crash between the post-commit detector and finishCommit leaves a verifying journal; recoverCommit completes it from the chain without re-running the detector. This is the existing PX-278 recovery behavior and is recorded as a follow-up risk.\nReview report:\n- Static quality check: passed, 0 issues.\n- Translatability: no generic variables or debug output; renamed the atomic-write local from temp to temporaryPath; extracted nextCommandFor and assertMutable as named steps.\n- Dependencies: no RFC graph is available for this ticket (pipelineAvailable false); every claim was checked against the source and the real producer fixture.\n- Annotation verify: 15 files, 0 missing, 0 ambiguous.\n- Tests: 195 tests, 194 passed, 0 failed, 1 opt-in skipped (regeneration, smooth-sequences and the real producer fixture).\n- Issues found and fixed in review:\n  1. The post-commit detector refused the transaction that was committing (TRANSACTION_OPEN), so every real CLI commit would have rolled back. The detector now accepts the named committing transaction, still verifies the chain, and does not run recoverCommit early. A regression test covers both the refused and the allowed path, and a CLI commit test runs the real detector.\n  2. A committed or aborted transaction could be aborted or derived again, rewriting the ledger record. assertMutable now refuses both with TRANSACTION_TERMINAL, and the committed record stays unchanged.\n  3. status ignored the educe handoff and kept saying derive. It now prints the pending handoff instruction, and a successful derive clears it.\n  4. status said verify after an unverified generation. It now names derive from the failed receipt.\n  5. status had no next command for an interrupted committing transaction. It now names recover.\n  6. The atomic-write temporary path used the generic name temp; renamed to temporaryPath.\n- Residual risks:\n  - The educe phase execution remains AI judgment; the transaction verifies the artifact digest, not the phase transcripts.\n  - The synthetic real-producer fixture does not satisfy the real grill gates; running them reaches judgment-required, which is the declared terminal state and is documented for human resolution.\n  - A crash between the post-commit detector and finishCommit leaves a verifying journal; recoverCommit completes it from the chain without re-running the detector. This is the existing PX-278 recovery behavior and is recorded as a follow-up risk.",
+          "invariants": "- Normal establishment: every supplied candidate exists and its hash is recorded before any derivation; the live chain verifies before open; setupDone is true after the one-time setup.\n- Error invariant: a refusal writes nothing; the live design tree is byte-identical after open, derive, verify, abort and any commit failure; the ledger records the refusal state.\n- Internal state invariant: the ledger state only moves open -> derived -> verified -> committing -> committed, or to aborted, derive-failed, judgment-required or commit-failed as declared; verifiedSnapshot equals the staged design snapshot at verify success.\n- Boundary invariant: zero candidates is a usage error; one or more identical candidates is NO_CHANGE; one differing candidate is enough to open; zero packages still derives; a 29-package workspace derives through the same code path.",
+          "instrumentation": "### Logging\n- CLI stdout: one line per outcome (opened <id>, state: <state>, staging: <path>, spec: <path>, next: <exact command>).\n- CLI stderr: regeneration: <CODE>: <message> — <repair>.\n- The detector keeps writing SMOOTH-SEQUENCES.json and SMOOTH-SEQUENCES.md.\n\n### Metrics\n- GENERATIONS.json records openedAt, derivedAt, verifiedAt, committedAt and abortedAt per transaction, plus the state transitions and the candidate hashes.\n- The ledger records setupDone, verifiedSnapshot and the verification receipt.\n\n### Error tracking\n- COMMIT-JOURNAL.json records prepared, applying and verifying, and the archive holds every backup.\n- A failed commit records commit-failed with the error and leaves the live tree restored byte-identically.\n\n### Health check\n- status exits 0 for open, derived, verified and committed, and 3 for judgment-required.\n- The detector exits 0 only when the chain verifies, no transaction is open and no finding remains.\nStatic quality check: passed (0 issues)\nTranslatability: no generic variables or debug output; renamed temp to temporaryPath\nTests: 195 tests, 194 passed, 0 failed, 1 opt-in skipped\nAnnotations: 15 files, 0 missing, 0 ambiguous",
+          "investigation": "- The default producer runs allocate finalize in a staging root that createStaging populated with PACKAGE_DESIGN_FILES. workspacify-allocate/run.mjs:460-475 reads the reserved decisions path and calls checkExistingOutputPolicy; workspacify-allocate/lib/tree-staging.mjs:30-57 refuses when a planned directory is not empty. This is the first failure on any workspace with packages (gaia has 29, crates/* populated).\n- staging.mjs:14-23 lists PACKAGE_DESIGN_FILES; staging.mjs:119-153 copies the spec, decisions, artifact, educe run directory and package documents at open. It deliberately omits the old manifests.\n- transaction.mjs:159-183 finds the single *-sequences.json and returns derived without comparing the artifact spec digest. educe-sequences/rail/phases.mjs:452 reads the superseded artifact for coverage but does not remove it, so a changed candidate is reported derived with a stale artifact.\n- transaction.mjs:221 sets resume only when the previous derive returned educe-pending. A second derive after a normal derive or a verify failure reruns tree and allocate, and the populated staging tree refuses.\n- transaction.mjs:117-122 returns NO_CHANGE when the candidate spec equals the live spec. repair-route.mjs:103-107 routes the five S4 allocate checkIds to regeneration, so a decisions-only finding cannot open.\n- transaction.mjs:73 records candidateHash but no code reads it. commit.mjs:156 compares only the live baseline to entry.base; verify at transaction.mjs:275 stores a receipt and verifiedAt but no staging snapshot, so a post-verify staging edit is committed if the post-write chain and detector pass.\n- run.mjs:102-120 prints only state and a bare next word for status and derive, and only state for verify. It does not print the staging root, the staging spec path, the failed link codes or the blocking findings.\n- educe-sequences/rail/load.mjs:33-35 defines digestOf as the raw SHA-256 of the file; artifactPathFor in rail/paths.mjs:29-33 derives the artifact beside the spec. chain.mjs:117-150 verifies the raw artifact digest, seed digests and per-package SEQUENCES.json packageId.\n- tests/regeneration/* inject a deterministic producer and detector; they never run workspacify-tree or workspacify-allocate. tests/workspacify-tree/integration/full-pipeline.test.mjs and tests/workspacify-allocate/integration/full-allocate-pipeline.test.mjs show the real fixture pattern (stage decisions, run finalize), which the new default-producer test can compose.\n- Read-only check of the gaia workspace: the chain verifies (all links ok), the tree names 29 packages under crates/*, and each package directory is populated. This confirms the baseline is thawable once the producer is fixed, and it confirms the current producer would refuse at allocate.",
+          "boyScoutPlan": "- Rename the producer steps to verb phrases: prepareDerivationRoot, publishTreeManifest, publishAllocateManifest, openEduceGeneration, mergeAuthoredDocuments and acceptCurrentArtifact. The call sequence then reads as the derivation procedure.\n- Extract the repeated literal paths and commands into named constants: STAGING_SPEC_PATH_SUFFIX, NEXT_OPEN, NEXT_DERIVE, NEXT_VERIFY, NEXT_COMMIT, NEXT_ABORT, NEXT_RECOVER.\n- Replace literal state strings in the producer with the STATES constants already exported by ledger.mjs.\n- Split deriveGeneration and verifyGeneration so each stays under 50 lines, with one responsibility per function.\n- Rename local variables to domain terms: stagingSpecPath, stagedArtifact, candidateDecisionHashes, verifiedSnapshot. No single-character or generic names.\n- Keep error propagation explicit; no swallowed producer stderr.",
+          "created_at": "2026-10-20",
+          "updated_at": "2026-10-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 precondition and postcondition: open records every supplied candidate and writes no live file.\n```js\n// tests/regeneration/input-set.test.mjs\ntest('C001 open records every supplied candidate and writes no live file', () => {\n  const workspace = materializeChainWorkspace();\n  const allocateCandidate = join(workspace.root, 'regeneration/candidates/DECISIONS.json');\n  mkdirSync(dirname(allocateCandidate), { recursive: true });\n  writeFileSync(allocateCandidate, revisedAllocateDecisions());\n  const before = snapshotDesignTree(workspace.root);\n  const opened = openTransaction({\n    root: workspace.root,\n    candidateAllocateDecisions: allocateCandidate,\n    reason: 'S4.boundary-clause-missing',\n  });\n  const entry = readLedger(workspace.root).transactions.at(-1);\n  assert.equal(entry.candidateAllocateDecisions, allocateCandidate);\n  assert.match(entry.candidateAllocateDecisionsHash, /^[a-f0-9]{64}$/);\n  assert.deepEqual(snapshotDesignTree(workspace.root), before);\n  assert.ok(existsSync(opened.stagingRoot));\n});\n```",
+            "C002 precondition and invariant: the setup runs once and allocate never sees a non-empty planned directory.\n```js\n// tests/regeneration/default-producer.test.mjs\ntest('C002 setup runs once in an empty derivation root', () => {\n  const live = materializeRealWorkspace();\n  const candidate = writeCandidateSpec(live);\n  const opened = openTransaction({ root: live.root, candidateSpec: candidate, reason: 'S1.step-unresolved-operation' });\n  const beforeSetup = collectDesignFiles(opened.stagingRoot);\n  assert.equal(beforeSetup.some((path) => path.startsWith('crates/')), false);\n  const first = deriveGeneration({ root: live.root, transactionId: opened.transactionId });\n  assert.equal(first.state, 'educe-pending');\n  const entry = readLedger(live.root).transactions.at(-1);\n  assert.equal(entry.setupDone, true);\n  writeFileSync(join(opened.stagingRoot, 'example-sequences.json'), artifactFor(join(opened.stagingRoot, 'spec.md')));\n  const second = deriveGeneration({ root: live.root, transactionId: opened.transactionId });\n  assert.equal(second.state, 'derived');\n  assert.equal(readFileSync(join(live.root, 'spec.md'), 'utf8'), DEFAULT_SPEC_TEXT);\n});\n```",
+            "C003 precondition and postcondition: a stale artifact is educe-pending and a matching artifact is derived.\n```js\n// tests/regeneration/transaction.test.mjs\ntest('C003 the artifact currency check uses the educe raw digest', () => {\n  const workspace = materializeChainWorkspace();\n  const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'S1.duplicate-id' });\n  writeFileSync(join(transaction.stagingRoot, 'example-sequences.json'), JSON.stringify({ spec: { sha256: 'stale' } }));\n  const stale = deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: staleFixtureProducer });\n  assert.equal(stale.state, 'educe-pending');\n  assert.equal(stale.stagingSpecPath, join(transaction.stagingRoot, 'spec.md'));\n  assert.match(stale.next, /educe-sequences/);\n  writeFileSync(join(transaction.stagingRoot, 'example-sequences.json'), JSON.stringify({ spec: { sha256: digestOf(join(transaction.stagingRoot, 'spec.md')) } }));\n  const current = deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: currentFixtureProducer });\n  assert.equal(current.state, 'derived');\n});\n```",
+            "C004 postcondition and invariant: verify records the snapshot and commit refuses a post-verify edit.\n```js\n// tests/regeneration/input-set.test.mjs\ntest('C004 verified bytes are the only bytes commit may write', () => {\n  const workspace = materializeChainWorkspace();\n  const before = snapshotDesignTree(workspace.root);\n  const { transaction, verified } = verifiedTransaction(workspace);\n  assert.equal(verified.state, 'verified');\n  const entry = readLedger(workspace.root).transactions.at(-1);\n  assert.equal(entry.verifiedSnapshot['spec.md'], digestOf(join(transaction.stagingRoot, 'spec.md')));\n  writeFileSync(join(transaction.stagingRoot, 'crates/alpha/RFC.md'), '# changed after verify\\n');\n  assert.throws(\n    () => commitGeneration({ root: workspace.root, transactionId: transaction.transactionId, runDetector: fixtureDetectorOk }),\n    (error) => error.code === 'STAGING_CHANGED',\n  );\n  assert.deepEqual(snapshotDesignTree(workspace.root), before);\n});\n```",
+            "C005 postcondition and invariant: status names the transaction, the staging spec and the exact next command.\n```js\n// tests/regeneration/transaction.test.mjs\ntest('C005 status names the exact next command', () => {\n  const workspace = materializeChainWorkspace();\n  const opened = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'S1.duplicate-id' });\n  const result = spawnSync(process.execPath, [CLI, 'status'], { cwd: workspace.root, encoding: 'utf8' });\n  assert.equal(result.status, 0);\n  assert.match(result.stdout, new RegExp('id: ' + opened.transactionId));\n  assert.match(result.stdout, /staging: /);\n  assert.match(result.stdout, /spec: /);\n  assert.match(result.stdout, /next: node \\.claude\\/scripts\\/regeneration\\/run\\.mjs derive/);\n});\n```",
+            "C006 precondition and invariant: a decisions-only transaction reuses the current artifact and leaves the spec unchanged.\n```js\n// tests/regeneration/input-set.test.mjs\ntest('C006 decisions only reuses the artifact and leaves the spec unchanged', () => {\n  const workspace = materializeChainWorkspace();\n  const beforeSpec = readFileSync(join(workspace.root, 'spec.md'));\n  const allocateCandidate = join(workspace.root, 'regeneration/candidates/DECISIONS.json');\n  mkdirSync(dirname(allocateCandidate), { recursive: true });\n  writeFileSync(allocateCandidate, revisedAllocateDecisions());\n  const opened = openTransaction({ root: workspace.root, candidateAllocateDecisions: allocateCandidate, reason: 'S4.boundary-clause-missing' });\n  const derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId, runProducer: fixtureProducer });\n  assert.equal(derived.state, 'derived');\n  assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);\n});\n```",
+            "Supporting fixture for C002: the live workspace is built by the real producers, then the transaction derives in staging.\n```js\n// tests/regeneration/helpers/real-workspace-fixture.mjs\nexport function materializeRealWorkspace() {\n  const dir = mkdtempSync(join(tmpdir(), 'regeneration-real-'));\n  writeFileSync(join(dir, 'spec.md'), DEFAULT_SPEC_TEXT);\n  stageTreeDecisionsFrom(dir, join(TREE_FIXTURES, 'decisions-long-ok.json'));\n  runNodeCli(dir, 'workspacify-tree/run.mjs', ['finalize', '--spec=' + join(dir, 'spec.md')]);\n  const treeManifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\n  stageAllocateDecisions(dir, makeDecisions(treeManifest));\n  runNodeCli(dir, 'workspacify-allocate/run.mjs', ['finalize', join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')]);\n  const artifact = minimalV3Artifact();\n  artifact.spec = { path: 'spec.md', sha256: digestOf(join(dir, 'spec.md')), lines: DEFAULT_SPEC_TEXT.split('\\n').length };\n  writeFileSync(join(dir, 'example-sequences.json'), JSON.stringify(artifact));\n  for (const pkg of treeManifest.workspace.packages) {\n    writeFileSync(join(dir, pkg.path, 'SEQUENCES.json'), JSON.stringify({ packageId: pkg.id }));\n  }\n  assert.equal(verifyChain(dir).ok, true);\n  return { root: dir, treeManifest, remove: () => rmSync(dir, { recursive: true, force: true }) };\n}\n```"
+          ],
+          "startedAt": "2026-10-20",
+          "changes": [
+            {
+              "before": "open copied every package document into the staging root, so allocate finalize refused the populated planned directories",
+              "after": "prepareDerivationRoot stages only the spec, the two decisions, the artifact and the educe run state; mergeAuthoredDocuments adds the authored package documents after allocate publishes",
+              "description": "make the real derivation setup satisfiable"
+            },
+            {
+              "before": "open accepted only a changed specification, so an allocate-decisions finding could not be thawed",
+              "after": "open accepts --spec, --allocate-decisions and --tree-decisions, requires at least one to differ, and records every candidate hash and the changed-input list",
+              "description": "add the authored input set"
+            },
+            {
+              "before": "derive accepted any inherited artifact and never reached the educe handoff when the spec changed",
+              "after": "derive accepts only an artifact whose spec.sha256 equals the raw digest of the staged spec, otherwise it returns educe-pending with the staging spec path",
+              "description": "bind the artifact to the staged specification"
+            },
+            {
+              "before": "derive reran tree finalize and allocate finalize on every call, and a retry after verify hit the populated staging tree",
+              "after": "derive records setupDone once and resumes after the educe handoff and after a verify failure",
+              "description": "make setup one-time and resumable"
+            },
+            {
+              "before": "the candidate hash was recorded but never checked, and commit verified only the live baseline",
+              "after": "verify refuses CANDIDATE_CHANGED when a staged input no longer matches its candidate, records verifiedSnapshot, and commit refuses STAGING_CHANGED unless the staged snapshot equals it",
+              "description": "bind the verified bytes to the committed bytes"
+            },
+            {
+              "before": "status printed a bare next word and verify printed only state",
+              "after": "open and status print the transaction id, staging root, staging spec and exact next command; derive prints the handoff spec; verify prints failed chain links and blocking findings",
+              "description": "make the CLI guide the operator"
+            },
+            {
+              "before": "the detector refused every open transaction, including the commit that was verifying its own live write",
+              "after": "the detector accepts an allowTransaction id and still checks the chain, so a commit can run its post-write detector without recoverCommit closing the journal early",
+              "description": "allow the committing transaction to verify itself"
+            },
+            {
+              "before": "the allocate repair route named open --spec for a decisions-only finding",
+              "after": "the allocate route names open --allocate-decisions",
+              "description": "name the right candidate flag on the finding"
+            },
+            {
+              "before": "the command document named the transaction but gave no case-by-case procedure",
+              "after": "the Reference section contains the regeneration operating guide: candidate table, steps, educe handoff, state table, failure table, forbidden actions and recover",
+              "description": "document the operation"
+            },
+            {
+              "before": "the transaction tests used an injected producer and never ran the real tree and allocate producers",
+              "after": "default-producer, input-set and CLI tests run the real producers, the real detector gate, candidate tampering, verified-snapshot tampering and decisions-only regeneration",
+              "description": "add the real-producer test matrix"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-20"
         }
       ]
     },
