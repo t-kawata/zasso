@@ -34,6 +34,15 @@ const VALID_STATES = [
  */
 const COMPLETION_STATE = "DONE";
 
+/**
+ * The count of sessions that reached DONE.
+ *
+ * It is optional so a Status.json written before the field existed still validates; the
+ * first completion after this writer reaches it records one, and the history before that
+ * remains unknown rather than being reconstructed as zero.
+ */
+const COMPLETED_SESSIONS_FIELD = "completedSessions";
+
 const [,, rfcDir, operation, ...args] = process.argv;
 if (!rfcDir || !operation) {
   console.error("Usage: update-status.js <rfc-dir> <operation> [args...]");
@@ -61,13 +70,21 @@ function saveAndValidate() {
 /**
  * Record that the run completed, at the moment it did.
  *
- * Only a completion calls this, and a re-entered run that completes again
- * overwrites the value, which keeps "material arrived after this run finished"
- * true of the latest completion rather than of the first one.
+ * Only a completion calls this, and a re-entered run that completes again overwrites the
+ * value, which keeps "material arrived after this run finished" true of the latest
+ * completion rather than of the first one. The session count moves only on the transition
+ * into DONE: a repeated DONE is the same session, and a resume or a review loop is not a
+ * new one. A record written before this field existed starts at one on its first
+ * completion; the history before it is unknown and is not guessed.
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
-function recordCompletion() {
+// [::TICKET::] PX-238, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-282) --for-spec --no-implementation-order`.
+function recordCompletion(previousState) {
   status.completedAt = new Date().toISOString();
+  if (previousState === COMPLETION_STATE) return;
+  const recorded = Number.isInteger(status[COMPLETED_SESSIONS_FIELD]) && status[COMPLETED_SESSIONS_FIELD] >= 0
+    ? status[COMPLETED_SESSIONS_FIELD]
+    : 0;
+  status[COMPLETED_SESSIONS_FIELD] = recorded + 1;
 }
 
 switch (operation) {
@@ -77,9 +94,10 @@ switch (operation) {
       console.error(`Invalid state: ${newState}. Valid: ${VALID_STATES.join(", ")}`);
       process.exit(1);
     }
+    const previousState = status.state;
     status.state = newState;
     if (newState === COMPLETION_STATE) {
-      recordCompletion();
+      recordCompletion(previousState);
     }
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");

@@ -22,6 +22,7 @@ export const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), 'artifa
  * are not, because a document that ends with a blank line has a blank last line and
  * pretending otherwise would shift every citation after it.
  */
+// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 export function splitLines(text) {
   const lines = text.split('\n');
   if (lines.length > 1 && lines.at(-1) === '') lines.pop();
@@ -92,6 +93,15 @@ export function readArtifactSchema() {
 // `coverage.mjs`, so a vocabulary declared there cannot be read by the measurement without
 // an import cycle.
 // [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+
+/** The schema generation that carries typed step contracts. */
+export const SCHEMA_V3 = 3;
+
+/** The typed fields a v3 step contract must carry. */
+export const STEP_CONTRACT_FIELDS = Object.freeze(readArtifactSchema().steps.contract.required);
+
+/** The two values a v3 operation's registry_contribution may take. */
+export const REGISTRY_CONTRIBUTION_VALUES = Object.freeze(readArtifactSchema().operations.registryContribution.values);
 
 /** The classes an operation may be placed in. */
 export const OPERATION_POSITIONS = Object.freeze(readArtifactSchema().positions);
@@ -331,6 +341,52 @@ export function validateArtifactShape(artifact, schema) {
       problems.push({ pin: `steps[${index}].${key}`, reason: `step ${step.id ?? index} has no ${key}` });
     }
   }
+
+  // A v3 artifact is asked for the typed contract and nothing else is changed: the
+  // same step rows, the same sequence rows, the same operations. A v2 artifact is never
+  // asked for a v3 field, which is what lets both generations verify side by side.
+  if (artifact.schema_version === 3) {
+    for (const [index, step] of artifact.steps.entries()) {
+      if (step.contract === undefined || step.contract === null || typeof step.contract !== 'object' || Array.isArray(step.contract)) {
+        problems.push({ pin: `steps[${index}].contract`, reason: `step ${step.id ?? index} has no typed contract`, });
+        continue;
+      }
+      for (const key of missingKeys(step.contract, schema.steps.contract.required)) {
+        problems.push({ pin: `steps[${index}].contract.${key}`, reason: `step ${step.id ?? index} contract has no ${key}` });
+      }
+      for (const field of ['pre', 'post', 'invariants']) {
+        for (const [factIndex, fact] of (Array.isArray(step.contract[field]) ? step.contract[field] : []).entries()) {
+          if (fact === null || typeof fact !== 'object' || Array.isArray(fact)) {
+            problems.push({ pin: `steps[${index}].contract.${field}[${factIndex}]`, reason: `step ${step.id ?? index} contract ${field}[${factIndex}] is not a fact object` });
+            continue;
+          }
+          for (const key of missingKeys(fact, schema.steps.contract.fact.required)) {
+            problems.push({ pin: `steps[${index}].contract.${field}[${factIndex}].${key}`, reason: `step ${step.id ?? index} contract ${field}[${factIndex}] has no ${key}` });
+          }
+        }
+      }
+      for (const key of ['consumes', 'produces', 'errors', 'crosses']) {
+        if (!Array.isArray(step.contract[key])) {
+          problems.push({ pin: `steps[${index}].contract.${key}`, reason: `step ${step.id ?? index} contract ${key} is not an array` });
+        }
+      }
+    }
+    for (const [index, operation] of artifact.operations.entries()) {
+      if (operation.registry_contribution === undefined) {
+        problems.push({ pin: `operations[${index}].registry_contribution`, reason: `operation ${operation.id ?? index} has no registry_contribution` });
+      } else if (!schema.operations.registryContribution.values.includes(operation.registry_contribution)) {
+        problems.push({ pin: `operations[${index}].registry_contribution`, reason: `operation ${operation.id ?? index} registry_contribution is ${operation.registry_contribution}, not one of ${schema.operations.registryContribution.values.join(', ')}` });
+      } else if (operation.registry_contribution === 'not_required' && (typeof operation.registry_contribution_ground !== 'string' || operation.registry_contribution_ground.trim() === '')) {
+        problems.push({ pin: `operations[${index}].registry_contribution_ground`, reason: `operation ${operation.id ?? index} is not_required and carries no ground` });
+      }
+      for (const [effectIndex, effect] of (Array.isArray(operation.boundary_effects) ? operation.boundary_effects : []).entries()) {
+        for (const key of missingKeys(effect, schema.operations.boundaryEffects.required)) {
+          problems.push({ pin: `operations[${index}].boundary_effects[${effectIndex}].${key}`, reason: `operation ${operation.id ?? index} boundary effect ${effectIndex} has no ${key}` });
+        }
+      }
+    }
+  }
+
   for (const key of missingKeys(artifact.verify, schema.verify.required)) {
     problems.push({ pin: `verify.${key}`, reason: `verify has no ${key}` });
   }

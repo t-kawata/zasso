@@ -9,11 +9,105 @@
  * The rule is deliberately not re-implemented as the authority here. The command reads the
  * published order as the authority and re-derivation as the check.
  */
-import { basename, dirname, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import { holdsExplanation, holdsRfc, SEED_FILE_NAME } from './workspace.mjs';
+import { readCompletedSessions, readPackageDistribution, readRootEduceGeneration, readRootSmoothGeneration } from './counters.mjs';
 import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
+
+/** The smallest gap between the longest path and the first field. */
+export const MINIMUM_GAP = 1;
+
+/**
+ * The width of one grapheme cluster.
+ *
+ * Width is a property of the terminal, not of the code-point count: a CJK ideograph and an
+ * emoji occupy two columns, a combining mark or a joiner occupies none, and a ZWJ sequence
+ * is one glyph even though it is several code points. The segmenter supplies the clusters;
+ * the ranges below supply the East Asian Wide and emoji widths.
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+/** Combining marks and format characters draw no column of their own. */
+const ZERO_WIDTH_CHARACTER = /^[\p{Mn}\p{Me}\p{Cf}]$/u;
+/** The ranges whose code points occupy two terminal columns: East Asian Wide/Fullwidth. */
+const WIDE_RANGES = Object.freeze([
+  [0x1100, 0x115f],
+  [0x2329, 0x232a],
+  [0x2e80, 0x303e],
+  [0x3041, 0x33ff],
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+  [0xa000, 0xa4cf],
+  [0xa960, 0xa97f],
+  [0xac00, 0xd7a3],
+  [0xf900, 0xfaff],
+  [0xfe10, 0xfe19],
+  [0xfe30, 0xfe6f],
+  [0xff00, 0xff60],
+  [0xffe0, 0xffe6],
+  [0x16fe0, 0x16fff],
+  [0x1b000, 0x1b2ff],
+  [0x1f200, 0x1f2ff],
+  [0x1f300, 0x1faff],
+  [0x20000, 0x3fffd],
+  // Emoji-presentation dingbats below the CJK block; U+274C is the FAILED-SEQ glyph.
+  [0x2705, 0x2705],
+  [0x2714, 0x2714],
+  [0x2716, 0x2716],
+  [0x2728, 0x2728],
+  [0x274c, 0x274c],
+  [0x274e, 0x274e],
+  [0x2753, 0x2755],
+  [0x2757, 0x2757],
+  [0x2795, 0x2797],
+  [0x27b0, 0x27b0],
+  [0x27bf, 0x27bf],
+  [0x2b50, 0x2b50],
+  [0x2b55, 0x2b55],
+]);
+
+/** The width of one code point: two for a wide range, zero for a combining mark, one otherwise. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function codePointWidth(codePoint) {
+  if (ZERO_WIDTH_CHARACTER.test(String.fromCodePoint(codePoint))) return 0;
+  return WIDE_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 2 : 1;
+}
+
+/** The width of one grapheme cluster, including emoji sequences and combining marks. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function graphemeWidth(grapheme) {
+  if (ZERO_WIDTH_CHARACTER.test(grapheme)) return 0;
+  // A variation selector or a zero-width joiner presents the cluster as one emoji glyph.
+  if (grapheme.includes('\u200d') || grapheme.includes('\ufe0f')) return 2;
+  let width = 0;
+  for (const character of grapheme) width += codePointWidth(character.codePointAt(0));
+  return width;
+}
+
+/** The number of terminal columns a string occupies. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function displayWidth(text) {
+  let width = 0;
+  for (const { segment } of graphemeSegmenter.segment(text)) width += graphemeWidth(segment);
+  return width;
+}
+
+/** The two spaces, the critical marker or a space, and the space before the path. */
+export const PREFIX_WIDTH = displayWidth('  * ');
+
+/**
+ * The column one gap after the longest rendered path.
+ *
+ * The column is exact, not a tab stop: a tab stop is a viewer setting, so rounding to one
+ * would only align readers whose terminals agree with the renderer. One space after the
+ * longest prefix is the smallest common column every line can reach.
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function markColumnFor(maxPathWidth) {
+  return PREFIX_WIDTH + maxPathWidth + MINIMUM_GAP;
+}
 
 /** Provider-first levels: the rule computeImplementationOrder in stage one applies. */
 export function deriveLevels({ packageIds, edges }) {
@@ -241,6 +335,19 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     packages.filter((pkg) => holdsRfc({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
   const sequenceVerdicts = readSequenceVerdicts({ root, packages });
+  // The counters are read once per package, beside the documents they qualify. A package
+  // with no record answers null, which the renderer reads as unknown rather than zero.
+  const rootCounters = {
+    edu: readRootEduceGeneration(root),
+    smo: readRootSmoothGeneration(root),
+  };
+  const grillCounts = new Map(
+    packages.map((pkg) => [pkg.id, readCompletedSessions(join(root, pkg.path))]),
+  );
+  const distributionCounts = new Map(
+    packages.map((pkg) => [pkg.id, readPackageDistribution(join(root, pkg.path))]),
+  );
+  const pathWidth = Math.max(...packages.map((pkg) => displayWidth(pkg.path)));
 
   return {
     workspaceName: basename(resolve(root)),
@@ -248,6 +355,9 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     explainedIds,
     grilledIds,
     sequenceVerdicts,
+    rootCounters,
+    grillCounts,
+    distributionCounts,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),
@@ -256,7 +366,8 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     criticalChain: findCriticalChain({ levels, edges }),
     pathOf: new Map(packages.map((pkg) => [pkg.id, pkg.path])),
     nameOf: new Map(packages.map((pkg) => [pkg.id, pkg.name])),
-    pathWidth: Math.max(...packages.map((pkg) => pkg.path.length)),
+    pathWidth,
+    markColumn: markColumnFor(pathWidth),
     edgeCount: edges.length,
   };
 }

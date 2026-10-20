@@ -13,20 +13,33 @@ import {
   SEQUENCE_VERDICT_COMPLETE,
   SEQUENCE_VERDICT_FAILED,
 } from '../../sequences-slice/lib/package-verdict.mjs';
+import { displayWidth } from './levels.mjs';
 
 export const LEVEL_LABEL = 'level';
 export const ALONE_LABEL = 'alone';
 export const PARALLEL_LABEL = 'parallel';
 export const FOCUS_MARKER = '▶';
 export const CRITICAL_MARKER = '*';
-/** Written after a path whose package directory already carries its explanation document. */
-export const EXPLAINED_LABEL = '🔴 EXPLAINED';
-/** Written after the explanation mark, when the directory also carries its grilled design. */
-export const GRILLED_LABEL = '🟠 GRILLED';
-/** Written when the directory's own documents account for every obligation it carries. */
-export const SEQUENCED_LABEL = '🟡 SEQUENCED';
-/** Written when the distribution reached the directory and its verification refutes what it did. */
-export const FAILED_SEQUENCE_LABEL = '❌ FAILED-SEQ';
+
+/** The full-width glyphs the pipeline fields carry, in pipeline order. */
+export const EDU_GLYPH = '🟤';
+export const EXPLANATION_GLYPH = '🔴';
+export const GRILL_GLYPH = '🟠';
+export const SEQUENCE_GLYPH = '🟡';
+export const FAILED_SEQUENCE_GLYPH = '❌';
+export const SMOOTH_GLYPH = '🟢';
+
+/** The words a field carries when its counter is unknown or its number is omitted. */
+export const EXPLANATION_TEXT = 'EXP';
+export const GRILLED_TEXT = 'GRILLED';
+export const SEQUENCED_TEXT = 'SEQUENCED';
+export const FAILED_SEQUENCE_TEXT = 'FAILED-SEQ';
+
+/** The field order is the pipeline order, so a line reads left to right as the work happened. */
+export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo']);
+/** Emoji presentation occupies two terminal columns. */
+export const EMOJI_COLUMNS = 2;
+
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
@@ -66,7 +79,14 @@ export function formatOrdinal(value) {
 
 /** The widest line in a rendered block, used to prove nothing wraps. */
 export function maxLineWidth(text) {
-  return Math.max(...text.split('\n').map((line) => line.length));
+  return Math.max(...text.split('\n').map(displayWidth));
+}
+
+/** Pad a string with spaces to a terminal column, never truncating it. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function padToDisplayWidth(text, width) {
+  const padding = width - displayWidth(text);
+  return padding > 0 ? `${text}${' '.repeat(padding)}` : text;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -78,37 +98,112 @@ function renderLevelHeader(index, memberCount) {
 }
 
 /**
- * The marks a package carries, in the order the pipeline reaches them.
+ * One field of a package line, or null when the directory carries no answer for it.
  *
- * A seed is explained, then grilled, then sliced into sequences, so a directory that reached all
- * three reads left to right as the work happened. The first two marks are written from their own
- * document alone — RFC.md can sit in a directory that was never explained, so a package may carry
- * either of them, both or neither — and the third is not a document's presence but the verdict
- * its documents support, which is why it has two spellings and a missing one.
- *
- * A directory the distribution never reached carries nothing rather than a third mark: the
- * absence says no attempt exists to judge, and a placeholder would read as a judgement that the
- * reader was unable to reach. Printing only the furthest mark would drop a fact the directory
- * holds, and closing a gap would assert a step that never ran.
+ * The field order follows the pipeline: the root generations bracket the work, the
+ * explanation precedes the grill, and the grill precedes the distribution. The first two
+ * per-directory fields are documents; the third is a verdict with two spellings. A counter
+ * is used when the producer recorded one, and the document or verdict mark is the honest
+ * fallback when it did not.
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
-function renderMarks(model, id) {
-  const marks = [];
-  if (model.explainedIds.has(id)) marks.push(EXPLAINED_LABEL);
-  if (model.grilledIds.has(id)) marks.push(GRILLED_LABEL);
-  const verdict = model.sequenceVerdicts.get(id);
-  if (verdict?.state === SEQUENCE_VERDICT_COMPLETE) marks.push(SEQUENCED_LABEL);
-  if (verdict?.state === SEQUENCE_VERDICT_FAILED) marks.push(FAILED_SEQUENCE_LABEL);
-  return marks.map((mark) => ` ${mark}`).join('');
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function cellFor(model, id, key) {
+  if (key === 'edu') {
+    return model.rootCounters.edu === null
+      ? null
+      : { glyph: EDU_GLYPH, text: `EDU:${model.rootCounters.edu}` };
+  }
+  if (key === 'exp') {
+    return model.explainedIds.has(id)
+      ? { glyph: EXPLANATION_GLYPH, text: EXPLANATION_TEXT }
+      : null;
+  }
+  if (key === 'gri') {
+    const count = model.grillCounts.get(id) ?? null;
+    if (count !== null) return { glyph: GRILL_GLYPH, text: `GRI:${count}` };
+    return model.grilledIds.has(id) ? { glyph: GRILL_GLYPH, text: GRILLED_TEXT } : null;
+  }
+  if (key === 'seq') {
+    const verdict = model.sequenceVerdicts.get(id);
+    const count = model.distributionCounts.get(id)?.distributions ?? null;
+    if (verdict?.state === SEQUENCE_VERDICT_COMPLETE) {
+      return { glyph: SEQUENCE_GLYPH, text: count === null ? SEQUENCED_TEXT : `SEQ:${count}` };
+    }
+    if (verdict?.state === SEQUENCE_VERDICT_FAILED) {
+      return { glyph: FAILED_SEQUENCE_GLYPH, text: count === null ? FAILED_SEQUENCE_TEXT : `SEQ:${count}` };
+    }
+    return null;
+  }
+  if (key === 'smo') {
+    return model.rootCounters.smo === null
+      ? null
+      : { glyph: SMOOTH_GLYPH, text: `SMO:${model.rootCounters.smo}` };
+  }
+  return null;
 }
 
-// [::TICKET::] PX-223, PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228) --for-spec --no-implementation-order`.
-function renderPackageLine(model, id) {
+/**
+ * The width of every field that any package line carries.
+ *
+ * A field present on at least one line reserves that width on every line that has a later
+ * present field, so an absent middle field keeps the later columns aligned. A field absent
+ * everywhere is omitted rather than reserving three blank columns for a glyph no line owns.
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function buildFieldLayout(model) {
+  const widths = new Map();
+  for (const id of model.levels.flat()) {
+    for (const key of FIELD_SEQUENCE) {
+      const cell = cellFor(model, id, key);
+      if (cell === null) continue;
+      widths.set(key, Math.max(widths.get(key) ?? 0, displayWidth(cell.text)));
+    }
+  }
+  return { widths };
+}
+
+/**
+ * The fields of one package line, or an empty string when the line carries none.
+ *
+ * Leading and trailing absent fields are trimmed so the first visible mark starts at the
+ * common column; an absent field between two present ones is written as a blank cell of
+ * its own width. The final `trimEnd` in renderPackageLine removes the last cell's padding,
+ * preserving the no-trailing-whitespace contract.
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function renderFields(model, id, layout) {
+  const active = FIELD_SEQUENCE.filter((key) => layout.widths.has(key));
+  const cells = active.map((key) => ({ key, cell: cellFor(model, id, key), width: layout.widths.get(key) }));
+  const first = cells.findIndex((entry) => entry.cell !== null);
+  if (first === -1) return '';
+  const last = cells.length - 1 - [...cells].reverse().findIndex((entry) => entry.cell !== null);
+  const parts = [];
+  for (let index = first; index <= last; index += 1) {
+    const { cell, width } = cells[index];
+    parts.push(
+      cell === null
+        ? ' '.repeat(EMOJI_COLUMNS + 1 + width)
+        : `${cell.glyph} ${cell.text.padEnd(width)}`,
+    );
+  }
+  return parts.join(' ');
+}
+
+/**
+ * One package line: the prefix, the path, the padding to the common column, then the fields.
+ *
+ * A line with no fields ends at its path and carries no padding, which keeps a workspace
+ * with no counters byte-identical to the output before this field existed.
+ */
+// [::TICKET::] PX-223, PX-228, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228|PX-282) --for-spec --no-implementation-order`.
+function renderPackageLine(model, id, layout) {
   const marker = model.criticalChain.includes(id) ? CRITICAL_MARKER : ' ';
-  // The path is never padded: a line whose package carries no mark ends there, so padding
-  // would only leave trailing blanks. A mark is appended rather than aligned to a column,
-  // because it qualifies the path it follows instead of opening a second field.
-  return `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}${renderMarks(model, id)}`;
+  const prefix = `${ITEM_INDENT}${marker} `;
+  const fields = renderFields(model, id, layout);
+  const linePrefix = `${prefix}${model.pathOf.get(id)}`;
+  if (fields.length === 0) return linePrefix;
+  const padding = ' '.repeat(model.markColumn - displayWidth(linePrefix));
+  return `${linePrefix}${padding}${fields}`.trimEnd();
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -134,7 +229,7 @@ function renderChainRow(model) {
   let current = label;
   names.forEach((name, index) => {
     const piece = index === 0 ? name : CHAIN_ARROW + name;
-    if (index > 0 && current.length + piece.length > CHAIN_WRAP_WIDTH) {
+    if (index > 0 && displayWidth(current) + displayWidth(piece) > CHAIN_WRAP_WIDTH) {
       lines.push(current);
       // The arrow opens the continuation line, so a wrapped chain still reads as one chain.
       current = continuation + CHAIN_ARROW_GLYPH + ' ' + name;
@@ -148,13 +243,14 @@ function renderChainRow(model) {
 
 /** The whole picture: every level, then the width row and the chain row. */
 export function renderPlan(model) {
+  const layout = buildFieldLayout(model);
   const blocks = [
     `\n# ${model.workspaceName} implementation order — ${model.packages.length} dirs / ${model.levels.length} levels / ${model.edgeCount} dependencies`,
   ];
   model.levels.forEach((level, index) => {
     blocks.push('');
     blocks.push(renderLevelHeader(index, level.length));
-    for (const id of level) blocks.push(renderPackageLine(model, id));
+    for (const id of level) blocks.push(renderPackageLine(model, id, layout));
   });
   blocks.push('');
   blocks.push(renderWidthRow(model));
@@ -172,7 +268,9 @@ function renderRelated(model, ids) {
     (left, right) =>
       model.levelOf.get(left) - model.levelOf.get(right) || model.nameOf.get(left).localeCompare(model.nameOf.get(right)),
   );
-  return ordered.map((id) => `${LIST_INDENT}${model.pathOf.get(id).padEnd(model.pathWidth)}  level ${model.levelOf.get(id)}`);
+  return ordered.map(
+    (id) => `${LIST_INDENT}${padToDisplayWidth(model.pathOf.get(id), model.pathWidth)}  level ${model.levelOf.get(id)}`,
+  );
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -188,7 +286,7 @@ export function renderFocus({ model, packageId }) {
   const peers = model.levels[level].filter((id) => id !== packageId);
 
   const heading =
-    `${FOCUS_MARKER} ${model.pathOf.get(packageId).padEnd(model.pathWidth)}` +
+    `${FOCUS_MARKER} ${padToDisplayWidth(model.pathOf.get(packageId), model.pathWidth)}` +
     `  level ${level} · ${formatOrdinal(position)}` +
     (onChain ? ' · on the critical path' : '');
 

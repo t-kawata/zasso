@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseSequencesArtifact } from './artifact.mjs';
+import { digestOf, readDistributionRecord, writeDistributionRecord } from './distribution-record.mjs';
 import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME } from './material.mjs';
 import { readPackageObligations } from './obligation.mjs';
 import { resolvePackageByPath } from './packages.mjs';
@@ -89,6 +90,35 @@ export function readWorkspaceSegmentsOrRefuse(root) {
 }
 
 /**
+ * Count a distribution when the view it writes differs from the recorded one.
+ *
+ * The comparison is between the projected JSON and the digest the record names, never
+ * between the record and the file on disk: a manual edit that the projection restores is
+ * the same distribution, not a new one. The view is already written when this runs, so a
+ * failed record write leaves a correct view and an unknown count rather than losing the
+ * view to a provenance failure.
+ *
+ * @param {string} packageDir
+ * @param {string} viewJson — the exact bytes written to SEQUENCES.json
+ * @returns {{ changed: boolean, distributions: number|null, reason: string|null }}
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function recordDistribution(packageDir, viewJson) {
+  const digest = digestOf(viewJson);
+  const previous = readDistributionRecord(packageDir);
+  if (previous !== null && previous.digest === digest) {
+    return { changed: false, distributions: previous.distributions, reason: null };
+  }
+  const distributions = (previous?.distributions ?? 0) + 1;
+  try {
+    writeDistributionRecord(packageDir, { distributions, digest });
+    return { changed: true, distributions, reason: null };
+  } catch (error) {
+    return { changed: true, distributions: previous?.distributions ?? null, reason: error.message };
+  }
+}
+
+/**
  * Write the two view files and report what was written.
  *
  * The artifact path names the workspace: the two manifests are resolved beside it, and the package
@@ -96,7 +126,8 @@ export function readWorkspaceSegmentsOrRefuse(root) {
  *
  * @param {string} artifactPath
  * @param {string} packageDir
- * @returns {{ written: string[], packageId: string, reason: string|null, refused: string[] }}
+ * @returns {{ written: string[], packageId: string, reason: string|null, refused: string[],
+ *   distribution: { changed: boolean, distributions: number|null, reason: string|null } }}
  */
 // [::TICKET::] PX-256, PX-259, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259|PX-260|PX-261) --for-spec --no-implementation-order`.
 export function projectPackageView(artifactPath, packageDir) {
@@ -137,8 +168,10 @@ export function projectPackageView(artifactPath, packageDir) {
     obligations: { allocateManifest, declared: obligation.serves, record: { assignments: obligation.assignments, adjudications: obligation.adjudications } },
   }, resolved.packageId);
   fs.mkdirSync(packageDir, { recursive: true });
+  const viewJson = renderPackageViewJson(view);
   fs.writeFileSync(path.join(packageDir, VIEW_MARKDOWN_NAME), renderPackageViewMarkdown(view));
-  fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), renderPackageViewJson(view));
+  fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), viewJson);
+  const distribution = recordDistribution(packageDir, viewJson);
 
-  return { written: [VIEW_MARKDOWN_NAME, VIEW_JSON_NAME], packageId: resolved.packageId, reason: null, refused: obligation.refused };
+  return { written: [VIEW_MARKDOWN_NAME, VIEW_JSON_NAME], packageId: resolved.packageId, reason: null, refused: obligation.refused, distribution };
 }

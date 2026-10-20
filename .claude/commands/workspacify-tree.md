@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (`/workspacify-*`, `/educe-sequences`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
+MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
@@ -91,7 +91,7 @@ Purpose: omission-free implementation-target candidates with source traceability
 node .claude/scripts/workspacify-tree/run.mjs extract "$ARGUMENTS"
 ```
 
-Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood.
+Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood. Every boundary emitted here carries `stage2_contract_scope`; `/workspacify-allocate`'s `contract_registry` must satisfy exactly that scope, and `/smooth-sequences` checks the two against each other.
 
 ## Step 3: authoring the decision JSON (the AI's design judgement)
 
