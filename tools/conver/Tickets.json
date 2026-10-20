@@ -41966,6 +41966,159 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-20"
+        },
+        {
+          "id": 281,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Give /smooth-sequences a generation history under <root>/smooth-sequences/",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-281.md",
+          "background": "- [Goal] Repeated /smooth-sequences runs against one workspace root accumulate generations under <cwd>/smooth-sequences/: status.json records the generation, mode, input digest, report digest and verdict; the current SMOOTH-SEQUENCES.json/.md pair is the newest generation; the superseded pair is renamed into archive/<generation>/ and never deleted; an unchanged input and measurement is a verification that writes nothing.\n- [Purpose] The command is a repeated smoothing loop, not a one-shot gate: each pass must compare the workspace with the last measurement, and persisted findings are evidence that the previous repair missed. Overwriting the root report erases that evidence every pass.\n- [Motivation] /educe-sequences already owns this model: a run directory beside the specification, status.json with a generation, archive/ holding superseded readings, and a verification that writes nothing. /smooth-sequences is its downstream gate and should not be the only instrument in the pipeline that forgets its own passes.\n- [Constraints] The report directory is not a design input: staging, commit and the hash chain must never read or write it. Exit 2 remains write-free, including the directory. The legacy root SMOOTH-SEQUENCES.json/.md are read-only compatibility input and are never moved or deleted. The report file names stay SMOOTH-SEQUENCES.json/.md; only their containing directory changes.",
+          "default_files": [
+            ".claude/scripts/smooth-sequences/lib/generation.mjs",
+            ".claude/scripts/smooth-sequences/lib/report.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/smooth-sequences/generation.test.mjs",
+            "tests/smooth-sequences/run.test.mjs",
+            "tests/smooth-sequences/root-resolution.test.mjs",
+            "tests/smooth-sequences/report.test.mjs",
+            "tests/smooth-sequences/docs.test.mjs"
+          ],
+          "notes": "- [Implementation steps] Red: add generation.test.mjs and extend run/root/docs tests to require the run directory, status.json, archive and verification; Green: add lib/generation.mjs, wire run.mjs, change readPreviousReport, update the document; Refactor: remove hardcoded names and duplicate digest code.\n- [Risks] External readers of the root report path must be told the path moved; concurrent runs on one root are unsupported because generation allocation is read-modify-write; a crash between archive and status leaves the previous pair archived and the next run continues at N+1 without loss.\n- [Caveats] inputDigest reuses snapshotDesignFiles, so an educe run that changes the run directory opens a new generation even when the artifact is unchanged; this is intentional because the inherited state moved. The legacy root pair is read-only and is never archived by this ticket.\n- [Open items] Archive retention policy is out of scope; history is unbounded like educe history.\n- [Future improvements] Let status.json name the previous generation and a measured delta (findings opened and closed) so convergence is visible without diffing two reports.\nImplementation summary:\n- Changed files: .claude/scripts/smooth-sequences/lib/generation.mjs (new), lib/report.mjs, run.mjs, .claude/commands/smooth-sequences.md, tests/smooth-sequences/{generation,run,root-resolution,report,docs}.test.mjs\n- Key changes: generation module owns mode decision, archive-by-rename and status-last ordering; report.mjs owns run-directory paths and the legacy fallback; run.mjs hashes snapshotDesignFiles as the input digest and prints the generation line; the document gains Outputs, Generations and a two-pass example.\n- Test results: 125 tests, 124 pass, 1 skipped (opt-in gaia smoke), 0 fail; quality checks 0 issues.\n- Delete/Overwrite: no file deleted; the legacy root pair is never moved; report file names unchanged.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: consistency verified; the run directory is excluded from the design-file, staging and commit sets\n- Issues found and fixes applied: added the staging regression test that runs prepareDerivationRoot over a workspace with a generation and asserts the staging tree does not inherit smooth-sequences/\n- Commands verified: generation 1 opens on a first run; an unchanged pass is a verification that writes nothing; a repaired pass archives the previous pair and opens the next generation; exit 2 creates no directory; the legacy root pair is read-only",
+          "invariants": "- 【Normal establishment】A report-writing run increments the generation by exactly one; the superseded pair is moved byte-identically into archive/<previous generation>/ before the new pair is written; status.json is written last and names the generation, mode, input digest, report digest and verdict.\n- 【Invariant on error】Every exit-2 path leaves <root>/smooth-sequences/ absent or byte-identical; no partial status is written; an unreadable status or report is treated as no history and never throws.\n- 【Internal invariant】The run directory is not a design input: collectDesignFiles, the staging copy, snapshotDesignFiles and the commit target set contain no path beginning smooth-sequences/.\n- 【Boundary invariant】The detector writes only under <root>/smooth-sequences/; the legacy root SMOOTH-SEQUENCES.json/.md are read and never modified, moved or deleted; a verification writes nothing at all.",
+          "scope": [
+            "ADD .claude/scripts/smooth-sequences/lib/generation.mjs — own the generation policy: STATUS_SCHEMA_VERSION, MODE_NEW_GENERATION, MODE_VERIFICATION, generationOf(status), readStatus(root) and writeGeneration({root, report, inputDigest, exitCode, now}); import the run-directory paths and writeReport from report.mjs so the dependency is one-way; archive the superseded pair by rename, write the report pair, then write status.json last.",
+            "CHANGE .claude/scripts/smooth-sequences/lib/report.mjs — own RUN_DIRECTORY_NAME, STATUS_FILE_NAME, ARCHIVE_DIRECTORY_NAME, runDirectoryFor(root) and statusPathFor(root); readPreviousReport(root) reads <root>/smooth-sequences/SMOOTH-SEQUENCES.json first and falls back to the legacy <root>/SMOOTH-SEQUENCES.json read-only; writeReport({report, outputDirectory}) stays the low-level two-file writer; renderReportJson stays the digest input.",
+            "CHANGE .claude/scripts/smooth-sequences/run.mjs — compute inputDigest with snapshotDesignFiles(root) from the regeneration library, annotate persisted from the generation report, call writeGeneration instead of writeReport(root), and prepend one `generation: N (new generation|verification; no new generation)` line to the console block; exits 0/1/2/3 are unchanged and the exit code is decided before the status is written.",
+            "CHANGE .claude/commands/smooth-sequences.md — move the Outputs paths under smooth-sequences/, add a Generations section (run directory, status.json, archive/<N>/, verification writes nothing, legacy is read-only), update the Step 2 persisted wording, the Step 6 completion condition and the Appendix E example with a second pass.",
+            "ADD tests/smooth-sequences/generation.test.mjs — unit tests for generation 1, verification, archive and increment, unreadable history, legacy preference, and the design-file exclusion.",
+            "CHANGE tests/smooth-sequences/run.test.mjs — replace root-path assertions with smooth-sequences/ paths and add run-level tests: generation 1, verification on an unchanged second run, archive after a repair, and no directory on exit 2.",
+            "CHANGE tests/smooth-sequences/root-resolution.test.mjs — the no-report assertions check both the root and smooth-sequences/ so a refusal cannot create the run directory.",
+            "CHANGE tests/smooth-sequences/report.test.mjs — keep the writeReport path test; add the readPreviousReport preference for the generation report over the legacy root report.",
+            "CHANGE tests/smooth-sequences/docs.test.mjs — assert the command names smooth-sequences/, status.json, archive and verification while keeping the existing step and exit assertions.",
+            "IMPACT — consumers of the report path: the only in-repo consumer is readPreviousReport; the console summary and the command document carry the new path; no other script reads SMOOTH-SEQUENCES.json.",
+            "SCHEMA — status.json schemaVersion 1: {schemaVersion, generation, mode, measuredAt, inputDigest, reportDigest, verdict:{exitCode,findings,withheld}}; the report schemaVersion stays 2 because the report value gains no field.",
+            "NON-CHANGE — .claude/scripts/regeneration/lib/staging.mjs, commit.mjs and chain.mjs: collectDesignFiles already excludes the report names and the new directory is never enumerated, so staging and commit need no edit; a regression test pins this.",
+            "NON-CHANGE — report file names, finding/route line format and CLI surface: no new flag, no rename, and the only console addition is the generation line; concurrent runs against one root remain unsupported because allocation is read-modify-write."
+          ],
+          "testUnit": [
+            "UT: [Normal] a first run with no history writes generation 1 under smooth-sequences/ and a status.json naming generation 1, mode new generation, the input digest, the report digest and the verdict (C001)",
+            "UT: [Normal] an unchanged input digest and an unchanged measurement return mode verification, open no generation and write no file; status.json is byte-identical before and after (C002)",
+            "UT: [Normal] a changed input digest archives the current pair under archive/<previous generation>/ byte-identically and writes generation N+1 beside status.json (C003)",
+            "UT: [Error] a refused run at exit 2 creates no smooth-sequences/ directory and changes no existing generation file (C004)",
+            "UT: [Error] the write-free refusal behavior of the detector is preserved: the refusal path performs no write and opens no generation (C004)",
+            "UT: [Normal] readPreviousReport prefers smooth-sequences/SMOOTH-SEQUENCES.json and falls back to the legacy root file without moving or deleting it (C005)",
+            "UT: [Boundary] collectDesignFiles and snapshotDesignFiles contain no path beginning smooth-sequences/ after a generation is written (C006)",
+            "UT: [Edge] an unreadable status.json or report is treated as no history; the run opens generation 1 without throwing (C001)",
+            "UT: [Invariant] status.json is written after the report pair and names mode, generation, inputDigest, reportDigest and verdict (C001)",
+            "UT: [Normal] a second run over the same unchanged workspace reports generation N verification on the console (C002)"
+          ],
+          "testIntegration": [
+            "IT: run.mjs + generation.mjs on a defective fixture exits 1 and writes generation 1; after the defect is repaired the next run exits 0, writes generation 2, and archive/1 holds the byte-identical defective pair (C003)",
+            "IT: two consecutive runs over an unchanged fixture: the second reports verification, adds no directory entry and leaves status.json byte-identical (C002)",
+            "IT: a fixture with a legacy root SMOOTH-SEQUENCES.json reports the surviving finding as persisted, keeps the legacy file byte-identical, and writes the new report under smooth-sequences/ (C005)",
+            "IT: regeneration verify runs the detector on the staging root; the staging design-file snapshot and commit target set exclude smooth-sequences/, and the live workspace generation is unchanged (C006)",
+            "IT: exit-2 paths (invalid root, broken chain, open transaction, malformed artifact) create no smooth-sequences/ directory (C004)",
+            "IT: the command document and the console both name smooth-sequences/, status.json, archive/<N>/ and verification (C001)"
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] The console gains one line after the summary: `generation: N (new generation)` or `generation: N (verification; no new generation)`; the existing route and finding lines are unchanged.\n- [Metrics] status.json persists generation, mode, inputDigest, reportDigest and verdict so a later pass can compare without reading the console.\n- [Error tracking] exit 2 keeps the existing SmoothSequencesError/RegenerationError stderr format and adds no output; no report or status is written.\n- [Health check] Running the detector twice over an unchanged root reports verification and writes nothing; a changed root reports a new generation.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, named constants, no generic variables, no debug output)\nTests: 126 tests, 125 pass, 1 skipped (opt-in gaia smoke), 0 fail",
+          "acceptanceCriteria": [
+            "Happy path: a run over a workspace with no history writes smooth-sequences/{SMOOTH-SEQUENCES.json,SMOOTH-SEQUENCES.md,status.json} with generation 1; after a repair, the next run writes generation 2 and moves the first pair to smooth-sequences/archive/1/ byte-identically.",
+            "Error case: every exit-2 run (broken chain, open transaction, malformed artifact) leaves no smooth-sequences/ directory and changes no existing generation file.",
+            "Edge case: an unchanged workspace re-run reports `generation: N (verification; no new generation)`, writes nothing, and leaves status.json byte-identical; a legacy root SMOOTH-SEQUENCES.json supplies persisted but is never moved or deleted."
+          ],
+          "investigation": "- .claude/scripts/smooth-sequences/lib/report.mjs:19-20 defines JSON_FILE_NAME and MARKDOWN_FILE_NAME; :63-70 readPreviousReport reads <root>/SMOOTH-SEQUENCES.json; :192-198 writeReport writes both files into outputDirectory.\n- .claude/scripts/smooth-sequences/run.mjs:108 annotates persisted from readPreviousReport(root); :116 writes the pair into root; :117-124 derive the exit code and console block. The write happens after every load/check refusal returns, so the refusal path is already write-free.\n- .claude/scripts/regeneration/lib/staging.mjs:51 skips the two root report names only while walking the educe run directory; :82-108 collectDesignFiles enumerates spec, manifests, artifact, educe-sequences and package files, never reports; :158-176 prepareDerivationRoot copies only those inputs. A smooth-sequences/ run directory is therefore not a design input, a staging input, or a commit target without further change.\n- .claude/commands/educe-sequences.md:48 states every run writes under <dir of spec-file>/educe-sequences/; :124-142 define begin, generation, verification and archive; rail/phases.mjs:417-499 returns verification when the asset digest, spec digest and supplied digest are unchanged and writes nothing; rail/readings.mjs:105-116 rename superseded readings into archive/ rather than deleting them.\n- Tests pinning the current root path: tests/smooth-sequences/run.test.mjs:35-36,73,87; tests/smooth-sequences/root-resolution.test.mjs:41,55,93,106; tests/smooth-sequences/report.test.mjs:162-168; tests/smooth-sequences/docs.test.mjs:14-15.\n- tests/regeneration/helpers/chain-fixture.mjs:170 skips the same two root names when building a fixture, confirming the report pair is deliberately outside the design set.",
+          "boyScoutPlan": "- Extract generation policy into lib/generation.mjs with verb-named functions (writeGeneration, readStatus, generationOf) and named constants; no literal smooth-sequences directory name or file name in run.mjs.\n- Keep the JSON-parse-null fallback but state why it is safe (a corrupt history must not stop the gate); no swallowed error without a named consequence.\n- Keep one digest expression per concept: renderReportJson for the measurement, snapshotDesignFiles for the input; do not duplicate either.\n- Comments explain why the archive precedes the status write and why verification writes nothing, not what each line does.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "design: a first report opens generation 1",
+              "precondition": "The workspace root is valid and the detector reaches the write step; <root>/smooth-sequences/ has no report and no status.",
+              "postcondition": "smooth-sequences/SMOOTH-SEQUENCES.json, .md and status.json exist; status.json names generation 1, mode new generation, the input digest, the report digest and the verdict.",
+              "invariant": "No file is written at the workspace root; the report pair and status are the only writes."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "design: an unchanged pass is a verification, not a new generation",
+              "precondition": "A generation N report exists; the input digest equals status.inputDigest and the rendered measurement equals status.reportDigest.",
+              "postcondition": "The result is mode verification with generation N; the console prints generation N verification; no file is created, renamed or written.",
+              "invariant": "status.json and the report pair are byte-identical before and after."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "design: a changed pass archives the superseded generation",
+              "precondition": "Generation N exists; the input digest or the measurement differs from status.",
+              "postcondition": "archive/N/ holds the previous SMOOTH-SEQUENCES.json and .md byte-identically; the run directory holds generation N+1 pair and a status.json naming N+1 and mode new generation.",
+              "invariant": "Nothing is deleted; the archived pair stays readable and byte-identical to the pair that was current."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "design: refusal writes nothing",
+              "precondition": "The run ends at exit 2 because the root is invalid, the chain is broken, a transaction is open, or the artifact is malformed.",
+              "postcondition": "The run returns exit 2 with report null and the existing stderr code; no smooth-sequences/ directory is created and no generation file changes.",
+              "invariant": "The write-free refusal behavior of the detector is preserved."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "design: the legacy root report is read-only compatibility",
+              "precondition": "The workspace root carries SMOOTH-SEQUENCES.json and/or SMOOTH-SEQUENCES.md from a pre-generation run, and smooth-sequences/ has no report.",
+              "postcondition": "readPreviousReport returns the legacy JSON so persisted is computed; the run writes generation 1 under smooth-sequences/; the legacy pair stays at the root byte-identically.",
+              "invariant": "The legacy pair is never moved, renamed or deleted by this ticket."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "design: the run directory is not a design input",
+              "precondition": "A generation has been written under <root>/smooth-sequences/.",
+              "postcondition": "collectDesignFiles(root), snapshotDesignFiles(root), prepareDerivationRoot and the commit target set contain no path beginning smooth-sequences/.",
+              "invariant": "The hash chain and every staging/commit comparison are unchanged by the report history."
+            }
+          ],
+          "created_at": "2026-10-20",
+          "updated_at": "2026-10-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] the first report opens generation 1 under the run directory (C001)\n```js\nconst root = materializeSmoothWorkspace().root;\nconst report = buildReport({ workspace: { root }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nconst written = writeGeneration({ root, report, inputDigest: 'input-1', exitCode: 0, now: '2026-10-20T00:00:00.000Z' });\nassert.equal(written.mode, 'new generation');\nassert.equal(written.generation, 1);\nconst runDirectory = join(root, 'smooth-sequences');\nconst status = JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8'));\nassert.equal(status.generation, 1);\nassert.equal(status.mode, 'new generation');\nassert.equal(status.inputDigest, 'input-1');\nassert.equal(status.verdict.exitCode, 0);\nassert.ok(existsSync(join(runDirectory, 'SMOOTH-SEQUENCES.json')));\nassert.ok(existsSync(join(runDirectory, 'SMOOTH-SEQUENCES.md')));\nassert.equal(existsSync(join(root, 'SMOOTH-SEQUENCES.json')), false);\n```",
+            "UT: [Normal] an unchanged input digest and measurement is a verification that writes nothing (C002)\n```js\nconst root = materializeSmoothWorkspace().root;\nconst report = buildReport({ workspace: { root }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nwriteGeneration({ root, report, inputDigest: 'same', exitCode: 0, now: 't1' });\nconst statusBefore = readFileSync(join(root, 'smooth-sequences', 'status.json'), 'utf8');\nconst entriesBefore = readdirSync(join(root, 'smooth-sequences')).sort();\nconst second = writeGeneration({ root, report, inputDigest: 'same', exitCode: 0, now: 't2' });\nassert.equal(second.mode, 'verification');\nassert.equal(second.generation, 1);\nassert.equal(readFileSync(join(root, 'smooth-sequences', 'status.json'), 'utf8'), statusBefore);\nassert.deepEqual(readdirSync(join(root, 'smooth-sequences')).sort(), entriesBefore);\n```",
+            "UT: [Normal] a changed input archives the current pair and writes generation N+1 (C003)\n```js\nconst root = materializeSmoothWorkspace().root;\nconst first = buildReport({ workspace: { root }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nwriteGeneration({ root, report: first, inputDigest: 'input-a', exitCode: 0, now: 't1' });\nconst runDirectory = join(root, 'smooth-sequences');\nconst archivedJson = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.json'), 'utf8');\nconst archivedMarkdown = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.md'), 'utf8');\nconst second = buildReport({ workspace: { root }, findings: [{ checkId: 'S1.x', subject: 'y', where: 'spec.md#1', producer: 'p', why: 'w', fix: 'f' }], withheld: [], checks: { run: 7, failed: 1 } });\nconst written = writeGeneration({ root, report: second, inputDigest: 'input-b', exitCode: 1, now: 't2' });\nassert.equal(written.mode, 'new generation');\nassert.equal(written.generation, 2);\nassert.equal(readFileSync(join(runDirectory, 'archive', '1', 'SMOOTH-SEQUENCES.json'), 'utf8'), archivedJson);\nassert.equal(readFileSync(join(runDirectory, 'archive', '1', 'SMOOTH-SEQUENCES.md'), 'utf8'), archivedMarkdown);\nassert.equal(JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8')).generation, 2);\n```",
+            "UT: [Error] a refused run at exit 2 creates no run directory (C004)\n```js\nconst workspace = materializeSmoothWorkspace();\nunlinkSync(workspace.artifactPath);\nconst result = runCommand([workspace.root], QUIET);\nassert.equal(result.exitCode, 2);\nassert.equal(result.report, null);\nassert.equal(existsSync(join(workspace.root, 'smooth-sequences')), false);\nassert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);\n```",
+            "UT: [Normal] the generation report wins over the legacy root report, and the legacy pair is untouched (C005)\n```js\nconst root = materializeSmoothWorkspace().root;\nconst generationReport = { findings: [{ checkId: 'S1.x', subject: 'generation-subject' }] };\nwriteFileSync(join(root, 'SMOOTH-SEQUENCES.json'), JSON.stringify({ findings: [{ checkId: 'S1.x', subject: 'legacy-subject' }] }));\nmkdirSync(join(root, 'smooth-sequences'), { recursive: true });\nwriteFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), JSON.stringify(generationReport));\nconst previous = readPreviousReport(root);\nassert.equal(previous.findings[0].subject, 'generation-subject');\nconst legacyBytes = readFileSync(join(root, 'SMOOTH-SEQUENCES.json'), 'utf8');\nrunCommand([root], QUIET);\nassert.equal(readFileSync(join(root, 'SMOOTH-SEQUENCES.json'), 'utf8'), legacyBytes);\nassert.ok(existsSync(join(root, 'smooth-sequences', 'status.json')));\n```",
+            "UT: [Boundary] the run directory is not a design file (C006)\n```js\nconst root = materializeSmoothWorkspace().root;\nconst report = buildReport({ workspace: { root }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nwriteGeneration({ root, report, inputDigest: 'input-1', exitCode: 0, now: 't1' });\nassert.equal(collectDesignFiles(root).some((path) => path.startsWith('smooth-sequences/')), false);\nassert.equal(Object.keys(snapshotDesignFiles(root)).some((path) => path.startsWith('smooth-sequences/')), false);\n```",
+            "UT: [Edge] an unreadable status or report is treated as no history (C001/C002)\n```js\nconst root = materializeSmoothWorkspace().root;\nmkdirSync(join(root, 'smooth-sequences'), { recursive: true });\nwriteFileSync(join(root, 'smooth-sequences', 'status.json'), '{not json');\nwriteFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), '{not json');\nassert.equal(readStatus(root), null);\nassert.equal(readPreviousReport(root), null);\nconst report = buildReport({ workspace: { root }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nconst written = writeGeneration({ root, report, inputDigest: 'input-1', exitCode: 0, now: 't1' });\nassert.equal(written.generation, 1);\n```",
+            "IT: [Normal] a second run over the unchanged fixture reports verification on the console (C002)\n```js\nconst workspace = materializeSmoothWorkspace();\nconst first = runCommand([workspace.root], capture().io);\nassert.equal(first.exitCode, 0);\nconst captured = capture();\nconst second = runCommand([workspace.root], captured.io);\nassert.equal(second.exitCode, 0);\nassert.match(captured.stdout.join('\\n'), /generation: 1 \\(verification; no new generation\\)/);\nassert.match(captured.stdout.join('\\n'), /smooth-sequences\\/SMOOTH-SEQUENCES\\.json/);\n```"
+          ],
+          "startedAt": "2026-10-20",
+          "changes": [
+            {
+              "before": "the detector overwrote <root>/SMOOTH-SEQUENCES.json and .md on every run",
+              "after": "each report-writing run opens a generation under <root>/smooth-sequences/ and archives the superseded pair",
+              "description": "report history survives repeated smoothing passes"
+            },
+            {
+              "before": "the report path was the workspace root and persisted read it there",
+              "after": "readPreviousReport reads the generation report first and falls back to the legacy root report read-only",
+              "description": "one-run upgrade path with no moved or deleted legacy files"
+            },
+            {
+              "before": "no record said which pass produced a report",
+              "after": "status.json records generation, mode, measuredAt, inputDigest, reportDigest and verdict",
+              "description": "a pass is comparable with the pass before it"
+            },
+            {
+              "before": "running the detector again rewrote identical output",
+              "after": "unchanged input and measurement return verification and write nothing",
+              "description": "no-op passes leave the history clean"
+            },
+            {
+              "before": "the console reported findings and routes only",
+              "after": "the console names the generation and mode after the summary line",
+              "description": "the reader sees whether the pass opened a generation"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-20"
         }
       ]
     },

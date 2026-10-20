@@ -1,3 +1,4 @@
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 /**
  * The workspace root contract.
  *
@@ -20,6 +21,7 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 const QUIET = Object.freeze({ stdout: () => {}, stderr: () => {} });
+const RUN_DIRECTORY = 'smooth-sequences';
 
 /** Run the detector with `directory` as the process working directory. */
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
@@ -38,7 +40,7 @@ test('with no argument the current directory is the workspace root', () => {
   try {
     const result = runFrom(workspace.root);
     assert.equal(result.exitCode, 0);
-    assert.ok(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')));
+    assert.ok(existsSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.json')));
   } finally {
     workspace.remove();
   }
@@ -52,7 +54,7 @@ test('with no argument a subdirectory is not upgraded to an ancestor workspace',
     const result = runFrom(child);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
-    assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }
@@ -90,7 +92,7 @@ test('a root with no sequences artifact exits 2 and writes no report', () => {
     const result = runCommand([workspace.root], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
-    assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }
@@ -103,7 +105,7 @@ test('a root with two sequences artifacts exits 2 and writes no report', () => {
     const result = runCommand([workspace.root], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
-    assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }

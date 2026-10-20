@@ -1,7 +1,8 @@
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +11,7 @@ import {
   buildReport,
   EXIT_FINDINGS,
   EXIT_PASS,
+  readPreviousReport,
   renderConsoleReport,
   renderReportJson,
   renderReportMarkdown,
@@ -167,6 +169,23 @@ test('writeReport writes both documents and returns their paths', () => {
     assert.equal(paths.markdownPath, join(output, 'SMOOTH-SEQUENCES.md'));
   } finally {
     rmSync(output, { recursive: true, force: true });
+  }
+});
+
+// @verifies C005
+test('readPreviousReport prefers the generation report over the legacy root report', () => {
+  const root = mkdtempSync(join(tmpdir(), 'smooth-report-history-'));
+  try {
+    writeFileSync(join(root, 'SMOOTH-SEQUENCES.json'), JSON.stringify({ findings: [{ subject: 'legacy' }] }));
+    mkdirSync(join(root, 'smooth-sequences'));
+    writeFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), JSON.stringify({ findings: [{ subject: 'generation' }] }));
+
+    assert.equal(readPreviousReport(root).findings[0].subject, 'generation');
+    rmSync(join(root, 'smooth-sequences'), { recursive: true, force: true });
+    assert.equal(readPreviousReport(root).findings[0].subject, 'legacy');
+    assert.equal(readFileSync(join(root, 'SMOOTH-SEQUENCES.json'), 'utf8'), JSON.stringify({ findings: [{ subject: 'legacy' }] }));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

@@ -18,6 +18,9 @@ export const REPORT_SCHEMA_VERSION = 2;
 export const MAX_MARKDOWN_FINDINGS = 200;
 export const JSON_FILE_NAME = 'SMOOTH-SEQUENCES.json';
 export const MARKDOWN_FILE_NAME = 'SMOOTH-SEQUENCES.md';
+export const RUN_DIRECTORY_NAME = 'smooth-sequences';
+export const STATUS_FILE_NAME = 'status.json';
+export const ARCHIVE_DIRECTORY_NAME = 'archive';
 
 const FINDING_CLASSES = Object.freeze(['omission', 'contradiction', 'deficiency', 'danger']);
 const JSON_INDENT = 2;
@@ -58,13 +61,44 @@ export function annotatePersisted(findings, previousReport) {
   }));
 }
 
-/** The previous report, or null when it is absent or unreadable. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function readPreviousReport(root) {
-  const path = join(root, JSON_FILE_NAME);
+/** The run directory a workspace root keeps its report generations in. */
+export function runDirectoryFor(root) {
+  return join(root, RUN_DIRECTORY_NAME);
+}
+
+/** The generation record inside the run directory. */
+export function statusPathFor(root) {
+  return join(runDirectoryFor(root), STATUS_FILE_NAME);
+}
+
+/** The generation report, or null when it is absent or unreadable. */
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+export function readGenerationReport(root) {
+  const path = join(runDirectoryFor(root), JSON_FILE_NAME);
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The previous report, or null when no readable one exists.
+ *
+ * The generation report wins over the legacy root report. An unreadable generation
+ * report is not replaced by the legacy report: mixing two histories would report
+ * persisted against a pass that never saw the current workspace.
+ */
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+export function readPreviousReport(root) {
+  const generationPath = join(runDirectoryFor(root), JSON_FILE_NAME);
+  if (existsSync(generationPath)) return readGenerationReport(root);
+  const legacyPath = join(root, JSON_FILE_NAME);
+  if (!existsSync(legacyPath)) return null;
+  try {
+    return JSON.parse(readFileSync(legacyPath, 'utf8'));
   } catch {
     return null;
   }

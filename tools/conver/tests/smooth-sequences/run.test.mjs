@@ -1,7 +1,8 @@
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
@@ -15,6 +16,8 @@ import {
 
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+
+const RUN_DIRECTORY = 'smooth-sequences';
 
 /** Capture what a run writes without touching the test runner's streams. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
@@ -32,8 +35,8 @@ test('a clean workspace exits 0, writes both reports and withholds nothing', () 
     assert.equal(result.exitCode, 0);
     assert.ok(result.report);
     assert.deepEqual(result.report.withheld, []);
-    assert.ok(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')));
-    assert.ok(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.md')));
+    assert.ok(existsSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.json')));
+    assert.ok(existsSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.md')));
   } finally {
     workspace.remove();
   }
@@ -70,7 +73,7 @@ test('a malformed artifact vocabulary exits 2 and writes no report', () => {
     const result = runCommand([workspace.root]);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
-    assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }
@@ -84,7 +87,7 @@ test('a malformed rules file on disk is ignored and writes a report', () => {
     const result = runCommand([workspace.root]);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.report.withheld, []);
-    assert.ok(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')));
+    assert.ok(existsSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.json')));
   } finally {
     workspace.remove();
   }
@@ -185,6 +188,64 @@ test('a finding that survives a rerun is marked persisted', () => {
   }
 });
 
+// @verifies C001
+test('the first run records generation 1 and the console names it', () => {
+  const workspace = materializeSmoothWorkspace();
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 0);
+    assert.match(output.stdout.join('\n'), /^generation: 1 \(new generation\)$/m);
+    const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
+    assert.equal(status.generation, 1);
+    assert.equal(status.verdict.exitCode, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C002
+test('a second run over an unchanged workspace is a verification that writes nothing', () => {
+  const workspace = materializeSmoothWorkspace();
+  const runDirectory = join(workspace.root, RUN_DIRECTORY);
+  try {
+    runCommand([workspace.root], capture().io);
+    const statusBefore = readFileSync(join(runDirectory, 'status.json'), 'utf8');
+    const second = capture();
+    const result = runCommand([workspace.root], second.io);
+
+    assert.equal(result.exitCode, 0);
+    assert.match(second.stdout.join('\n'), /^generation: 1 \(verification; no new generation\)$/m);
+    assert.equal(readFileSync(join(runDirectory, 'status.json'), 'utf8'), statusBefore);
+    assert.equal(existsSync(join(runDirectory, 'archive')), false);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('a repaired workspace opens the next generation and archives the previous pair', () => {
+  const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
+  const runDirectory = join(workspace.root, RUN_DIRECTORY);
+  try {
+    const first = runCommand([workspace.root], capture().io);
+    assert.equal(first.exitCode, 1);
+    const defectiveJson = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.json'), 'utf8');
+    const defectiveMarkdown = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.md'), 'utf8');
+
+    writeFileSync(workspace.artifactPath, JSON.stringify(minimalV3Artifact(), null, 2));
+    const second = runCommand([workspace.root], capture().io);
+    assert.equal(second.exitCode, 0);
+
+    const status = JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8'));
+    assert.equal(status.generation, 2);
+    assert.equal(readFileSync(join(runDirectory, 'archive', '1', 'SMOOTH-SEQUENCES.json'), 'utf8'), defectiveJson);
+    assert.equal(readFileSync(join(runDirectory, 'archive', '1', 'SMOOTH-SEQUENCES.md'), 'utf8'), defectiveMarkdown);
+  } finally {
+    workspace.remove();
+  }
+});
+
 // @verifies C005
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 test('a declared chain broken by a spec edit exits 2 and names SILENT_CHANGE_DETECTED', () => {
@@ -195,6 +256,7 @@ test('a declared chain broken by a spec edit exits 2 and names SILENT_CHANGE_DET
     const result = runCommand([workspace.root], output.io);
     assert.equal(result.exitCode, 2);
     assert.match(output.stderr.join('\n'), /SILENT_CHANGE_DETECTED/);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }
@@ -213,6 +275,7 @@ test('an open transaction refuses the detector with TRANSACTION_OPEN', () => {
     const result = runCommand([workspace.root], output.io);
     assert.equal(result.exitCode, 2);
     assert.match(output.stderr.join('\n'), /TRANSACTION_OPEN/);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }
@@ -234,6 +297,8 @@ test('a judgment-required transaction exits 3 even when the live checks pass', (
     assert.match(output.stdout.join('\n'), /grill-me-for-rfc/);
     assert.match(output.stdout.join('\n'), /\/tmp\/staging/);
     assert.doesNotMatch(output.stdout.join('\n'), /human|stop and report/i);
+    const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
+    assert.equal(status.verdict.exitCode, 3);
   } finally {
     workspace.remove();
   }
@@ -261,6 +326,7 @@ test('a pending transaction prints the educe handoff and the continue command', 
     assert.match(output.stderr.join('\n'), /educe-sequences\.md/);
     assert.match(output.stderr.join('\n'), /continue/);
     assert.doesNotMatch(output.stderr.join('\n'), /human|stop and report/i);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
   } finally {
     workspace.remove();
   }

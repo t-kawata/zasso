@@ -1,3 +1,4 @@
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
@@ -23,23 +24,36 @@ test('the command document names its entry point, reports and repair surface', (
   assert.match(command, /DECISIONS\.json/);
 });
 
-// @verifies C006
-test('the command body is Prepare, a three-branch repair loop and Complete, with no bottom Reference', () => {
+// @verifies C001
+test('the command documents the run directory, its status record and the archive', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
-  const prepare = command.indexOf('### Step 0 — Prepare');
-  const loop = command.indexOf('### Step 1 — Repair loop');
-  const inPlace = command.indexOf('#### Step 1a');
-  const regeneration = command.indexOf('#### Step 1b');
-  const judgment = command.indexOf('#### Step 1c');
-  const complete = command.indexOf('### Step 2 — Complete');
+  assert.match(command, /smooth-sequences\//);
+  assert.match(command, /status\.json/);
+  assert.match(command, /archive\//);
+  assert.match(command, /verification/);
+});
+
+// @verifies C006
+test('the command body is six flat numbered steps from Prepare to Complete, with no bottom Reference', () => {
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const prepare = command.indexOf('### Step 1 — Prepare');
+  const loop = command.indexOf('### Step 2 — Repair loop');
+  const inPlace = command.indexOf('### Step 3 — In-place repair');
+  const regeneration = command.indexOf('### Step 4 — Regeneration');
+  const judgment = command.indexOf('### Step 5 — judgment-required');
+  const complete = command.indexOf('### Step 6 — Complete');
   const appendix = command.indexOf('## Appendix A');
   assert.ok(prepare > -1, 'Prepare heading');
   assert.ok(loop > prepare, 'loop after prepare');
-  assert.ok(inPlace > loop, 'in-place branch after the loop heading');
-  assert.ok(regeneration > inPlace, 'regeneration branch after in-place');
-  assert.ok(judgment > regeneration, 'judgment branch after regeneration');
+  assert.ok(inPlace > loop, 'in-place step after the loop');
+  assert.ok(regeneration > inPlace, 'regeneration step after in-place');
+  assert.ok(judgment > regeneration, 'judgment step after regeneration');
   assert.ok(complete > judgment, 'complete after the loop');
   assert.ok(appendix > complete, 'appendix after complete');
+  const steps = [...command.matchAll(/^### Step (\d+) — /gm)].map((match) => Number(match[1]));
+  assert.deepEqual(steps, [1, 2, 3, 4, 5, 6], 'steps are consecutive natural numbers');
+  assert.doesNotMatch(command, /^#### Step/m, 'no child steps');
+  assert.doesNotMatch(command, /^### Step \d+[a-z]/m, 'no lettered steps');
   assert.doesNotMatch(command, /^## Reference/m);
   assert.doesNotMatch(command, /Follow the operating guide under Reference/i);
   assert.doesNotMatch(command, /### Step 1 — Run Layer A/);
@@ -47,11 +61,11 @@ test('the command body is Prepare, a three-branch repair loop and Complete, with
 });
 
 // @verifies C004
-test('Step 1b carries every operational regeneration command', () => {
+test('Step 4 carries every operational regeneration command', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
-  const start = command.indexOf('#### Step 1b');
-  const end = command.indexOf('#### Step 1c');
-  assert.ok(start > -1 && end > start, 'Step 1b has a bounded body');
+  const start = command.indexOf('### Step 4 — Regeneration');
+  const end = command.indexOf('### Step 5 — judgment-required');
+  assert.ok(start > -1 && end > start, 'Step 4 has a bounded body');
   const step = command.slice(start, end);
   for (const token of ['regeneration/run.mjs open', 'regeneration/run.mjs status', 'regeneration/run.mjs continue', 'educe-sequences.md', 'regeneration/run.mjs verify', 'regeneration/run.mjs commit', 'regeneration/run.mjs recover']) {
     assert.match(step, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), token);
@@ -62,11 +76,11 @@ test('Step 1b carries every operational regeneration command', () => {
 });
 
 // @verifies C004
-test('Step 1c routes judgment-required to the owning AI command', () => {
+test('Step 5 routes judgment-required to the owning AI command', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
-  const start = command.indexOf('#### Step 1c');
-  const end = command.indexOf('### Step 2 — Complete');
-  assert.ok(start > -1 && end > start, 'Step 1c has a bounded body');
+  const start = command.indexOf('### Step 5 — judgment-required');
+  const end = command.indexOf('### Step 6 — Complete');
+  assert.ok(start > -1 && end > start, 'Step 5 has a bounded body');
   const step = command.slice(start, end);
   assert.match(step, /grill-me-for-rfc/);
   assert.match(step, /explain-seed/);
@@ -83,10 +97,41 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   assert.match(command, /never hand-edit|never edit a generated file|not hand-edited/i);
 });
 
+test('every step names the command, path and argument that performs it', () => {
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const section = (start, end) => {
+    const from = command.indexOf(start);
+    const to = command.indexOf(end);
+    assert.ok(from > -1 && to > from, `${start} has a bounded body`);
+    return command.slice(from, to);
+  };
+
+  const prepare = section('### Step 1 — Prepare', '### Step 2 — Repair loop');
+  assert.match(prepare, /regeneration\/run\.mjs status/);
+  assert.match(prepare, /educe-sequences\.md/);
+
+  const loop = section('### Step 2 — Repair loop', '### Step 3 — In-place repair');
+  assert.match(loop, /sequences-slice\/run\.mjs <artifact> <package>/);
+
+  const regeneration = section('### Step 4 — Regeneration', '### Step 5 — judgment-required');
+  assert.match(regeneration, /workspacify\/tree\/DECISIONS\.json/);
+  assert.match(regeneration, /workspacify\/allocate\/DECISIONS\.json/);
+  assert.match(regeneration, /regeneration\/run\.mjs verify/);
+  assert.match(regeneration, /phase\.mjs through/);
+  assert.match(regeneration, /spec-sequences\.json/);
+  assert.match(regeneration, /disable-model-invocation/);
+  assert.match(regeneration, /regeneration\/archive/);
+
+  const judgment = section('### Step 5 — judgment-required', '### Step 6 — Complete');
+  assert.match(judgment, /disable-model-invocation/);
+  assert.match(judgment, /RFC-SEED\.md/);
+  assert.match(judgment, /staging root/);
+});
+
 test('the command documents the regeneration transaction operating guide', () => {
 // [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
-  assert.match(command, /#### Step 1b/);
+  assert.match(command, /### Step 4 — Regeneration/);
   assert.match(command, /--allocate-decisions/);
   assert.match(command, /--tree-decisions/);
   assert.match(command, /educe-pending/);
