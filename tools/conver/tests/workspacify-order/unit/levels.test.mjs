@@ -14,7 +14,9 @@ import {
   assertMatchesPublished,
   buildModel,
   deriveLevels,
+  displayWidth,
   findCriticalChain,
+  markColumnFor,
 } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
 
 /** Three packages, two of which depend on the first. */
@@ -174,3 +176,54 @@ function loadPair(workspace) {
     allocateManifest: JSON.parse(readFileSync(workspace.allocateManifestPath, 'utf8')),
   };
 }
+
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+test('C005 postcondition: markColumn is the smallest tab stop after the longest path', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
+    edges: [['pkg-0002', 'pkg-0001'], ['pkg-0003', 'pkg-0002']],
+    levels: [['pkg-0001'], ['pkg-0002'], ['pkg-0003']],
+    paths: {
+      'pkg-0001': 'crates/core/gaia-core',
+      'pkg-0002': 'crates/foundation/gaia-foundation',
+      'pkg-0003': 'crates/adapters/storage/gaia-store-postgres',
+    },
+  });
+  t.after(() => workspace.remove());
+
+  const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
+
+  assert.equal(model.pathWidth, 43);
+  assert.equal(model.markColumn, 48);
+  assert.equal(markColumnFor(43), 48);
+  assert.equal(markColumnFor(27), 32);
+  assert.equal(markColumnFor(24), 32);
+});
+
+test('C005 invariant: displayWidth counts a wide code point as two columns', () => {
+  assert.equal(displayWidth('crates/protocol/package-1'), 25);
+  assert.equal(displayWidth('aあ'), 3);
+  assert.equal(displayWidth('🟤'), 2);
+});
+
+test('C001/C002/C003 postcondition: buildModel carries the root and per-package counters', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [['pkg-0002', 'pkg-0001']],
+    levels: [['pkg-0001'], ['pkg-0002']],
+    rootCounters: { educe: 10, smooth: 2 },
+    counters: {
+      'pkg-0001': { completedSessions: 3, distributions: 3, digest: 'a'.repeat(64) },
+      'pkg-0002': { completedSessions: 0 },
+    },
+  });
+  t.after(() => workspace.remove());
+
+  const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
+
+  assert.deepEqual(model.rootCounters, { edu: 10, smo: 2 });
+  assert.equal(model.grillCounts.get('pkg-0001'), 3);
+  assert.equal(model.grillCounts.get('pkg-0002'), 0);
+  assert.deepEqual(model.distributionCounts.get('pkg-0001'), { distributions: 3, digest: 'a'.repeat(64) });
+  assert.equal(model.distributionCounts.get('pkg-0002'), null);
+});

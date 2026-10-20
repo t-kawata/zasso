@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { RUN, changedPaths, digestDirectory } from '../grill-me-for-rfc/sequences-material/fixtures/session-tree.mjs';
+import { DISTRIBUTIONS_FILE_NAME, readDistributionRecord } from '../../.claude/scripts/sequences-slice/lib/distribution-record.mjs';
 import { buildSyntheticTriple, removeSyntheticTriple } from './fixtures/synthetic-workspace.mjs';
 
 const ARTIFACT_FILENAME = 'SyntheticSpec-sequences.json';
@@ -103,6 +104,34 @@ test('PX-264 C003 a workspace whose material cannot be read is reported, and not
     assert.deepEqual(report.projected, []);
     assert.match(report.reason, /could not be read|no package seed/);
     assert.deepEqual(changedPaths(before, digestDirectory(root)), [], 'a refused run leaves the tree as it found it');
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// PX-282 — the workspace form leaves a package it reports as present untouched, including
+// its distribution record. A re-run that rewrote a record would turn "already present" into
+// a new distribution claim.
+
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+test('C003 invariant: a second workspace run reports every package present and changes no record', () => {
+  const root = buildSyntheticTriple();
+  try {
+    const first = runWorkspace(root);
+    assert.equal(first.status, 0);
+    const packages = allocatedPackages(root);
+    const recordPath = (entry) => path.join(root, entry.path, DISTRIBUTIONS_FILE_NAME);
+    const before = new Map(packages.map((entry) => [entry.id, fs.readFileSync(recordPath(entry), 'utf8')]));
+
+    const second = runWorkspace(root);
+
+    assert.equal(second.status, 0);
+    assert.deepEqual(second.report.projected, []);
+    assert.deepEqual(second.report.present, packages.map((entry) => entry.id).sort());
+    for (const entry of packages) {
+      assert.equal(fs.readFileSync(recordPath(entry), 'utf8'), before.get(entry.id), entry.id);
+      assert.equal(readDistributionRecord(path.join(root, entry.path)).distributions, 1, entry.id);
+    }
   } finally {
     removeSyntheticTriple(root);
   }

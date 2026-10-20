@@ -85,3 +85,65 @@ test('a record written before this ticket still validates', () => {
 
   assert.equal(result.status, 0, 'absent optional fields are valid: ' + result.stderr);
 });
+
+// PX-282 — the completed-session counter.
+//
+// A session is counted when it transitions into DONE, not when it is resumed or when a
+// review loop is spent. The counter is prospective: a Status.json written before this
+// ticket starts at zero and its first completion records one.
+
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+test('C002 postcondition: a transition into DONE records one completed session', () => {
+  const rfcDir = makeSession();
+
+  const result = runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readStatus(rfcDir).completedSessions, 1);
+});
+
+test('C002 invariant: a repeated DONE without a transition does not count a second session', () => {
+  const rfcDir = makeSession();
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+
+  assert.equal(readStatus(rfcDir).completedSessions, 1);
+});
+
+test('C002 invariant: inc-loop and a resume do not count a session', () => {
+  const rfcDir = makeSession();
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'inc-loop']).status, 0);
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'GRILLING']).status, 0);
+  assert.equal(readStatus(rfcDir).completedSessions, undefined);
+
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(readStatus(rfcDir).completedSessions, 1);
+});
+
+test('C002 postcondition: a second GRILLING to DONE round records a second session', () => {
+  const rfcDir = makeSession();
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'GRILLING']).status, 0);
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+
+  assert.equal(readStatus(rfcDir).completedSessions, 2);
+});
+
+test('C002 boundary: an existing count is carried forward and a legacy record starts at one', () => {
+  const rfcDir = makeSession();
+  const statusPath = join(rfcDir, 'Status.json');
+  const status = readStatus(rfcDir);
+  status.completedSessions = 3;
+  status.state = 'GRILLING';
+  writeFileSync(statusPath, JSON.stringify(status, null, 2), 'utf8');
+
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(readStatus(rfcDir).completedSessions, 4);
+
+  const legacy = readStatus(rfcDir);
+  delete legacy.completedSessions;
+  legacy.state = 'GRILLING';
+  writeFileSync(statusPath, JSON.stringify(legacy, null, 2), 'utf8');
+  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(readStatus(rfcDir).completedSessions, 1);
+});

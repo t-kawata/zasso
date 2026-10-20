@@ -24,6 +24,12 @@ export const RFC_FILE_NAME = 'RFC.md';
 export const SEQUENCES_FILE_NAME = 'SEQUENCES.md';
 /** The projected view the verdict judges: the units a package carries, and how they were declared. */
 export const VIEW_FILE_NAME = 'SEQUENCES.json';
+/** The record of how many times a view was distributed with different bytes. */
+export const DISTRIBUTIONS_FILE_NAME = 'SEQUENCES-DISTRIBUTIONS.json';
+/** The root run directory educe-sequences keeps its generation status in. */
+export const EDUSEQUENCES_DIRECTORY = 'educe-sequences';
+/** The root run directory smooth-sequences keeps its generation status in. */
+export const SMOOTH_SEQUENCES_DIRECTORY = 'smooth-sequences';
 /** The heading a package's distribution ledger lives under, as the one parser finds it. */
 const LEDGER_HEADING = '## Distribution ledger';
 /** The five columns the parser accepts, in the order it accepts them. */
@@ -87,7 +93,17 @@ function levelsFromEdges(packageIds, edges) {
  *   writeTreeManifest: (value: object) => void, remove: () => void }}
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [], levels, paths = {}, documents = {} } = {}) {
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function materializeOrderWorkspace(options = {}) {
+  const {
+    packages = ['pkg-0001'],
+    edges = [],
+    levels,
+    paths = {},
+    documents = {},
+    rootCounters = {},
+    counters = {},
+  } = options;
   const { explained = [], grilled = [], carried = [] } = documents;
   const root = mkdtempSync(join(tmpdir(), 'workspacify-order-'));
   const publishedLevels = levels ?? levelsFromEdges(packages, edges);
@@ -108,6 +124,25 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
     writeFileSync(join(directory, SEED_FILE_NAME), `# RFC Seed: ${id}\n`);
     if (explainedPackages.has(id)) writeFileSync(join(directory, EXPLAIN_FILE_NAME), '');
     if (grilledPackages.has(id)) writeFileSync(join(directory, RFC_FILE_NAME), '');
+    const counter = counters[id];
+    if (counter?.completedSessions !== undefined) {
+      writeFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE', completedSessions: counter.completedSessions }, null, 2));
+    }
+    if (counter?.distributions !== undefined) {
+      writeFileSync(join(directory, DISTRIBUTIONS_FILE_NAME), JSON.stringify({
+        schemaVersion: 1,
+        distributions: counter.distributions,
+        digest: counter.digest ?? 'a'.repeat(64),
+      }, null, 2));
+    }
+  }
+  if (rootCounters.educe !== undefined) {
+    mkdirSync(join(root, EDUSEQUENCES_DIRECTORY), { recursive: true });
+    writeFileSync(join(root, EDUSEQUENCES_DIRECTORY, 'status.json'), JSON.stringify({ generation: rootCounters.educe }, null, 2));
+  }
+  if (rootCounters.smooth !== undefined) {
+    mkdirSync(join(root, SMOOTH_SEQUENCES_DIRECTORY), { recursive: true });
+    writeFileSync(join(root, SMOOTH_SEQUENCES_DIRECTORY, 'status.json'), JSON.stringify({ generation: rootCounters.smooth }, null, 2));
   }
 
   const treeManifest = {
@@ -149,6 +184,8 @@ export function materializeOrderWorkspace({ packages = ['pkg-0001'], edges = [],
     explainPathOf: (id) => join(root, pathOf.get(id), EXPLAIN_FILE_NAME),
     rfcPathOf: (id) => join(root, pathOf.get(id), RFC_FILE_NAME),
     viewPathOf: (id) => join(root, pathOf.get(id), VIEW_FILE_NAME),
+    distributionPathOf: (id) => join(root, pathOf.get(id), DISTRIBUTIONS_FILE_NAME),
+    statusPathOf: (id) => join(root, pathOf.get(id), 'Status.json'),
     directoryOf: (id) => join(root, pathOf.get(id)),
     writeTreeManifest: (value) => writeFileSync(treeManifestPath, JSON.stringify(value, null, 2)),
     writeAllocateManifest: (value) => writeFileSync(allocateManifestPath, JSON.stringify(value, null, 2)),

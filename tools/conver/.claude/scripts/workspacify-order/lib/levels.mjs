@@ -9,11 +9,64 @@
  * The rule is deliberately not re-implemented as the authority here. The command reads the
  * published order as the authority and re-derivation as the check.
  */
-import { basename, dirname, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import { holdsExplanation, holdsRfc, SEED_FILE_NAME } from './workspace.mjs';
+import { readCompletedSessions, readPackageDistribution, readRootEduceGeneration, readRootSmoothGeneration } from './counters.mjs';
 import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
+
+/** The width a terminal gives a tab stop, declared so the column math is reproducible. */
+export const TAB_WIDTH = 8;
+/** The smallest gap between the longest path and the first field. */
+export const MINIMUM_GAP = 1;
+/** The two spaces, the critical marker or a space, and the space before the path. */
+export const PREFIX_WIDTH = 4;
+
+/** The ranges whose code points occupy two terminal columns. */
+const WIDE_RANGES = Object.freeze([
+  [0x1100, 0x115f],
+  [0x2e80, 0xa4cf],
+  [0xac00, 0xd7a3],
+  [0xf900, 0xfaff],
+  [0xfe30, 0xfe4f],
+  [0xff00, 0xff60],
+  [0xffe0, 0xffe6],
+  [0x1f300, 0x1faff],
+  [0x20000, 0x3fffd],
+]);
+
+/** Whether a code point is drawn two columns wide by the terminal. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function isWideCodePoint(codePoint) {
+  return WIDE_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end);
+}
+
+/** The number of terminal columns a string occupies. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function displayWidth(text) {
+  let width = 0;
+  for (const character of text) width += isWideCodePoint(character.codePointAt(0)) ? 2 : 1;
+  return width;
+}
+
+/**
+ * The first tab stop after the longest rendered path.
+ *
+ * The mark must be separated from the path by at least one column, and a tab reaches only
+ * a multiple of TAB_WIDTH; the smallest such multiple at or after maxPathWidth + the gap is
+ * therefore the smallest common column every line can reach.
+ */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function markColumnFor(maxPathWidth) {
+  return Math.ceil((PREFIX_WIDTH + maxPathWidth + MINIMUM_GAP) / TAB_WIDTH) * TAB_WIDTH;
+}
+
+/** The minimal tab count that reaches a column from a prefix. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+export function tabCountFor(prefixWidth, markColumn) {
+  return Math.ceil((markColumn - prefixWidth) / TAB_WIDTH);
+}
 
 /** Provider-first levels: the rule computeImplementationOrder in stage one applies. */
 export function deriveLevels({ packageIds, edges }) {
@@ -241,6 +294,19 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     packages.filter((pkg) => holdsRfc({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
   const sequenceVerdicts = readSequenceVerdicts({ root, packages });
+  // The counters are read once per package, beside the documents they qualify. A package
+  // with no record answers null, which the renderer reads as unknown rather than zero.
+  const rootCounters = {
+    edu: readRootEduceGeneration(root),
+    smo: readRootSmoothGeneration(root),
+  };
+  const grillCounts = new Map(
+    packages.map((pkg) => [pkg.id, readCompletedSessions(join(root, pkg.path))]),
+  );
+  const distributionCounts = new Map(
+    packages.map((pkg) => [pkg.id, readPackageDistribution(join(root, pkg.path))]),
+  );
+  const pathWidth = Math.max(...packages.map((pkg) => displayWidth(pkg.path)));
 
   return {
     workspaceName: basename(resolve(root)),
@@ -248,6 +314,9 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     explainedIds,
     grilledIds,
     sequenceVerdicts,
+    rootCounters,
+    grillCounts,
+    distributionCounts,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),
@@ -256,7 +325,8 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     criticalChain: findCriticalChain({ levels, edges }),
     pathOf: new Map(packages.map((pkg) => [pkg.id, pkg.path])),
     nameOf: new Map(packages.map((pkg) => [pkg.id, pkg.name])),
-    pathWidth: Math.max(...packages.map((pkg) => pkg.path.length)),
+    pathWidth,
+    markColumn: markColumnFor(pathWidth),
     edgeCount: edges.length,
   };
 }

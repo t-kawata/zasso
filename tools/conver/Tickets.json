@@ -42119,6 +42119,168 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-20"
+        },
+        {
+          "id": 282,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Show pipeline generations, grill sessions and distributions in the implementation order, tab-aligned",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-282.md",
+          "background": "- [Goal] workspacify-order prints the pipeline counters a reader needs: EDU (the root educe-sequences generation), EXP (the explanation document), GRI (completed grill sessions for the directory), SEQ (distributions that changed SEQUENCES.json), and SMO (the root smooth-sequences generation), with the marks aligned in columns by the minimal tab run.\n- [Purpose] The implementation order is a map of how far each directory has travelled through explain, grill, slice and smooth. Today it shows only document existence and the obligation verdict, so a directory with three completed grill sessions looks the same as one with a single session.\n- [Motivation] The user asked for EDU/GRI/SEQ/SMO counts in the order view and for a tab-aligned layout. Historical GRI and SEQ counts do not exist anywhere in the workspace, so the past is accepted as unknown; the counters must be exact from the first event after installation.\n- [Constraints] Change only ~/shyme/zasso/tools/conver and leave ~/shyme/gaia untouched. The marks use the full-width emoji glyphs 🟤 (U+1F7E4), 🔴 (U+1F534), 🟠 (U+1F7E0), 🟡 (U+1F7E1) and 🟢 (U+1F7E2), never a half-width lookalike. The target line is 🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3 🟢 SMO:2. TAB_WIDTH is 8 and is declared in code and tests. workspacify-order writes nothing. No git push.",
+          "scope": [
+            "Add .claude/scripts/workspacify-order/lib/counters.mjs with tolerant readers for the root educe generation, the root smooth generation, per-package completedSessions, and per-package distribution counters.",
+            "Extend buildModel in .claude/scripts/workspacify-order/lib/levels.mjs with rootCounters, grillCounts, distributionCounts and markColumn.",
+            "Replace the append-only mark rendering in .claude/scripts/workspacify-order/lib/render.mjs with fixed-width field cells in the order 🟤 EDU, 🔴 EXP, 🟠 GRI, 🟡 SEQ, 🟢 SMO and a minimal tab run.",
+            "Compute targetColumn = ceil((maxPrefix + 1) / 8) * 8 and per-line ceil((targetColumn - prefix) / 8) tabs, and assert minimality in tests.",
+            "Reserve blank cells for absent middle fields and trim trailing cells so no line ends in whitespace; a markless line ends at its path and carries no tab.",
+            "Increment completedSessions in .claude/scripts/grill-me-for-rfc/update-status.js only on a transition into DONE; resume and inc-loop do not increment.",
+            "Add a per-directory SEQUENCES-DISTRIBUTIONS.json sidecar with schemaVersion, distributions and the distributed view digest; increment only when the projected view JSON digest changes.",
+            "Keep the current GRILLED, SEQUENCED and FAILED-SEQ marks as fallbacks when the counters are absent, so existing workspaces render without pretending a count is known.",
+            "Keep workspacify-order read-only: no file writes, no reads of DesignTree.json, and malformed inputs omit only the affected mark.",
+            "Preserve byte-identical output for a workspace with no counters and no marks, including the explain-seed order fixture.",
+            "Update tests/workspacify-order/helpers/order-workspace.mjs to write counter documents and views with configurable content.",
+            "Add tests for the tab column, field padding, blank cells, emoji widths, absent counters, producer increments, and identical re-projection.",
+            "Record in English code comments that TAB_WIDTH is 8 and emoji presentation is two columns, and that the counters are prospective only."
+          ],
+          "testUnit": [
+            "UT: [Normal] reads <root>/educe-sequences/status.json with generation 10 and renders the 🟤 EDU:10 mark on every package line; a missing, unreadable or generation-0 status renders no EDU mark (C001)",
+            "UT: [Normal] reads <root>/smooth-sequences/status.json generation 2 and renders the 🟢 SMO:2 mark; a verification pass leaves the generation unchanged and the mark is unchanged (C001)",
+            "UT: [Boundary] a legacy root SMOOTH-SEQUENCES.json without a smooth-sequences generation directory renders no SMO mark, because the generation is unknown (C001)",
+            "UT: [Normal] a Status.json with completedSessions 3 renders the 🟠 GRI:3 mark; a negative, fractional or string value is treated as unknown and falls back to GRILLED when RFC.md exists (C002)",
+            "UT: [Normal] set-state DONE from GRILLING increments completedSessions exactly once; a repeated DONE with no transition, a resume, and inc-loop do not increment (C002)",
+            "UT: [Normal] a SEQUENCES-DISTRIBUTIONS.json with distributions 3 renders the 🟡 SEQ:3 mark for a complete verdict and the ❌ SEQ:3 mark for a failed verdict; absent or malformed counters fall back to SEQUENCED or FAILED-SEQ (C003)",
+            "UT: [Normal] projecting the same view bytes twice leaves distributions at its previous value; changing the artifact and re-projecting increments it exactly once (C003)",
+            "UT: [Normal] fields render in the order EDU, EXP, GRI, SEQ, SMO; each present label is padded to the global maximum width; an absent middle field occupies a blank cell of the same width; trailing blank cells are trimmed and no line ends in whitespace (C004)",
+            "UT: [Normal] for prefixes 25, 37 and 47, targetColumn is 48 and the tab counts are 3, 2 and 1; expanding tabs at width 8 puts every first mark in column 48 (C005)",
+            "UT: [Invariant] the tab count is minimal: removing one tab from any line places its first mark before column 48; a markless line carries zero tabs and ends at its path (C005)",
+            "UT: [Error] a corrupt status file, a directory that cannot be read, and a missing counter document each omit only the affected mark; runCommand still exits 0 and writes nothing (C006)",
+            "UT: [Invariant] workspacify-order opens no file for writing and never reads DesignTree.json (C006)",
+            "UT: [Boundary] a workspace with no counters and no marks renders the same bytes as the current renderer, including the explain-seed order fixture (C007)",
+            "UT: [Normal] multi-digit counters EDU:10, GRI:12 and SEQ:10 keep the following columns aligned; the digit padding is computed from the plan and is not hardcoded (C004)",
+            "UT: [Invariant] the full-width glyphs 🟤, 🔴, 🟠, 🟡 and 🟢 are used exactly once per field and no half-width substitute appears (C004)"
+          ],
+          "testIntegration": [
+            "IT: workspacify-order model + renderer + fixture: a 29-package workspace with mixed marks renders every first mark in column 48 and every field column aligned (C004, C005)",
+            "IT: grill update-status + workspacify-order: after a DONE transition the order line shows GRI:1; after a resume and a second DONE it shows GRI:2 (C002)",
+            "IT: sequences-slice projection + workspacify-order: an initial projection shows SEQ:1; an identical projection keeps SEQ:1; a changed artifact shows SEQ:2 (C003)",
+            "IT: explain-seed order integration: the markless output and the focus block are unchanged (C007)",
+            "IT: root educe and smooth fixtures: EDU and SMO reads are workspace-wide and appear identically on every line (C001)"
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/workspacify-order/lib/counters.mjs",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/scripts/workspacify-order/lib/render.mjs",
+            ".claude/scripts/grill-me-for-rfc/update-status.js",
+            ".claude/scripts/sequences-slice/lib/project-package.mjs",
+            "tests/workspacify-order/helpers/order-workspace.mjs",
+            "tests/workspacify-order/unit/counters.test.mjs",
+            "tests/workspacify-order/unit/render.test.mjs",
+            "tests/workspacify-order/unit/levels.test.mjs",
+            "tests/workspacify-order/integration/run.test.mjs",
+            "tests/grill-me-for-rfc/args/update-status-completed-at.test.mjs",
+            "tests/sequences-slice/run.test.mjs",
+            "tests/explain-seed/unit/order.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a gaia-style workspace with all counters present renders 🟤 EDU:10, 🔴 EXP, 🟠 GRI:3, 🟡 SEQ:3 and 🟢 SMO:2 on each package line, and expanding tabs at width 8 puts every first mark in column 48.",
+            "Error case: a corrupt or missing counter document omits only the affected mark; the command still exits 0 and writes no file.",
+            "Edge case: a workspace with no counters and no marks renders byte-identically to today, and a line without SMO ends after SEQ with no trailing whitespace."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "design: root generations are read from the run directories",
+              "precondition": "The workspace root carries educe-sequences/status.json and may carry smooth-sequences/status.json, each with a positive integer generation; a status may be absent, unreadable or still at generation 0.",
+              "postcondition": "The model carries rootCounters.edu and rootCounters.smo as positive integers or null, and every package line renders the 🟤 EDU:n and 🟢 SMO:n marks when the counter is known.",
+              "invariant": "An absent, unreadable or zero generation renders no mark; a smooth verification pass does not increment the generation; educe generationOf semantics map a status with phases and no number to generation 1."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "design: grill sessions are counted at completion",
+              "precondition": "A package Status.json carries completedSessions as a non-negative integer, or lacks the field; RFC.md may or may not exist.",
+              "postcondition": "The order line renders the 🟠 GRI:n mark when the count is known; when the count is unknown it renders GRILLED if RFC.md exists and nothing otherwise.",
+              "invariant": "completedSessions increments exactly once per transition into DONE; resume, inc-loop and a repeated DONE with no transition do not increment; a non-integer or negative value is treated as unknown."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "design: distributions are counted only when the view changes",
+              "precondition": "A package carries SEQUENCES-DISTRIBUTIONS.json with a non-negative distributions and a digest of the projected view JSON; the view may be complete, failed or absent.",
+              "postcondition": "The order line renders the 🟡 SEQ:n mark for a complete verdict and the ❌ SEQ:n mark for a failed verdict when the count is known; otherwise it falls back to SEQUENCED or FAILED-SEQ.",
+              "invariant": "The counter increments only when the projected view JSON digest changes; an identical re-projection does not increment; the counter lives outside the view and never changes the view bytes."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "design: field cells have a fixed width",
+              "precondition": "A package line carries any subset of the EDU, EXP, GRI, SEQ and SMO marks.",
+              "postcondition": "The fields appear in that order; each present label is padded to the global maximum width; an absent middle field occupies a blank cell of the same width; trailing blank cells are trimmed.",
+              "invariant": "No line ends in whitespace; the full-width glyphs 🟤, 🔴, 🟠, 🟡 and 🟢 are used and no half-width substitute appears; multi-digit counters keep the following columns aligned."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "design: the minimal tab run reaches a common column",
+              "precondition": "Every package path has a display width, the line prefix is four columns, and TAB_WIDTH is 8 with a minimum gap of one column.",
+              "postcondition": "targetColumn = ceil((maxPrefix + 1) / 8) * 8; each marked line carries ceil((targetColumn - prefix) / 8) tabs; expanding tabs at width 8 places every first mark in targetColumn.",
+              "invariant": "targetColumn - 8 < maxPrefix + 1 <= targetColumn; the per-line tab count is minimal; a markless line carries zero tabs and ends at its path."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "design: the plan is total and read-only",
+              "precondition": "A status file is corrupt, a directory cannot be read, a counter document is missing, or a package carries no marks.",
+              "postcondition": "The affected mark is omitted and the plan still renders with exit 0; no file is written and DesignTree.json is never read.",
+              "invariant": "workspacify-order performs zero writes and a malformed input never replaces the picture with a stack trace."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "design: workspaces without counters render as before",
+              "precondition": "A workspace carries no counter documents and no marks, as in the explain-seed order fixture.",
+              "postcondition": "renderPlan returns byte-identical output to the current renderer, including the markless package lines and the focus block.",
+              "invariant": "Backward compatibility holds without weakening or rewriting the existing expected output in the explain-seed order test."
+            }
+          ],
+          "notes": "Review and implementation notes:\n- Implementation order: counters reader and Red tests first, then tab and field rendering, then the grill and sequences-slice producers, then integration.\n- TAB_WIDTH is 8 because the command is a terminal view and 8 is the default tab stop. The script cannot know the viewer tab width; tests expand tabs at 8 and assert the common column.\n- Emoji presentation is two columns. The field width is computed as two columns for the glyph, one for the separating space and the ASCII text length; no variation selector is added.\n- gaia has 29 packages, a longest path of 43 characters, maxPrefix 47 and targetColumn 48. The minimal tab counts are 1 to 3 per line, 64 tabs in total, and the line is about 91 columns.\n- EDU uses status.generation, not history.length. In gaia today generation is 10 and history length is 9; the user sample showing EDU:9 refers to the superseded history and would print EDU:10 under this contract.\n- Historical GRI and SEQ counts cannot be reconstructed from the workspace. Git commits and Claude transcripts are explicitly rejected as sources; a directory without the counter field renders the existing fallback mark.\n- The distribution counter must live outside SEQUENCES.json, because a counter inside the view would change the view bytes and make every re-projection look like a distribution.\n- Concurrent runs in one directory can lose an increment because Status.json is written directly; the counter is advisory provenance, not a gate.\n- The installed copy in gaia is not touched by this ticket; the user must reinstall the conver scripts after review.\n- Risks: a viewer with tab width 4 breaks the tab alignment; very narrow terminals wrap the about 91-column line; the sidecar is a new artifact and must be committed to survive.\nImplementation summary (PX-282):\n- Changed files: .claude/scripts/workspacify-order/lib/counters.mjs (new), levels.mjs, render.mjs, .claude/scripts/grill-me-for-rfc/update-status.js, .claude/scripts/sequences-slice/lib/distribution-record.mjs (new), project-package.mjs, and the seven affected test files.\n- Display: EDU/SMO are root generations, GRI is completedSessions, SEQ is the distribution count. Unknown counters fall back to GRILLED / SEQUENCED / FAILED-SEQ. SEQ with a known count but a not-yet verdict prints nothing, preserving the no-attempt rule.\n- Tabs: TAB_WIDTH=8, PREFIX_WIDTH=4, MINIMUM_GAP=1. targetColumn is the smallest multiple of 8 at least maxPrefix+1; each marked line carries the minimal tab count. The gaia-shaped fixture reaches 48 with 3/2/1 tabs.\n- Tests: 201 tests in the impact set pass, 0 fail. Quality checks: 0 issues. Stubs: 0. Open crimes: 0. Ambiguous markers: 0.\n- Assumptions: the viewer expands tabs at width 8 and emoji occupy two columns. A viewer with tab width 4 will not align. Historical GRI/SEQ counts remain unknown. gaia was not modified; the installed copy must be refreshed after review.\nReview report (PX-282):\n- Static quality check: passed, 0 issues. One finding during implementation (a 7-parameter destructured fixture helper) was fixed by taking an options object instead of changing the check.\n- Translatability: no material issues. The new measurement/accessor names (displayWidth, markColumnFor, tabCountFor, cellFor) read as the values they return; the existing codebase uses the same convention for maxLineWidth. No debug output, no generic data/info/tmp variables, no hardcoded tab width or emoji width.\n- Dependencies: the counters import educe and smooth generation rules rather than restating them; the distribution record lives outside SEQUENCES.json and outside PACKAGE_DESIGN_FILES, so regeneration neither copies nor commits it and commit does not delete unknown files.\n- Issues found and fixed during implementation: the tab run initially used the indent width instead of the path-inclusive prefix, which placed marks at 72 rather than 48; the failed-SEQ expectation needed the blank middle GRI cell; the fixture helper signature was reduced to one options parameter for the quality gate.\n- Tests: 486 tests in the impact set pass, 0 fail. This includes all workspacify-order and sequences-slice tests, the grill distribution/ledger suites, update-status, explain-seed order and smooth-sequences order integration.\n- Final gates: verify-final-contracts ok (coverage 100); validate-ticket-targets ok; annotations verified on 14 files; zero ambiguous markers; zero stubs; zero open crimes.\n- Residual risks unchanged: TAB_WIDTH 8 assumption, two-column emoji, ~91-column line width, historical GRI/SEQ unknown, concurrent increments advisory, gaia not modified and requires reinstall.",
+          "invariants": "- [Normal condition] status.generation is a positive integer and every rendered field has a known display width; TAB_WIDTH is 8 and the line prefix is four columns.\n- [Error invariant] a corrupt or unreadable status, counter document or directory omits only the affected mark; workspacify-order still exits 0 and writes no file.\n- [Internal state invariant] buildModel returns rootCounters, grillCounts, distributionCounts and markColumn; no field holds a rendered string that depends on another line's content outside the computed widths.\n- [Boundary invariant] targetColumn is the smallest multiple of 8 at least maxPrefix + 1; a markless line carries zero tabs and ends at its path; no line ends in whitespace.",
+          "instrumentation": "- [Logging] No runtime logging is added; the command prints the plan to stdout and failures to stderr as today.\n- [Metrics] The rendered counters are the measurement: EDU and SMO are root generations, GRI completed sessions, SEQ byte-changing distributions.\n- [Error tracking] A malformed or missing counter document is reported by the omitted mark, not by a new log line; the plan remains the whole output.\n- [Health check] node --test on the workspacify-order, grill update-status and sequences-slice impact sets; no writes from workspacify-order.\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: 486 tests passed in the impact set\nContracts: 7/7, final gate coverage 100\nTargets: no unresolved stubs or crimes",
+          "investigation": "Source investigation:\n- .claude/scripts/workspacify-order/lib/render.mjs:95-103 composes the marks today: explainedIds, grilledIds and the sequence verdict; marks are appended with a leading space and no padding.\n- .claude/scripts/workspacify-order/lib/levels.mjs:237-243 builds explainedIds, grilledIds and sequenceVerdicts; line 259 computes pathWidth. The model has the root path and every package path, so the root counters and the target column belong here.\n- .claude/scripts/educe-sequences/rail/run-state.mjs:23 and :26 name the run directory and status file; generationOf at :167 defines the generation semantics. In gaia the root status has generation 10, history length 9 and 18 of 18 phases done.\n- .claude/scripts/smooth-sequences/lib/report.mjs:21-22 name smooth-sequences/status.json; generation.mjs:83 writes status.generation and does not increment on verification.\n- .claude/scripts/grill-me-for-rfc/init.js:216 writes reviewLoopCount 0; update-status.js:69 records completion and :88 inc-loop increments loops, not sessions. No session counter exists today.\n- .claude/scripts/grill-me-for-rfc/check-all-schema.js:73 checks required fields only, so an added completedSessions field is backward compatible.\n- .claude/scripts/sequences-slice/lib/project-package.mjs:140-141 writes SEQUENCES.md and SEQUENCES.json wholesale; no distribution counter exists.\n- gaia measurement: 29 packages, longest path 43, maxPrefix 47, targetColumn 48, tab counts 1-3, 64 tabs total, line width about 91 columns.\n- Existing tests: tests/explain-seed/unit/order.test.mjs:40-46 fixes markless renderPlan lines; tests/workspacify-order/unit/render.test.mjs has 50 tests including exact mark lines; the full workspacify-order suite has 112 tests.",
+          "boyScoutPlan": "Translatability plan:\n- Extract displayWidth, tabRunTo and buildFieldCells as verb-phrase functions, one responsibility each.\n- Name the constants TAB_WIDTH, MINIMUM_GAP, PREFIX_WIDTH and EMOJI_COLUMNS; remove the literal 8 and 4 from the rendering path.\n- Make the tolerant readers return null with a reason instead of swallowing a parse error; no empty catch block.\n- Rename generic locals in the touched renderer and counters modules to domain names (markColumn, fieldCells, rootCounters).\n- Keep the existing mark labels as named constants and add the counted labels beside them rather than inline strings.",
+          "created_at": "2026-10-20",
+          "updated_at": "2026-10-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "```js\nconst workspace = materializeOrderWorkspace({\n  packages: ['pkg-0001'],\n  rootCounters: { educe: 10, smooth: 2 },\n});\nconst model = buildModel({ root: workspace.root, ...loadWorkspace(workspace.root) });\nassert.deepEqual(model.rootCounters, { edu: 10, smo: 2 });\nconst text = renderPlan(model);\nassert.match(text, /🟤 EDU:10/);\nassert.match(text, /🟢 SMO:2/);\n\nconst silent = materializeOrderWorkspace({ packages: ['pkg-0001'] });\nassert.equal(buildModel({ root: silent.root, ...loadWorkspace(silent.root) }).rootCounters.edu, null);\n\nwriteFileSync(join(workspace.root, 'educe-sequences', 'status.json'), JSON.stringify({ phases: [{ id: 1 }] }));\nassert.equal(readRootEduceGeneration(workspace.root), 1);\n```",
+            "```js\nconst workspace = materializeOrderWorkspace({\n  packages: ['pkg-0001'],\n  documents: { grilled: ['pkg-0001'] },\n  counters: { 'pkg-0001': { completedSessions: 3 } },\n});\nconst model = buildModel({ root: workspace.root, ...loadWorkspace(workspace.root) });\nassert.equal(model.grillCounts.get('pkg-0001'), 3);\nassert.match(renderPlan(model), /🟠 GRI:3/);\n\nconst rfcDir = makeSession();\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'GRILLING']);\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']);\nassert.equal(readStatus(rfcDir).completedSessions, 1);\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']);\nassert.equal(readStatus(rfcDir).completedSessions, 1);\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'inc-loop']);\nassert.equal(readStatus(rfcDir).completedSessions, 1);\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'GRILLING']);\nrunCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']);\nassert.equal(readStatus(rfcDir).completedSessions, 2);\n```",
+            "```js\nconst workspace = materializeOrderWorkspace({\n  packages: ['pkg-0001'],\n  documents: { grilled: ['pkg-0001'], carried: ['pkg-0001'] },\n  counters: { 'pkg-0001': { distributions: 3, digest: 'a'.repeat(64) } },\n});\nconst model = buildModel({ root: workspace.root, ...loadWorkspace(workspace.root) });\nassert.equal(model.distributionCounts.get('pkg-0001').distributions, 3);\nassert.match(renderPlan(model), /🟡 SEQ:3/);\n\nconst root = workspaceWithNamedPackages();\nconst packageDir = 'crates/protocol/gaia-package-0011';\nfs.mkdirSync(path.join(root, packageDir), { recursive: true });\nrunWriter(root, packageDir);\nconst first = readDistributionRecord(path.join(root, packageDir));\nassert.equal(first.distributions, 1);\nrunWriter(root, packageDir);\nassert.deepEqual(readDistributionRecord(path.join(root, packageDir)), first);\nassert.equal(collectDesignFiles(root).includes(packageDir + '/SEQUENCES-DISTRIBUTIONS.json'), false);\n```",
+            "```js\nconst line = renderPlan(model).split('\\n').find((entry) => entry.includes('package-1'));\nassert.match(line, /🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3 🟢 SMO:2/);\nassert.equal(line, line.trimEnd());\n\nconst blankMiddle = renderPlan(mixedModel).split('\\n').find((entry) => entry.includes('package-2'));\nassert.match(blankMiddle, /🟤 EDU:10 {8}🟠 GRI:0/);\n```",
+            "```js\nconst path = 'crates/protocol/package-1';\nconst prefixWidth = 4 + path.length;\nassert.equal(model.markColumn, 32);\nconst line = renderPlan(model).split('\\n').find((entry) => entry.includes(path));\nassert.equal((line.match(/\\t/g) ?? []).length, Math.ceil((model.markColumn - prefixWidth) / 8));\nassert.equal(expandTabs(line, 8).indexOf('🟤'), model.markColumn);\nassert.ok(model.markColumn - 8 < 4 + model.pathWidth + 1);\n```",
+            "```js\nwriteFileSync(join(packageDir, 'Status.json'), '{not json');\nconst model = buildModel({ root: workspace.root, ...loadWorkspace(workspace.root) });\nassert.doesNotThrow(() => renderPlan(model));\nassert.doesNotMatch(renderPlan(model), /GRI:/);\nassert.equal(collectDesignFiles(workspace.root).some((entry) => entry.endsWith('SEQUENCES-DISTRIBUTIONS.json')), false);\n```",
+            "```js\nconst expected = [\n  '',\n  '# ' + basename(workspace.root) + ' implementation order — 1 dirs / 1 levels / 0 dependencies',\n  '',\n  'level  0    alone     1 dir',\n  '  * crates/protocol/package-1',\n  '',\n  'parallel width   level   0',\n  '                 dirs    1',\n  '',\n  'critical chain   package-1',\n  '',\n].join('\\n');\nassert.equal(renderPlan(model), expected);\n```"
+          ],
+          "startedAt": "2026-10-20",
+          "changes": [
+            {
+              "before": "workspacify-order printed only document and verdict marks, appended with a space",
+              "after": "it reads the root educe/smooth generations and the per-package session/distribution counters, and prints fixed-width EDU, EXP, GRI, SEQ and SMO fields after a minimal tab run",
+              "description": "The first visible mark of every marked line starts at the common tab stop; absent middle fields keep their width and trailing fields are trimmed"
+            },
+            {
+              "before": "grill-me-for-rfc recorded completedAt but no session count",
+              "after": "update-status.js increments completedSessions only on the transition into DONE",
+              "description": "Resume, inc-loop and a repeated DONE do not count; a Status.json from before the field starts at one on its first completion"
+            },
+            {
+              "before": "sequences-slice overwrote the view with no record of how often it changed",
+              "after": "projectPackageView writes SEQUENCES-DISTRIBUTIONS.json with a count and the view digest, and counts only when the projected JSON changes",
+              "description": "The record lives outside SEQUENCES.json and outside PACKAGE_DESIGN_FILES, so regeneration neither copies nor commits it"
+            },
+            {
+              "before": "the existing mark tests expected a label and a single space",
+              "after": "the fixtures can write root counters and package counters, and the tests assert the tab column, field padding, blank middle cells and the lower-bound fallbacks",
+              "description": "A markless workspace remains byte-identical to the previous output"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-20"
         }
       ]
     },

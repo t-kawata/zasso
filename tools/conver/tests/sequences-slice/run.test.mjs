@@ -6,8 +6,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+
+import { DISTRIBUTIONS_FILE_NAME, readDistributionRecord } from '../../.claude/scripts/sequences-slice/lib/distribution-record.mjs';
+import { collectDesignFiles } from '../../.claude/scripts/regeneration/lib/staging.mjs';
 
 import {
   CALIBRATE,
@@ -97,6 +101,7 @@ test('C003 no file outside the named package directory is written', () => {
     runWriter(root, packageDir);
     const after = digestDirectory(root);
     assert.deepEqual(changedPaths(before, after), [
+      path.join(packageDir, DISTRIBUTIONS_FILE_NAME),
       path.join(packageDir, VIEW_JSON_NAME),
       path.join(packageDir, VIEW_MARKDOWN_NAME),
     ].sort());
@@ -239,6 +244,116 @@ test('C003 the view names the same package the calibration counted, and the reac
     } else {
       assert.deepEqual(view.ownedOperationUnits, []);
     }
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// PX-282 — the distribution record.
+//
+// A distribution is counted when the projected view JSON changes. The record lives beside
+// the view, never inside it, so the counter cannot make every later projection look new.
+
+/** The record path for one package of a synthetic workspace. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function recordPath(root, packageDir) {
+  return path.join(root, packageDir, DISTRIBUTIONS_FILE_NAME);
+}
+
+/** The sha256 of the view JSON the projection just wrote. */
+// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+function viewDigest(root, packageDir) {
+  return createHash('sha256').update(fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME))).digest('hex');
+}
+
+test('C003 postcondition: the first projection records one distribution and the view digest', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+
+    const result = runWriter(root, packageDir);
+
+    assert.equal(result.status, 0);
+    assert.deepEqual(result.report.distribution, { changed: true, distributions: 1, reason: null });
+    assert.deepEqual(readDistributionRecord(path.join(root, packageDir)), {
+      distributions: 1,
+      digest: viewDigest(root, packageDir),
+    });
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+test('C003 invariant: an identical re-projection leaves the record byte-identical', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    runWriter(root, packageDir);
+    const first = fs.readFileSync(recordPath(root, packageDir), 'utf8');
+
+    const second = runWriter(root, packageDir);
+
+    assert.equal(second.status, 0);
+    assert.deepEqual(second.report.distribution, { changed: false, distributions: 1, reason: null });
+    assert.equal(fs.readFileSync(recordPath(root, packageDir), 'utf8'), first);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+test('C003 postcondition: a changed artifact increments the record and changes the view', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    runWriter(root, packageDir);
+    const firstView = fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME), 'utf8');
+    const firstDigest = viewDigest(root, packageDir);
+
+    const artifactPath = path.join(root, ARTIFACT_FILENAME);
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    artifact.spec.lines += 1;
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+
+    const second = runWriter(root, packageDir);
+
+    assert.equal(second.status, 0);
+    assert.deepEqual(second.report.distribution, { changed: true, distributions: 2, reason: null });
+    assert.notEqual(fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME), 'utf8'), firstView);
+    assert.equal(readDistributionRecord(path.join(root, packageDir)).digest, viewDigest(root, packageDir));
+    assert.notEqual(readDistributionRecord(path.join(root, packageDir)).digest, firstDigest);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+test('C003 boundary: a corrupt record is replaced by the first recorded distribution', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    fs.writeFileSync(recordPath(root, packageDir), '{not json');
+
+    const result = runWriter(root, packageDir);
+
+    assert.equal(result.status, 0);
+    assert.deepEqual(result.report.distribution, { changed: true, distributions: 1, reason: null });
+    assert.equal(readDistributionRecord(path.join(root, packageDir)).distributions, 1);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+test('C003 invariant: the distribution record is not a design file', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    runWriter(root, packageDir);
+
+    assert.equal(collectDesignFiles(root).includes(`${packageDir}/${DISTRIBUTIONS_FILE_NAME}`), false);
   } finally {
     removeSyntheticTriple(root);
   }
