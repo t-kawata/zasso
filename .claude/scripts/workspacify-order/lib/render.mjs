@@ -29,11 +29,15 @@ export const SEQUENCE_GLYPH = '🟡';
 export const FAILED_SEQUENCE_GLYPH = '❌';
 export const SMOOTH_GLYPH = '🟢';
 
-/** The words a field carries when its counter is unknown or its number is omitted. */
+/** The word the explanation field carries: a document mark, not a count. */
 export const EXPLANATION_TEXT = 'EXP';
-export const GRILLED_TEXT = 'GRILLED';
-export const SEQUENCED_TEXT = 'SEQUENCED';
-export const FAILED_SEQUENCE_TEXT = 'FAILED-SEQ';
+/**
+ * The value a numeric field prints when no record exists.
+ *
+ * A question mark keeps the `KEY:VALUE` shape on every line and, unlike 0 or 1, does not
+ * assert a number the workspace never recorded.
+ */
+export const UNKNOWN_COUNT = '?';
 
 /** The field order is the pipeline order, so a line reads left to right as the work happened. */
 export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo']);
@@ -103,8 +107,8 @@ function renderLevelHeader(index, memberCount) {
  * The field order follows the pipeline: the root generations bracket the work, the
  * explanation precedes the grill, and the grill precedes the distribution. The first two
  * per-directory fields are documents; the third is a verdict with two spellings. A counter
- * is used when the producer recorded one, and the document or verdict mark is the honest
- * fallback when it did not.
+ * is used when the producer recorded one; when it did not, the field prints `?` so the line
+ * keeps one shape and never invents a number.
  */
 // [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function cellFor(model, id, key) {
@@ -121,16 +125,19 @@ function cellFor(model, id, key) {
   if (key === 'gri') {
     const count = model.grillCounts.get(id) ?? null;
     if (count !== null) return { glyph: GRILL_GLYPH, text: `GRI:${count}` };
-    return model.grilledIds.has(id) ? { glyph: GRILL_GLYPH, text: GRILLED_TEXT } : null;
+    return model.grilledIds.has(id)
+      ? { glyph: GRILL_GLYPH, text: `GRI:${UNKNOWN_COUNT}` }
+      : null;
   }
   if (key === 'seq') {
     const verdict = model.sequenceVerdicts.get(id);
     const count = model.distributionCounts.get(id)?.distributions ?? null;
+    const value = count === null ? UNKNOWN_COUNT : String(count);
     if (verdict?.state === SEQUENCE_VERDICT_COMPLETE) {
-      return { glyph: SEQUENCE_GLYPH, text: count === null ? SEQUENCED_TEXT : `SEQ:${count}` };
+      return { glyph: SEQUENCE_GLYPH, text: `SEQ:${value}` };
     }
     if (verdict?.state === SEQUENCE_VERDICT_FAILED) {
-      return { glyph: FAILED_SEQUENCE_GLYPH, text: count === null ? FAILED_SEQUENCE_TEXT : `SEQ:${count}` };
+      return { glyph: FAILED_SEQUENCE_GLYPH, text: `SEQ:${value}` };
     }
     return null;
   }

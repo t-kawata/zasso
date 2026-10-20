@@ -52,7 +52,7 @@ const WIDE_RANGES = Object.freeze([
   [0x1f200, 0x1f2ff],
   [0x1f300, 0x1faff],
   [0x20000, 0x3fffd],
-  // Emoji-presentation dingbats below the CJK block; U+274C is the FAILED-SEQ glyph.
+  // Emoji-presentation dingbats below the CJK block; U+274C is the failed-verdict glyph.
   [0x2705, 0x2705],
   [0x2714, 0x2714],
   [0x2716, 0x2716],
