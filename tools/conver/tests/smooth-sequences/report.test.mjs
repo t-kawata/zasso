@@ -37,15 +37,16 @@ test('the Markdown report caps the list and names the remainder', () => {
 });
 
 // @verifies C001
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('the Markdown report names each withheld surface and its check', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
     findings: [],
-    withheld: [{ layer: 'rules', check: 'S3.terminal-status', reason: 'terminalStatuses is not declared' }],
+    withheld: [{ layer: 'vocabulary', check: 'S3.terminal-status', reason: 'terminalStatuses is not declared' }],
     checks: { run: 7, failed: 0 },
   });
   const markdown = renderReportMarkdown(report);
-  assert.match(markdown, /rules:S3\.terminal-status \(terminalStatuses is not declared\)/);
+  assert.match(markdown, /vocabulary:S3\.terminal-status \(terminalStatuses is not declared\)/);
 });
 
 test('writeReport writes both documents and returns their paths', () => {

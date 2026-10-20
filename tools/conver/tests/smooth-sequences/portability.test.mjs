@@ -35,8 +35,10 @@ test('the detector sources carry no project vocabulary and no absolute path', ()
 });
 
 // @verifies C007
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('a workspace that declares grpc and closed is judged green', () => {
   const artifact = minimalV3Artifact();
+  artifact.vocabulary = { terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] };
   artifact.operations = artifact.operations.map((operation) => operationRow(operation.id, {
     registry_contribution: operation.registry_contribution,
     rest: undefined,
@@ -44,10 +46,7 @@ test('a workspace that declares grpc and closed is judged green', () => {
     grpc: 'rpc Orders',
     allowed_status_transitions: { open: ['closed'], closed: [] },
   }));
-  const workspace = materializeSmoothWorkspace({
-    artifact,
-    rules: { schemaVersion: 1, terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] },
-  });
+  const workspace = materializeSmoothWorkspace({ artifact });
   try {
     const result = runCommand([workspace.root]);
     assert.equal(result.exitCode, 0);

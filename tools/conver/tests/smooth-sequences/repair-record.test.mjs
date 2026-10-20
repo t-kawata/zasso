@@ -98,6 +98,7 @@ test('C004 every boundary keeps both sides', () => {
 });
 
 // @verifies C007
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('C007 the detector leaves every generated and upstream file byte-identical', () => {
   const workspace = workspaceWithRepairRecord();
   try {
@@ -105,7 +106,6 @@ test('C007 the detector leaves every generated and upstream file byte-identical'
       artifact: readFileSync(workspace.artifactPath, 'utf8'),
       tree: readFileSync(workspace.treeManifestPath, 'utf8'),
       allocate: readFileSync(workspace.allocateManifestPath, 'utf8'),
-      rules: readFileSync(workspace.rulesPath, 'utf8'),
       providerView: readFileSync(workspace.viewPathOf('pkg-0001'), 'utf8'),
       consumerView: readFileSync(workspace.viewPathOf('pkg-0002'), 'utf8'),
       providerRfc: readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'),
@@ -116,7 +116,6 @@ test('C007 the detector leaves every generated and upstream file byte-identical'
       artifact: readFileSync(workspace.artifactPath, 'utf8'),
       tree: readFileSync(workspace.treeManifestPath, 'utf8'),
       allocate: readFileSync(workspace.allocateManifestPath, 'utf8'),
-      rules: readFileSync(workspace.rulesPath, 'utf8'),
       providerView: readFileSync(workspace.viewPathOf('pkg-0001'), 'utf8'),
       consumerView: readFileSync(workspace.viewPathOf('pkg-0002'), 'utf8'),
       providerRfc: readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'),

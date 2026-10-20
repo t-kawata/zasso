@@ -6,6 +6,7 @@
  * from the implementation, so a green test never compares the detector with itself.
  * The vocabulary is deliberately neutral: a project that declares its own status names
  * and interfaces must receive the same verdict as the project this gate was first run on.
+ * It lives in the artifact, and a test that omits it exercises the derivation instead.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,20 +17,12 @@ export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 export const ARTIFACT_FILE_NAME = 'example-sequences.json';
 export const VIEW_FILE_NAME = 'SEQUENCES.json';
 export const RFC_FILE_NAME = 'RFC.md';
-export const RULES_FILE_NAME = 'SMOOTH-SEQUENCES-RULES.json';
 
 const PROVIDER = 'pkg-0001';
 const CONSUMER = 'pkg-0002';
 const BOUNDARY = 'boundary-001';
 const PROVIDER_PATH = 'crates/alpha';
 const CONSUMER_PATH = 'crates/beta';
-
-/** The vocabulary a workspace may declare in SMOOTH-SEQUENCES-RULES.json. */
-export const DEFAULT_RULES = Object.freeze({
-  schemaVersion: 1,
-  terminalStatuses: ['closed'],
-  requiredInterfaces: ['rest', 'grpc', 'cli'],
-});
 
 const OPERATION_DEFAULTS = Object.freeze({
   mutates_protocol_state: true,
@@ -106,9 +99,11 @@ export function defaultSteps() {
 }
 
 /** A v3 artifact that satisfies every Layer A and Layer B check. */
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function minimalV3Artifact() {
   return {
     schema_version: 3,
+    vocabulary: { terminalStatuses: ['closed'], requiredInterfaces: ['rest', 'grpc', 'cli'] },
     spec: { path: 'spec.md', sha256: '0'.repeat(64), lines: 100 },
     pins: {
       predicate: { line: 1, limbs: ['limb'] },
@@ -289,18 +284,17 @@ export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceI
  * Materialize a workspace on disk.
  *
  * @param {{ artifact?: object, treeManifest?: object, allocateManifest?: object,
- *   views?: object, rfcBodies?: object, rules?: object|null }} input
- * @returns {{ root, artifactPath, treeManifestPath, allocateManifestPath, rulesPath,
+ *   views?: object, rfcBodies?: object }} input
+ * @returns {{ root, artifactPath, treeManifestPath, allocateManifestPath,
  *   directoryOf: (id: string) => string, rfcPathOf: (id: string) => string,
  *   viewPathOf: (id: string) => string, readArtifact: () => object,
- *   readRules: () => object|null, remove: () => void }}
+ *   remove: () => void }}
  */
 export function materializeSmoothWorkspace(input = {}) {
   const root = mkdtempSync(join(tmpdir(), 'smooth-sequences-'));
   const artifact = input.artifact ?? minimalV3Artifact();
   const treeManifest = input.treeManifest ?? defaultTreeManifest();
   const allocateManifest = input.allocateManifest ?? defaultAllocateManifest();
-  const rules = input.rules === undefined ? DEFAULT_RULES : input.rules;
   const crossSequences = [{ sequenceId: 'A-1', ownerPackageIds: [PROVIDER, CONSUMER] }];
   const views = input.views ?? {
     [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences }),
@@ -321,11 +315,9 @@ export function materializeSmoothWorkspace(input = {}) {
   const artifactPath = join(root, ARTIFACT_FILE_NAME);
   const treeManifestPath = join(root, TREE_MANIFEST_FILE_NAME);
   const allocateManifestPath = join(root, ALLOCATE_MANIFEST_FILE_NAME);
-  const rulesPath = join(root, RULES_FILE_NAME);
   writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   writeFileSync(treeManifestPath, JSON.stringify(treeManifest, null, 2));
   writeFileSync(allocateManifestPath, JSON.stringify(allocateManifest, null, 2));
-  if (rules !== null) writeFileSync(rulesPath, JSON.stringify(rules, null, 2));
 
   return {
     root,
@@ -333,12 +325,10 @@ export function materializeSmoothWorkspace(input = {}) {
     artifactPath,
     treeManifestPath,
     allocateManifestPath,
-    rulesPath,
     directoryOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path),
     rfcPathOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path, RFC_FILE_NAME),
     viewPathOf: (id) => join(root, treeManifest.workspace.packages.find((pkg) => pkg.id === id).path, VIEW_FILE_NAME),
     readArtifact: () => JSON.parse(readFileSync(artifactPath, 'utf8')),
-    readRules: () => (rules === null ? null : JSON.parse(readFileSync(rulesPath, 'utf8'))),
     remove: () => rmSync(root, { recursive: true, force: true }),
   };
 }

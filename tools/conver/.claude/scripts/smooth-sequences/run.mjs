@@ -7,11 +7,11 @@
  *   node .claude/scripts/smooth-sequences/run.mjs
  *   node .claude/scripts/smooth-sequences/run.mjs <workspace-root>
  *
- * With no argument the root is found by walking up from the current directory. With one
- * argument the same walk starts at that path. The command reads the workspace and writes
- * only SMOOTH-SEQUENCES.json and SMOOTH-SEQUENCES.md. Exit 0 means every non-withheld
- * check holds, 1 means at least one blocking finding, and 2 means the workspace could
- * not be read.
+ * The current directory, or the single argument when one is given, is the workspace root
+ * itself. The root must hold both manifests directly; the command never walks up to a
+ * parent. The command reads the workspace and writes only SMOOTH-SEQUENCES.json and
+ * SMOOTH-SEQUENCES.md. Exit 0 means every non-withheld check holds, 1 means at least one
+ * blocking finding, and 2 means the workspace could not be read.
  */
 import { checkArtifactViewConsistency, checkBoundaryClauses, checkContributionCompleteness, checkEnumerationIntegrity, checkOperationEnvelope, contributionWithheld } from './lib/checks-layer-a.mjs';
 import { checkCrossingContracts, layerBWithheld } from './lib/checks-layer-b.mjs';
@@ -19,7 +19,7 @@ import { checkDangers } from './lib/checks-danger.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { indexArtifact } from './lib/index.mjs';
 import { buildReport, EXIT_FINDINGS, EXIT_MISUSE, EXIT_PASS, writeReport } from './lib/report.mjs';
-import { loadWorkspace, resolveWorkspaceRoot, startDirectoryFor } from './lib/workspace.mjs';
+import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 
 /** Every check family, in report order. */
 const CHECK_FAMILIES = Object.freeze([
@@ -35,11 +35,12 @@ const CHECK_FAMILIES = Object.freeze([
 /**
  * Run the detector.
  *
- * @param {string[]} argv — zero arguments or one workspace path
+ * @param {string[]} argv — zero arguments (current directory) or one workspace root
  * @param {{ stdout?: (line: string) => void, stderr?: (line: string) => void }} [io]
  * @returns {{ exitCode: number, report: object|null }}
  */
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = io.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -50,13 +51,13 @@ export function runCommand(argv, io = {}) {
   }
 
   try {
-    const root = resolveWorkspaceRoot(startDirectoryFor(argv[0]));
+    const root = assertWorkspaceRoot(startDirectoryFor(argv[0]));
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);
     const findings = CHECK_FAMILIES.flatMap((check) => check(index));
     const withheld = [
       ...layerBWithheld(index),
-      ...index.rules.withheld,
+      ...index.vocabulary.withheld,
       ...contributionWithheld(index),
     ];
     const checks = { run: CHECK_FAMILIES.length, failed: findings.length };

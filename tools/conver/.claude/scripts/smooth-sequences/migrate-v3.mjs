@@ -3,9 +3,11 @@
  * migrate-v3 — add the typed step contract and the v3 operation fields to a v2 artifact.
  *
  * Usage:
- *   node .claude/scripts/smooth-sequences/migrate-v3.mjs <workspace-root> [--dry-run]
+ *   node .claude/scripts/smooth-sequences/migrate-v3.mjs [workspace-root] [--dry-run]
  *
- * The migration is deterministic and idempotent: a v3 artifact is reported and left
+ * The argument, or the current directory when omitted, is the workspace root itself; the
+ * migration never walks up to a parent. The migration is deterministic and idempotent:
+ * a v3 artifact is reported and left
  * untouched, and a second run over a migrated workspace writes the same bytes. The write
  * is atomic, so a refused run leaves the artifact byte-identical.
  */
@@ -14,7 +16,7 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { applyStepAnnotations, migrateArtifactToV3, renderArtifact, SCHEMA_V3, splitAnnotations } from './lib/migrate-v3.mjs';
-import { loadWorkspace, resolveWorkspaceRoot, startDirectoryFor } from './lib/workspace.mjs';
+import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 
 const EXIT_OK = 0;
 const EXIT_MISUSE = 2;
@@ -40,6 +42,7 @@ function summaryOf(artifact, migrated) {
 }
 
 /** Run the migration. */
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const annotationsArgument = argv.find((argument) => argument.startsWith('--annotations='));
@@ -51,7 +54,7 @@ export function main(argv) {
   }
 
   try {
-    const root = resolveWorkspaceRoot(startDirectoryFor(paths[0]));
+    const root = assertWorkspaceRoot(startDirectoryFor(paths[0]));
     const loaded = loadWorkspace(root);
     const annotationDocument = annotationsPath === null ? {} : JSON.parse(readFileSync(annotationsPath, 'utf8'));
     if (loaded.artifact.schema_version === SCHEMA_V3) {

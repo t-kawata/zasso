@@ -44,10 +44,11 @@ export function checkEnumerationIntegrity(index) {
 }
 
 /** The operation envelope: status graph, finality, and the declared interface mappings. */
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function checkOperationEnvelope(index) {
   const findings = [];
-  const terminalStatuses = index.rules.terminalStatuses === null ? null : new Set(index.rules.terminalStatuses);
-  const requiredInterfaces = index.rules.requiredInterfaces;
+  const terminalStatuses = index.vocabulary.terminalStatuses === null ? null : new Set(index.vocabulary.terminalStatuses);
+  const requiredInterfaces = index.vocabulary.requiredInterfaces;
   for (const operation of index.artifact.operations ?? []) {
     if (operation.disposition !== ACTIVE_DISPOSITION) continue;
     const transitions = operation.allowed_status_transitions ?? {};

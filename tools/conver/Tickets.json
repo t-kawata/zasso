@@ -41068,6 +41068,166 @@
             "The distribution-ledger Kind is not mapped to registry_contribution: 24 declared-residual rows currently declare required and 5 operation rows declare not_required. The check verifies row presence only and leaves the semantic adjudication to the design record."
           ],
           "completedAt": "2026-10-19"
+        },
+        {
+          "id": 276,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "derive the smooth-sequences vocabulary from the artifact instead of a hand-written rules file",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-276.md",
+          "background": "Goal: remove SMOOTH-SEQUENCES-RULES.json as a human-authored input and let the detector derive the terminal-status and required-interface vocabularies from what the pipeline already wrote.\nPurpose: the two vocabularies are restated facts. The artifact carries every active operation status graph (allowed_status_transitions), the allocate manifest can declare interface columns (declared_interfaces), and the artifact pins the operation columns whose values spell an interface.\nMotivation: PX-275 removed project-specific names from the detector by moving them into a file a human must write and keep valid. That created a third source of truth that can drift from the artifact and the manifest, and its only failure mode is exit 2 with no information gained. Every workspace already states the same facts where it states its operations.\nConstraints: the replacement field is optional and additive; schema_version stays 3; derivation runs whenever the field is absent; a rules file left on disk is ignored and never opened; an unchanged workspace keeps its verdicts and byte-identical inputs; no project-specific token enters the detector.",
+          "scope": [
+            "CHANGE paths: .claude/scripts/smooth-sequences/lib/{rules.mjs (delete), vocabulary.mjs (add), workspace.mjs, checks-layer-a.mjs}, run.mjs, migrate-v3.mjs, .claude/commands/smooth-sequences.md, and the smooth-sequences test set.",
+            "CHANGE action: delete one module and one file-name constant, add one module, switch one workspace field and its two consumers, and rewrite the tests that author the vocabulary.",
+            "CHANGE detail: loadVocabulary({ artifact, artifactPath, allocateManifest }) returns { terminalStatuses, requiredInterfaces, withheld }; declared artifact.vocabulary wins; terminal names are derived as the union across active operations of sources with an empty target list; interface names come from declared_interfaces columns, else collectCandidateColumns, else null plus a withheld entry.",
+            "CHANGE before/after: before, a workspace with no SMOOTH-SEQUENCES-RULES.json withholds both S3 vocabulary checks and a malformed file exits 2; after, the same workspace derives what its artifact and manifest state, withholds only an underivable vocabulary, and ignores any rules file on disk.",
+            "CHANGE api: new export loadVocabulary({ artifact, artifactPath, allocateManifest }); workspace value drops rules and gains vocabulary; checkOperationEnvelope reads index.vocabulary.terminalStatuses and index.vocabulary.requiredInterfaces.",
+            "CHANGE schema: artifact.vocabulary is optional and additive. schema_version remains 3. A v3 artifact is returned unchanged by migrateArtifactToV3 and renderArtifact serializes every field, so the field survives migration.",
+            "CHANGE config: none; the removed file was configuration, and its replacement is workspace data the detector already reads.",
+            "CHANGE dep: vocabulary.mjs imports collectCandidateColumns from sequences-slice/lib/obligation.mjs, the same package checks-layer-a.mjs already imports for the distribution ledger.",
+            "NON-CHANGE item: no /educe-sequences rail or producer change, no schema_version bump, no new workspace file, and no edit to the S3 check ids or repairs.",
+            "NON-CHANGE why: the derivation covers every workspace whose artifact carries a status graph or an interface declaration; a producer-written vocabulary is honored when present but is not required by this ticket.",
+            "IMPACT component: the detector library, its command document, and the smooth-sequences test set; check-contribution-completeness.js keeps working through the same shared index.",
+            "IMPACT nature: a human-authored input and its exit-2 failure mode are removed; verdicts change only for workspaces that relied on a declaration the workspace itself contradicts or omits.",
+            "IMPACT response: rewrite the fixture and every test that authored rules, add vocabulary tests for both derivation paths, update the command document, and run the impact set with node --test."
+          ],
+          "testUnit": [
+            "UT: [Normal] loadVocabulary returns the declared terminalStatuses and requiredInterfaces from artifact.vocabulary, de-duplicated in first-seen order and frozen (C001)",
+            "UT: [Normal] an artifact without vocabulary derives terminalStatuses as the union across active operations of statuses whose allowed_status_transitions target list is empty (C002)",
+            "UT: [Normal] an artifact without vocabulary derives requiredInterfaces from the column of every allocate-manifest declared_interfaces entry (C003)",
+            "UT: [Normal] when declared_interfaces is absent the derived requiredInterfaces are collectCandidateColumns of the artifact pins, so a column whose value instantiates a pinned member becomes required (C003)",
+            "UT: [Error] a non-object vocabulary, a non-array list or a non-string member raises SmoothSequencesError code INVALID_VOCABULARY naming the artifact path, the field and a repair (C001)",
+            "UT: [Boundary] no active operation carrying a status graph yields terminalStatuses null and one withheld entry vocabulary:S3.terminal-status with a reason naming the artifact field and the empty status graphs (C002)",
+            "UT: [Boundary] no declared interface column and no pinned column yields requiredInterfaces null and one withheld entry vocabulary:S3.interface-mapping with a reason naming both empty sources (C003)",
+            "UT: [Invariant] a status terminal in one operation and carrying an outgoing transition in another is in the derived set, and checkOperationEnvelope reports S3.transition-out-of-terminal for the second operation only (C002)",
+            "UT: [Invariant] a column declared in declared_interfaces stays required when one active operation lacks it, and checkOperationEnvelope reports S3.interface-mapping-missing for that operation only (C003)",
+            "UT: [Invariant] declared_interfaces columns take precedence over pinned columns when both yield names, and the pinned set is not merged in (C003)",
+            "UT: [Invariant] a SMOOTH-SEQUENCES-RULES.json containing valid, invalid or unrelated bytes is never read, and the verdict, findings and vocabulary equal those of a workspace without the file (C004)",
+            "UT: [Invariant] no file under .claude/scripts/smooth-sequences contains the token SMOOTH-SEQUENCES-RULES or the identifier RULES_FILE_NAME (C004)"
+          ],
+          "testIntegration": [
+            "IT: run.mjs on the neutral fixture whose artifact carries vocabulary exits 0 with findings [] and withheld [], and writes only SMOOTH-SEQUENCES.json and SMOOTH-SEQUENCES.md",
+            "IT: run.mjs on a fixture whose artifact omits vocabulary and whose allocate manifest declares rest, grpc and cli derives terminalStatuses [closed] and requiredInterfaces [rest, grpc, cli] and exits 0 with withheld []",
+            "IT: run.mjs on a fixture whose artifact omits vocabulary and whose allocate manifest declares nothing withholds exactly vocabulary:S3.interface-mapping and still exits 0 because the interface check is not a pass",
+            "IT: a malformed SMOOTH-SEQUENCES-RULES.json at the workspace root leaves the exit code, findings and withheld list identical to a workspace without the file, proving the detector never opens it",
+            "IT: check-contribution-completeness.js still exits 0 on the neutral fixture and 1 with the missing ledger row after the rules module removal, so the shared gate is unchanged",
+            "**IT: [Integration point] — workspace.mjs passes the loaded artifact and allocate manifest to vocabulary.mjs and stores the frozen result as workspace.vocabulary; checks-layer-a.mjs reads index.vocabulary and no module reads a rules file.**",
+            "**IT: [Verification] — the report carries the same findings and withheld entries with or without a rules file on disk, the artifact and every upstream file stay byte-identical, and the two report files are the only writes.**",
+            "**IT: [Prerequisites] — the fixture materializes both manifests, one artifact, two package views and two RFCs in a temporary root; the ignore test writes the removed rules file itself and every other test leaves it absent.**",
+            "**IT: [Related tickets] — PX-275 introduced the rules file and its withheld names; this ticket removes the file while preserving the S3 check ids. PX-273 and PX-274 established the detector, the v3 schema and the neutral verdicts.**"
+          ],
+          "testExceptions": [
+            "The gaia workspace verdict is not testable deterministically inside this repository because the workspace lives outside it and its artifact is not committed; this is an external dependency, not a design defect. Alternative verification: the opt-in SMOOTH_SEQUENCES_WORKSPACE integration test runs it when set, and the neutral fixtures cover every derivation and withholding branch.",
+            "One cannot test from the workspace alone whether a required interface that appears in no operation column and no declared_interfaces entry is genuinely required, because that fact exists only in prose; this is an information boundary, not a design defect and not an architectural defect. Alternative verification: the detector reports it as withheld rather than guessing, and both withheld branches are asserted by unit and integration tests."
+          ],
+          "default_files": [
+            ".claude/scripts/smooth-sequences/lib/vocabulary.mjs",
+            ".claude/scripts/smooth-sequences/lib/rules.mjs",
+            ".claude/scripts/smooth-sequences/lib/workspace.mjs",
+            ".claude/scripts/smooth-sequences/lib/index.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-a.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/scripts/smooth-sequences/migrate-v3.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/smooth-sequences/helpers/workspace-fixture.mjs",
+            "tests/smooth-sequences/vocabulary.test.mjs",
+            "tests/smooth-sequences/rules.test.mjs",
+            "tests/smooth-sequences/layer-a.test.mjs",
+            "tests/smooth-sequences/run.test.mjs",
+            "tests/smooth-sequences/order-integration.test.mjs",
+            "tests/smooth-sequences/portability.test.mjs",
+            "tests/smooth-sequences/heal-loop.test.mjs",
+            "tests/smooth-sequences/repair-record.test.mjs",
+            "tests/smooth-sequences/report.test.mjs",
+            "tests/smooth-sequences/install.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a fixture with no rules file and an artifact that declares vocabulary exits 0 with findings [] and withheld []; a fixture without the field derives terminalStatuses [closed] and requiredInterfaces [rest, grpc, cli] from its status graph and declared_interfaces and also exits 0 with withheld [].",
+            "Error case: a declared vocabulary with a non-array list or a non-string member exits 2 with INVALID_VOCABULARY and writes no report, while the planted terminal and interface defects still produce S3.transition-out-of-terminal and S3.interface-mapping-missing with repairs.",
+            "Edge case: an underivable terminal or interface vocabulary is named as withheld and exits 0, a malformed or unrelated SMOOTH-SEQUENCES-RULES.json on disk changes nothing, and no detector source contains the removed file name."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "artifact vocabulary declaration",
+              "precondition": "the artifact carries vocabulary as an optional plain object whose terminalStatuses and requiredInterfaces are arrays of non-empty strings",
+              "postcondition": "loadVocabulary returns exactly the declared names de-duplicated in first-seen order and performs no derivation",
+              "invariant": "a declared list wins over every derivation, including a list naming a status no operation reaches"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "terminal derivation",
+              "precondition": "artifact.vocabulary.terminalStatuses is absent or null and at least one active operation declares allowed_status_transitions",
+              "postcondition": "the returned set is the union of source statuses whose target list is empty across active operations",
+              "invariant": "a status with a non-empty target list in one operation is in the set whenever another operation terminates at it, and S3 flags the transition"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "interface derivation",
+              "precondition": "artifact.vocabulary.requiredInterfaces is absent or null",
+              "postcondition": "the returned set is the union of allocate-manifest declared_interfaces columns, else collectCandidateColumns(artifact), else null with a withheld entry",
+              "invariant": "the set does not depend on operation membership, so a missing column stays required and yields S3.interface-mapping-missing"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "rules file removal",
+              "precondition": "the workspace root contains SMOOTH-SEQUENCES-RULES.json with any bytes, or contains no such file",
+              "postcondition": "the detector never opens the file and the exit code, findings, withheld list and vocabulary are identical in both cases",
+              "invariant": "no module under smooth-sequences names SMOOTH-SEQUENCES-RULES.json or RULES_FILE_NAME"
+            }
+          ],
+          "notes": "Steps: write the Red tests for C001-C004 first; add vocabulary.mjs; switch workspace.mjs and checks-layer-a.mjs; delete rules.mjs; update the fixture and every affected test; update the command document; run the impact set with node --test.\nRisks: derivation shrinks when the operation set shrinks, while a producer-written artifact.vocabulary freezes the set and is preferred. Deriving from pins can miss an interface that only a seed declares.\nCaveats: the field is additive and does not bump schema_version; migrate-v3 returns a v3 artifact unchanged and renderArtifact serializes every field, so vocabulary survives a migration.\nOpen items: /educe-sequences does not yet write vocabulary; the field is honored when present and the detector derives when absent.\nFuture improvements: read the RFC-SEED serves fence through sequences-slice readDeclaredInterfaces so seed declarations join the interface derivation.\nImplementation summary:\n- Added lib/vocabulary.mjs with declared-wins, terminal-union derivation, declared_interfaces then pinned-column interface derivation, and named withholding.\n- Deleted lib/rules.mjs; workspace.mjs, index.mjs, run.mjs and checks-layer-a.mjs now read workspace.vocabulary.\n- A stray SMOOTH-SEQUENCES-RULES.json is never opened; a malformed artifact.vocabulary exits 2 with INVALID_VOCABULARY and writes no report.\n- Rewrote the fixture and every test that authored rules; deleted rules.test.mjs and added vocabulary.test.mjs.\n- Test results: 110 tests, 109 passed, 0 failed, 1 opt-in skip (tests/smooth-sequences plus tests/grill-me-for-rfc/workspace-gates.test.mjs).\n- Quality checks: 0 issues. Annotation verify: 0 missing, 0 ambiguous.\n- Residual: the tree also carries the earlier uncommitted cwd-root change, so its source files were annotated with PX-276 and will travel in this ticket's commit.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues found in touched source\n- Dependencies: vocabulary.mjs, workspace.mjs, index.mjs, run.mjs and checks-layer-a.mjs read one value consistently\n- Annotation verify: 0 missing, 0 ambiguous\n- Issues found and fixes applied: the scope signature was aligned to loadVocabulary with an artifactPath; annotations were moved from function bodies to immediately above their definitions\n- Residual risk: the uncommitted cwd-root change from the previous session travels in this ticket commit",
+          "invariants": "- 【Normal establishment】loadVocabulary returns a frozen value whose two lists are arrays of unique non-empty names or null; a declared artifact.vocabulary is returned unchanged in first-seen order.\n- 【Invariant on error】a declared vocabulary that violates its shape raises SmoothSequencesError code INVALID_VOCABULARY and run.mjs exits 2 without writing a report; an underivable vocabulary is withheld, never guessed and never treated as a pass.\n- 【Internal invariant】checkOperationEnvelope reads only index.vocabulary, workspace.mjs never opens SMOOTH-SEQUENCES-RULES.json, and no module under smooth-sequences names it.\n- 【Boundary invariant】derivation never drops a name because one operation lacks it; membership comes from the status graph or the declared interface columns, so a missing mapping remains a finding.",
+          "instrumentation": "- Logging: run.mjs keeps its one-line verdict; each withheld entry carries layer vocabulary, check id and a reason that names the artifact field and the empty sources.\n- Metrics: none; this is a CLI whose contract is the exit code and the two report files.\n- Error tracking: a malformed declared vocabulary raises SmoothSequencesError code INVALID_VOCABULARY with path, field and repair, rendered by run.mjs and check-contribution-completeness.js.\n- Health check: a workspace with no rules file and a complete artifact exits 0 with an empty withheld list; a workspace whose vocabulary cannot be derived names the reason instead of passing silently.\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: 110 tests, 109 passed, 0 failed, 1 opt-in skip",
+          "investigation": "- .claude/scripts/smooth-sequences/lib/rules.mjs:15,73-103 — the only reader of SMOOTH-SEQUENCES-RULES.json. An absent file yields two withheld entries; a malformed file or a wrong schemaVersion raises UNREADABLE_RULES and run.mjs exits 2.\n- .claude/scripts/smooth-sequences/lib/workspace.mjs:15,110 — loadWorkspace imports loadRules and stores rules in the frozen workspace value; loadWorkspace already holds the artifact and the allocate manifest, so both derivation inputs are in hand.\n- .claude/scripts/smooth-sequences/lib/checks-layer-a.mjs:49-50,69-71,80-85 — checkOperationEnvelope builds a Set from index.rules.terminalStatuses, flags a source with a non-empty target list, and inspects operation[interfaceName] for every required interface using isInterfaceMappingPresent.\n- .claude/scripts/sequences-slice/lib/obligation.mjs:89-90,170-193,200-235 — DECLARED_INTERFACES_FIELD names the allocate field; normalizeDeclaration reads interfaceId, column, operationSet and valueJoin; collectCandidateColumns returns the operation columns whose values instantiate a pinned enumeration; readDeclaredInterfaces joins the manifest and the seed serves fence.\n- .claude/scripts/sequences-slice/verify.mjs:71,234-235 — an existing reader already defines a terminal status as a status member with no outgoing transitions, which is the derivation this ticket reuses.\n- tests/smooth-sequences/helpers/workspace-fixture.mjs:29-33,214,322-326 — DEFAULT_RULES hardcodes closed/rest/grpc/cli, and materializeSmoothWorkspace writes RULES_FILE_NAME; the fixture currently authors the vocabulary the detector claims to receive from a human.\n- tests/smooth-sequences/rules.test.mjs, run.test.mjs, layer-a.test.mjs, order-integration.test.mjs, portability.test.mjs, heal-loop.test.mjs, repair-record.test.mjs, report.test.mjs, install.test.mjs — every assertion that depends on the rules module, its fixture input, its snapshot entry or its withheld layer name.\n- .claude/scripts/smooth-sequences/lib/migrate-v3.mjs:257-259,327-329 — a v3 artifact is returned unchanged and renderArtifact is JSON.stringify, so an added vocabulary field survives a migration byte-identically.\n- .claude/scripts/smooth-sequences/lib/checks-layer-b.mjs and lib/report.mjs — withheld entries are concatenated and rendered by layer and check, so the layer rename from rules to vocabulary changes only the rendered prefix.",
+          "boyScoutPlan": "- Rename the workspace field rules to vocabulary and delete the module rather than leaving a dead reader behind.\n- Export the field names and check ids as named constants in vocabulary.mjs instead of repeating string literals across checks and tests.\n- State in each touched module header which vocabulary it reads: artifact-declared, allocate-declared, or pinned.\n- Keep each function to one responsibility: declaration validation, terminal derivation, interface derivation and withholding are separate functions.\n- Remove the now-false fixture comment that calls the rules file the whole input surface, and the DEFAULT_RULES constant that hardcodes a project vocabulary.",
+          "created_at": "2026-10-20",
+          "updated_at": "2026-10-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 declared vocabulary is returned unchanged and frozen\n```js\nconst artifact = { schema_version: 3, operations: [], vocabulary: { terminalStatuses: ['closed', 'aborted', 'closed'], requiredInterfaces: ['grpc'] } };\nconst vocabulary = loadVocabulary({ artifact, artifactPath: '/tmp/example-sequences.json', allocateManifest: {} });\nassert.deepEqual(vocabulary.terminalStatuses, ['closed', 'aborted']);\nassert.deepEqual(vocabulary.requiredInterfaces, ['grpc']);\nassert.deepEqual(vocabulary.withheld, []);\nassert.ok(Object.isFrozen(vocabulary));\n```",
+            "UT: [Normal] C002 an absent declaration derives the terminal union across active operations\n```js\nconst artifact = minimalV3Artifact();\ndelete artifact.vocabulary;\nconst activeOperation = (id, transitions) => ({\n  id, disposition: 'active', initial_status: 'open', external_dependency_class: 'none',\n  allowed_status_transitions: transitions,\n});\nartifact.operations = [\n  activeOperation('A', { open: ['closed'], closed: [] }),\n  activeOperation('B', { open: ['closed'], closed: ['open'] }),\n];\nconst workspace = materializeSmoothWorkspace({ artifact });\nconst index = indexArtifact(loadWorkspace(workspace.root));\nassert.deepEqual(index.vocabulary.terminalStatuses, ['closed']);\nconst findings = checkOperationEnvelope(index);\nassert.ok(findings.some((finding) => finding.checkId === 'S3.transition-out-of-terminal' && finding.subject === 'B'));\nassert.ok(!findings.some((finding) => finding.subject === 'A'));\n```",
+            "UT: [Normal] C003 declared_interfaces columns are required and take precedence over pins\n```js\nconst artifact = { schema_version: 3, operations: [], pins: { enumerations: [{ name: 'route', members: ['GET /v1/orders'] }] } };\nconst allocateManifest = { declared_interfaces: { 'crates/alpha': [{ interfaceId: 'rest', column: 'rest' }] } };\nconst vocabulary = loadVocabulary({ artifact, artifactPath: '/tmp/example-sequences.json', allocateManifest });\nassert.deepEqual(vocabulary.requiredInterfaces, ['rest']);\nassert.deepEqual(vocabulary.withheld, []);\n```\n```js\nconst pinnedArtifact = { schema_version: 3, pins: { enumerations: [{ name: 'route', members: ['GET /v1/orders'] }] }, operations: [{ id: 'A', disposition: 'active', rest: 'GET /v1/orders' }, { id: 'B', disposition: 'active' }] };\nassert.deepEqual(loadVocabulary({ artifact: pinnedArtifact, artifactPath: '/tmp/example-sequences.json', allocateManifest: {} }).requiredInterfaces, ['rest']);\n```",
+            "UT: [Error] C001 a malformed declared vocabulary raises INVALID_VOCABULARY\n```js\nassert.throws(\n  () => loadVocabulary({ artifact: { schema_version: 3, vocabulary: { terminalStatuses: ['closed', 7] } }, artifactPath: 'example-sequences.json', allocateManifest: {} }),\n  (error) => error.code === 'INVALID_VOCABULARY'\n    && error.path === 'example-sequences.json'\n    && error.message.includes('terminalStatuses')\n    && typeof error.repair === 'string',\n);\n```",
+            "UT: [Boundary] C002 C003 an underivable vocabulary is withheld, not passed\n```js\nconst vocabulary = loadVocabulary({ artifact: { schema_version: 3, operations: [] }, artifactPath: 'example-sequences.json', allocateManifest: {} });\nassert.equal(vocabulary.terminalStatuses, null);\nassert.equal(vocabulary.requiredInterfaces, null);\nassert.deepEqual(vocabulary.withheld.map((entry) => entry.check), ['S3.terminal-status', 'S3.interface-mapping']);\nassert.ok(vocabulary.withheld.every((entry) => entry.layer === 'vocabulary' && entry.reason.length > 0));\n```",
+            "UT: [Invariant] C004 a rules file on disk is never read\n```js\nconst withoutFile = materializeSmoothWorkspace();\nconst withFile = materializeSmoothWorkspace();\nwriteFileSync(join(withFile.root, 'SMOOTH-SEQUENCES-RULES.json'), '{not json');\nconst first = runCommand([withoutFile.root], QUIET);\nconst second = runCommand([withFile.root], QUIET);\nassert.equal(second.exitCode, first.exitCode);\nassert.deepEqual(second.report.withheld, first.report.withheld);\nassert.deepEqual(second.report.findings, first.report.findings);\n```"
+          ],
+          "startedAt": "2026-10-20",
+          "changes": [
+            {
+              "before": "lib/rules.mjs read SMOOTH-SEQUENCES-RULES.json and withheld both S3 vocabulary checks when the file was absent",
+              "after": "lib/rules.mjs is deleted; no module reads a separate vocabulary file",
+              "description": "remove the human-authored vocabulary input"
+            },
+            {
+              "before": "no derived vocabulary existed",
+              "after": "lib/vocabulary.mjs returns declared artifact.vocabulary, else derives terminalStatuses from active status graphs and requiredInterfaces from declared_interfaces columns, else from pinned operation columns, else withholds with layer vocabulary",
+              "description": "derive the vocabulary from the workspace"
+            },
+            {
+              "before": "a malformed rules file raised UNREADABLE_RULES and exited 2",
+              "after": "a malformed artifact.vocabulary raises INVALID_VOCABULARY and exits 2; a stray rules file is ignored",
+              "description": "move the misuse boundary onto the artifact field"
+            },
+            {
+              "before": "workspace.rules and index.rules carried loadRules output",
+              "after": "workspace.vocabulary and index.vocabulary carry loadVocabulary output; run.mjs and checks-layer-a.mjs read it",
+              "description": "switch the consumers to the derived value"
+            },
+            {
+              "before": "the fixture wrote SMOOTH-SEQUENCES-RULES.json and DEFAULT_RULES hardcoded closed/rest/grpc/cli",
+              "after": "minimalV3Artifact carries vocabulary and the fixture writes no rules file",
+              "description": "make the vocabulary test input explicit in the artifact"
+            },
+            {
+              "before": "rules.test.mjs asserted the file reader; docs.test.mjs asserted the rules file was named",
+              "after": "vocabulary.test.mjs covers C001-C004; docs.test.mjs asserts the command names the artifact vocabulary and no rules file",
+              "description": "replace the deleted behavior's tests with the new contract"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-20"
         }
       ]
     },

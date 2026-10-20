@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * check-contribution-completeness.js <workspace-root>
+ * check-contribution-completeness.js [workspace-root]
  *
+ * The argument, or the current directory when omitted, is the workspace root itself.
  * The workspace-wide contribution gate: every operation a package owns and marks active
  * must declare registry_contribution=required, or not_required with a ground, and must
  * be recorded by its owner's distribution ledger. The gate is shared with
@@ -15,16 +16,16 @@
 import { checkContributionCompleteness, contributionWithheld } from '../smooth-sequences/lib/checks-layer-a.mjs';
 import { indexArtifact } from '../smooth-sequences/lib/index.mjs';
 import { SmoothSequencesError } from '../smooth-sequences/lib/errors.mjs';
-import { loadWorkspace, resolveWorkspaceRoot } from '../smooth-sequences/lib/workspace.mjs';
+import { assertWorkspaceRoot, loadWorkspace } from '../smooth-sequences/lib/workspace.mjs';
 
 const EXIT_PASS = 0;
 const EXIT_FINDINGS = 1;
 const EXIT_MISUSE = 2;
 
-// [::TICKET::] PX-273, PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-275) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-275, PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-275|PX-276) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
-    const root = resolveWorkspaceRoot(argv[0] ?? process.cwd());
+    const root = assertWorkspaceRoot(argv[0] ?? process.cwd());
     const index = indexArtifact(loadWorkspace(root));
     const findings = checkContributionCompleteness(index);
     if (findings.length === 0) {

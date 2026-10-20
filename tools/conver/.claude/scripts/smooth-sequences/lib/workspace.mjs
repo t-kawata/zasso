@@ -1,17 +1,18 @@
 /**
  * Read the workspace a smooth-sequences run judges.
  *
- * The command shares the two-manifest root rule with `workspacify-order`: the root is
- * the directory holding both manifests, and a second candidate is an ambiguity rather
- * than something to guess. What this module adds is the artifact and the per-package
- * views and RFCs, because those are the records the contract checks read.
+ * The workspace root is the directory the caller names: the current directory when no
+ * argument is given, or the single argument when one is. The root must hold both manifests
+ * directly; the caller's directory is never promoted to a parent, because selecting an
+ * ancestor would judge a different workspace than the one on disk. What this module adds
+ * is the artifact and the per-package views and RFCs, because those are the records the
+ * contract checks read.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
-import { resolveWorkspaceRoot as resolveOrderRoot } from '../../workspacify-order/lib/workspace.mjs';
 import { SmoothSequencesError } from './errors.mjs';
-import { loadRules } from './rules.mjs';
+import { loadVocabulary } from './vocabulary.mjs';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
@@ -74,6 +75,7 @@ function packageDirectory(root, packagePath) {
  * @param {string} root — a directory holding both manifests
  * @returns {object} a frozen workspace value
  */
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function loadWorkspace(root) {
   const treeManifest = readJsonFile(join(root, TREE_MANIFEST_FILE_NAME), {
     code: 'UNREADABLE_TREE_MANIFEST',
@@ -106,21 +108,30 @@ export function loadWorkspace(root) {
     allocateManifest,
     artifact,
     packages,
-    rules: loadRules(root),
+    vocabulary: loadVocabulary({ artifact, artifactPath, allocateManifest }),
   });
 }
 
-/** Resolve the workspace root above a start directory. */
-export function resolveWorkspaceRoot(startDirectory) {
-  try {
-    return resolveOrderRoot(startDirectory);
-  } catch (error) {
-    throw new SmoothSequencesError(error.message, {
+/**
+ * Assert that a directory is itself the workspace root.
+ *
+ * The candidate is never promoted to a parent: a caller that names a directory means that
+ * directory, and selecting an ancestor would judge a different workspace than the one on
+ * disk. A root holds both manifests directly; anything else is misuse.
+ */
+export function assertWorkspaceRoot(candidateDirectory) {
+  const root = resolve(candidateDirectory);
+  const missing = [TREE_MANIFEST_FILE_NAME, ALLOCATE_MANIFEST_FILE_NAME]
+    .filter((fileName) => !existsSync(join(root, fileName)));
+  if (missing.length === 0) return root;
+  throw new SmoothSequencesError(
+    `${root} is not a workspace root: ${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} missing`,
+    {
       code: 'NO_ROOT',
-      path: startDirectory,
-      repair: 'Pass the workspace root that holds WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json.',
-    });
-  }
+      path: root,
+      repair: `Run from the workspace root that holds both ${TREE_MANIFEST_FILE_NAME} and ${ALLOCATE_MANIFEST_FILE_NAME}.`,
+    },
+  );
 }
 
 /** The root of a path that may be a file inside the workspace. */

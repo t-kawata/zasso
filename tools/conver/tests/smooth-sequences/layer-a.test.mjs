@@ -53,15 +53,13 @@ test('S3 rejects an initial status outside the transition graph', () => {
 });
 
 // @verifies C002
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('S3 rejects a transition out of a declared terminal status', () => {
   const artifact = minimalV3Artifact();
   artifact.operations[0] = operationRow('ProduceFact', {
     allowed_status_transitions: { open: ['closed'], closed: ['open'] },
   });
-  const { workspace, index } = indexOf({
-    artifact,
-    rules: { schemaVersion: 1, terminalStatuses: ['closed'], requiredInterfaces: ['rest', 'grpc', 'cli'] },
-  });
+  const { workspace, index } = indexOf({ artifact });
   try {
     const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.transition-out-of-terminal');
     assert.equal(findings.length, 1);
@@ -74,10 +72,11 @@ test('S3 rejects a transition out of a declared terminal status', () => {
 // @verifies C002
 test('S3 never treats an undeclared status name as terminal', () => {
   const artifact = minimalV3Artifact();
+  delete artifact.vocabulary;
   artifact.operations[0] = operationRow('ProduceFact', {
     allowed_status_transitions: { finalized: ['accepted'] },
   });
-  const { workspace, index } = indexOf({ artifact, rules: null });
+  const { workspace, index } = indexOf({ artifact });
   try {
     const findings = checkOperationEnvelope(index);
     assert.equal(findings.filter((finding) => finding.checkId === 'S3.transition-out-of-terminal').length, 0);
@@ -89,11 +88,9 @@ test('S3 never treats an undeclared status name as terminal', () => {
 // @verifies C003
 test('S3 rejects a declared required interface that the operation does not map', () => {
   const artifact = minimalV3Artifact();
+  artifact.vocabulary = { terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] };
   artifact.operations[0] = operationRow('ProduceFact', { grpc: undefined, rest: 'GET /v1/orders' });
-  const { workspace, index } = indexOf({
-    artifact,
-    rules: { schemaVersion: 1, requiredInterfaces: ['grpc'] },
-  });
+  const { workspace, index } = indexOf({ artifact });
   try {
     const findings = checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing');
     assert.equal(findings.length, 1);
@@ -106,12 +103,13 @@ test('S3 rejects a declared required interface that the operation does not map',
 // @verifies C003
 test('S3 requires no fixed interface triple when the workspace declares none', () => {
   const artifact = minimalV3Artifact();
+  delete artifact.vocabulary;
   artifact.operations = artifact.operations.map((operation) => operationRow(operation.id, {
     rest: undefined,
     grpc: 'rpc Orders',
     cli: undefined,
   }));
-  const { workspace, index } = indexOf({ artifact, rules: null });
+  const { workspace, index } = indexOf({ artifact });
   try {
     assert.equal(checkOperationEnvelope(index).filter((finding) => finding.checkId === 'S3.interface-mapping-missing').length, 0);
   } finally {

@@ -7,6 +7,7 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('the detector and the order plan read the same package set', () => {
   const workspace = materializeSmoothWorkspace();
   try {
@@ -16,8 +17,8 @@ test('the detector and the order plan read the same package set', () => {
     const smoothIds = smooth.treeManifest.workspace.packages.map((pkg) => pkg.id).sort();
     assert.deepEqual(smoothIds, orderIds);
     assert.equal(smooth.allocateManifest.contract_registry.length, 1);
-    assert.deepEqual(smooth.rules.terminalStatuses, ['closed']);
-    assert.deepEqual(smooth.rules.requiredInterfaces, ['rest', 'grpc', 'cli']);
+    assert.deepEqual(smooth.vocabulary.terminalStatuses, ['closed']);
+    assert.deepEqual(smooth.vocabulary.requiredInterfaces, ['rest', 'grpc', 'cli']);
   } finally {
     workspace.remove();
   }

@@ -61,6 +61,7 @@ function operationOwners(packages) {
  * @param {object} loaded — the value `loadWorkspace` returns
  * @returns {object} the frozen index
  */
+// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function indexArtifact(loaded) {
   const duplicates = [];
   const artifact = loaded.artifact;
@@ -104,7 +105,7 @@ export function indexArtifact(loaded) {
     allocateManifest: loaded.allocateManifest,
     packages: loaded.packages,
     schemaVersion: artifact.schema_version,
-    rules: loaded.rules,
+    vocabulary: loaded.vocabulary,
     operationsById,
     sequencesById,
     stepsById,
