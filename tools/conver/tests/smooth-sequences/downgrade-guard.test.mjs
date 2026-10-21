@@ -1,3 +1,5 @@
+// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,12 +19,12 @@ const QUIET = Object.freeze({ stdout: () => {}, stderr: () => {} });
 test('a v3 to v2 downgrade exits 4 with UNPROVEN_DOWNGRADE', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    const first = runCommand([workspace.root], QUIET);
+    const first = runCommand([workspace.root, '--legacy'], QUIET);
     assert.equal(first.exitCode, 0);
     assert.deepEqual(readStatus(workspace.root).schemaHistory, [3]);
 
     writeFileSync(workspace.artifactPath, JSON.stringify(minimalV2Artifact(), null, 2));
-    const result = runCommand([workspace.root], QUIET);
+    const result = runCommand([workspace.root, '--legacy'], QUIET);
     assert.equal(result.exitCode, 4);
     assert.equal(result.report.verdict, 'unproven');
     assert.deepEqual(result.report.downgrade, { code: 'UNPROVEN_DOWNGRADE', from: 3, to: 2 });
@@ -53,7 +55,7 @@ test('a downgrade withdraws a finding the v3 generation carried', () => {
     });
     writeGeneration({ root: workspace.root, report, inputDigest: 'input-1', exitCode: 1, schemaHistory: [3] });
     writeFileSync(workspace.artifactPath, JSON.stringify(minimalV2Artifact(), null, 2));
-    const result = runCommand([workspace.root], QUIET);
+    const result = runCommand([workspace.root, '--legacy'], QUIET);
     assert.equal(result.exitCode, 1);
     assert.equal(result.report.findings.some((entry) => entry.checkId === 'S.evidence-withdrawn'), true);
     assert.equal(result.report.downgrade.code, 'UNPROVEN_DOWNGRADE');
@@ -66,7 +68,7 @@ test('a downgrade withdraws a finding the v3 generation carried', () => {
 test('a v2 artifact never yields verdict pass', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   try {
-    const result = runCommand([workspace.root], QUIET);
+    const result = runCommand([workspace.root, '--legacy'], QUIET);
     assert.notEqual(result.report.verdict, 'pass');
     assert.equal(result.exitCode, 4);
   } finally {
@@ -78,9 +80,9 @@ test('a v2 artifact never yields verdict pass', () => {
 test('audit mode records wouldExit 4 for a downgrade and exits 0', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    runCommand([workspace.root], QUIET);
+    runCommand([workspace.root, '--legacy'], QUIET);
     writeFileSync(workspace.artifactPath, JSON.stringify(minimalV2Artifact(), null, 2));
-    const result = runCommand([workspace.root, '--audit'], QUIET);
+    const result = runCommand([workspace.root, '--audit', '--legacy'], QUIET);
     assert.equal(result.exitCode, 0);
     assert.equal(result.report.verdict, 'audit');
     assert.equal(result.report.wouldExit, 4);

@@ -26,6 +26,7 @@ export function sha256File(path) {
 
 /** A stable JSON encoding with sorted object keys. */
 // [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map((entry) => canonicalJson(entry)).join(',')}]`;
   if (value !== null && typeof value === 'object') {
@@ -38,6 +39,47 @@ function canonicalJson(value) {
 /** The digest of a judgment worklist context or one obligation's evidence context. */
 export function contextDigest(context) {
   return sha256Text(canonicalJson(context));
+}
+
+/** The stable id of a record, over everything except the id itself. */
+export function recordIdOf(record) {
+  const { recordId, ...body } = record ?? {};
+  return contextDigest(body);
+}
+
+/** The manifest path inside a run directory. */
+export function manifestAt(directory) {
+  return join(directory, EVIDENCE_MANIFEST_FILE_NAME);
+}
+
+/** Read the manifest in one run directory, or null when it is absent or unreadable. */
+export function readManifestAt(directory) {
+  const path = manifestAt(directory);
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Write the manifest into one run directory, exactly where the run keeps it. */
+export function writeManifestAt(directory, manifest) {
+  mkdirSync(directory, { recursive: true });
+  const path = manifestAt(directory);
+  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+  return path;
+}
+
+/** Bind the manifest to the artifact the reading phases will measure. */
+export function updateManifestArtifact(directory, { spec, artifactPath }) {
+  const manifest = readManifestAt(directory);
+  if (manifest === null) return null;
+  return writeManifestAt(directory, {
+    ...manifest,
+    spec: spec === undefined ? manifest.spec : { path: spec.path, sha256: spec.sha256 },
+    artifact: { path: artifactPath, sha256: sha256File(artifactPath) },
+  });
 }
 
 /** The lines of a specification between two 1-indexed positions, inclusive. */
@@ -98,11 +140,7 @@ export function writeEvidenceManifest(root, manifest = {}) {
     })),
     receipts,
   };
-  const directory = join(root, 'educe-sequences');
-  mkdirSync(directory, { recursive: true });
-  const path = join(directory, EVIDENCE_MANIFEST_FILE_NAME);
-  writeFileSync(path, `${JSON.stringify(body, null, 2)}\n`);
-  return path;
+  return writeManifestAt(join(root, 'educe-sequences'), body);
 }
 
 /**
@@ -113,20 +151,13 @@ export function writeEvidenceManifest(root, manifest = {}) {
  */
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function appendReceipt(runDirectory, receipt) {
-  const path = join(runDirectory, EVIDENCE_MANIFEST_FILE_NAME);
-  if (!existsSync(path)) return null;
-  let manifest;
-  try {
-    manifest = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return null;
-  }
+  const manifest = readManifestAt(runDirectory);
+  if (manifest === null) return null;
   const receipts = (Array.isArray(manifest.receipts) ? manifest.receipts : [])
     .filter((entry) => entry?.phase !== receipt?.phase);
   receipts.push(receipt);
   manifest.receipts = receipts.sort((left, right) => (left.phase ?? 0) - (right.phase ?? 0));
-  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
-  return path;
+  return writeManifestAt(runDirectory, manifest);
 }
 
 /** Read the evidence manifest, or null when it is absent or unreadable. */

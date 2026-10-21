@@ -7,6 +7,8 @@
  * pure function of the inputs, so two callers cannot disagree about which claims exist.
  */
 
+import { performedOperations } from './span.mjs';
+
 export const OBLIGATION_CLASS = Object.freeze({
   MECHANICAL: 'mechanical',
   SEMANTIC: 'semantic',
@@ -46,22 +48,6 @@ function text(value, fallback = '') {
 // [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
 function idsOf(rows) {
   return (Array.isArray(rows) ? rows : []).map((row) => row?.id).filter((id) => typeof id === 'string');
-}
-
-/** The operations a span reading says it performed. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
-function spanOperations(readings) {
-  const operations = new Set();
-  for (const reading of Array.isArray(readings?.span) ? readings.span : []) {
-    for (const step of Array.isArray(reading?.steps) ? reading.steps : []) {
-      if (typeof step?.operation === 'string') operations.add(step.operation);
-    }
-    for (const operation of Array.isArray(reading?.operations) ? reading.operations : []) {
-      const id = typeof operation === 'string' ? operation : operation?.id;
-      if (typeof id === 'string') operations.add(id);
-    }
-  }
-  return operations;
 }
 
 /** The (subject, lens) pairs the declaration exempts. */
@@ -219,6 +205,7 @@ const RISK_CLASSES_FOR_EXTERNAL = Object.freeze(['liveness', 'finality', 'extern
  * @returns {Array<object>} sorted obligations with unique ids
  */
 export function deriveObligations(inputs = {}) {
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
   const byId = new Map();
   const add = (entry) => {
     if (byId.has(entry.id)) {
@@ -278,7 +265,7 @@ export function deriveObligations(inputs = {}) {
     add(checkObligation(subCheck));
   }
 
-  const performed = spanOperations(readings);
+  const performed = performedOperations(readings?.span ?? []);
   for (const operationId of censusOperations) {
     add(uncoveredObligation(operationId, performed.has(operationId)));
   }
@@ -354,7 +341,79 @@ export function deriveObligations(inputs = {}) {
     }
   }
 
+  for (const entry of propertyObligations(artifact)) add(entry);
+
   return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/** Whether a pinned column carries no value at all. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function isEmptyValue(value) {
+  return value === undefined
+    || value === null
+    || value === ''
+    || (Array.isArray(value) && value.length === 0);
+}
+
+/** One property obligation for an empty column with a column-specific grounding. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function groundedPropertyObligation(operationId, column, ground) {
+  const base = obligation({
+    id: `PROP:${operationId}:${column}`,
+    className: OBLIGATION_CLASS.SEMANTIC,
+    kind: 'property',
+    subject: `${operationId}:${column}`,
+    claim: `${column} is present or grounded absent for ${operationId}`,
+    predicate: 'judgment:property',
+    producer: 'shared-obligations/registry',
+    evidence: [{
+      kind: 'grounding',
+      classification: ground.classification,
+      line: ground.line ?? null,
+      quote: ground.quote ?? null,
+    }],
+  });
+  return { ...base, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'GROUNDED_ABSENT' };
+}
+
+/** One property obligation for an empty column with no column-specific grounding. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function openPropertyObligation(operationId, column) {
+  return obligation({
+    id: `PROP:${operationId}:${column}`,
+    className: OBLIGATION_CLASS.SEMANTIC,
+    kind: 'property',
+    subject: `${operationId}:${column}`,
+    claim: `${column} is present or grounded absent for ${operationId}`,
+    predicate: 'judgment:property',
+    producer: 'shared-obligations/registry',
+  });
+}
+
+/**
+ * The property obligations the pinned columns make applicable.
+ *
+ * An operation-wide grounding is not a column grounding: the artifact must state the
+ * classification and citation for this column, or the emptiness is an open question.
+ */
+export function propertyObligations(artifact = {}) {
+  const columns = (artifact.pins?.columns ?? []).map((column) => column.name).filter((name) => typeof name === 'string');
+  const obligations = [];
+  for (const operation of artifact.operations ?? []) {
+    if (typeof operation?.id !== 'string' || operation.disposition !== ACTIVE_DISPOSITION) continue;
+    for (const column of new Set(columns)) {
+      if (!isEmptyValue(operation[column])) continue;
+      const ground = operation.grounding?.properties?.[column];
+      const grounded = ground !== undefined
+        && text(ground.classification)
+        && (Number.isInteger(ground.line) || text(ground.citation))
+        && text(ground.quote);
+      obligations.push(grounded
+        ? groundedPropertyObligation(operation.id, column, ground)
+        : openPropertyObligation(operation.id, column));
+    }
+  }
+  return obligations;
 }
 
 /** The count of obligations by class and state. */

@@ -23,6 +23,7 @@ const RUN_DIRECTORY = 'smooth-sequences';
 
 /** Capture what a run writes without touching the test runner's streams. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function capture() {
   const stdout = [];
   const stderr = [];
@@ -33,7 +34,7 @@ function capture() {
 test('a clean workspace exits 0, writes both reports and withholds nothing', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 0);
     assert.ok(result.report);
     assert.deepEqual(result.report.withheld, []);
@@ -57,7 +58,7 @@ test('an artifact without vocabulary derives both checks and withholds nothing',
   };
   const workspace = materializeSmoothWorkspace({ artifact, allocateManifest });
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.report.findings, []);
     assert.deepEqual(result.report.withheld, []);
@@ -72,7 +73,7 @@ test('a malformed artifact vocabulary exits 2 and writes no report', () => {
   artifact.vocabulary = { terminalStatuses: 'closed' };
   const workspace = materializeSmoothWorkspace({ artifact });
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
@@ -86,7 +87,7 @@ test('a malformed rules file on disk is ignored and writes a report', () => {
   const workspace = materializeSmoothWorkspace();
   try {
     writeFileSync(join(workspace.root, 'SMOOTH-SEQUENCES-RULES.json'), '{not json');
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.report.withheld, []);
     assert.ok(existsSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.json')));
@@ -98,7 +99,7 @@ test('a malformed rules file on disk is ignored and writes a report', () => {
 test('a defective workspace exits 1 and names the finding', () => {
   const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 1);
     assert.ok(result.report.findings.some((finding) => finding.checkId === 'S1.step-unresolved-operation'));
   } finally {
@@ -107,13 +108,13 @@ test('a defective workspace exits 1 and names the finding', () => {
 });
 
 test('a nonexistent workspace exits 2 and writes no report', () => {
-  const result = runCommand(['/tmp/smooth-sequences-does-not-exist']);
+  const result = runCommand(['/tmp/smooth-sequences-does-not-exist', '--legacy']);
   assert.equal(result.exitCode, 2);
   assert.equal(result.report, null);
 });
 
 test('more than one argument exits 2', () => {
-  const result = runCommand(['a', 'b']);
+  const result = runCommand(['a', 'b', '--legacy']);
   assert.equal(result.exitCode, 2);
   assert.equal(result.report, null);
 });
@@ -123,7 +124,7 @@ test('exit 1 prints the route block and a next line on stdout', () => {
   const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
   const output = capture();
   try {
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     const text = output.stdout.join('\n');
     assert.equal(result.exitCode, 1);
     assert.match(text, /^smooth-sequences: \d+ finding\(s\) in \d+ repair route\(s\)/m);
@@ -142,7 +143,7 @@ test('unresolved inquest readings make a clean run unproven', () => {
   });
   const output = capture();
   try {
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.report.readings.inquest.yes, 1);
     assert.equal(result.report.verdict, 'unproven');
     assert.equal(result.exitCode, 4);
@@ -159,7 +160,7 @@ test('--advisory-readings keeps the same run pass and prints the policy', () => 
   });
   const output = capture();
   try {
-    const result = runCommand([workspace.root, '--advisory-readings'], output.io);
+    const result = runCommand([workspace.root, '--advisory-readings', '--legacy'], output.io);
     assert.equal(result.exitCode, 0);
     assert.equal(result.report.verdict, 'pass');
     assert.match(output.stdout.join('\n'), /advisory; not blocking/);
@@ -173,7 +174,7 @@ test('a clean run prints next: none and no finding line', () => {
   const workspace = materializeSmoothWorkspace();
   const output = capture();
   try {
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 0);
     assert.equal(output.stdout.at(-1), 'next: none. verdict: pass.');
     assert.doesNotMatch(output.stdout.join('\n'), /^route: /m);
@@ -188,7 +189,7 @@ test('a v2 run is unproven and lists the blocked surfaces', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   const output = capture();
   try {
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     const text = output.stdout.join('\n');
     assert.equal(result.exitCode, 4);
     assert.equal(result.report.verdict, 'unproven');
@@ -210,7 +211,7 @@ test('a v2 run is unproven and lists the blocked surfaces', () => {
 // @verifies C004
 test('exit 2 prints the misuse repair and a next line and writes no report', () => {
   const output = capture();
-  const result = runCommand(['/tmp/smooth-sequences-does-not-exist'], output.io);
+  const result = runCommand(['/tmp/smooth-sequences-does-not-exist', '--legacy'], output.io);
   assert.equal(result.exitCode, 2);
   assert.equal(result.report, null);
   assert.match(output.stderr.at(-1), /^next: fix the workspace and rerun; no report was written\./);
@@ -222,7 +223,7 @@ test('a corrupt status exits 2 and writes no report', () => {
   try {
     mkdirSync(join(workspace.root, RUN_DIRECTORY), { recursive: true });
     writeFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), '{not json');
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
   } finally {
@@ -234,11 +235,11 @@ test('a corrupt status exits 2 and writes no report', () => {
 test('a corrupt archived report exits 2', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
     const archived = join(workspace.root, RUN_DIRECTORY, 'archive', '1');
     mkdirSync(archived, { recursive: true });
     writeFileSync(join(archived, 'SMOOTH-SEQUENCES.json'), '{not json');
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
   } finally {
@@ -266,7 +267,7 @@ test('a grounded waiver is recorded while the blocked run stays unproven', () =>
     writeFileSync(join(workspace.root, 'SMOOTH-SEQUENCES-WAIVERS.json'), JSON.stringify({
       waivers: [{ findingKey: 'S5.projection-only\u0000A-1__step', ground: 'the step is retired by the specification' }],
     }));
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.report.waived.length, 1);
     assert.equal(result.report.findings.length, 0);
     assert.equal(result.report.verdict, 'unproven');
@@ -283,7 +284,7 @@ test('an empty waiver ground is refused as misuse', () => {
     writeFileSync(join(workspace.root, 'SMOOTH-SEQUENCES-WAIVERS.json'), JSON.stringify({
       waivers: [{ findingKey: 'S5.projection-only\u0000A-1__step', ground: '   ' }],
     }));
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
   } finally {
@@ -296,9 +297,9 @@ test('a finding that survives a rerun is marked persisted', () => {
   const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
   try {
     const first = capture();
-    runCommand([workspace.root], first.io);
+    runCommand([workspace.root, '--legacy'], first.io);
     const second = capture();
-    runCommand([workspace.root], second.io);
+    runCommand([workspace.root, '--legacy'], second.io);
     assert.doesNotMatch(first.stdout.join('\n'), /\| persisted/);
     assert.match(second.stdout.join('\n'), /\| persisted/);
   } finally {
@@ -311,7 +312,7 @@ test('the first run records generation 1 and the console names it', () => {
   const workspace = materializeSmoothWorkspace();
   const output = capture();
   try {
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 0);
     assert.match(output.stdout.join('\n'), /^generation: 1 \(new generation\)$/m);
     const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
@@ -327,10 +328,10 @@ test('a second run over an unchanged workspace is a verification that writes not
   const workspace = materializeSmoothWorkspace();
   const runDirectory = join(workspace.root, RUN_DIRECTORY);
   try {
-    runCommand([workspace.root], capture().io);
+    runCommand([workspace.root, '--legacy'], capture().io);
     const statusBefore = readFileSync(join(runDirectory, 'status.json'), 'utf8');
     const second = capture();
-    const result = runCommand([workspace.root], second.io);
+    const result = runCommand([workspace.root, '--legacy'], second.io);
 
     assert.equal(result.exitCode, 0);
     assert.match(second.stdout.join('\n'), /^generation: 1 \(verification; no new generation\)$/m);
@@ -346,13 +347,13 @@ test('a repaired workspace opens the next generation and archives the previous p
   const workspace = defectiveWorkspace({ checkId: 'S1.step-unresolved-operation' });
   const runDirectory = join(workspace.root, RUN_DIRECTORY);
   try {
-    const first = runCommand([workspace.root], capture().io);
+    const first = runCommand([workspace.root, '--legacy'], capture().io);
     assert.equal(first.exitCode, 1);
     const defectiveJson = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.json'), 'utf8');
     const defectiveMarkdown = readFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.md'), 'utf8');
 
     writeFileSync(workspace.artifactPath, JSON.stringify(minimalV3Artifact(), null, 2));
-    const second = runCommand([workspace.root], capture().io);
+    const second = runCommand([workspace.root, '--legacy'], capture().io);
     assert.equal(second.exitCode, 0);
 
     const status = JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8'));
@@ -371,7 +372,7 @@ test('a declared chain broken by a spec edit exits 2 and names SILENT_CHANGE_DET
   const output = capture();
   try {
     writeFileSync(join(workspace.root, 'spec.md'), '# changed out of band\n');
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 2);
     assert.match(output.stderr.join('\n'), /SILENT_CHANGE_DETECTED/);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
@@ -390,7 +391,7 @@ test('an open transaction refuses the detector with TRANSACTION_OPEN', () => {
       schemaVersion: 1,
       transactions: [{ id: 'tx-open', state: 'open', reason: 'test', stagingRoot: '/tmp/staging' }],
     }, null, 2)}\n`);
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 2);
     assert.match(output.stderr.join('\n'), /TRANSACTION_OPEN/);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
@@ -409,7 +410,7 @@ test('a judgment-required transaction exits 3 even when the live checks pass', (
       schemaVersion: 1,
       transactions: [{ id: 'tx-judge', state: 'judgment-required', reason: 'the cited line no longer holds', stagingRoot: '/tmp/staging' }],
     }, null, 2)}\n`);
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 3);
     assert.match(output.stdout.join('\n'), /judgment-required/);
     assert.match(output.stdout.join('\n'), /grill-me-for-rfc/);
@@ -438,7 +439,7 @@ test('a pending transaction prints the educe handoff and the continue command', 
         pending: 'run .claude/commands/educe-sequences.md with /tmp/staging/spec.md, then continue',
       }],
     }, null, 2)}\n`);
-    const result = runCommand([workspace.root], output.io);
+    const result = runCommand([workspace.root, '--legacy'], output.io);
     assert.equal(result.exitCode, 2);
     assert.match(output.stderr.join('\n'), /REGENERATION_HANDOFF/);
     assert.match(output.stderr.join('\n'), /educe-sequences\.md/);
@@ -452,6 +453,7 @@ test('a pending transaction prints the educe handoff and the continue command', 
 
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('closure mode refuses a workspace with an evidence manifest and no readings', () => {
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
   const workspace = materializeSmoothWorkspace({ readings: {} });
   try {
     writeFileSync(join(workspace.root, 'educe-sequences', 'EVIDENCE-MANIFEST.json'), JSON.stringify({
@@ -465,6 +467,8 @@ test('closure mode refuses a workspace with an evidence manifest and no readings
     assert.equal(result.exitCode, 4);
     assert.equal(result.report.certificate.status, 'incomplete');
     assert.ok(result.report.certificate.open.length > 0);
+    assert.equal(result.report.certificate.judged.held, 0);
+    assert.equal(result.report.certificate.readings.held, 0);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY, 'COMPLETION-CERTIFICATE.json')), true);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY, 'JUDGMENT-WORKLIST.json')), true);
   } finally {

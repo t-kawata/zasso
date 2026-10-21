@@ -5,20 +5,13 @@
  * These functions decide only facts the workspace already carries. A semantic claim is
  * never resolved here; it stays open until the judgment protocol records a held judgment.
  */
-import { OBLIGATION_CLASS, OBLIGATION_STATE } from './registry.mjs';
+import { ACTIVE_DISPOSITION, OBLIGATION_CLASS, OBLIGATION_STATE, REALIZED_OUTCOMES } from './registry.mjs';
+import { performedOperations } from './span.mjs';
 
-export const ACTIVE_DISPOSITION = 'active';
-export const REALIZED_OUTCOMES = new Set(['direct', 'viaNeighbour', 'singleStep']);
-
-/** The operations a span reading performed. */
+/** The operations a span reading performed; the shared definition lives in span.mjs. */
 export function spanOperations(span = []) {
-  const operations = new Set();
-  for (const reading of Array.isArray(span) ? span : []) {
-    for (const step of Array.isArray(reading?.steps) ? reading.steps : []) {
-      if (typeof step?.operation === 'string') operations.add(step.operation);
-    }
-  }
-  return operations;
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+  return performedOperations(span);
 }
 
 /**
@@ -84,15 +77,19 @@ export function checkDistribution({ artifact = {}, packages = [] } = {}) {
  * blocked: the surface is absent or the denominator is zero.
  */
 export function classifyMechanicalCheck({ subCheck, findings = [], required = true } = {}) {
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
   if (subCheck === undefined || subCheck === null) {
     return { state: OBLIGATION_STATE.OPEN, code: 'MISSING_CHECK' };
   }
   if (subCheck.status === 'blocked') {
     return { state: OBLIGATION_STATE.OPEN, code: 'BLOCKED_SURFACE', reason: subCheck.reason };
   }
-  const evaluatedClaims = Number.isInteger(subCheck.evaluatedClaims) ? subCheck.evaluatedClaims : subCheck.denominator ?? 0;
+  const evaluatedClaims = Number.isInteger(subCheck.evaluatedClaims) ? subCheck.evaluatedClaims : null;
   if (findings.length > 0) {
     return { state: OBLIGATION_STATE.OPEN, code: 'FINDING' };
+  }
+  if (required && evaluatedClaims === null) {
+    return { state: OBLIGATION_STATE.OPEN, code: 'MISSING_DENOMINATOR' };
   }
   if (required && evaluatedClaims === 0) {
     return { state: OBLIGATION_STATE.OPEN, code: 'VACUOUS' };
@@ -128,15 +125,65 @@ export function resolveCensusObligations(obligations = [], context = {}) {
   });
 }
 
-/** Resolve the reading obligations that a record can settle without a judgment. */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
-export function resolveReadingsObligations(obligations = [], { readings = {} } = {}) {
+/** A non-empty string. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function text(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+/** Whether a row cites a line and a quote. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function validCitation(record) {
+  return Number.isInteger(record?.line) && record.line > 0 && text(record?.quote);
+}
+
+/** Whether a Yes carries a resolution performed against the current artifact. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function validFindingResolution(row, artifactDigest) {
+  const resolution = row?.resolution;
+  if (resolution === undefined || resolution === null) return false;
+  if (!['spec-change', 'artifact-change'].includes(resolution.kind)) return false;
+  if (artifactDigest !== null && resolution.artifactDigest !== artifactDigest) return false;
+  return validCitation(resolution.evidence);
+}
+
+/** Whether one ruling attack has the shape the ruling question asks for. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function validRulingAttack(attack) {
+  if (!['held', 'broken', 'unresolved'].includes(attack?.outcome)) return false;
+  if (attack.outcome === 'held' && !text(attack?.searched?.source)) return false;
+  if (attack.outcome === 'broken' && (attack.counterexample === undefined || attack.counterexample === null)) return false;
+  if (attack.outcome === 'unresolved' && !text(attack.reason)) return false;
+  return true;
+}
+
+/** The evidence freshness verdict for one row. */
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+function freshnessOf(row, artifactDigest) {
+  if (artifactDigest === null) return { ok: true, reason: null };
+  if (row?.artifactDigest === undefined) return { ok: false, reason: 'LEGACY_RECORD' };
+  if (row.artifactDigest !== artifactDigest) return { ok: false, reason: 'STALE_EVIDENCE' };
+  return { ok: true, reason: null };
+}
+
+/**
+ * Resolve the reading obligations that a record can settle without a judgment.
+ *
+ * A Yes is a finding: it closes only with a resolution performed against the current
+ * artifact. A ruling closes only after an attack on it holds. A row whose artifact digest
+ * is absent or different answers an older artifact and is named rather than trusted.
+ */
+// [::TICKET::] PX-289, PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-292) --for-spec --no-implementation-order`.
+export function resolveReadingsObligations(obligations = [], { readings = {}, artifactDigest = null } = {}) {
   const uncovered = new Map((Array.isArray(readings.uncovered) ? readings.uncovered : [])
     .map((row) => [row?.subject, row]));
-  const inquest = new Set((Array.isArray(readings.inquest) ? readings.inquest : [])
+  const inquest = new Map((Array.isArray(readings.inquest) ? readings.inquest : [])
     .filter((row) => typeof row?.subject === 'string' && typeof row?.lens === 'string')
-    .map((row) => `${row.subject}\u0000${row.lens}`));
-  const adversarial = new Set((Array.isArray(readings.adversarial) ? readings.adversarial : []).map((row) => row?.subject));
+    .map((row) => [`${row.subject}\u0000${row.lens}`, row]));
+  const rulings = new Map((Array.isArray(readings.adversarial) ? readings.adversarial : [])
+    .filter((row) => typeof row?.subject === 'string')
+    .map((row) => [row.subject, row]));
+  const attacks = Array.isArray(readings.attack) ? readings.attack : [];
   return obligations.map((entry) => {
     if (!entry.id.startsWith('READ:')) return entry;
     if (entry.id.startsWith('READ:UNCOVERED:')) {
@@ -144,61 +191,54 @@ export function resolveReadingsObligations(obligations = [], { readings = {} } =
         return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
       }
       const row = uncovered.get(entry.subject);
-      if (row !== undefined && (row.outcome === 'performed' || row.outcome === 'escaped')) {
-        return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
+      if (row === undefined || (row.outcome !== 'performed' && row.outcome !== 'escaped')) {
+        return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_EVIDENCE' };
       }
-      return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_EVIDENCE' };
+      const freshness = freshnessOf(row, artifactDigest);
+      return freshness.ok
+        ? { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null }
+        : { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
     }
     if (entry.id.startsWith('READ:INQUEST:')) {
       const pair = entry.subject ?? '';
       const separator = pair.lastIndexOf(':');
       const key = separator === -1 ? pair : `${pair.slice(0, separator)}\u0000${pair.slice(separator + 1)}`;
-      return inquest.has(key)
-        ? { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null }
-        : { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_EVIDENCE' };
-    }
-    if (entry.id.startsWith('READ:ADVERSARIAL:')) {
-      return adversarial.has(entry.subject)
-        ? { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null }
-        : { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_EVIDENCE' };
-    }
-    return entry;
-  });
-}
-
-/** Resolve the semantic obligations a held judgment or a held attack can close. */
-// [::TICKET::] PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-290 --for-spec --no-implementation-order`.
-export function resolveJudgmentObligations(obligations = [], { judgments = [], attacks = [] } = {}) {
-  const heldJudgments = new Set(
-    (Array.isArray(judgments) ? judgments : [])
-      .filter((entry) => typeof entry?.obligationId === 'string' && Array.isArray(entry?.basis) && entry.basis.length > 0)
-      .map((entry) => entry.obligationId),
-  );
-  const heldRiskPrefixes = new Set(
-    [...heldJudgments]
-      .filter((id) => id.startsWith('RISK:'))
-      .flatMap((id) => [id, id.slice(0, id.lastIndexOf(':'))]),
-  );
-  const heldAttacks = new Set(
-    (Array.isArray(attacks) ? attacks : [])
-      .filter((entry) => entry?.outcome === 'held' && typeof entry?.subject === 'string')
-      .map((entry) => entry.subject),
-  );
-  return obligations.map((entry) => {
-    if (entry.id.startsWith('FALSIFY:') && heldAttacks.has(entry.subject)) {
-      return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
-    }
-    if (entry.id.startsWith('RISK:')) {
-      const prefix = entry.id.slice(0, entry.id.lastIndexOf(':'));
-      if (heldJudgments.has(entry.id) || heldRiskPrefixes.has(prefix)) {
+      const row = inquest.get(key);
+      if (row === undefined) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_EVIDENCE' };
+      const freshness = freshnessOf(row, artifactDigest);
+      if (!freshness.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+      if (row.answer === 'Yes') {
+        return validFindingResolution(row, artifactDigest)
+          ? { ...entry, state: OBLIGATION_STATE.CLOSED, reason: 'FINDING_FIXED' }
+          : { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'FINDING_OPEN' };
+      }
+      if (row.answer === 'No') {
+        if (!validCitation(row)) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_BASIS' };
+        if (row.previous === 'Yes' && !validFindingResolution(row, artifactDigest)) {
+          return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_RESOLUTION' };
+        }
         return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
       }
+      return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'UNKNOWN_ANSWER' };
     }
-    if (entry.id.startsWith('DIST:FIDELITY:') && heldJudgments.has(entry.id)) {
-      return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
-    }
-    if (entry.id.startsWith('JUDGE:') && heldJudgments.has(entry.id)) {
-      return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
+    if (entry.id.startsWith('READ:ADVERSARIAL:')) {
+      const ruling = rulings.get(entry.subject);
+      if (ruling === undefined || !['excluded', 'notASequence', 'suppliedRule'].includes(ruling.outcome)) {
+        return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_RULING' };
+      }
+      const freshness = freshnessOf(ruling, artifactDigest);
+      if (!freshness.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+      const obligationId = `READ:ADVERSARIAL:${entry.subject}`;
+      const attack = attacks.find((row) => row?.obligationId === obligationId)
+        ?? attacks.find((row) => row?.subject === entry.subject && row?.rulingId !== undefined);
+      if (attack === undefined) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'MISSING_ATTACK' };
+      if (!validRulingAttack(attack)) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'ATTACK_INVALID' };
+      if (attack.outcome === 'held') return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
+      return {
+        ...entry,
+        state: OBLIGATION_STATE.OPEN,
+        reason: attack.outcome === 'broken' ? 'ATTACK_BROKEN' : 'ATTACK_UNRESOLVED',
+      };
     }
     return entry;
   });

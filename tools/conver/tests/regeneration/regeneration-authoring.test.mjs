@@ -147,9 +147,9 @@ function passingProducer({ root, stagingRoot, candidateSpec }) {
 }
 
 /** The real detector over one root. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-287|PX-292|PX-293) --for-spec --no-implementation-order`.
 function realDetector({ root }) {
-  const result = runCommand([root], { stdout: () => {}, stderr: () => {} });
+  const result = runCommand([root, '--legacy'], { stdout: () => {}, stderr: () => {} });
   return {
     exitCode: result.exitCode,
     findings: result.report?.findings ?? [],
@@ -162,7 +162,7 @@ function realDetector({ root }) {
 test('a spec change with a passing staging artifact commits and the final run passes', () => {
   const workspace = materializePassingWorkspace();
   try {
-    assert.equal(runCommand([workspace.root], { stdout: () => {}, stderr: () => {} }).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy'], { stdout: () => {}, stderr: () => {} }).exitCode, 0);
     const candidateSpec = join(workspace.root, 'regeneration/candidates/spec.md');
     mkdirSync(join(workspace.root, 'regeneration/candidates'), { recursive: true });
     writeFileSync(candidateSpec, CANDIDATE_PASSING_TEXT);
@@ -180,7 +180,7 @@ test('a spec change with a passing staging artifact commits and the final run pa
     assert.equal(verified.receipt.debt.increase.increased, false);
     const committed = commitGeneration({ root: workspace.root, transactionId: opened.transactionId, runDetector: realDetector });
     assert.equal(committed.state, 'committed');
-    const final = runCommand([workspace.root], { stdout: () => {}, stderr: () => {} });
+    const final = runCommand([workspace.root, '--legacy'], { stdout: () => {}, stderr: () => {} });
     assert.equal(final.exitCode, 0);
     assert.equal(final.report.verdict, 'pass');
   } finally {

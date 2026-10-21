@@ -21,6 +21,7 @@ const FORBIDDEN_IN_DETECTOR = /gaia|soul_id|Core Operation|Procedure Registry|CO
 
 /** Every source file the detector ships, excluding tests. */
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function detectorSourceFiles() {
   return readdirSync(DETECTOR_DIRECTORY, { recursive: true })
     .filter((name) => name.endsWith('.mjs') || name.endsWith('.js'))
@@ -48,7 +49,7 @@ test('a workspace that declares grpc and closed is judged green', () => {
   }));
   const workspace = materializeSmoothWorkspace({ artifact });
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.report.findings, []);
     assert.deepEqual(result.report.withheld, []);
@@ -93,7 +94,7 @@ test('prose that names contribution shapes changes no verdict', () => {
     },
   });
   try {
-    const result = runCommand([workspace.root]);
+    const result = runCommand([workspace.root, '--legacy']);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.report.findings, []);
   } finally {
@@ -103,7 +104,7 @@ test('prose that names contribution shapes changes no verdict', () => {
 
 // @verifies C008
 test('the real workspace is green when supplied', { skip: !process.env.SMOOTH_SEQUENCES_WORKSPACE }, () => {
-  const result = runCommand([process.env.SMOOTH_SEQUENCES_WORKSPACE]);
+  const result = runCommand([process.env.SMOOTH_SEQUENCES_WORKSPACE, '--legacy']);
   assert.equal(result.exitCode, 0);
   assert.deepEqual(result.report.findings, []);
   assert.deepEqual(result.report.withheld, []);

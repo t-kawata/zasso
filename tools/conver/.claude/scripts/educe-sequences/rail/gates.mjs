@@ -14,6 +14,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { performedOperations } from '../../shared-obligations/span.mjs';
 import { uncoveredRanges } from './coverage.mjs';
 import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
@@ -53,6 +54,7 @@ export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-h
  * reading of the refusal's prose.
  */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function refuse(reason, extra = {}) {
   return { ok: false, reason, ...extra };
 }
@@ -176,18 +178,14 @@ function uncoveredMembersIn(directory) {
  * position. Duplicate and absent records are refused because neither can be counted.
  */
 export function gateUncovered({ worklist = [], span = [], artifact = {}, records = [] }) {
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const members = worklist.map((line) => String(line).trim().split(/\s+/)[0]).filter((member) => member.length > 0);
   if (members.length === 0) return prove('the uncovered worklist is empty, so there is no escape to account for', { vacuous: true });
   // A span step is mechanical evidence that the operation is performed. Only the members
   // with no span step owe a reader record; asking for a record the artifact already proves
   // is how the worklist and the gate drifted apart (257 members against 108 unperformed).
-  const performedInSpan = new Set();
-  for (const reading of span) {
-    for (const step of Array.isArray(reading?.steps) ? reading.steps : []) {
-      if (typeof step?.operation === 'string') performedInSpan.add(step.operation);
-    }
-  }
+  const performedInSpan = performedOperations(span);
   const mechanical = members.filter((member) => performedInSpan.has(member));
   const required = members.filter((member) => !performedInSpan.has(member));
   const bySubject = new Map();

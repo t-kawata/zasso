@@ -19,7 +19,12 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { validateReceipt } from '../../shared-obligations/evidence.mjs';
+import {
+  EVIDENCE_MANIFEST_SCHEMA_VERSION,
+  sha256File,
+  validateReceipt,
+  writeManifestAt,
+} from '../../shared-obligations/evidence.mjs';
 
 /** The directory a run keeps its state in, beside the specification that owns it. */
 export const RUN_DIRECTORY_NAME = 'educe-sequences';
@@ -136,6 +141,7 @@ export function writeStatus(directory, status) {
  * one specification's declaration a reading of another's text.
  */
 // [::TICKET::] PX-241, PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function whyNotResumed(existing, specPath, spec) {
   if (existing.spec?.path !== basename(specPath)) {
     return {
@@ -262,6 +268,16 @@ export function beginGeneration(status, options = {}) {
     [ASSETS_FIELD]: { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: digest },
     phases: carryPhaseRecords(status.phases ?? [], receipts, currentDigests),
   };
+  if (options.directory !== undefined && options.artifactPath !== undefined) {
+    writeManifestAt(options.directory, {
+      schemaVersion: EVIDENCE_MANIFEST_SCHEMA_VERSION,
+      spec: { path: spec?.path ?? null, sha256: spec?.sha256 ?? null },
+      artifact: { path: options.artifactPath, sha256: sha256File(options.artifactPath) },
+      generation: carried[GENERATION_FIELD],
+      files: [],
+      receipts: [],
+    });
+  }
   if (superseded === 0) return { ...carried, [HISTORY_FIELD]: [...(status[HISTORY_FIELD] ?? [])] };
   return appendHistory(carried, {
     generation: superseded,

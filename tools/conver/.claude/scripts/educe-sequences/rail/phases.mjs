@@ -12,7 +12,7 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { appendReceipt, readEvidenceManifest, sha256File } from '../../shared-obligations/evidence.mjs';
+import { appendReceipt, readEvidenceManifest, sha256File, updateManifestArtifact } from '../../shared-obligations/evidence.mjs';
 
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
@@ -114,6 +114,7 @@ export const PHASE_GUIDANCE = Object.freeze({
 
 /** Merge readings by subject, so a later brief's verdict replaces the earlier one. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function mergeBySubject(...groups) {
   const merged = new Map();
   for (const group of groups) for (const reading of group) merged.set(reading.subject, reading);
@@ -289,6 +290,13 @@ export function runPhase(id, ctx) {
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const phase = phaseById(id);
   if (phase === null) return { id, tag: null, ok: false, halted: false, reason: `there is no phase ${id}`, backTo: null, expects: null, exitCode: 1, loops: 0 };
+
+  // Phase 7 is the first reading phase: bind the manifest to the artifact those readings
+  // measure, so a later artifact change makes the receipts stale instead of silently
+  // inheriting an older measurement.
+  if (id === 7 && existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
+    updateManifestArtifact(ctx.directory, { spec: ctx.spec, artifactPath: ctx.artifactPath });
+  }
 
   // A halt names no back-edge and asks the reader for nothing: the phase is not to be
   // repeated, so the two fields that tell a caller how to repeat it would be a
@@ -545,6 +553,8 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
     beginGeneration(status, {
       spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
       digest: inheritedDigest,
+      directory: opened.directory,
+      artifactPath: artifactPathFor(specPath),
       receipts,
       currentDigests,
       // The generation being superseded records what its audit asked and answered, so the

@@ -21,13 +21,15 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
 import { buildCertificate, writeCertificate } from '../shared-obligations/certificate.mjs';
+import { decideAll } from '../shared-obligations/decide.mjs';
 import { readEvidenceManifest } from '../shared-obligations/evidence.mjs';
 import { buildWorklist } from '../shared-obligations/judgment.mjs';
-import { resolveCensusObligations, resolveJudgmentObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
+import { resolveCensusObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
+import { attackReaderForGeneration, readerForGeneration } from '../shared-obligations/reader.mjs';
 import { deriveObligations } from '../shared-obligations/registry.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { compareFindingSets, readWaivers } from './lib/evidence-ledger.mjs';
@@ -58,18 +60,25 @@ import { snapshotDesignFiles } from '../regeneration/lib/staging.mjs';
 
 const AUDIT_FLAG = '--audit';
 const ADVISORY_READINGS_FLAG = '--advisory-readings';
+const LEGACY_FLAG = '--legacy';
+const SCOPE_PREFIX = '--scope=';
 const SCHEMA_V2 = 2;
 const SCHEMA_V3 = 3;
 
-/** The argument parser: one optional root, the audit flag and the readings policy. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+/** The argument parser: one optional root, the audit flag, the readings policy, legacy and scope. */
+// [::TICKET::] PX-283, PX-284, PX-285, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285|PX-292|PX-293) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const audit = argv.includes(AUDIT_FLAG);
   const advisoryReadings = argv.includes(ADVISORY_READINGS_FLAG);
-  const paths = argv.filter((argument) => argument !== AUDIT_FLAG && argument !== ADVISORY_READINGS_FLAG);
-  if (paths.length > 1) return { misuse: true, audit, advisoryReadings, root: null };
-  return { misuse: false, audit, advisoryReadings, root: startDirectoryFor(paths[0]) };
+  const legacy = argv.includes(LEGACY_FLAG);
+  const scopeArgument = argv.find((argument) => argument.startsWith(SCOPE_PREFIX));
+  const scope = scopeArgument === undefined ? null : scopeArgument.slice(SCOPE_PREFIX.length);
+  const paths = argv.filter((argument) => argument !== AUDIT_FLAG
+    && argument !== ADVISORY_READINGS_FLAG
+    && argument !== LEGACY_FLAG
+    && !argument.startsWith(SCOPE_PREFIX));
+  if (paths.length > 1) return { misuse: true, audit, advisoryReadings, legacy, scope, root: null };
+  return { misuse: false, audit, advisoryReadings, legacy, scope, root: startDirectoryFor(paths[0]) };
 }
 
 /** The members a borrowed census lists for one role, or null when it lists none. */
@@ -234,6 +243,52 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
   return { active, refused: false };
 }
 
+/** The boundary an obligation names, before any step suffix. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function boundaryIdOf(subject) {
+  return String(subject ?? '').split('/')[0];
+}
+
+/** The anchors a judgment basis may cite for one obligation. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function anchorSetFor(obligation) {
+  const anchorSet = { spec: [], contract: [], artifact: [], view: [], ledger: [] };
+  const id = String(obligation.id ?? '');
+  if (id.startsWith('JUDGE:')) {
+    const field = String(obligation.predicate ?? '').replace('judgment:', '') || 'judgment';
+    anchorSet.contract.push({ boundaryId: boundaryIdOf(obligation.subject), field });
+  } else if (id.startsWith('DIST:FIDELITY:')) {
+    const subject = String(obligation.subject ?? '');
+    const separator = subject.indexOf('/');
+    if (separator > 0) anchorSet.view.push({ packageId: subject.slice(0, separator), unitId: subject.slice(separator + 1) });
+  } else if (id.startsWith('RISK:') || id.startsWith('PROP:')) {
+    const [, operationId, field] = id.split(':');
+    anchorSet.artifact.push({ id: operationId, field });
+  }
+  return anchorSet;
+}
+
+/** The evidence context one worklist item carries. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function contextForObligation(obligation) {
+  return {
+    obligationId: obligation.id,
+    subject: obligation.subject,
+    claim: obligation.claim,
+    anchorSet: anchorSetFor(obligation),
+  };
+}
+
+/** The specification lines a basis quote is checked against. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function readSpecLines(root, artifact) {
+  const relative = artifact?.spec?.path;
+  if (typeof relative !== 'string' || relative.length === 0) return {};
+  const path = resolve(root, relative);
+  if (!existsSync(path)) return {};
+  return { [relative]: readFileSync(path, 'utf8').split('\n') };
+}
+
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
@@ -241,7 +296,7 @@ export function runCommand(argv, io = {}) {
   const parsed = parseArguments(argv);
 
   if (parsed.misuse) {
-    stderr(`smooth-sequences: usage: run.mjs [workspace-root] [${AUDIT_FLAG}] [${ADVISORY_READINGS_FLAG}]`);
+    stderr(`smooth-sequences: usage: run.mjs [workspace-root] [${AUDIT_FLAG}] [${ADVISORY_READINGS_FLAG}] [${LEGACY_FLAG}] [${SCOPE_PREFIX}<obligation-prefix>]`);
     return { exitCode: EXIT_MISUSE, report: null };
   }
 
@@ -268,7 +323,7 @@ export function runCommand(argv, io = {}) {
     const findings = annotatePersisted([...evaluation.findings, ...ledger.withdrawn], baseline);
 
     const evidenceManifest = readEvidenceManifest(root);
-    const closureMode = evidenceManifest !== null;
+    const closureMode = !parsed.legacy && (evidenceManifest !== null || loaded.artifact?.schema_version === SCHEMA_V3);
     const rawReadings = readReadingsForRegistry(root);
     let certificate = null;
     let worklist = [];
@@ -293,30 +348,50 @@ export function runCommand(argv, io = {}) {
         allocateManifest: loaded.allocateManifest,
         packages: loaded.packages,
       });
-      registry = resolveReadingsObligations(registry, { readings: rawReadings });
-      registry = resolveJudgmentObligations(registry, {
-        judgments: rawReadings.judgment,
-        attacks: rawReadings.attack,
-      });
-      const supplemental = readJsonIfPresent(join(root, 'smooth-sequences', 'REMEDIATION-OBLIGATIONS.json'));
-      if (Array.isArray(supplemental?.obligations)) registry = [...registry, ...supplemental.obligations];
-      certificate = buildCertificate({
-        obligations: registry,
-        checks: evaluation.subChecks,
-        judgments: registry
-          .filter((entry) => entry.class === 'semantic' && entry.state === 'closed')
-          .map((entry) => ({ obligationId: entry.id, state: 'held' })),
-        inputs: {
-          spec: loaded.artifact?.spec?.sha256 ?? null,
-          artifact: evidenceManifest?.artifact?.sha256 ?? null,
-          evidenceManifest: evidenceManifest?.generation ?? null,
-        },
-      });
-      worklist = buildWorklist(registry.filter((entry) => entry.class === 'semantic' && entry.state === 'open'));
+      const artifactDigest = evidenceManifest?.artifact?.sha256 ?? null;
+      registry = resolveReadingsObligations(registry, { readings: rawReadings, artifactDigest });
       readings = {
         ...summarizeReadings(root, { registry }),
         policy: parsed.advisoryReadings ? 'advisory' : 'blocking',
       };
+      const educeStatus = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
+      const reader = readerForGeneration({ generation: educeStatus?.generation });
+      const attackReader = attackReaderForGeneration({ generation: educeStatus?.generation });
+      const openSemantic = registry.filter((entry) => entry.class === 'semantic'
+        && entry.state === 'open'
+        && (parsed.scope === null || parsed.scope === '' || entry.id.startsWith(parsed.scope)));
+      const contexts = Object.fromEntries(openSemantic.map((entry) => [entry.id, contextForObligation(entry)]));
+      worklist = buildWorklist(openSemantic, contexts, {
+        artifactDigest,
+        reader,
+        attackReader,
+        requireRecordId: true,
+      });
+      const decisionSet = decideAll({
+        obligations: registry,
+        worklist,
+        judgments: rawReadings.judgment,
+        attacks: rawReadings.attack,
+        artifactDigest,
+        linesByPath: readSpecLines(root, loaded.artifact),
+      });
+      const openIds = new Set(
+        decisionSet.decisions.filter((entry) => entry.state === 'open').map((entry) => entry.obligationId),
+      );
+      worklist = worklist.filter((item) => openIds.has(item.obligationId));
+      certificate = buildCertificate({
+        obligations: registry,
+        decisions: decisionSet.decisions,
+        checks: evaluation.subChecks,
+        readings,
+        inputs: {
+          spec: loaded.artifact?.spec?.sha256 ?? null,
+          artifact: artifactDigest,
+          evidenceManifest: evidenceManifest?.generation ?? null,
+          exemptions: (declaration.exemptions ?? []).length,
+        },
+        assurance: decisionSet.metrics,
+      });
     } else {
       readings = {
         ...summarizeReadings(root),

@@ -297,7 +297,7 @@ node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
 
 Brief carries tree; its `SHARE:` lines rank rulings: operation another sequence also names ⇒ misreading takes more than this ruling down ⇒ search weakest link there first.
 
-Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: one signed attack per ruling; names the single weakest link. Refused when a ruling was never attacked. FAIL: back to Step 9; max 3 loops. no entry ruled non-sequence → gate passes as **vacuous**; report says so; not counted as signed work.
+Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: one signed ruling per subject (`excluded`, `notASequence` or `suppliedRule`), naming the single weakest link. Reader writes `<dir of spec-file>/educe-sequences/readings-attack.jsonl`: one attack per ruling, with `obligationId: READ:ADVERSARIAL:<subject>`, `rulingId`, `subject`, `outcome`, `reader` and `searched` (source, line range, quote). Refused when a ruling was never attacked. FAIL: back to Step 9; max 3 loops. no entry ruled non-sequence → gate passes as **vacuous**; report says so; not counted as signed work.
 
 ### Step 11 — reroute `[read]` (AI judgment)
 
@@ -337,6 +337,8 @@ Pass asks the specification something rather than checking an answer to it. decl
 Brief names every declared subject (each section, each entry) under each of four lenses, with what previous generation answered. Reader writes `<dir of spec-file>/educe-sequences/readings-inquest.jsonl`: one signed record per (subject, lens) pair; carries question, answer in closed vocabulary, line answer rests on + its quote.
 - **Anchor (PX-289)**: an `@object:` answer must cite a line that names the object, or carry `anchor: {quote}` naming it. A quote-at-line alone can rest on a line that never mentions the subject and is refused.
 - **Attack (PX-289)**: when the run directory carries `EVIDENCE-MANIFEST.json`, every active operation and every realized sequence is a Tier 1 subject; a `No` under either high-consequence lens closes only with a held attack in `readings-attack.jsonl`. An unheld subject is refused by name. Legacy runs without a manifest keep the old gate until they migrate.
+- **Finding (PX-292)**: a `Yes` is a finding. It stays open until the record carries a `resolution` whose `kind` is `spec-change` or `artifact-change`, whose `artifactDigest` equals the current artifact, and whose `evidence` cites a line and quote; or until the pair is exempt in the declaration. A `Yes` is never counted as clean.
+- **Freshness (PX-292)**: every inquest record carries `artifactDigest`. A record without it is `LEGACY_RECORD`; a record with a different digest is `STALE_EVIDENCE`. Neither closes the obligation.
 
 Refused while: pair carries no answer and no exemption; answer carries no signature; quote not carried by named line. FAIL: back to Step 12; max 3 loops.
 

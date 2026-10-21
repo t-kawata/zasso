@@ -1,3 +1,4 @@
+// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
@@ -199,4 +200,34 @@ test('the upstream command documents name the new gates', () => {
   assert.match(grill, /check-contribution-completeness\.js/);
   const educe = readFileSync('.claude/commands/educe-sequences.md', 'utf8');
   assert.match(educe, /schema_version 3|v3/i);
+});
+
+// @verifies C002
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+test('the command documents decision states, rejection codes, assurance and held-only closure', () => {
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  for (const state of ['held', 'broken', 'stuck', 'open', 'proven', 'not_applicable']) {
+    assert.match(command, new RegExp(state));
+  }
+  for (const code of ['CONTEXT_MISMATCH', 'WORKLIST_MISMATCH', 'STALE_EVIDENCE', 'LEGACY_RECORD', 'PROVISIONAL_EVIDENCE', 'VERDICT_NOT_ALLOWED', 'BASIS_SHAPE', 'QUOTE_NOT_FOUND', 'BASIS_OUT_OF_SCOPE', 'REUSED_BASIS', 'NO_ATTACK', 'SELF_ATTACK', 'ATTACK_UNGROUNDED', 'COUNTEREXAMPLE_MISSING', 'ROUND_CAP']) {
+    assert.match(command, new RegExp(code));
+  }
+  for (const counter of ['anchoredRatio', 'genericBasis', 'reusedBasis', 'staleRecords', 'provisionalRecords', 'unattackedTier1', 'independentAttacks']) {
+    assert.match(command, new RegExp(counter));
+  }
+  assert.match(command, /only through a held decision/i);
+});
+
+// @verifies C001
+// @verifies C004
+// @verifies C005
+// @verifies C006
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+test('the command documents the judgment pass, inquest findings and the generic reader', () => {
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  for (const token of ['Judgment pass (J1–J4)', 'JUDGMENT-WORKLIST.json', 'readings-judgment.jsonl', 'readings-attack.jsonl', '--scope=', 'educe-sequences/generation-', 'recordId', 'FINDING_OPEN', 'readings-adversarial.jsonl', 'exemptions']) {
+    assert.match(command, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), token);
+  }
+  assert.match(command, /never converts an open finding into a held judgment|never convert an open finding/i);
+  assert.match(command, /do not generate records/i);
 });
