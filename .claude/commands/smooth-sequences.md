@@ -49,8 +49,8 @@ Only human surface: delegated design command's direction questions within its ow
 ## Outputs
 
 - Run directory `<cwd>/smooth-sequences/`; created only when a generation is written.
-- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 2`.
-- `SMOOTH-SEQUENCES.md`: human repair view; max 200 findings; explicit `…and N more findings` overflow line.
+- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 3`. Beside the finding set it carries `checks.subChecks` (every check id executed or skipped with a reason), `provenance` (the artifact migration and how many authored `contract_prose` sentences survived), `readings` (educe inquest/adversarial/uncovered counts and the unresolved Yes subjects), `denominator` (the members each demand axis was measured against), `verdict`, and `wouldExit` (audit mode only).
+- `SMOOTH-SEQUENCES.md`: human repair view; max 200 findings; explicit `…and N more findings` overflow line. It repeats the provenance, readings and denominator lines.
 - `status.json`: `schemaVersion: 1`; `generation`, `mode`, `measuredAt`, `inputDigest`, `reportDigest`, `verdict`.
 - `archive/<N>/`: the pair generation N wrote; moved byte-identically; never deleted.
 - Console: one `route:` header/authored surface; one line/finding; `generation: N (new generation|verification; no new generation)`; final `next:`.
@@ -72,14 +72,17 @@ cmd (once, workspace root):
 
 ```bash
 node .claude/scripts/smooth-sequences/run.mjs
+node .claude/scripts/smooth-sequences/run.mjs --audit
 ```
 
 Judge current directory; no parent search.
 Before design read: resolve interrupted regeneration commit; refuse while a transaction owns workspace; verify hash chain.
 
+`--audit` runs every check family and reports every finding, but exits `0` and records `verdict: audit` with `wouldExit`. It changes no finding and writes no repair action. Use it to observe a workspace that is expected to be red; the enforce path is the invocation without the flag.
+
 | exit | meaning | next |
 |---|---|---|
-| `0` | no finding | Step 6 |
+| `0` | no finding, or audit mode | Step 6 |
 | `1` | findings; report written | Step 2 |
 | `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node .claude/scripts/regeneration/run.mjs status` to identify it (`state: none` = none); `node .claude/scripts/regeneration/run.mjs continue`; follow `next:`; Step 1 |
 | `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node .claude/scripts/regeneration/run.mjs continue`; Step 1 |
@@ -293,12 +296,14 @@ Done iff fresh exit 0: chain verifies; transaction closed; zero findings; `statu
 
 One detector invocation runs all check families; console groups by repair route. Diagnostic reference only; not operating step.
 
-- S1 enumeration integrity: duplicate ids; unresolved step operation/sequence; drawn sequence without step.
-- S3 operation envelope: initial status; transition targets; transitions out of terminal status; external-dependency finality; every required interface. Terminal names: artifact `vocabulary`, else union of statuses active operations end at. Interfaces: `vocabulary`, else allocate `declared_interfaces` columns, else columns artifact pins reach. No record states vocabulary → withhold corresponding check.
-- S4 boundary clauses: required/extra `stage2_contract_scope` clauses; provider/consumer direction + counterpart; contribution completeness. v3 operation: `registry_contribution` ∈ `required`/`not_required`; `not_required` requires `registry_contribution_ground`; owner distribution ledger requires `op-<operationId>` row. Ledger `Kind` does not map to contribution value.
-- S5 contract meshing (v3 only): precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution.
-- S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step.
-- S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC.
+Every check id is listed once in `lib/check-status.mjs`; a family reports it as `executed` or `skipped` with a reason. The report's `checks.run` is the number of executed sub-checks, not the number of families.
+
+- S1 enumeration integrity: duplicate ids; unresolved step operation/sequence; drawn sequence without step; a `notASequence` region without a ground (`ground`, `reason`, `grounding.classification`, or `ground_ref`). `predicateLimb: none-applies` alone is not a ground.
+- S3 operation envelope: initial status; transition targets; transitions out of terminal status; external-dependency finality; every required interface. Terminal names: artifact `vocabulary`, else union of statuses active operations end at. Interfaces: `vocabulary`, else allocate `declared_interfaces` columns, else columns artifact pins reach. No record states vocabulary → withhold corresponding check. The migration closes a transition target only when the operation records `status_terminality_ground` for it.
+- S4 boundary clauses: required/extra `stage2_contract_scope` clauses; provider/consumer direction + counterpart; contribution completeness. v3 operation: `registry_contribution` ∈ `required`/`not_required`; `not_required` requires `registry_contribution_ground`; owner distribution ledger requires `op-<operationId>` row. Ledger `Kind` does not map to contribution value. An active operation reachable only through `obligationUnits` is `S4.contribution-unowned`, not skipped.
+- S5 contract meshing (v3 only): precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`.
+- S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step; an operation `boundary_effects` entry no step crosses and no `boundary_grounds` entry covers (`S6.boundary-effect-drift`).
+- S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC; an `obligationUnits` operation/sequence subject the artifact does not declare (`S7.obligation-unit-unknown`).
 
 ## Appendix B — Frozen inputs and the chain
 
@@ -314,6 +319,7 @@ Withheld check: named in report; not pass. `withheld` entries: `{layer, check, r
 - `B`: v2 artifact lacks typed step contract → Layer B withheld.
 - `vocabulary:S3.terminal-status` / `vocabulary:S3.interface-mapping`: neither artifact `vocabulary` nor derivable records state corresponding list.
 - `S4.contribution`: v2 artifact lacks `registry_contribution`.
+- `readings:<file>`: an educe readings file is unreadable or a JSONL line is malformed; the reason names the file and line. A reading is never converted to a finding; the report carries its counts separately.
 
 Never rewrite v2 artifact or require v3.
 

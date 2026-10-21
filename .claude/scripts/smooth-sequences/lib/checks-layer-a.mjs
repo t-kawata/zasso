@@ -10,6 +10,7 @@
  * so a reader can repair from the output without opening the report.
  */
 import { readLedgerRows } from '../../sequences-slice/lib/distribution-ledger.mjs';
+import { buildFamilySubChecks, skipWholeFamily } from './check-status.mjs';
 import { finding } from './index.mjs';
 import {
   repairRouteFor,
@@ -21,8 +22,16 @@ import {
 } from './repair-route.mjs';
 
 const DRAWN_OUTCOMES = new Set(['direct', 'viaNeighbour', 'singleStep']);
+const NOT_A_SEQUENCE = 'notASequence';
 const ACTIVE_DISPOSITION = 'active';
 const V3 = 3;
+
+/** Whether a notASequence region records why it is not a sequence. */
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+function hasNotASequenceGround(sequence) {
+  return [sequence.ground, sequence.reason, sequence.grounding?.classification, sequence.ground_ref]
+    .some((value) => typeof value === 'string' && value.trim() !== '');
+}
 
 /** One finding with its route already resolved. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
@@ -36,7 +45,8 @@ function addFinding(findings, checkId, subject, entry) {
 
 /** The contiguous and referential integrity of the enumeration. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function checkEnumerationIntegrity(index) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectEnumerationIntegrity(index) {
   const findings = [...index.duplicates];
 
   for (const step of index.artifact.steps ?? []) {
@@ -71,13 +81,29 @@ export function checkEnumerationIntegrity(index) {
     }
   }
 
-  return findings;
+  for (const sequence of index.artifact.sequences ?? []) {
+    if (sequence.outcome !== NOT_A_SEQUENCE || hasNotASequenceGround(sequence)) continue;
+    addFinding(findings, 'S1.not-a-sequence-ground-missing', sequence.id, {
+      className: 'omission',
+      route: routeForSpecRow('S1.not-a-sequence-ground-missing', index, sequence.id),
+      why: `region ${sequence.id} is ruled notASequence with predicateLimb ${sequence.predicateLimb ?? 'none'} and records no ground`,
+      fix: 'record ground, reason, grounding.classification, or ground_ref for the region',
+    });
+  }
+
+  return { findings, subChecks: buildFamilySubChecks('enumeration') };
+}
+
+/** The findings-only view of the enumeration family, kept for existing callers. */
+export function checkEnumerationIntegrity(index) {
+  return collectEnumerationIntegrity(index).findings;
 }
 
 /** The operation envelope: status graph, finality, and the declared interface mappings. */
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function checkOperationEnvelope(index) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectOperationEnvelope(index) {
   const findings = [];
   const terminalStatuses = index.vocabulary.terminalStatuses === null ? null : new Set(index.vocabulary.terminalStatuses);
   const requiredInterfaces = index.vocabulary.requiredInterfaces;
@@ -87,7 +113,19 @@ export function checkOperationEnvelope(index) {
     checkFinality(index, operation, findings);
     checkInterfaceMappings(index, operation, requiredInterfaces, findings);
   }
-  return findings;
+  const skippedReasons = new Map();
+  if (terminalStatuses === null) {
+    skippedReasons.set('S3.transition-out-of-terminal', 'terminalStatuses is not declared in vocabulary and no active operation status graph ends at a status');
+  }
+  if (requiredInterfaces === null) {
+    skippedReasons.set('S3.interface-mapping-missing', 'requiredInterfaces is not declared in vocabulary, no declared_interfaces column exists, and no pinned operation column names an interface');
+  }
+  return { findings, subChecks: buildFamilySubChecks('envelope', skippedReasons) };
+}
+
+/** The findings-only view of the envelope family, kept for existing callers. */
+export function checkOperationEnvelope(index) {
+  return collectOperationEnvelope(index).findings;
 }
 
 /** The status graph: every named status resolves, and no terminal status leaves. */
@@ -165,9 +203,23 @@ function isInterfaceMappingPresent(value) {
 
 /** The boundary clauses and the two sides that carry them. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function checkBoundaryClauses(index) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectBoundaryClauses(index) {
   const findings = [];
-  for (const boundary of index.treeManifest.dependencies?.boundaries ?? []) {
+  const boundaries = index.treeManifest.dependencies?.boundaries ?? [];
+  if (boundaries.length === 0) {
+    return { findings, subChecks: buildFamilySubChecks('boundaries', skipWholeFamily('boundaries', 'no boundary is declared')) };
+  }
+  const skippedReasons = new Map();
+  if (!boundaries.some((boundary) => index.contractsByBoundary.has(boundary.id))) {
+    for (const checkId of ['S4.contract-source-refs-missing', 'S4.boundary-clause-missing', 'S4.boundary-clause-extra']) {
+      skippedReasons.set(checkId, 'no boundary contract row is present');
+    }
+  }
+  if (index.packages.length === 0) {
+    skippedReasons.set('S4.boundary-side-mismatch', 'no package is declared');
+  }
+  for (const boundary of boundaries) {
     const contract = index.contractsByBoundary.get(boundary.id);
     if (contract === undefined) {
       addFinding(findings, 'S4.boundary-contract-missing', boundary.id, {
@@ -181,7 +233,12 @@ export function checkBoundaryClauses(index) {
     checkContractClauses(boundary, contract, findings);
     checkBoundarySides(index, boundary, findings);
   }
-  return findings;
+  return { findings, subChecks: buildFamilySubChecks('boundaries', skippedReasons) };
+}
+
+/** The findings-only view of the boundary family, kept for existing callers. */
+export function checkBoundaryClauses(index) {
+  return collectBoundaryClauses(index).findings;
 }
 
 /** The contract row: source references and the clauses stage2 requires. */
@@ -292,53 +349,103 @@ function ledgerRecordsOperation(pkg, operationId) {
 
 /** Every owned active operation declares its contribution and is recorded by its owner. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function checkContributionCompleteness(index) {
-  if (index.schemaVersion !== V3) return [];
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectContributionCompleteness(index) {
+  if (index.schemaVersion !== V3) {
+    return {
+      findings: [],
+      subChecks: buildFamilySubChecks('contribution', skipWholeFamily('contribution', 'v2 artifact carries no registry_contribution')),
+    };
+  }
   const findings = [];
-  for (const [packageId, units] of index.ownedOperationUnitsByPackage) {
-    const pkg = index.packagesById.get(packageId);
-    for (const unit of units) {
+  for (const pkg of index.packages) {
+    const packageId = pkg.id;
+    const units = new Map();
+    for (const unit of index.ownedOperationUnitsByPackage.get(packageId) ?? []) {
+      units.set(unit.operationId, { operationId: unit.operationId, route: 'owned' });
+    }
+    for (const unit of index.obligationOperationUnitsByPackage.get(packageId) ?? []) {
+      if (units.has(unit.subject)) continue;
+      units.set(unit.subject, { operationId: unit.subject, route: 'assigns' });
+    }
+    for (const unit of units.values()) {
       const operation = index.operationsById.get(unit.operationId);
       if (operation === undefined || operation.disposition !== ACTIVE_DISPOSITION) continue;
+      const subject = `${packageId}/${unit.operationId}`;
       const value = operation.registry_contribution;
       if (value !== 'required' && value !== 'not_required') {
-        addFinding(findings, 'S4.contribution-missing', `${packageId}/${unit.operationId}`, {
+        const details = {
           className: 'omission',
-          route: routeForOperation('S4.contribution-missing', index, operation),
           why: `operation ${unit.operationId} declares registry_contribution ${value}, which is neither required nor not_required`,
           fix: 'set registry_contribution to required or not_required',
-        });
+        };
+        if (unit.route === 'assigns') {
+          addFinding(findings, 'S4.contribution-unowned', subject, { ...details, route: routeForOperation('S4.contribution-unowned', index, operation) });
+        } else {
+          addFinding(findings, 'S4.contribution-missing', subject, { ...details, route: routeForOperation('S4.contribution-missing', index, operation) });
+        }
       }
       if (value === 'not_required' && !hasContributionGround(operation)) {
-        addFinding(findings, 'S4.contribution-ground-missing', `${packageId}/${unit.operationId}`, {
+        addFinding(findings, 'S4.contribution-ground-missing', subject, {
           className: 'omission',
           route: routeForOperation('S4.contribution-ground-missing', index, operation),
           why: `operation ${unit.operationId} declares not_required with no ground`,
           fix: 'record registry_contribution_ground naming why no registry row is owed',
         });
       }
-      if (pkg === undefined || !ledgerRecordsOperation(pkg, unit.operationId)) {
-        addFinding(findings, 'S4.contribution-missing', `${packageId}/${unit.operationId}`, {
+      if (!ledgerRecordsOperation(pkg, unit.operationId)) {
+        const details = {
           className: 'omission',
-          route: repairRouteFor('S4.contribution-missing', {
-            surface: SURFACE.PACKAGE_RFC,
-            packagesById: index.packagesById,
-            packageId,
-            locator: `distribution-ledger/op-${unit.operationId}`,
-          }),
-          why: `owned active operation ${unit.operationId} has no op-${unit.operationId} row in ${packageId}'s distribution ledger`,
+          why: `active operation ${unit.operationId} (${unit.route}) has no op-${unit.operationId} row in ${packageId}'s distribution ledger`,
           fix: `add the op-${unit.operationId} row to ${packageId}'s RFC distribution ledger or record the unit as declared-residual`,
-        });
+        };
+        if (unit.route === 'assigns') {
+          addFinding(findings, 'S4.contribution-unowned', subject, {
+            ...details,
+            route: repairRouteFor('S4.contribution-unowned', {
+              surface: SURFACE.PACKAGE_RFC,
+              packagesById: index.packagesById,
+              packageId,
+              locator: `distribution-ledger/op-${unit.operationId}`,
+            }),
+          });
+        } else {
+          addFinding(findings, 'S4.contribution-missing', subject, {
+            ...details,
+            route: repairRouteFor('S4.contribution-missing', {
+              surface: SURFACE.PACKAGE_RFC,
+              packagesById: index.packagesById,
+              packageId,
+              locator: `distribution-ledger/op-${unit.operationId}`,
+            }),
+          });
+        }
       }
     }
   }
-  return findings;
+  return { findings, subChecks: buildFamilySubChecks('contribution') };
+}
+
+/** The findings-only view of the contribution family, kept for existing callers. */
+export function checkContributionCompleteness(index) {
+  return collectContributionCompleteness(index).findings;
 }
 
 /** The artifact, the per-package view and the package RFC agree on the unit set. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-export function checkArtifactViewConsistency(index) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectArtifactViewConsistency(index) {
   const findings = [];
+  if (index.packages.length === 0) {
+    return { findings, subChecks: buildFamilySubChecks('consistency', skipWholeFamily('consistency', 'no package is declared')) };
+  }
+  const hasView = index.packages.some((pkg) => pkg.view !== null);
+  const skippedReasons = new Map();
+  if (!hasView) {
+    for (const checkId of ['S7.view-package-mismatch', 'S7.view-unit-mismatch', 'S7.rfc-boundary-missing']) {
+      skippedReasons.set(checkId, 'no readable package view');
+    }
+  }
   for (const pkg of index.packages) {
     if (pkg.view === null) {
       addFinding(findings, 'S7.view-missing', pkg.id, {
@@ -353,7 +460,12 @@ export function checkArtifactViewConsistency(index) {
     checkViewUnits(index, pkg, findings);
     checkRfcBoundaries(index, pkg, findings);
   }
-  return findings;
+  return { findings, subChecks: buildFamilySubChecks('consistency', skippedReasons) };
+}
+
+/** The findings-only view of the consistency family, kept for existing callers. */
+export function checkArtifactViewConsistency(index) {
+  return collectArtifactViewConsistency(index).findings;
 }
 
 /** The view's own identity: the package it names is the package whose directory holds it. */
@@ -369,7 +481,7 @@ function checkViewIdentity(index, pkg, findings) {
 }
 
 /** Every unit the view owns or crosses resolves to a declared operation or sequence. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
 function checkViewUnits(index, pkg, findings) {
   const reportUnknown = (subject) => {
     addFinding(findings, 'S7.view-unit-mismatch', subject, {
@@ -385,6 +497,26 @@ function checkViewUnits(index, pkg, findings) {
   if (index.schemaVersion !== 3) return;
   for (const unit of pkg.view.crossBoundarySequenceUnits ?? []) {
     if (!index.sequencesById.has(unit.sequenceId)) reportUnknown(`${pkg.id}/${unit.sequenceId}`);
+  }
+  for (const unit of pkg.view.obligationUnits ?? []) {
+    const isOperation = unit.kind === 'operation' || String(unit.unitId ?? '').startsWith('op-');
+    const isSequence = unit.kind === 'sequence' || String(unit.unitId ?? '').startsWith('seq-');
+    if (isOperation && !index.operationsById.has(unit.subject)) {
+      addFinding(findings, 'S7.obligation-unit-unknown', `${pkg.id}/${unit.subject}`, {
+        className: 'contradiction',
+        route: routeForPackage('S7.obligation-unit-unknown', index, pkg.id),
+        why: `obligation unit ${unit.unitId} names operation ${unit.subject}, which the artifact does not declare`,
+        fix: 're-project the view from the artifact or correct the obligation subject',
+      });
+    }
+    if (isSequence && !index.sequencesById.has(unit.subject)) {
+      addFinding(findings, 'S7.obligation-unit-unknown', `${pkg.id}/${unit.subject}`, {
+        className: 'contradiction',
+        route: routeForPackage('S7.obligation-unit-unknown', index, pkg.id),
+        why: `obligation unit ${unit.unitId} names sequence ${unit.subject}, which the artifact does not declare`,
+        fix: 're-project the view from the artifact or correct the obligation subject',
+      });
+    }
   }
 }
 

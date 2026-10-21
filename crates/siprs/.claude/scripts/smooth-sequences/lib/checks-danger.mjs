@@ -7,6 +7,7 @@
  * typed facts, so the graph checks are withheld with Layer B.
  */
 import { finding } from './index.mjs';
+import { buildFamilySubChecks } from './check-status.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const ESCAPES = new Set(['suppliedRule', 'excluded']);
@@ -226,8 +227,38 @@ function orderContradictions(index) {
   return findings;
 }
 
+/** An operation effect that none of its steps crosses and no ground covers. */
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+function boundaryEffectDrift(index) {
+  const findings = [];
+  const grounded = new Set((index.artifact.boundary_grounds ?? [])
+    .filter((entry) => typeof entry?.ground === 'string' && entry.ground.trim() !== '')
+    .map((entry) => entry.boundary));
+  const crossedByOperation = new Map();
+  for (const step of index.artifact.steps ?? []) {
+    const crossed = crossedByOperation.get(step.operation) ?? new Set();
+    for (const boundary of step.contract?.crosses ?? []) crossed.add(boundary);
+    crossedByOperation.set(step.operation, crossed);
+  }
+  for (const operation of index.artifact.operations ?? []) {
+    if (operation.disposition !== 'active') continue;
+    for (const effect of operation.boundary_effects ?? []) {
+      if (grounded.has(effect.boundary)) continue;
+      if (crossedByOperation.get(operation.id)?.has(effect.boundary)) continue;
+      addFinding(findings, 'S6.boundary-effect-drift', `${operation.id}/${effect.boundary}`, {
+        className: 'danger',
+        route: routeForOperation('S6.boundary-effect-drift', index, operation),
+        why: `operation ${operation.id} declares an effect on ${effect.boundary}, and none of its steps crosses that boundary`,
+        fix: `add a step contract.crosses for ${effect.boundary} or record a boundary_grounds entry`,
+      });
+    }
+  }
+  return findings;
+}
+
 /** Every danger finding for one index. */
-export function checkDangers(index) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function collectDangers(index) {
   const findings = [];
   for (const cycle of findCycles(operationEdges(index))) {
     addFinding(findings, 'S6.cycle', cycle.join(' -> '), {
@@ -241,5 +272,11 @@ export function checkDangers(index) {
   findings.push(...orphanFacts(index));
   findings.push(...unannotatedRepeats(index));
   findings.push(...orderContradictions(index));
-  return findings;
+  findings.push(...boundaryEffectDrift(index));
+  return { findings, subChecks: buildFamilySubChecks('danger') };
+}
+
+/** The findings-only view of the danger family, kept for existing callers. */
+export function checkDangers(index) {
+  return collectDangers(index).findings;
 }

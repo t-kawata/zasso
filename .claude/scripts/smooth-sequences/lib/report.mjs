@@ -10,11 +10,14 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { formatProvenanceLine, emptyProvenance } from './provenance.mjs';
+import { emptyReadings, formatReadingsLine } from './readings-summary.mjs';
+
 export const EXIT_PASS = 0;
 export const EXIT_FINDINGS = 1;
 export const EXIT_MISUSE = 2;
 export const EXIT_JUDGMENT = 3;
-export const REPORT_SCHEMA_VERSION = 2;
+export const REPORT_SCHEMA_VERSION = 3;
 export const MAX_MARKDOWN_FINDINGS = 200;
 export const JSON_FILE_NAME = 'SMOOTH-SEQUENCES.json';
 export const MARKDOWN_FILE_NAME = 'SMOOTH-SEQUENCES.md';
@@ -104,16 +107,37 @@ export function readPreviousReport(root) {
   }
 }
 
+/** The denominator a report carries when no axis was measured. */
+export function emptyDenominator() {
+  return { operations: null, sequences: null, boundaries: null, surfaces: null };
+}
+
+/** Normalize a checks record so older callers keep working. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function normalizeChecks(checks = {}) {
+  return {
+    families: checks.families ?? 7,
+    run: checks.run ?? 0,
+    skipped: checks.skipped ?? 0,
+    failed: checks.failed ?? 0,
+    subChecks: checks.subChecks ?? [],
+  };
+}
+
 /**
  * Assemble the report value.
  *
  * @param {{ workspace: object, findings: Array<object>, withheld: Array<object>,
- *   checks: { run: number, failed: number } }} input
+ *   checks: { run: number, failed: number, families?: number, skipped?: number, subChecks?: Array<object> },
+ *   provenance?: object, readings?: object, denominator?: object,
+ *   verdict?: string, wouldExit?: number|null }} input
  * @returns {object}
  */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-export function buildReport({ workspace, findings, withheld, checks }) {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+export function buildReport(input) {
+  const { workspace, findings, withheld, checks, provenance, readings, denominator, verdict, wouldExit } = input;
   const sorted = [...findings]
     .map((finding) => ({ ...finding, persisted: finding.persisted ?? false, repairClass: finding.repairClass ?? 'in-place' }))
     .sort(compareFindings);
@@ -125,7 +149,12 @@ export function buildReport({ workspace, findings, withheld, checks }) {
   return {
     schemaVersion: REPORT_SCHEMA_VERSION,
     workspace: workspace.root,
-    checks,
+    checks: normalizeChecks(checks),
+    provenance: provenance ?? emptyProvenance(),
+    readings: readings ?? emptyReadings(),
+    denominator: denominator ?? emptyDenominator(),
+    verdict: verdict ?? (sorted.length === 0 ? 'pass' : 'findings'),
+    wouldExit: wouldExit ?? null,
     withheld,
     findingsByClass,
     findings: sorted,
@@ -171,6 +200,25 @@ function passVerdict(withheld) {
   return `next: none. verdict: pass with ${withheld.length} unproven ${surface}.`;
 }
 
+/** The verdict line an audit run ends at. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function auditVerdict(report) {
+  return `next: none. verdict: audit; wouldExit: ${report.wouldExit ?? 0}.`;
+}
+
+/** The lines every console block opens with after its finding count. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function summaryLines(report) {
+  const lines = [
+    `provenance: ${formatProvenanceLine(report.provenance)}`,
+    `readings: ${formatReadingsLine(report.readings)}`,
+  ];
+  if (report.checks.skipped > 0) {
+    lines.push(`checks: run=${report.checks.run} skipped=${report.checks.skipped} failed=${report.checks.failed} families=${report.checks.families}`);
+  }
+  return lines;
+}
+
 /**
  * The console block a run writes.
  *
@@ -178,19 +226,21 @@ function passVerdict(withheld) {
  * the only action that clears it.
  */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function renderConsoleReport(report, { jsonPath } = {}) {
   const suffix = jsonPath === undefined ? '' : `; ${jsonPath}`;
   if (report.findings.length === 0) {
-    const lines = [`smooth-sequences: 0 finding(s)${suffix}`];
+    const lines = [`smooth-sequences: 0 finding(s)${suffix}`, ...summaryLines(report)];
     if (report.withheld.length > 0) lines.push(`withheld: ${withheldPhrase(report.withheld)} — not proved`);
-    lines.push(passVerdict(report.withheld));
+    lines.push(report.verdict === 'audit' ? auditVerdict(report) : passVerdict(report.withheld));
     return lines;
   }
   const routeCount = new Set(report.findings.map((finding) => identifyRoute(finding))).size;
   return [
     `smooth-sequences: ${report.findings.length} finding(s) in ${routeCount} repair route(s)${suffix}`,
+    ...summaryLines(report),
     ...renderRouteBlock(report.findings),
-    NEXT_FIX,
+    report.verdict === 'audit' ? auditVerdict(report) : NEXT_FIX,
   ];
 }
 
@@ -202,17 +252,19 @@ export function renderReportJson(report) {
 /** Render the capped Markdown report. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } = {}) {
-  const lines = [
+  const header = [
     '# Smooth Sequences',
     '',
     `workspace: ${report.workspace}`,
-    `checks: run=${report.checks.run} failed=${report.checks.failed}`,
+    `checks: run=${report.checks.run} skipped=${report.checks.skipped} failed=${report.checks.failed} families=${report.checks.families}`,
+    `provenance: ${formatProvenanceLine(report.provenance)}`,
+    `readings: ${formatReadingsLine(report.readings)}`,
+    `denominator: operations=${report.denominator.operations ?? 'unknown'} sequences=${report.denominator.sequences ?? 'unknown'} boundaries=${report.denominator.boundaries ?? 'unknown'} surfaces=${report.denominator.surfaces ?? 'unknown'}`,
     `withheld: ${report.withheld.length === 0 ? 'none' : withheldPhrase(report.withheld)}`,
     `findings: ${report.findingsByClass.omission} omission, ${report.findingsByClass.contradiction} contradiction, ${report.findingsByClass.deficiency} deficiency, ${report.findingsByClass.danger} danger`,
-    '',
-    '## Repair routes',
-    '',
   ];
+  if (report.wouldExit !== null) header.push(`wouldExit: ${report.wouldExit}`);
+  const lines = [...header, '', '## Repair routes', ''];
   const shown = report.findings.slice(0, limit);
   lines.push(...renderRouteBlock(shown));
   if (report.findings.length > shown.length) {

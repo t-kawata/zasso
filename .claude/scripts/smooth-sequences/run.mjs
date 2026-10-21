@@ -4,22 +4,25 @@
  * smooth-sequences — the final mechanical acceptance gate of the design pipeline.
  *
  * Usage:
- *   node .claude/scripts/smooth-sequences/run.mjs
- *   node .claude/scripts/smooth-sequences/run.mjs <workspace-root>
+ *   node .claude/scripts/smooth-sequences/run.mjs [--audit]
+ *   node .claude/scripts/smooth-sequences/run.mjs <workspace-root> [--audit]
  *
  * The current directory, or the single argument when one is given, is the workspace root
  * itself. The root must hold both manifests directly; the command never walks up to a
  * parent. The command reads the workspace and writes only under <root>/smooth-sequences/:
  * the report pair and the generation status. Exit 0 means every non-withheld check holds,
  * 1 means at least one blocking finding, 2 means the workspace could not be read, and 3
- * means a judgment-required transaction is the next action.
+ * means a judgment-required transaction is the next action. --audit reports every
+ * finding but exits 0 and records the would-be exit in the report.
  */
 import { createHash } from 'node:crypto';
 
-import { checkArtifactViewConsistency, checkBoundaryClauses, checkContributionCompleteness, checkEnumerationIntegrity, checkOperationEnvelope, contributionWithheld } from './lib/checks-layer-a.mjs';
-import { checkCrossingContracts, layerBWithheld } from './lib/checks-layer-b.mjs';
-import { checkDangers } from './lib/checks-danger.mjs';
+import { contributionWithheld } from './lib/checks-layer-a.mjs';
+import { layerBWithheld } from './lib/checks-layer-b.mjs';
+import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
+import { summarizeProvenance } from './lib/provenance.mjs';
+import { summarizeReadings } from './lib/readings-summary.mjs';
 import { verifyChain } from '../regeneration/lib/chain.mjs';
 import { recoverCommit } from '../regeneration/lib/commit.mjs';
 import { RegenerationError } from '../regeneration/lib/errors.mjs';
@@ -31,16 +34,36 @@ import { MODE_VERIFICATION, writeGeneration } from './lib/generation.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 import { snapshotDesignFiles } from '../regeneration/lib/staging.mjs';
 
-/** Every check family, in report order. */
-const CHECK_FAMILIES = Object.freeze([
-  checkEnumerationIntegrity,
-  checkOperationEnvelope,
-  checkBoundaryClauses,
-  checkContributionCompleteness,
-  checkArtifactViewConsistency,
-  checkCrossingContracts,
-  checkDangers,
-]);
+const AUDIT_FLAG = '--audit';
+
+/** The argument parser: one optional root and the audit flag. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function parseArguments(argv) {
+  const audit = argv.includes(AUDIT_FLAG);
+  const paths = argv.filter((argument) => argument !== AUDIT_FLAG);
+  if (paths.length > 1) return { misuse: true, audit, root: null };
+  return { misuse: false, audit, root: startDirectoryFor(paths[0]) };
+}
+
+/** The members a borrowed census lists for one role, or null when it lists none. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function censusMemberCount(artifact, role) {
+  const pins = artifact?.pins?.sourceEnumerations;
+  if (!Array.isArray(pins)) return null;
+  const pin = pins.find((entry) => entry?.role === role);
+  return Array.isArray(pin?.members) ? pin.members.length : null;
+}
+
+/** The denominator each demand axis is measured against, as far as the workspace states it. */
+// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+function summarizeDenominator(loaded) {
+  return {
+    operations: censusMemberCount(loaded.artifact, 'operations'),
+    sequences: censusMemberCount(loaded.artifact, 'entries'),
+    boundaries: Array.isArray(loaded.allocateManifest?.contract_registry) ? loaded.allocateManifest.contract_registry.length : null,
+    surfaces: loaded.vocabulary.requiredInterfaces === null ? null : loaded.vocabulary.requiredInterfaces.length,
+  };
+}
 
 /**
  * A digest of every design input the detector reads.
@@ -118,31 +141,47 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = io.stderr ?? ((line) => process.stderr.write(`${line}\n`));
+  const parsed = parseArguments(argv);
 
-  if (argv.length > 1) {
-    stderr('smooth-sequences: usage: run.mjs [workspace-root]');
+  if (parsed.misuse) {
+    stderr(`smooth-sequences: usage: run.mjs [workspace-root] [${AUDIT_FLAG}]`);
     return { exitCode: EXIT_MISUSE, report: null };
   }
 
   try {
-    const root = assertWorkspaceRoot(startDirectoryFor(argv[0]));
+    const root = assertWorkspaceRoot(parsed.root);
     const gate = regenerationGate(root, stderr, { allowTransaction: io.allowTransaction });
     if (gate.refused) return { exitCode: EXIT_MISUSE, report: null };
     const loaded = loadWorkspace(root);
     const index = indexArtifact(loaded);
-    const rawFindings = CHECK_FAMILIES.flatMap((check) => check(index));
-    const findings = annotatePersisted(rawFindings, readPreviousReport(root));
+    const evaluation = evaluateCheckRegistry(index);
+    const findings = annotatePersisted(evaluation.findings, readPreviousReport(root));
+    const readings = summarizeReadings(root);
     const withheld = [
       ...layerBWithheld(index),
       ...index.vocabulary.withheld,
       ...contributionWithheld(index),
+      ...readings.withheld,
     ];
-    const checks = { run: CHECK_FAMILIES.length, failed: findings.length };
-    const report = buildReport({ workspace: loaded, findings, withheld, checks });
+    const executed = evaluation.subChecks.filter((entry) => entry.status === 'executed').length;
+    const skipped = evaluation.subChecks.filter((entry) => entry.status === 'skipped').length;
+    const checks = {
+      families: CHECK_FAMILY_COUNT,
+      run: executed,
+      skipped,
+      failed: findings.length,
+      subChecks: evaluation.subChecks,
+    };
+    const provenance = summarizeProvenance(loaded.artifact);
+    const denominator = summarizeDenominator(loaded);
     // The exit code is decided before the status is written, so a judgment handoff is
     // recorded as exit 3 rather than as the pass the findings alone would suggest.
     let exitCode = findings.length === 0 ? EXIT_PASS : EXIT_FINDINGS;
     if (gate.active?.state === STATES.JUDGMENT_REQUIRED) exitCode = EXIT_JUDGMENT;
+    const wouldExit = exitCode;
+    if (parsed.audit && exitCode === EXIT_FINDINGS) exitCode = EXIT_PASS;
+    const verdict = parsed.audit ? 'audit' : (exitCode === EXIT_PASS ? 'pass' : 'findings');
+    const report = buildReport({ workspace: loaded, findings, withheld, checks, provenance, readings, denominator, verdict, wouldExit: parsed.audit ? wouldExit : null });
     const generation = writeGeneration({ root, report, inputDigest: inputDigestOf(root), exitCode });
     const consoleLines = renderConsoleReport(report, generation);
     consoleLines.splice(1, 0, generationLine(generation));

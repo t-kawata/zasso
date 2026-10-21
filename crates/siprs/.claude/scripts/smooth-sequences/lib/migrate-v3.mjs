@@ -204,17 +204,21 @@ export function splitAnnotations(document = {}) {
   };
 }
 
-/** Make every transition target a declared status, so the graph is closed. */
+/** Make a transition target a declared status only when a ground states it is terminal. */
 // [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-function normalizeStatusGraph(operation) {
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+function normalizeStatusGraph(operation, terminalityGrounds = {}) {
   const transitions = { ...(operation.allowed_status_transitions ?? {}) };
   for (const targets of Object.values(transitions)) {
     for (const target of targets ?? []) {
-      if (transitions[target] === undefined) transitions[target] = [];
+      if (transitions[target] !== undefined) continue;
+      const ground = terminalityGrounds[target];
+      if (typeof ground === 'string' && ground.trim() !== '') transitions[target] = [];
     }
   }
   if (operation.initial_status && transitions[operation.initial_status] === undefined) {
-    transitions[operation.initial_status] = [];
+    const ground = terminalityGrounds[operation.initial_status];
+    if (typeof ground === 'string' && ground.trim() !== '') transitions[operation.initial_status] = [];
   }
   return transitions;
 }
@@ -254,6 +258,7 @@ function sourceDigestOf(artifact, provided) {
  *   packages: Array<object>, sourceDigest?: string }} input
  * @returns {object} the v3 artifact
  */
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function migrateArtifactToV3(input) {
   const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
   if (artifact.schema_version === SCHEMA_V3) return artifact;
@@ -268,9 +273,13 @@ export function migrateArtifactToV3(input) {
     const operation = (artifact.operations ?? []).find((entry) => entry.id === step.operation) ?? {};
     const owners = ownersByOperation.get(step.operation) ?? new Set();
     const annotation = stepAnnotations[step.id] ?? stepAnnotations[`${step.sequence}/${step.operation}`];
+    const contractProse = typeof step.contract === 'string' && step.contract.trim() !== ''
+      ? step.contract
+      : (typeof step.contract_prose === 'string' && step.contract_prose.trim() !== '' ? step.contract_prose : null);
     return {
       ...step,
       ...(annotation === undefined ? {} : { annotation }),
+      ...(contractProse === null ? {} : { contract_prose: contractProse }),
       contract: typedContractFor({ step, operation, owners, sequenceUnits, boundaries, contractsByBoundary }),
     };
   });
@@ -289,9 +298,12 @@ export function migrateArtifactToV3(input) {
   const typedOperations = (artifact.operations ?? []).map((operation) => {
     const owners = ownersByOperation.get(operation.id) ?? new Set();
     const contribution = contributionOf(operation, operationAnnotations[operation.id]);
+    const terminalityGrounds = operation.status_terminality_ground
+      ?? operationAnnotations[operation.id]?.status_terminality_ground
+      ?? {};
     return {
       ...operation,
-      allowed_status_transitions: normalizeStatusGraph(operation),
+      allowed_status_transitions: normalizeStatusGraph(operation, terminalityGrounds),
       ...contribution,
       boundary_effects: boundaryEffectsOf(operation.id, owners, boundaries),
     };
