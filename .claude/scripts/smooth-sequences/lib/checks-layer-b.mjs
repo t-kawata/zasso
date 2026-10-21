@@ -33,7 +33,8 @@ function hasAuthoredFacts(authored) {
 
 /** The authored contract of a step, or null when the step carries only a projection. */
 // [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
-function readAuthoredContract(step) {
+export function readAuthoredContract(step) {
+  if (step.contract?.contract_origin === 'synthesized') return null;
   const authored = step.contract?.[AUTHORED_CONTRACT_FIELD];
   return hasAuthoredFacts(authored) ? authored : null;
 }
@@ -45,11 +46,18 @@ function hasContractProse(step) {
 }
 
 /** The boundaries a non-empty ground covers. */
-// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
 function readBoundaryGrounds(index) {
-  return new Set((index.artifact.boundary_grounds ?? [])
-    .filter((entry) => typeof entry?.ground === 'string' && entry.ground.trim() !== '')
-    .map((entry) => entry.boundary));
+  const grounds = new Map();
+  for (const entry of index.artifact.boundary_grounds ?? []) {
+    const reason = entry?.ground ?? entry?.reason ?? entry?.source;
+    if (typeof reason !== 'string' || reason.trim() === '') continue;
+    grounds.set(entry.boundary, {
+      reason,
+      examinedSequences: Array.isArray(entry?.examinedSequences) ? entry.examinedSequences : [],
+    });
+  }
+  return grounds;
 }
 
 /** One finding with its route already resolved. */
@@ -191,12 +199,31 @@ function collectProjectionOnly(index, findings) {
 }
 
 /** One finding for a declared boundary that no step crosses and no ground covers. */
-// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
 function collectBoundaryCoverage(index, findings) {
   const crossed = new Set(groupStepsByBoundary(index).keys());
   const grounded = readBoundaryGrounds(index);
   for (const boundary of index.treeManifest.dependencies?.boundaries ?? []) {
-    if (crossed.has(boundary.id) || grounded.has(boundary.id)) continue;
+    if (crossed.has(boundary.id)) continue;
+    const ground = grounded.get(boundary.id);
+    if (ground !== undefined) {
+      const contract = index.contractsByBoundary.get(boundary.id);
+      if (contract === undefined) continue;
+      const witnesses = [];
+      for (const [sequenceId, owners] of index.sequenceOwners ?? new Map()) {
+        if (owners.has(contract.provider_package) && owners.has(contract.consumer_package)) witnesses.push(sequenceId);
+      }
+      const omitted = witnesses.filter((sequenceId) => !ground.examinedSequences.includes(sequenceId));
+      if (omitted.length > 0) {
+        addFinding(findings, 'S5.boundary-ground-unverified', boundary.id, {
+          className: 'deficiency',
+          route: routeForSpecRow('S5.boundary-ground-unverified', index, boundary.id),
+          why: `boundary ${boundary.id} is grounded as not crossed but sequence ${omitted[0]} carries both sides`,
+          fix: `name ${omitted[0]} in examinedSequences and explain why it is not a crossing, or declare the crossing`,
+        });
+      }
+      continue;
+    }
     const effectOperations = (index.artifact.operations ?? [])
       .filter((operation) => operation.disposition === 'active'
         && (operation.boundary_effects ?? []).some((effect) => effect.boundary === boundary.id));

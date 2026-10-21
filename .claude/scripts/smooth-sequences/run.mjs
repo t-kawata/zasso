@@ -75,13 +75,25 @@ function countCensusMembers(artifact, role) {
 }
 
 /** The denominator each demand axis is measured against, as far as the workspace states it. */
-// [::TICKET::] PX-283, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
 function summarizeDenominator(loaded) {
+  const operations = loaded.artifact?.operations ?? [];
+  const active = operations.filter((operation) => operation?.disposition === 'active').length;
+  const realized = (loaded.artifact?.sequences ?? []).filter((sequence) => sequence?.outcome !== 'notASequence').length;
+  const sequencesCensus = countCensusMembers(loaded.artifact, 'sequences');
+  const entryRegions = countCensusMembers(loaded.artifact, 'entries');
+  const requiredInterfaces = loaded.vocabulary.requiredInterfaces === null ? null : loaded.vocabulary.requiredInterfaces.length;
+  const pinnedColumns = Array.isArray(loaded.artifact?.pins?.columns) ? loaded.artifact.pins.columns.length : null;
   return {
-    operations: countCensusMembers(loaded.artifact, 'operations'),
-    sequences: countCensusMembers(loaded.artifact, 'entries'),
+    operations: { all: operations.length, active },
+    sequences: {
+      realized,
+      entryRegions,
+      source: sequencesCensus === null ? 'artifact' : 'census',
+      members: sequencesCensus ?? realized,
+    },
     boundaries: Array.isArray(loaded.allocateManifest?.contract_registry) ? loaded.allocateManifest.contract_registry.length : null,
-    surfaces: loaded.vocabulary.requiredInterfaces === null ? null : loaded.vocabulary.requiredInterfaces.length,
+    surfaces: { requiredInterfaces, demandColumns: pinnedColumns ?? requiredInterfaces },
   };
 }
 
@@ -225,7 +237,7 @@ export function runCommand(argv, io = {}) {
     };
     const unresolvedReadings = readings.policy === 'advisory'
       ? 0
-      : (readings.inquest?.yes ?? 0) + (readings.withheld?.length ?? 0);
+      : (readings.inquest?.yes ?? 0) + (readings.withheld?.length ?? 0) + (readings.uncovered?.unresolved ?? 0);
     const decision = classifyVerdict({
       findings,
       blocked,

@@ -28,7 +28,7 @@ import { buildReport } from './report.mjs';
 import { railExitStoreFor, readRailExits } from './harness.mjs';
 import { readStatus, openPhases, phaseState } from './run-state.mjs';
 import { DEFAULT_WIDTH, treeReading } from './text.mjs';
-import { DECLARATION_FILE, inquestQuestions, inquestRecordsIn, readDeclarationFile } from './readings.mjs';
+import { DECLARATION_FILE, inquestQuestions, previousInquestRecordsIn, readDeclarationFile } from './readings.mjs';
 import { ADHOC_DIRECTORY, loadAdhocChecks, promoteRecord, railExitTemplate, readCasesFile, runScaffoldCases, scaffoldCheck, writeRailExit, writeRailExits } from './adhoc.mjs';
 
 /** The usage every refusal ends with, so a caller learns the shape without reading code. */
@@ -220,13 +220,13 @@ function runOne(context, id) {
  * is handed a list of questions and turns it into prose. A brief for any other role is
  * handed an empty list and is untouched by the substitution.
  */
-// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248|PX-288) --for-spec --no-implementation-order`.
 function inquestQuestionsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return [];
   return inquestQuestions({
     declaration: declaration.declaration,
-    previousAnswers: inquestRecordsIn(directory),
+    previousAnswers: previousInquestRecordsIn(directory),
     escaped: escapedOperationsOf(readArtifact(artifactPathFor(specPath)) ?? { operations: [] }),
   });
 }

@@ -6,8 +6,10 @@
 // what to look for, and one readings file per brief, which says what was found. Both
 // are validated line by line before anything downstream sees them, because a reading
 // file that is only mostly well formed is the failure this module exists to catch.
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { SmoothSequencesError } from '../../smooth-sequences/lib/errors.mjs';
 
 // The levels a partition may be taken at belong with the partition rule rather than here,
 // so a declaration cannot be validated against a vocabulary the partitioner does not hold.
@@ -144,6 +146,18 @@ export const INQUEST_QUESTIONS = Object.freeze({
 /** Every field an answer carries. */
 export const INQUEST_FIELDS = Object.freeze(['subject', 'lens', 'question', 'answer', 'line', 'quote', 'reader']);
 
+/** The shapes a resolved Yes-to-No answer may carry. */
+export const RESOLUTION_KINDS = Object.freeze(['spec-change', 'artifact-change', 'misreading']);
+
+/** The fields a resolution carries. */
+export const INQUEST_RESOLUTION_FIELDS = Object.freeze(['kind', 'evidence']);
+
+/** The outcomes an uncovered operation may carry. */
+export const UNCOVERED_OUTCOMES = Object.freeze(['performed', 'escaped']);
+
+/** The fields an uncovered record carries. */
+export const UNCOVERED_FIELDS = Object.freeze(['subject', 'outcome', 'reader']);
+
 /** The fields every reading carries, and the extra one a neighbour verdict carries. */
 export const READING_FIELDS = Object.freeze(['subject', 'outcome', 'reader']);
 export const NEIGHBOUR_FIELD = 'neighbour';
@@ -260,6 +274,132 @@ export function readDeclarationFile(path) {
   return problems.length > 0 ? { ok: false, problems } : { ok: true, declaration: parsed.value };
 }
 
+/**
+ * The reader identities an inquest file actually carries.
+ *
+ * A generation is the unit that owns an answer: a file whose rows were written by two
+ * generations is two audits stitched together, and a count over it would be a count over
+ * neither. A reader name without a generation suffix is a legacy reader and is one family,
+ * because the older files never carried the generation directory.
+ */
+export function readerGenerationsOf(rows) {
+  const generations = new Set();
+  for (const row of rows.filter((entry) => inquestShapeOf(entry) === 'inquest')) {
+    const reader = typeof row.reader === 'string' ? row.reader : '';
+    const match = reader.match(/generation\d+/);
+    if (match !== null) generations.add(reader.slice(0, match.index + match[0].length));
+  }
+  return [...generations].sort();
+}
+
+/**
+ * Refuse a file written by more than one generation.
+ *
+ * The same reader name repeated is one generation; the absence of a generation suffix is
+ * a legacy reader and is treated as one. A mixture is the laundering path this guard
+ * exists to close: the newest generation would otherwise inherit the older generation's
+ * answers while its own reader count read as complete.
+ */
+export function assertSingleReader(rows) {
+  const generations = readerGenerationsOf(rows);
+  if (generations.length > 1) {
+    throw new SmoothSequencesError(
+      `READER_MIXED: the inquest carries ${generations.length} reader generations: ${generations.join(', ')}`,
+      { code: 'READER_MIXED', repair: 're-answer every question in one generation, or archive the old answers and start a new generation' },
+    );
+  }
+  if (generations.length === 1) return { ok: true, readers: generations };
+  const legacy = [...new Set(rows.filter((entry) => inquestShapeOf(entry) === 'inquest').map((entry) => String(entry.reader ?? '')))].sort();
+  return { ok: true, readers: legacy };
+}
+
+/** The line at a 1-indexed position, or an empty string when the position is absent. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function lineAt(spec, line) {
+  if (!Number.isInteger(line) || line < 1) return '';
+  return typeof spec?.lines?.[line - 1] === 'string' ? spec.lines[line - 1] : '';
+}
+
+/** Whether a quote is present in a line, after whitespace normalization. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function quoteIsIn(quote, text) {
+  if (typeof quote !== 'string' || quote.trim() === '') return false;
+  const normalizedQuote = quote.replace(/\s+/g, ' ').trim();
+  const normalizedText = String(text).replace(/\s+/g, ' ').trim();
+  return normalizedText.includes(normalizedQuote);
+}
+
+/**
+ * Verify the evidence a previous Yes -> current No answer owes.
+ *
+ * The resolution is the only thing that distinguishes a reader who learned something from
+ * a reader who changed their mind: a specification change must show the cited line before
+ * and after, an artifact change must show the transaction that moved it, and a misreading
+ * must name the second reader and is refused unless an explicit waiver covers it.
+ */
+export function verifyResolution(record, { previousSpec = null, currentSpec = null } = {}) {
+  if (record?.previous !== 'Yes' || record?.answer !== 'No') return { ok: true, required: false };
+  const resolution = record?.resolution;
+  if (resolution === null || typeof resolution !== 'object' || !RESOLUTION_KINDS.includes(resolution.kind)) {
+    throw new SmoothSequencesError(
+      `READING_UNRESOLVED: ${record.subject}/${record.lens} moved from Yes to No without a resolution`,
+      { code: 'READING_UNRESOLVED', repair: 'record resolution.kind as spec-change, artifact-change or misreading, with evidence' },
+    );
+  }
+  const evidence = resolution.evidence ?? {};
+  if (resolution.kind === 'spec-change') {
+    const previousLine = lineAt(previousSpec, evidence.line) || String(evidence.previousQuote ?? '');
+    const currentLine = lineAt(currentSpec, evidence.line) || String(evidence.currentQuote ?? '');
+    if (previousLine === currentLine) {
+      throw new SmoothSequencesError(
+        `READING_UNRESOLVED: ${record.subject}/${record.lens} cites line ${evidence.line}, which did not change`,
+        { code: 'READING_UNRESOLVED', repair: 'cite the line the specification actually changed, or record a different resolution kind' },
+      );
+    }
+    if (!quoteIsIn(evidence.previousQuote, previousLine) || !quoteIsIn(evidence.currentQuote, currentLine)) {
+      throw new SmoothSequencesError(
+        `READING_UNRESOLVED: ${record.subject}/${record.lens} does not quote the cited line on both sides`,
+        { code: 'READING_UNRESOLVED', repair: 'make previousQuote and currentQuote quotations of the cited line' },
+      );
+    }
+    return { ok: true, required: true, kind: resolution.kind };
+  }
+  if (resolution.kind === 'artifact-change') {
+    if (typeof evidence.transaction !== 'string' || evidence.transaction.trim() === '') {
+      throw new SmoothSequencesError(
+        `READING_UNRESOLVED: ${record.subject}/${record.lens} names no artifact transaction`,
+        { code: 'READING_UNRESOLVED', repair: 'name the regeneration transaction that changed the artifact record' },
+      );
+    }
+    return { ok: true, required: true, kind: resolution.kind };
+  }
+  if (typeof evidence.secondReader !== 'string' || evidence.secondReader.trim() === '' || evidence.waiver !== true) {
+    throw new SmoothSequencesError(
+      `READING_UNRESOLVED: ${record.subject}/${record.lens} claims a misreading without a second reader and a waiver`,
+      { code: 'READING_UNRESOLVED', repair: 'record the second reader and an explicit waiver, or use a verified change' },
+    );
+  }
+  return { ok: true, required: true, kind: resolution.kind };
+}
+
+/** The fields an uncovered record is missing or carrying outside the vocabulary. */
+export function validateUncoveredRecord(record) {
+  const problems = absentFields(record, UNCOVERED_FIELDS);
+  if (record?.outcome !== undefined && !UNCOVERED_OUTCOMES.includes(record.outcome)) {
+    problems.push(`outcome ${record.outcome} is not performed or escaped`);
+  }
+  if (record?.outcome === 'performed' && (typeof record.step !== 'string' || record.step.trim() === '')) {
+    problems.push('a performed record must name its step');
+  }
+  if (record?.outcome === 'escaped') {
+    if (typeof record.position !== 'string' || record.position.trim() === '') problems.push('an escaped record must name its position');
+    if (!Number.isInteger(record.line) || record.line < 1) problems.push('an escaped record must cite its line');
+    if (typeof record.quote !== 'string' || record.quote.trim() === '') problems.push('an escaped record must quote its line');
+    if (typeof record.why !== 'string' || record.why.trim() === '') problems.push('an escaped record must say why');
+  }
+  return problems;
+}
+
 /** The fields one reading is missing, given the shape it declares. */
 export function missingReadingFields(reading) {
   if (inquestShapeOf(reading) === 'inquest') return absentFields(reading, INQUEST_FIELDS);
@@ -333,7 +473,13 @@ export function readReadingsFile(path) {
     readings.push(reading);
   }
 
-  return problems.length > 0 ? { ok: false, problems } : { ok: true, readings };
+  if (problems.length > 0) return { ok: false, problems };
+  try {
+    assertSingleReader(readings);
+  } catch (error) {
+    return { ok: false, problems: [error.message] };
+  }
+  return { ok: true, readings };
 }
 
 /**
@@ -353,6 +499,25 @@ export function inquestBeside(directory) {
 /** The answers a run directory holds, or none when the audit has not been answered. */
 export function inquestRecordsIn(directory) {
   return inquestBeside(directory) ?? [];
+}
+
+/**
+ * The newest archived inquest, which is the previous generation's answers.
+ *
+ * `archiveReadings` renames the current file into the archive at the start of a run, so a
+ * brief built from the current path alone would see no previous answer. The archive is the
+ * only place that answer survives, and the generation number in the name orders them.
+ */
+export function previousInquestRecordsIn(directory) {
+  const archive = join(directory, 'archive');
+  if (!existsSync(archive)) return [];
+  const names = readdirSync(archive)
+    .map((name) => ({ name, match: name.match(/^readings-inquest\.g(\d+)\.jsonl$/) }))
+    .filter((entry) => entry.match !== null)
+    .sort((left, right) => Number(right.match[1]) - Number(left.match[1]));
+  if (names.length === 0) return [];
+  const read = readReadingsFile(join(archive, names[0].name));
+  return read.ok ? read.readings : [];
 }
 
 /** Read and validate the file the audit is answered in. */

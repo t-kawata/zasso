@@ -54,7 +54,9 @@ function collectActiveOperations(index) {
 }
 
 /** Whether a step carries typed authored facts, or an authored prose contract. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
+  if (step?.contract?.contract_origin === 'synthesized') return false;
   const authored = step?.contract?.authored;
   if (authored !== null && typeof authored === 'object') {
     const hasTypedFact = AUTHORED_FACT_FIELDS.some((field) => Array.isArray(authored[field]) && authored[field].length > 0);

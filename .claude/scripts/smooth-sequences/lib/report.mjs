@@ -205,7 +205,21 @@ export function readDebtBaseline(root) {
 
 /** The denominator a report carries when no axis was measured. */
 export function emptyDenominator() {
-  return { operations: null, sequences: null, boundaries: null, surfaces: null };
+  return {
+    operations: { all: null, active: null },
+    sequences: { realized: null, entryRegions: null, source: 'unstated', members: null },
+    boundaries: null,
+    surfaces: { requiredInterfaces: null, demandColumns: null },
+  };
+}
+
+/** The denominator line, with every component labeled so no axis is one bare number. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function renderDenominatorLine(denominator = emptyDenominator()) {
+  const operations = denominator.operations ?? {};
+  const sequences = denominator.sequences ?? {};
+  const surfaces = denominator.surfaces ?? {};
+  return `denominator: operations=${operations.all ?? 'unknown'} (active ${operations.active ?? 'unknown'}) sequences=${sequences.realized ?? 'unknown'} realized (entry-regions ${sequences.entryRegions ?? 'unknown'}, source ${sequences.source ?? 'unknown'}) boundaries=${denominator.boundaries ?? 'unknown'} surfaces=${surfaces.requiredInterfaces ?? 'unknown'}/${surfaces.demandColumns ?? 'unknown'}`;
 }
 
 /** Normalize a checks record so older callers keep working. */
@@ -438,7 +452,7 @@ export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } =
     `provenance: ${formatProvenanceLine(report.provenance)}`,
     `readings: ${formatReadingsLine(report.readings)}`,
     ...renderReadingsWithheldLine(report.readings),
-    `denominator: operations=${report.denominator.operations ?? 'unknown'} sequences=${report.denominator.sequences ?? 'unknown'} boundaries=${report.denominator.boundaries ?? 'unknown'} surfaces=${report.denominator.surfaces ?? 'unknown'}`,
+    renderDenominatorLine(report.denominator),
     `blocked: ${report.blocked.length === 0 ? 'none' : `${report.blocked.length} check(s) in ${surfaceCount} surface(s)`}`,
     `waived: ${report.waived.length}`,
     `findings: ${report.findingsByClass.omission} omission, ${report.findingsByClass.contradiction} contradiction, ${report.findingsByClass.deficiency} deficiency, ${report.findingsByClass.danger} danger`,

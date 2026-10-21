@@ -128,6 +128,39 @@ function deriveRequiredInterfaces(artifact, allocateManifest) {
 }
 
 /**
+ * The members each pinned interface column is borrowed from.
+ *
+ * A column decided by `borrowedVocabulary` names an enumeration the artifact pins; the
+ * operation value is a member of that enumeration. A column with no enumeration is left
+ * out rather than guessed, so the check falls back to non-emptiness only where the
+ * workspace states no vocabulary.
+ */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function deriveInterfaceVocabulary(artifact) {
+  const enumerations = new Map((artifact?.pins?.enumerations ?? [])
+    .filter((entry) => typeof entry?.name === 'string' && Array.isArray(entry.members))
+    .map((entry) => [entry.name, entry.members.map((member) => String(member))]));
+  const vocabulary = {};
+  for (const column of artifact?.pins?.columns ?? []) {
+    if (column?.decidedBy !== 'borrowedVocabulary') continue;
+    const members = enumerations.get(column.vocabulary);
+    if (members !== undefined) vocabulary[column.name] = members;
+  }
+  return vocabulary;
+}
+
+/**
+ * Normalize an interface value for comparison.
+ *
+ * A pinned member may carry a placeholder for the identity the operation supplies; the
+ * operation value is the command without that placeholder. Removing the angle-bracket
+ * segment from both sides compares what the specification actually fixes.
+ */
+export function normalizeInterfaceValue(value) {
+  return String(value ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Load the vocabulary a workspace states or implies.
  *
  * @param {{ artifact: object, artifactPath: string, allocateManifest: object }} input
@@ -139,6 +172,7 @@ export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
   const declared = readDeclaredVocabulary(artifact, artifactPath);
   const terminalStatuses = declared.terminalStatuses ?? deriveTerminalStatuses(artifact);
   const requiredInterfaces = declared.requiredInterfaces ?? deriveRequiredInterfaces(artifact, allocateManifest);
+  const interfaceVocabulary = deriveInterfaceVocabulary(artifact);
 
   const withheld = [];
   if (terminalStatuses === null) {
@@ -157,6 +191,7 @@ export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
   return Object.freeze({
     terminalStatuses,
     requiredInterfaces,
+    interfaceVocabulary,
     withheld: Object.freeze(withheld),
   });
 }

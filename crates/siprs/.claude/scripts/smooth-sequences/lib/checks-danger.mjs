@@ -137,15 +137,13 @@ function collectFactContext(index) {
 }
 
 /** Produced object facts nothing consumes, unless a ground or a declared output explains them. */
-// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285|PX-288) --for-spec --no-implementation-order`.
 function findUnconsumedProduced(index, context) {
   const findings = [];
   for (const fact of context.produced) {
-    const objectName = fact.slice('object:'.length);
-    // A result object an operation declares is a deliberate output of that operation.
-    // The danger the orphan check exists to catch is an object with no producer at all,
-    // not an output nothing consumes later in the enumerated sequence.
-    if (context.declaredOutputs.has(objectName)) continue;
+    // A declared result object is not a blanket exemption: the danger is an object that
+    // leaves a step and enters none, and only the terminal output of a sequence is
+    // deliberately external. A non-terminal output still owes a consumer or a ground.
     if (context.consumed.has(fact) || context.isGrounded(fact) || context.terminalOutputs.has(fact)) continue;
     addFinding(findings, 'S6.orphan-object', fact, {
       className: 'danger',
@@ -258,6 +256,100 @@ function findBoundaryEffectDrift(index) {
   return findings;
 }
 
+/** The grounding classifications that can excuse an operation with no step. */
+const ESCAPE_GROUNDINGS = Object.freeze([
+  'no_act_stated_by_the_specification',
+  'designer_supplied',
+  'framework_only',
+  'not_an_act',
+  'object_type_not_an_operation',
+  'the_registry_excludes_this_row',
+]);
+
+/** Whether an operation carries a citation for the position it claims. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function hasEscapeGrounding(operation) {
+  const grounding = operation?.grounding;
+  if (grounding === null || typeof grounding !== 'object') return false;
+  if (!ESCAPE_GROUNDINGS.includes(grounding.classification)) return false;
+  const citedLine = Number.isInteger(grounding.line) ? grounding.line : grounding.presupposition;
+  return (Number.isInteger(citedLine) && citedLine > 0)
+    || (typeof grounding.note === 'string' && grounding.note.trim() !== '');
+}
+
+/** The realized sequences with at least two steps, which can carry an internal handoff. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function multiStepSequences(index) {
+  const realized = new Set((index.artifact.sequences ?? [])
+    .filter((sequence) => sequence?.outcome !== 'notASequence')
+    .map((sequence) => sequence.id));
+  return [...index.stepsBySequence.entries()]
+    .filter(([sequenceId, steps]) => realized.has(sequenceId) && steps.length >= 2);
+}
+
+/** A sequence with no consume and no authored flow ground. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function findObjectFlows(index) {
+  if (index.schemaVersion !== 3) return [];
+  const findings = [];
+  const grounds = new Set((index.artifact.sequence_flow_grounds ?? [])
+    .map((entry) => (typeof entry === 'string' ? entry : entry?.sequence))
+    .filter((entry) => typeof entry === 'string' && entry.length > 0));
+  for (const [sequenceId, steps] of multiStepSequences(index)) {
+    if (grounds.has(sequenceId)) continue;
+    if (steps.some((step) => Array.isArray(step.contract?.consumes) && step.contract.consumes.length > 0)) continue;
+    addFinding(findings, 'S6.object-flow-missing', sequenceId, {
+      className: 'omission',
+      route: routeForSpecRow('S6.object-flow-missing', index, sequenceId),
+      why: `realized sequence ${sequenceId} has ${steps.length} steps and no consumed fact or flow ground`,
+      fix: `consume a fact from an earlier step or author sequence_flow_grounds for ${sequenceId}`,
+    });
+  }
+  return findings;
+}
+
+/** A step set that implies no operation edge at all. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function findEmptyGraph(index) {
+  if (index.schemaVersion !== 3) return [];
+  const steps = index.artifact.steps ?? [];
+  if (steps.length === 0) return [];
+  if (buildOperationEdges(index).size > 0) return [];
+  const first = steps[0];
+  return [finding('S6.graph-empty', 'danger', 'operation-graph', {
+    ...routeForStep('S6.graph-empty', index, first),
+    why: `the artifact carries ${steps.length} steps and none consumes a fact another produces`,
+    fix: 'author the consumed fact on the step that reads it, or record why the steps are independent',
+  })];
+}
+
+/** An operation that escapes by position without the ground the escape owes. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function findUngroundedEscapes(index) {
+  if (index.schemaVersion !== 3) return [];
+  const findings = [];
+  for (const operation of index.artifact.operations ?? []) {
+    const steps = index.stepsByOperation.get(operation.id) ?? [];
+    const positional = operation.position === 'excluded' || operation.position === 'suppliedRule';
+    const activeRequired = operation.disposition === 'active' && operation.registry_contribution === 'required' && steps.length === 0 && positional;
+    if (!positional && !activeRequired) continue;
+    if (positional) {
+      if (hasEscapeGrounding(operation)) continue;
+    } else if (typeof operation.registry_contribution_ground === 'string' && operation.registry_contribution_ground.trim() !== '') {
+      continue;
+    } else if (typeof operation.position_ground === 'string' && operation.position_ground.trim() !== '') {
+      continue;
+    }
+    addFinding(findings, 'S6.escape-ungrounded', operation.id, {
+      className: 'danger',
+      route: routeForOperation('S6.escape-ungrounded', index, operation),
+      why: `operation ${operation.id} escapes with position ${operation.position ?? 'none'} and no grounded citation`,
+      fix: `record grounding.classification with a line or note, or a registry_contribution_ground`,
+    });
+  }
+  return findings;
+}
+
 /** Every danger finding for one index. */
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectDangers(index) {
@@ -275,6 +367,9 @@ export function collectDangers(index) {
   findings.push(...findUnannotatedRepeats(index));
   findings.push(...findOrderContradictions(index));
   findings.push(...findBoundaryEffectDrift(index));
+  findings.push(...findObjectFlows(index));
+  findings.push(...findEmptyGraph(index));
+  findings.push(...findUngroundedEscapes(index));
   return { findings, subChecks: buildFamilySubChecks('danger', index) };
 }
 

@@ -31,7 +31,7 @@ export const DENOMINATOR_AXES = Object.freeze(['operations', 'sequences', 'bound
 export const DENOMINATOR_SOURCES = Object.freeze(['census', 'registry', 'declaration', 'unstated']);
 
 /** The census role that answers for the operations, and the one that answers for the sequences. */
-const CENSUS_ROLE_BY_AXIS = Object.freeze({ operations: 'operations', sequences: 'entries' });
+const CENSUS_ROLE_BY_AXIS = Object.freeze({ operations: 'operations', sequences: 'sequences' });
 
 /**
  * The axes whose statement and whose placement are the same act.
@@ -59,7 +59,21 @@ const SERVES_RELATION = 'serves';
  * @param {string} role
  * @returns {string[]|null}
  */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
+function sequenceCensusMembers(artifact) {
+  const dedicated = borrowedCensusMembers(artifact, 'sequences');
+  if (dedicated !== null) return dedicated;
+  const entries = borrowedCensusMembers(artifact, 'entries');
+  if (entries === null) return null;
+  // An empty entries census states that the specification names no entry. A non-empty
+  // one is a line partition in the gaia workspace; it states the sequence axis only when
+  // its members are the sequence ids themselves.
+  if (entries.length === 0) return [];
+  const sequenceIds = new Set((artifact?.sequences ?? []).map((sequence) => String(sequence.id)));
+  return entries.every((member) => sequenceIds.has(member)) ? entries : null;
+}
+
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function borrowedCensusMembers(artifact, role) {
   const pins = artifact?.pins?.sourceEnumerations;
   if (!Array.isArray(pins)) return null;
@@ -144,7 +158,7 @@ function axisEntry(axis, source, members) {
 // [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
 export function denominatorOf({ artifact = null, allocateManifest = null, treeManifest = null, views = [] } = {}) {
   const censusOf = (axis) => {
-    const members = borrowedCensusMembers(artifact, CENSUS_ROLE_BY_AXIS[axis]);
+    const members = axis === 'sequences' ? sequenceCensusMembers(artifact) : borrowedCensusMembers(artifact, CENSUS_ROLE_BY_AXIS[axis]);
     return axisEntry(axis, members === null ? DENOMINATOR_SOURCES[3] : DENOMINATOR_SOURCES[0], members === null ? 0 : members.length);
   };
 
@@ -178,7 +192,7 @@ export function denominatorOf({ artifact = null, allocateManifest = null, treeMa
 // [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
 const REPAIR_BY_AXIS = Object.freeze({
   operations: 'supply the census for the operations role beside the run, so the operation list answers to a reading of the specification rather than to itself',
-  sequences: 'supply the census for the entries role beside the run, so the sequence list answers to a reading of the specification rather than to itself',
+  sequences: 'supply a census for the sequences role, or an entries census whose members are the realized sequence ids',
   boundaries: 're-run the allocation so the contract registry carries every boundary the tree manifest declares',
   surfaces: 'declare the interfaces in the allocation manifest or in a package record, so the candidate columns answer to a declaration',
 });
@@ -187,7 +201,7 @@ const REPAIR_BY_AXIS = Object.freeze({
 // [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
 const REASON_BY_AXIS = Object.freeze({
   operations: 'no census is borrowed for the operations role, so the artifact is its own denominator',
-  sequences: 'no census is borrowed for the entries role, so the artifact is its own denominator',
+  sequences: 'no census names the realized sequences, so the artifact is its own denominator',
   boundaries: 'the contract registry does not account for the boundaries the tree manifest declares, so the boundary list answers to nothing',
   surfaces: 'no interface is declared anywhere, so the candidate columns are only what the artifact read for itself',
 });

@@ -20,6 +20,7 @@ import {
   routeForStep,
   SURFACE,
 } from './repair-route.mjs';
+import { normalizeInterfaceValue } from './vocabulary.mjs';
 
 const DRAWN_OUTCOMES = new Set(['direct', 'viaNeighbour', 'singleStep']);
 const NOT_A_SEQUENCE = 'notASequence';
@@ -178,16 +179,30 @@ function checkFinality(index, operation, findings) {
 }
 
 /** Every declared interface must be mapped by the operation. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-288) --for-spec --no-implementation-order`.
 function checkInterfaceMappings(index, operation, requiredInterfaces, findings) {
   if (requiredInterfaces === null) return;
   for (const interfaceName of requiredInterfaces) {
-    if (isInterfaceMappingPresent(operation[interfaceName])) continue;
-    addFinding(findings, 'S3.interface-mapping-missing', operation.id, {
-      className: 'omission',
-      route: routeForOperation('S3.interface-mapping-missing', index, operation),
-      why: `operation ${operation.id} does not map to declared interface ${interfaceName}`,
-      fix: `map ${interfaceName} on the operation or remove it from the declared interface set`,
+    if (!isInterfaceMappingPresent(operation[interfaceName])) {
+      addFinding(findings, 'S3.interface-mapping-missing', operation.id, {
+        className: 'omission',
+        route: routeForOperation('S3.interface-mapping-missing', index, operation),
+        why: `operation ${operation.id} does not map to declared interface ${interfaceName}`,
+        fix: `map ${interfaceName} on the operation or remove it from the declared interface set`,
+      });
+      continue;
+    }
+    const members = index.vocabulary?.interfaceVocabulary?.[interfaceName];
+    if (!Array.isArray(members) || members.length === 0) continue;
+    const value = Array.isArray(operation[interfaceName]) ? operation[interfaceName] : [operation[interfaceName]];
+    const accepted = new Set(members.map((member) => normalizeInterfaceValue(member)));
+    const unknown = value.find((entry) => typeof entry === 'string' && !accepted.has(normalizeInterfaceValue(entry)));
+    if (unknown === undefined) continue;
+    addFinding(findings, 'S3.interface-value-unknown', operation.id, {
+      className: 'deficiency',
+      route: routeForOperation('S3.interface-value-unknown', index, operation),
+      why: `operation ${operation.id} maps ${interfaceName} to ${unknown}, which the pinned vocabulary does not name`,
+      fix: `map ${interfaceName} to a member of ${interfaceName} or extend the pinned vocabulary`,
     });
   }
 }
@@ -441,9 +456,37 @@ export function checkContributionCompleteness(index) {
 
 /** The artifact, the per-package view and the package RFC agree on the unit set. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-288) --for-spec --no-implementation-order`.
+/** Every active operation and realized sequence must be owned by some package. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function checkDistributionCoverage(index, findings) {
+  for (const operation of index.artifact.operations ?? []) {
+    if (operation?.disposition !== 'active') continue;
+    const owners = index.operationOwners.get(operation.id);
+    if (owners !== undefined && owners.size > 0) continue;
+    addFinding(findings, 'S7.operation-distribution-missing', operation.id, {
+      className: 'omission',
+      route: routeForSpecRow('S7.operation-distribution-missing', index, operation.id),
+      why: `active operation ${operation.id} is owned by no package view`,
+      fix: `place ${operation.id} in a package's ownedOperationUnits or an obligation unit`,
+    });
+  }
+  for (const sequence of index.artifact.sequences ?? []) {
+    if (sequence?.outcome === 'notASequence') continue;
+    const owners = index.sequenceOwners?.get(sequence.id);
+    if (owners !== undefined && owners.size > 0) continue;
+    addFinding(findings, 'S7.sequence-distribution-missing', sequence.id, {
+      className: 'omission',
+      route: routeForSpecRow('S7.sequence-distribution-missing', index, sequence.id),
+      why: `realized sequence ${sequence.id} is owned by no package view`,
+      fix: `place ${sequence.id} in a package's ownedSequenceUnits, crossBoundarySequenceUnits or obligation units`,
+    });
+  }
+}
+
 export function collectArtifactViewConsistency(index) {
   const findings = [];
+  checkDistributionCoverage(index, findings);
   if (index.packages.length === 0) {
     return { findings, subChecks: buildFamilySubChecks('consistency', index) };
   }

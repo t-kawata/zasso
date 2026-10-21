@@ -18,6 +18,7 @@ const ADVERSARIAL_FILE = 'readings-adversarial.jsonl';
 const UNCOVERED_FILE = 'readings-uncovered.jsonl';
 const ANSWER_YES = 'Yes';
 const ANSWER_NO = 'No';
+const UNCOVERED_OUTCOMES = Object.freeze(['performed', 'escaped']);
 
 /** The empty shape a workspace with no readings reports. */
 export function emptyReadings() {
@@ -36,7 +37,7 @@ export function emptyReadings() {
       path: null,
     },
     adversarial: { records: 0, byOutcome: {} },
-    uncovered: { records: 0 },
+    uncovered: { records: 0, unresolved: 0, byOutcome: {} },
     withheld: [],
   };
 }
@@ -117,6 +118,28 @@ function summarizeInquest(rows, limit) {
   };
 }
 
+/**
+ * The uncovered summary.
+ *
+ * A record whose outcome is not performed or escaped is not an answer to the uncovered
+ * question, so it is counted as unresolved rather than as a clean measurement. The same
+ * is true of a record with no subject: it cannot be matched to a worklist member.
+ */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function summarizeUncovered(rows) {
+  const byOutcome = {};
+  let unresolved = 0;
+  for (const row of rows) {
+    const outcome = typeof row?.outcome === 'string' && UNCOVERED_OUTCOMES.includes(row.outcome) ? row.outcome : null;
+    if (outcome === null || typeof row?.subject !== 'string' || row.subject.length === 0) {
+      unresolved += 1;
+      continue;
+    }
+    byOutcome[outcome] = (byOutcome[outcome] ?? 0) + 1;
+  }
+  return { records: rows.length, unresolved, byOutcome };
+}
+
 /** The adversarial summary. */
 // [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function summarizeAdversarial(rows) {
@@ -153,7 +176,7 @@ export function summarizeReadings(root, { limit = MAX_UNRESOLVED_SUBJECTS } = {}
     status,
     inquest: inquestSummary,
     adversarial: summarizeAdversarial(adversarial.rows),
-    uncovered: { records: uncovered.rows.length },
+    uncovered: summarizeUncovered(uncovered.rows),
     withheld,
   };
 }
