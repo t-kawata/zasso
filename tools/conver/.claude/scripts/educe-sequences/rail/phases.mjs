@@ -12,6 +12,8 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+import { appendReceipt, readEvidenceManifest, sha256File } from '../../shared-obligations/evidence.mjs';
+
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
 import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
@@ -284,6 +286,7 @@ export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot =
  *            expects: string|null, exitCode: number, loops: number}}
  */
 export function runPhase(id, ctx) {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const phase = phaseById(id);
   if (phase === null) return { id, tag: null, ok: false, halted: false, reason: `there is no phase ${id}`, backTo: null, expects: null, exitCode: 1, loops: 0 };
 
@@ -324,6 +327,20 @@ export function runPhase(id, ctx) {
     noteDone(ctx.status, id, { verdict: exit.reason, tag: phase.tag });
     if (phase.tag === PHASE_TAGS.READ) {
       noteReading(ctx.status, phase.name, { claims: claimedBy(ctx.directory, id), vacuous: exit.vacuous === true });
+    }
+    if (existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
+      appendReceipt(ctx.directory, {
+        phase: id,
+        inputs: {
+          spec: ctx.spec.sha256,
+          declaration: sha256File(join(ctx.directory, DECLARATION_FILE)),
+          artifact: sha256File(ctx.artifactPath),
+          worklist: sha256File(join(ctx.directory, WORKLIST_FILE)),
+        },
+        outputs: {},
+        verdict: exit.reason,
+        reader: 'educe-sequences',
+      });
     }
   } else {
     noteLoop(ctx.status, id, phase.tag, exit.reason);
@@ -515,10 +532,21 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
   // the set this generation holds and not the set the run found.
   const inheritedDigest = assetDigestOf(opened.directory);
 
+  const manifest = readEvidenceManifest(dirname(opened.directory));
+  const receipts = manifest?.receipts ?? null;
+  const currentDigests = receipts === null ? null : {
+    spec: spec.sha256,
+    declaration: sha256File(join(opened.directory, DECLARATION_FILE)),
+    artifact: sha256File(artifactPathFor(specPath)),
+    worklist: sha256File(join(opened.directory, WORKLIST_FILE)),
+  };
+
   const carried = reopenPhases(
     beginGeneration(status, {
       spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
       digest: inheritedDigest,
+      receipts,
+      currentDigests,
       // The generation being superseded records what its audit asked and answered, so the
       // next report can print the two beside each other and a reader can see whether the
       // questions moved anything.

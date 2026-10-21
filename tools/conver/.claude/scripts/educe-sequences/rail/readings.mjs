@@ -400,6 +400,28 @@ export function validateUncoveredRecord(record) {
   return problems;
 }
 
+/**
+ * The anchor an inquest answer owes when its subject is an object.
+ *
+ * A quote-at-line is not a subject anchor: an object answer must cite a line that names
+ * the object, or carry an explicit anchor quote that does. The gate verifies existence and
+ * the naming; it does not judge whether the answer is semantically right.
+ */
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+export function validateInquestRecord(record, { specLines = [], subject = record?.subject } = {}) {
+  const problems = [];
+  if (typeof subject !== 'string' || !subject.startsWith('@object:')) return problems;
+  const name = subject.slice('@object:'.length);
+  const line = Number.isInteger(record?.line) && record.line > 0 ? specLines[record.line - 1] : '';
+  const lineNamesObject = typeof line === 'string' && line.includes(name);
+  const anchorQuote = typeof record?.anchor?.quote === 'string' ? record.anchor.quote : '';
+  const anchorNamesObject = anchorQuote.includes(name);
+  if (!lineNamesObject && !anchorNamesObject) {
+    problems.push(`object ${name} is not named on the cited line and no anchor quote names it`);
+  }
+  return problems;
+}
+
 /** The fields one reading is missing, given the shape it declares. */
 export function missingReadingFields(reading) {
   if (inquestShapeOf(reading) === 'inquest') return absentFields(reading, INQUEST_FIELDS);

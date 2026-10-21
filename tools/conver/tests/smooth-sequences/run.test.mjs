@@ -449,3 +449,25 @@ test('a pending transaction prints the educe handoff and the continue command', 
     workspace.remove();
   }
 });
+
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+test('closure mode refuses a workspace with an evidence manifest and no readings', () => {
+  const workspace = materializeSmoothWorkspace({ readings: {} });
+  try {
+    writeFileSync(join(workspace.root, 'educe-sequences', 'EVIDENCE-MANIFEST.json'), JSON.stringify({
+      schemaVersion: 1,
+      artifact: { sha256: 'fixture' },
+      files: [],
+      receipts: [],
+    }, null, 2));
+    const output = capture();
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.exitCode, 4);
+    assert.equal(result.report.certificate.status, 'incomplete');
+    assert.ok(result.report.certificate.open.length > 0);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY, 'COMPLETION-CERTIFICATE.json')), true);
+    assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY, 'JUDGMENT-WORKLIST.json')), true);
+  } finally {
+    workspace.remove();
+  }
+});

@@ -32,14 +32,23 @@ export const EXIT_UNPROVEN = 4;
  *   unresolvedReadings?: number, downgrade?: object|null }} input
  * @returns {{ verdict: string, exitCode: number }}
  */
-export function classifyVerdict({
-  findings = [],
-  blocked = [],
-  unresolvedReadings = 0,
-  downgrade = null,
-}) {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+export function classifyVerdict(options = {}) {
+  const {
+    findings = [],
+    blocked = [],
+    unresolvedReadings = 0,
+    downgrade = null,
+    certificate = null,
+  } = options;
   if (findings.length > 0) {
     return { verdict: VERDICT_FINDINGS, exitCode: EXIT_FINDINGS };
+  }
+  if (certificate !== null && certificate !== undefined) {
+    if (downgrade !== null || blocked.length > 0 || certificate.status !== 'complete') {
+      return { verdict: VERDICT_UNPROVEN, exitCode: EXIT_UNPROVEN };
+    }
+    return { verdict: VERDICT_PASS, exitCode: EXIT_PASS };
   }
   if (downgrade !== null || blocked.length > 0 || unresolvedReadings > 0) {
     return { verdict: VERDICT_UNPROVEN, exitCode: EXIT_UNPROVEN };

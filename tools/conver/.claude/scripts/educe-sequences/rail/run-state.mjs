@@ -19,6 +19,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+import { validateReceipt } from '../../shared-obligations/evidence.mjs';
+
 /** The directory a run keeps its state in, beside the specification that owns it. */
 export const RUN_DIRECTORY_NAME = 'educe-sequences';
 
@@ -218,6 +220,26 @@ export function appendHistory(status, entry) {
 }
 
 /**
+ * Carry phase records, invalidating any verdict whose receipt no longer describes the
+ * current inputs.
+ *
+ * With no receipts the caller is a legacy run and the old carry behaviour is preserved.
+ * Once a manifest exists, a done phase without a valid receipt is reopened: a verdict is
+ * evidence only while the bytes it was measured over are still the bytes on disk.
+ */
+// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+function carryPhaseRecords(phases, receipts, currentDigests) {
+  return phases.map((record) => {
+    if (!Array.isArray(receipts) || currentDigests === null) return { ...record, loops: 0 };
+    if (record?.status !== 'done') return { ...record, loops: 0 };
+    const receipt = receipts.find((entry) => entry?.phase === record.id);
+    const validity = validateReceipt(receipt, currentDigests);
+    if (validity.valid) return { ...record, loops: 0 };
+    return { ...record, status: 'open', verdict: null, loops: 0 };
+  });
+}
+
+/**
  * Open the next generation: return every loop, record the asset digest, and keep the
  * generation that is being superseded.
  *
@@ -228,7 +250,9 @@ export function appendHistory(status, entry) {
  */
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
-export function beginGeneration(status, { spec, digest, inquest = null, coverage = null }) {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+export function beginGeneration(status, options = {}) {
+  const { spec, digest, inquest = null, coverage = null, receipts = null, currentDigests = null } = options;
   const superseded = generationOf(status);
   const carried = {
     ...status,
@@ -236,7 +260,7 @@ export function beginGeneration(status, { spec, digest, inquest = null, coverage
     [GENERATION_FIELD]: superseded + 1,
     [ENTERED_FIELD]: false,
     [ASSETS_FIELD]: { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: digest },
-    phases: (status.phases ?? []).map((record) => ({ ...record, loops: 0 })),
+    phases: carryPhaseRecords(status.phases ?? [], receipts, currentDigests),
   };
   if (superseded === 0) return { ...carried, [HISTORY_FIELD]: [...(status[HISTORY_FIELD] ?? [])] };
   return appendHistory(carried, {

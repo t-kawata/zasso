@@ -336,12 +336,16 @@ In-place staged-candidate edit → `CANDIDATE_CHANGED`.
 
 Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed.
 
+**Closure mode (PX-289).** When the workspace carries `educe-sequences/EVIDENCE-MANIFEST.json`, pass is the `smooth-sequences/COMPLETION-CERTIFICATE.json` status `complete`, not a zero-finding count. An absent or empty readings file is an open obligation (`MISSING_EVIDENCE`); a phase receipt whose input digest no longer matches is `STALE_RECEIPT`; a check that evaluated zero claims is `vacuous`. Open semantic obligations are written to `smooth-sequences/JUDGMENT-WORKLIST.json` and close only through a held judgment. A workspace without the manifest keeps the legacy path so an old report stays readable, but it cannot claim the closure guarantee.
+
 - Zero findings + zero blocked + zero unresolved readings under the run's readings policy → `verdict: pass`. The default policy is blocking; `--advisory-readings` must be printed in the report.
 - Any blocked surface, unresolved reading or schema downgrade → `verdict: unproven`, exit 4. List every blocked check and surface; never call it pass and never call it proved.
 - A grounded waiver removes a finding from the blocking set; it does not turn a blocked surface into a measured one. The run remains `unproven` until the surface is restored; a waiver records the finding's disposition, not a proof.
 - Report verdict; quote boundary verbatim:
 
 > does not guarantee: whether the enumeration is complete relative to the world; semantic prose equivalence remains a judgment.
+
+The certificate states the same limit as `residue` and separates `proven` (mechanical closure), `judged` (held judgments), and `accepted` (risk dispositions). A `complete` status means no open, stuck, vacuous, broken or unresolved obligation remains; it does not turn the residual judgments into proofs.
 
 ## Appendix A — Check families
 

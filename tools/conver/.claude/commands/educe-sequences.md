@@ -252,6 +252,7 @@ Hand rendered brief + worklist to reader subagent.
 - reader answers one question per entry: *is the named operation performed by the named actor inside the entry's own span?*
 - reader writes `<dir of spec-file>/educe-sequences/readings-span.jsonl`: one signed line per entry; each carries `steps` and `operations` read there.
 - reader writes `<dir of spec-file>/educe-sequences/readings-uncovered.jsonl`: one signed line per operation the borrowed census names and no step performs; each accounted for by placing it or naming the escape covering it.
+- **Mechanical closure (PX-289)**: a span step that names the operation is proof the operation is performed, so the gate closes that member without a reader record. The worklist keeps every census member, but only the members with no span step owe a record. The phase verdict states both counts, for example `108 uncovered operation(s) accounted for; 149 mechanically closed by a span step`. An absent or empty file leaves every required member open; it is never read as zero debt.
 
 Every step carries act `subject`, `predicate`, `object`, `contract` + `line` and `quote` (verbatim from that line).
 - four act fields insufficient alone: decomposition can carry all, in order, relation holding, and not be a reading.
@@ -334,6 +335,8 @@ node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 13
 Pass asks the specification something rather than checking an answer to it. declaration and readings record what was found; cannot record what nobody looked for; this Step closes that gap. every generation asks again ⇒ changed text, or thinly read apparatus, is interrogated, not re-verified.
 
 Brief names every declared subject (each section, each entry) under each of four lenses, with what previous generation answered. Reader writes `<dir of spec-file>/educe-sequences/readings-inquest.jsonl`: one signed record per (subject, lens) pair; carries question, answer in closed vocabulary, line answer rests on + its quote.
+- **Anchor (PX-289)**: an `@object:` answer must cite a line that names the object, or carry `anchor: {quote}` naming it. A quote-at-line alone can rest on a line that never mentions the subject and is refused.
+- **Attack (PX-289)**: when the run directory carries `EVIDENCE-MANIFEST.json`, every active operation and every realized sequence is a Tier 1 subject; a `No` under either high-consequence lens closes only with a held attack in `readings-attack.jsonl`. An unheld subject is refused by name. Legacy runs without a manifest keep the old gate until they migrate.
 
 Refused while: pair carries no answer and no exemption; answer carries no signature; quote not carried by named line. FAIL: back to Step 12; max 3 loops.
 

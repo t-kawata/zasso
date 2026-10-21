@@ -43461,6 +43461,365 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-21"
+        },
+        {
+          "id": 289,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Three-Layer Closure: mechanical obligations, semantic obligations, and the AI judgment protocol",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-289.md",
+          "background": "### Goal\nImplement the Three-Layer Closure (TLC) as one atomic protocol change across educe-sequences, smooth-sequences and regeneration: a shared obligation registry for mechanical and semantic obligations, an evidence manifest with phase receipts, a closure gate that treats absence as open, and a finite AI judgment protocol (Context-Rich Worklist -> Proposer -> Attacker -> Decision).\n\n### Purpose\nReplace the current pass model, which can report pass while 257 uncovered obligations are unanswered and while a phase verdict is carried without fresh evidence, with a closure model in which every obligation is either mechanically closed or held by an attacked judgment. The gate must stop calling an unmeasured surface clean and must stop treating an AI answer as a fact without a falsifier.\n\n### Motivation\nThe gaia generation 11 run passed with 0 records in readings-uncovered.jsonl against a 257-member worklist, with archive generations 6 through 10 also empty after generation 5 held 294 records, and with phase 8 recorded done by the carried verdict 553 signed reading(s). smooth-sequences sums unresolved readings from the files only, so absence is indistinguishable from a clean measurement. PX-288 hardened individual readings and checks but did not introduce a single obligation registry, evidence receipts or a judgment protocol; the same class of silent gap therefore remains. The repeat loop persists because a re-run adds no new information when the gate cannot name the missing obligation.\n\n### Constraints\n- Atomic protocol change: educe, smooth, regeneration and the command documents ship in one ticket; a partial protocol leaves one side reading a manifest the other does not write.\n- No hand-editing of generated files or evidence; every evidence record is produced by its producer or by the judgment protocol.\n- Scripts never judge semantics; AI judgments never decide mechanical facts.\n- Every new behavior has a red test that fails for absence of implementation; tests are not weakened.\n- Backward compatibility: existing v4 reports and legacy readings are readable, but a pass requires a complete certificate.\n- New modules are plain ESM .mjs files; no new dependency.",
+          "scope": [
+            ".claude/scripts/shared-obligations/registry.mjs — add — deriveObligations({spec,census,declaration,artifact,tree,allocate,packages,readings}) returns a sorted, finite Obligation[] with stable id, class, subject, claim, predicate, producer, state and evidence. Before: obligations are implicit in scattered checks and worklists disagree (108 unperformed operations vs 257 census members). After: one registry is the single source for educe and smooth. Why: the artifact must not be its own denominator.",
+            ".claude/scripts/shared-obligations/predicates.mjs — add — mechanical predicates and evaluatedClaims(index); before a check reports only a row denominator, after every check reports the assertions it actually evaluated and a zero-claim check is vacuous.",
+            ".claude/scripts/shared-obligations/evidence.mjs — add — EVIDENCE-MANIFEST.json, phase receipts, sha256 digests and context slicing; before readings have no digest binding to the artifact, after every evidence file and receipt is content-addressed.",
+            ".claude/scripts/shared-obligations/judgment.mjs — add — Context-Rich Judgment Worklist generation, judgment and attack record validation, and the finite decision protocol (max 2 rounds). Before: AI answers are raw JSONL. After: each answer carries obligationId, contextDigest, basis, counterexample, falsifier and an attack outcome.",
+            ".claude/scripts/shared-obligations/certificate.mjs — add — completion certificate with proven, judged, accepted and residue sections plus open, stuck, vacuous and broken counts. Before: pass is a verdict string. After: pass is certificate.status === complete.",
+            ".claude/scripts/educe-sequences/rail/phases.mjs — modify — phase 7 writes worklists from the registry; phases 8, 10, 12 and 13 write evidence against obligation ids and receipts. Before: worklists are ad-hoc files. After: worklists are registry projections and cannot drift from the gate.",
+            ".claude/scripts/educe-sequences/rail/gates.mjs — modify — phase 8 and phase 13 delegate to registry predicates and judgment closure. Before: phase 8 reads only the span brief and phase 13 only checks pair coverage. After: each refusal names the open obligation and its producer.",
+            ".claude/scripts/educe-sequences/rail/run-state.mjs — modify — beginGeneration carries a phase record only when its receipt input digests still match the current inputs. Before: a carried verdict survives an evidence rewrite. After: a digest mismatch invalidates the receipt and reopens the phase obligations.",
+            ".claude/scripts/educe-sequences/rail/readings.mjs — modify — inquest, uncovered and adversarial records carry obligationId, contextDigest, basis, falsifier and anchor. Before: records are free-form. After: the shape is validated against the judgment protocol and an object answer must cite a line that names the object.",
+            ".claude/scripts/smooth-sequences/lib/readings-summary.mjs — modify — summarizeReadings returns presence and worklist coverage, not only counts. Before: an absent directory returns not-available with zero unresolved. After: it returns open obligations with MISSING_EVIDENCE.",
+            ".claude/scripts/smooth-sequences/lib/check-status.mjs — modify — add evaluatedClaims and vacuous. Before: denominator is the only measure. After: a zero-claim check cannot count as executed.",
+            ".claude/scripts/smooth-sequences/lib/evidence-ledger.mjs — modify — closure, monotonicity, stuck and NO_NEW_EVIDENCE. Before: the ledger compares findings only. After: it compares obligation closure and evidence digests across generations.",
+            ".claude/scripts/smooth-sequences/lib/verdict.mjs, .claude/scripts/smooth-sequences/run.mjs and .claude/scripts/smooth-sequences/lib/report.mjs — modify — pass is derived from the certificate; report v5 prints proven, judged, accepted, residue and obligation denominators. Before: pass is findings.length === 0 && blocked.length === 0 && unresolvedReadings === 0. After: pass is certificate.status === complete.",
+            ".claude/scripts/regeneration/lib/debt.mjs and .claude/scripts/regeneration/lib/transaction.mjs — modify — refuse EVIDENCE_REGRESSION and NO_NEW_EVIDENCE in addition to DEBT_INCREASED. Before: a commit compares findings and reading counts. After: it compares obligation closure and evidence freshness.",
+            ".claude/commands/smooth-sequences.md and .claude/commands/educe-sequences.md — modify — Step 2 and Step 6 and phases 7, 8 and 13 describe the worklist, judgment loop and certificate. Before: the command instructs a pass on zero findings. After: it instructs closure.",
+            "tests/shared-obligations/, tests/smooth-sequences/, tests/educe-sequences/ and tests/regeneration/ — add or modify — red tests for M1-M12 and J1-J16. Before: no test distinguishes absent from clean. After: every refusal class has a deterministic fixture.",
+            "Out of scope: gaia live remediation — PX-290 owns the live run; this ticket stops at a green fixture certificate. Out of scope: new dependencies — none; plain ESM .mjs. Out of scope: rewriting the specification or artifact content — the ticket changes the gate and evidence protocol, not the design."
+          ],
+          "default_files": [
+            ".claude/scripts/shared-obligations/registry.mjs",
+            ".claude/scripts/shared-obligations/predicates.mjs",
+            ".claude/scripts/shared-obligations/evidence.mjs",
+            ".claude/scripts/shared-obligations/judgment.mjs",
+            ".claude/scripts/shared-obligations/certificate.mjs",
+            ".claude/scripts/educe-sequences/rail/phases.mjs",
+            ".claude/scripts/educe-sequences/rail/gates.mjs",
+            ".claude/scripts/educe-sequences/rail/run-state.mjs",
+            ".claude/scripts/educe-sequences/rail/readings.mjs",
+            ".claude/scripts/smooth-sequences/lib/readings-summary.mjs",
+            ".claude/scripts/smooth-sequences/lib/check-status.mjs",
+            ".claude/scripts/smooth-sequences/lib/evidence-ledger.mjs",
+            ".claude/scripts/smooth-sequences/lib/verdict.mjs",
+            ".claude/scripts/smooth-sequences/lib/report.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/scripts/regeneration/lib/debt.mjs",
+            ".claude/scripts/regeneration/lib/transaction.mjs",
+            ".claude/commands/smooth-sequences.md",
+            ".claude/commands/educe-sequences.md"
+          ],
+          "notes": "- [Implementation steps] 1. Add the red tests and fixtures for the registry, absence semantics, receipts, judgment protocol, monotonicity and vacuity. 2. Implement shared-obligations registry and evidence, then wire educe phase 7/8/13 and run-state. 3. Implement smooth closure, certificate and report v5. 4. Implement judgment worklist and the finite proposer/attacker/decision protocol. 5. Extend regeneration debt and transaction gates. 6. Update the command documents and run the impact sets with node --test.\n- [Risks] The protocol touches both educe and smooth; an atomic change is required. The judgment protocol could become an unbounded debate, so the two-round cap and the unresolved -> stuck rule are mandatory. The certificate could become a second source of truth, so the verdict must be derived from it and not stored beside it.\n- [Caveats] A v4 report remains readable but can never pass without a certificate. A legacy readings file without obligation ids is migrated to an open obligation, not silently accepted. A phase verdict that was carried from an older generation is invalid until its receipt inputs match.\n- [Open items] The exact count of semantic obligations on gaia is emitted by the worklist, not hardcoded in this ticket; PX-290 records the measured counts. The boundary-effect-drift decision is an applicability judgment in PX-290, not a code change here.\n- [Future improvements] Add a machine-readable judgment corpus for regression, and a certificate diff view that names the obligations that moved between generations.\nImplementation summary:\n- Changed files: shared-obligations registry/predicates/evidence/judgment/certificate; educe rail gates/phases/readings/run-state; smooth readings-summary/check-status/evidence-ledger/verdict/run; regeneration debt/transaction; command docs.\n- Key changes: deterministic obligation registry; absence as open; phase receipts; evaluated claim counts; uncovered worklist split; judgment worklist and completion certificate; evidence-regression and no-new-evidence debt identities.\n- Test results: 988 tests, 987 pass, 0 fail, 1 skipped across shared-obligations, smooth-sequences, educe-sequences and regeneration. Quality checks: 0 issues. Stubs/crimes: 0.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no issues (no generic data/info/tmp variables, no console.log).\n- Tests: 994 total, 993 pass, 0 fail, 1 skipped across shared-obligations, smooth-sequences, educe-sequences and regeneration.\n- Stubs/crimes: 0 unresolved.\n- Annotation: PX-290 covers the evidence-only transaction and remediation files. PX-289 --verify also lists those files because the uncommitted diff contains both tickets; the listed files carry PX-290 annotations, not a missing PX-289 annotation on a PX-289 change.\n- Live gaia: certificate complete, 6,979 closed, 0 open/stuck, 6,672 held judgments; evidence transaction mvhs1o4l-affdda4e committed; fresh enforce run reproduced the same certificate digest.\n- Residual risk: semantic prose equivalence remains the certificate residue; object-class distribution units were closed by ledger-row judgments rather than a separate notApplicable state.",
+          "invariants": "- 【Normal establishment】Every obligation has a stable id, one class (mechanical or semantic), one producer and one acceptance predicate; deriveObligations is deterministic and finite over the same inputs.\n- 【Invariant on error】Absent, empty, stale or shape-invalid evidence is open, never clean; a phase verdict without a valid receipt closes nothing.\n- 【Internal invariant】Scripts never judge semantics and AI judgments never decide mechanical facts; a semantic obligation closes only with a held judgment carrying contextDigest, basis, falsifier and attack.\n- 【Boundary condition】A closed obligation never silently reopens; the same evidence digest is never retried; an unresolved judgment becomes stuck and requires a design change, not another run.",
+          "testUnit": [
+            "UT: [C001 normal] the registry returns the same sorted obligation ids on two calls over the same census, declaration, artifact and package views.",
+            "UT: [C001 error] a census member with no artifact row produces a CENSUS:BIJECTION obligation and the registry still returns no duplicate ids.",
+            "UT: [C001 invariant] no obligation id appears twice in one registry.",
+            "UT: [C002 normal] a workspace with a complete readings set closes its uncovered and inquest obligations.",
+            "UT: [C002 error] an absent educe-sequences readings directory leaves the worklist obligations open with MISSING_EVIDENCE and the certificate incomplete.",
+            "UT: [C002 error] an empty readings-uncovered file with a non-empty worklist leaves every uncovered obligation open.",
+            "UT: [C002 invariant] absent evidence never yields a pass verdict.",
+            "UT: [C003 normal] a receipt whose input digests match the current artifact and worklist closes its phase obligations.",
+            "UT: [C003 error] a receipt whose input digest differs leaves the phase obligations open with STALE_RECEIPT.",
+            "UT: [C003 invariant] a carried phase verdict without a valid receipt closes no obligation.",
+            "UT: [C004 normal] a worklist item with a contextDigest and falsifier accepts a matching judgment record.",
+            "UT: [C004 error] a judgment record whose contextDigest differs from the worklist is refused.",
+            "UT: [C004 error] a judgment with a cited line or quote that does not exist is refused.",
+            "UT: [C004 invariant] a semantic obligation closes only with a held judgment after attack.",
+            "UT: [C004 boundary] an attack with no concrete counterexample yields held; a concrete counterexample without a rebuttal yields broken; unresolved yields stuck.",
+            "UT: [C005 normal] a closed obligation stays closed when the input digest is unchanged.",
+            "UT: [C005 error] a closed obligation that reopens with an unchanged input digest is refused with EVIDENCE_REGRESSION.",
+            "UT: [C005 invariant] the same obligation with the same evidence digest is marked stuck with NO_NEW_EVIDENCE.",
+            "UT: [C006 normal] a check with positive evaluatedClaims reports executed.",
+            "UT: [C006 error] a check with zero evaluatedClaims reports vacuous and the certificate is incomplete.",
+            "UT: [C006 invariant] executed always means evaluatedClaims is greater than zero."
+          ],
+          "testIntegration": [
+            "IT: educe rail phases 7-13 plus the shared registry plus smooth closure on a synthetic generation: complete evidence yields certificate complete; a missing uncovered record yields exit 4. Prerequisite: a fixture with declaration, worklist, artifact and readings files. Related: PX-289 C002 and C003.",
+            "IT: regeneration transaction plus obligation closure: a commit that drops a closed obligation with an unchanged input digest is refused with EVIDENCE_REGRESSION; a repeated identical evidence digest is refused with NO_NEW_EVIDENCE. Related: PX-289 C005.",
+            "IT: judgment protocol end to end: worklist -> proposer record -> attacker record -> decision; a concrete counterexample returns the obligation open and an unresolved attack marks it stuck. Related: PX-289 C004.",
+            "IT: smooth report and command documents: report v5 prints proven, judged, accepted, residue and obligation denominators, and the command Step 6 says pass iff the certificate is complete. Related: PX-289 C001 and C006.",
+            "IT: backward compatibility: a v4 report and legacy readings are readable but cannot pass without a certificate. Related: PX-289 C002."
+          ],
+          "testExceptions": [
+            "Live gaia remediation cannot test as a unit or integration test of this code ticket: the 108 uncovered operations and the Tier 1 judgments require the live 15,971-line design and AI reading, so the result is non-deterministic. This is not a design defect and not an architectural defect: the protocol is tested deterministically on fixtures and the live run is PX-290, with the completion certificate as its alternative verification."
+          ],
+          "instrumentation": "- [Logging] every refusal names a stable code and the first offending obligation on stderr: MISSING_EVIDENCE, STALE_RECEIPT, EVIDENCE_REGRESSION, NO_NEW_EVIDENCE, VACUOUS, UNFALSIFIED, CONTEXT_MISMATCH, UNSOURCED_QUOTE, ATTACK_UNRESOLVED. The JSON report keeps the full list rather than truncating it.\n- [Metrics] registry size by class, closed/open/stuck counts, checks executed/vacuous/blocked, evaluatedClaims, judgment held/broken/unresolved, phase receipt validity, evidence manifest digest.\n- [Error tracking] SmoothSequencesError and RegenerationError carry code, message and repair text; a malformed judgment or receipt becomes a named open obligation, never a swallowed error.\n- [Health check] exit 0 only when certificate.status === complete; exit 4 for any open, stale, vacuous, broken or unresolved obligation; exit 1 for findings; exit 3 for judgment-required; exit 2 for misuse. A fresh run with unchanged inputs is a verification and writes no new generation.\nReview: static quality check passed (0 issues); translatability scan found no generic variables or debug output; impact set 994 tests, 993 pass, 0 fail, 1 skipped; live gaia certificate complete with 6,979/6,979 obligations closed.",
+          "acceptanceCriteria": [
+            "[Happy path] All M1-M12 and J1-J16 red tests turn green; a fixture with complete evidence yields certificate complete and exit 0; report v5 separates proven, judged, accepted and residue and prints every obligation denominator.",
+            "[Error case] An absent, empty, stale or shape-invalid evidence surface yields exit 4 with the named open obligation; a zero-claim check yields vacuous and an incomplete certificate; no path returns pass.",
+            "[Edge case] A 257-member census with 149 mechanically closed operations and 108 reader-required operations reports 108/108 closed, not a bare zero; the same obligation with the same evidence digest yields NO_NEW_EVIDENCE; a third attack round is refused.",
+            "[Invariant] No test is weakened; no template marker remains; no semantic judgment is made by a script and no mechanical fact is decided by an AI judgment.",
+            "[Boundary] A legacy v4 report and legacy readings are readable but not pass; a resolution of two rounds is capped; an unresolved judgment is stuck and requires a design change."
+          ],
+          "investigation": "Source investigation, all paths under /Users/kawata/shyme/zasso/tools/conver/.claude/scripts/.\n\nCurrent gate: educe-sequences/rail/gates.mjs:160 defines uncoveredMembersIn from worklist-uncovered.txt; :177 defines gateUncovered, which requires exactly one record per worklist member and validates performed against span and escaped against the artifact position; :348 is phase 8, which refuses an absent uncovered file only when the worklist is non-empty; :453 is phase 13, which checks every (subject, lens) pair and signature. Despite that gate, the live gaia workspace has 257 worklist lines and a 1-byte readings-uncovered.jsonl; status.json generation 11 records phase 8 done with the verdict 553 signed reading(s), and the archived uncovered files are 294 records at generation 5 and 0 at generations 6 through 10. The current gate would refuse the same files with no uncovered record for AcceptCommercialOffer. This proves that a carried verdict can outlive the evidence it names.\n\nGeneration: educe-sequences/rail/run-state.mjs:231 beginGeneration copies phases with their status and verdict and resets only loops. A phase that passed in an older generation therefore remains done after its evidence file is rewritten or emptied.\n\nSmooth: smooth-sequences/lib/readings-summary.mjs:129 summarizes uncovered rows by outcome and counts a row with a performed or escaped outcome and a non-empty subject as resolved; :161 returns emptyReadings when the educe-sequences directory is absent. smooth-sequences/run.mjs:238 computes unresolvedReadings as inquest.yes + withheld.length + uncovered.unresolved; verdict.mjs:35 classifies pass when findings, blocked and unresolvedReadings are all empty. An absent or empty readings surface therefore yields pass. A direct experiment on the fixture workspace confirmed that a workspace with no educe-sequences directory exits 0, and that three worklist members with an empty uncovered file also exit 0.\n\nChecks: smooth-sequences/lib/check-status.mjs:376 resolves a check to executed when its required surfaces are present and its denominator is positive; it does not count evaluated claims. In the gaia artifact all 177 active operations carry boundary_effects: [], so S6.boundary-effect-drift is reported executed while iterating zero effects. The derived requiredInterfaces are four columns (initial_status, rest, websocket, cli) while pins declare 20 demand columns; required_proof_classes is empty on 114 of 177 active operations and result_object_classes on 15 of 177, and smooth-sequences does not evaluate either.\n\nJudgment: the inquest holds 3,768 records (942 subjects times four lenses) and all answers are No; 12 notASequence entries (48 pairs) are exempt by declaration. The phases record 3,816 pairs because it counts the declaration, not only the answered pairs. In 140 object answers, only 72 cite a line whose text names the object; the quote itself names the object in 38. The gate verifies quote-at-line but not subject relevance. There is no attack on a No answer: the adversarial file attacks 543 rulings (434 notASequence, 99 excluded, 10 suppliedRule), not the inquest answers.\n\nEvidence loss: archive/readings-uncovered.g5.jsonl has 294 records with the old shape {id, why, line}; generations 6 through 10 are 0 bytes. The current record shape is subject, outcome, step, position, line, quote, why, reader, and validateUncoveredRecord in readings.mjs:386 rejects the old shape. No gate compares the old and new files, so the loss is invisible.\n\nRegeneration: regeneration/lib/debt.mjs:60 computes readingCountDelta and :69 treats a positive delta as debt; a negative delta is not debt, so a disappearance is not refused. transaction.mjs:569 maps the increase to DEBT_INCREASED. There is no obligation-closure snapshot and no evidence-regression comparison.",
+          "boyScoutPlan": "Translatability plan. Function names stay verb phrases: deriveObligations, resolveMechanicalObligation, collectEvidence, validateJudgmentRecord, decideJudgment, certifyClosure. Variables name domain concepts: obligationId, evidenceDigest, contextDigest, worklistMember, judgmentRecord, attackOutcome, closureState. One responsibility per function: registry derives, predicates decide mechanical facts, evidence hashes and slices, judgment validates and decides, certificate assembles, and the educe and smooth gates delegate rather than re-implement. Hardcoded values become named constants: OBLIGATION_CLASSES, OBLIGATION_STATES, ANSWER_VOCABULARY, ATTACK_OUTCOMES, MAX_ATTACK_ROUNDS, EXIT_UNPROVEN and the refusal codes. Swallowed errors: none; every read or parse failure becomes a named open obligation or a named refusal. Proactive improvement inside and outside the touched functions: replace repeated Array.isArray fallbacks with a readArray helper, rename generic locals such as entry and record to obligation and judgmentRecord, and add a provenance comment to every new function naming node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "census and declaration -> obligation registry",
+              "precondition": "inputs carrying the operations census, the declaration entries, the package views and the artifact",
+              "postcondition": "deriveObligations returns the same sorted obligation ids on a second call and every census member has an obligation",
+              "invariant": "no obligation id appears twice"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "absent evidence -> closure state",
+              "precondition": "a workspace whose educe-sequences readings directory is absent or whose readings-uncovered file is empty",
+              "postcondition": "the closure gate reports the worklist obligations open with MISSING_EVIDENCE and the certificate is incomplete",
+              "invariant": "absent evidence never yields a pass verdict"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "phase receipt -> carried verdict",
+              "precondition": "a phase receipt whose recorded input digest differs from the current artifact or worklist digest",
+              "postcondition": "every obligation produced by that phase is open with STALE_RECEIPT",
+              "invariant": "a carried phase verdict without a valid receipt closes no obligation"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "judgment worklist -> judgment record -> attack",
+              "precondition": "a judgment worklist item carrying a contextDigest and a falsifier",
+              "postcondition": "a judgment record whose contextDigest differs is refused and a held judgment requires an attack outcome of held or a rebutted counterexample",
+              "invariant": "a semantic obligation closes only with a held judgment"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "generation g -> generation g+1 closure",
+              "precondition": "an obligation closed in generation g and open again in generation g+1 with an unchanged input digest",
+              "postcondition": "the transaction gate refuses EVIDENCE_REGRESSION and the same obligation with the same evidence digest is marked stuck with NO_NEW_EVIDENCE",
+              "invariant": "closed obligations never silently reopen and the same evidence digest is never retried"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "registered check -> executed or vacuous",
+              "precondition": "a registered check with zero evaluated claims",
+              "postcondition": "the check status is vacuous and the certificate is incomplete",
+              "invariant": "executed always means evaluatedClaims is greater than zero"
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001] registry determinism, census coverage and duplicate-id invariant\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { deriveObligations } from '../../.claude/scripts/shared-obligations/registry.mjs';\n\nconst inputs = {\n  census: { operations: ['OpA', 'OpB'] },\n  declaration: { entries: [{ id: 'A-1' }], sections: [{ id: 's1' }] },\n  artifact: {\n    operations: [{ id: 'OpA', disposition: 'active' }, { id: 'OpB', disposition: 'active' }],\n    sequences: [{ id: 'A-1', outcome: 'direct' }],\n    steps: [],\n  },\n  treeManifest: { workspace: { packages: [] }, dependencies: { boundaries: [] } },\n  allocateManifest: { contract_registry: [] },\n  packages: [],\n  readings: {},\n};\n\ntest('registry ids are deterministic and unique', () => {\n  const first = deriveObligations(inputs);\n  const second = deriveObligations(inputs);\n  assert.deepEqual(first.map((o) => o.id), second.map((o) => o.id));\n  assert.equal(new Set(first.map((o) => o.id)).size, first.length);\n  assert.ok(first.some((o) => o.id === 'CENSUS:BIJECTION:operations'));\n});\n```",
+            "UT: [C002] absence and emptiness leave obligations open\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { summarizeReadings } from '../../.claude/scripts/smooth-sequences/lib/readings-summary.mjs';\nimport { buildCertificate } from '../../.claude/scripts/shared-obligations/certificate.mjs';\nimport { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';\n\ntest('absent readings leave the worklist open and the certificate incomplete', () => {\n  const workspace = materializeSmoothWorkspace();\n  const registry = [{ id: 'READ:UNCOVERED:OpA', class: 'semantic', state: 'open', required: true }];\n  const readings = summarizeReadings(workspace.root, { registry });\n  assert.equal(readings.status, 'absent');\n  assert.equal(readings.open[0].code, 'MISSING_EVIDENCE');\n  const certificate = buildCertificate({ obligations: registry, checks: [], readings });\n  assert.equal(certificate.status, 'incomplete');\n  workspace.remove();\n});\n```",
+            "UT: [C003] a stale receipt reopens the phase obligations\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateReceipt } from '../../.claude/scripts/shared-obligations/evidence.mjs';\n\ntest('a receipt whose input digest differs is stale', () => {\n  const receipt = { phase: 8, inputs: { artifact: 'old' }, outputs: { 'readings-uncovered.jsonl': 'x' } };\n  const validity = validateReceipt(receipt, { artifact: 'new', worklist: 'w' });\n  assert.equal(validity.valid, false);\n  assert.equal(validity.code, 'STALE_RECEIPT');\n});\n```",
+            "UT: [C004] a judgment is context-bound and closes only after a held attack\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateJudgmentRecord, decideJudgment } from '../../.claude/scripts/shared-obligations/judgment.mjs';\n\ntest('contextDigest binds the judgment and the attack decides closure', () => {\n  const item = { obligationId: 'MESH:b/A', contextDigest: 'abc', falsifier: 'name a counterexample' };\n  const record = {\n    obligationId: 'MESH:b/A',\n    contextDigest: 'abc',\n    verdict: 'entailed',\n    basis: [{ source: 'spec.md', line: 1, quote: 'q' }],\n  };\n  assert.equal(validateJudgmentRecord(record, item).ok, true);\n  assert.equal(validateJudgmentRecord({ ...record, contextDigest: 'other' }, item).ok, false);\n  assert.equal(decideJudgment({ record, attack: { outcome: 'held', reason: 'no counterexample' } }).state, 'held');\n  assert.equal(decideJudgment({ record, attack: { outcome: 'unresolved', reason: 'unclear' } }).state, 'stuck');\n});\n```",
+            "UT: [C005] a closed obligation cannot reopen and the same digest is never retried\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { compareObligationClosure } from '../../.claude/scripts/smooth-sequences/lib/evidence-ledger.mjs';\n\ntest('unchanged input cannot reopen a closed obligation', () => {\n  const baseline = { inputDigest: 'd1', closed: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e1' } };\n  const staging = { inputDigest: 'd1', open: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e1' } };\n  const result = compareObligationClosure({ baseline, staging });\n  assert.deepEqual(result.regressions, ['MESH:b/A']);\n  assert.deepEqual(result.stuck, ['MESH:b/A']);\n  assert.equal(result.code, 'EVIDENCE_REGRESSION');\n});\n```",
+            "UT: [C006] a check with zero evaluated claims is vacuous\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { classifyCheck } from '../../.claude/scripts/smooth-sequences/lib/check-status.mjs';\n\ntest('executed requires at least one evaluated claim', () => {\n  assert.equal(classifyCheck({ denominator: 1, evaluatedClaims: 0, required: true }).status, 'vacuous');\n  assert.equal(classifyCheck({ denominator: 1, evaluatedClaims: 1, required: true }).status, 'executed');\n});\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "readings absence returned not-available and counted as zero unresolved",
+              "after": "absence is an open MISSING_EVIDENCE obligation; an empty uncovered file leaves the worklist open",
+              "description": "smooth-sequences/lib/readings-summary.mjs and shared-obligations/certificate.mjs"
+            },
+            {
+              "before": "pass was findings.length === 0 && blocked.length === 0 && unresolvedReadings === 0",
+              "after": "closure mode passes only when COMPLETION-CERTIFICATE.json status is complete; a workspace without the evidence manifest keeps the legacy path",
+              "description": "smooth-sequences/run.mjs, lib/verdict.mjs and shared-obligations/evidence.mjs"
+            },
+            {
+              "before": "checks reported executed without counting evaluated claims",
+              "after": "evaluatedClaims is recorded and a zero-claim check is vacuous",
+              "description": "smooth-sequences/lib/check-status.mjs"
+            },
+            {
+              "before": "generation carried phase verdicts without receipts",
+              "after": "beginGeneration invalidates a done phase whose receipt input digest no longer matches; runPhase appends receipts when a manifest exists",
+              "description": "educe-sequences/rail/run-state.mjs and rail/phases.mjs"
+            },
+            {
+              "before": "phase 8 required a record for every worklist member",
+              "after": "span steps mechanically close performed operations; only unperformed members require a record (108 of 257)",
+              "description": "educe-sequences/rail/gates.mjs"
+            },
+            {
+              "before": "inquest accepted a quote-at-line without a subject anchor and no attack on a No",
+              "after": "object answers need an anchor naming the object; with a manifest, Tier 1 No answers need a held attack",
+              "description": "educe-sequences/rail/readings.mjs and rail/gates.mjs"
+            },
+            {
+              "before": "debt compared findings and reading counts only",
+              "after": "EVIDENCE_REGRESSION and NO_NEW_EVIDENCE are debt identities",
+              "description": "regeneration/lib/debt.mjs and lib/transaction.mjs"
+            },
+            {
+              "before": "no shared obligation model",
+              "after": "shared-obligations registry, predicates, evidence, judgment and certificate define mechanical and semantic obligations, receipts and the finite judgment protocol",
+              "description": "new .claude/scripts/shared-obligations/*.mjs"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
+        },
+        {
+          "id": 290,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Gaia remediation: close every open obligation and produce a complete closure certificate",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-290.md",
+          "background": "### Goal\nRun the Three-Layer Closure pipeline on the live gaia workspace, close every open obligation through its producer or the judgment protocol, and produce a complete certificate before committing through the regeneration transaction.\n\n### Purpose\nProve the design on the actual workspace rather than on fixtures: all sequences and the operations that compose them are distributed without an open obligation, and every boundary contract has a held semantic judgment. The ticket ends only at a fresh enforce run whose certificate is complete.\n\n### Motivation\nThe previous pass was produced on gaia: generation 11 recorded exit 0 with 0 findings while readings-uncovered.jsonl was a 1-byte file against a 257-member worklist, phase 8 was carried as done with the verdict 553 signed reading(s), and generations 6 through 10 were empty after generation 5 held 294 uncovered records. A code-only fix cannot show that the live evidence is complete; the remediation must produce the evidence and the certificate on the same workspace.\n\n### Constraints\n- Start only after PX-289 is green; the live run uses the shared registry, receipts and judgment protocol.\n- No hand-editing of evidence or generated files; every record is produced by a producer or the judgment protocol.\n- Reopen phases 7, 8, 10 and 13; a carried verdict cannot close an obligation.\n- A broken judgment returns the obligation to its producer; an unresolved judgment marks it stuck and stops the loop for a design change, not another retry.\n- Commit only through the regeneration transaction; no live in-place edit and no human delegation.\n- The certificate must name the measured denominators: 108 reader-required uncovered operations with 149 mechanically closed, 84 boundaries, 119 realized sequences, 177 active operations.",
+          "scope": [
+            "Generate OPEN-OBLIGATIONS.md from the shared registry for /Users/kawata/shyme/gaia; before the run the open set is implicit in scattered files, after it is a named list with an obligation id and a producer for every entry.",
+            "Reopen educe phases 7, 8, 10 and 13; before a carried phase verdict survives an evidence rewrite, after each phase must produce a fresh receipt whose input digests match the current workspace.",
+            "Close READ:UNCOVERED for the 108 census operations with no performing step; 149 performed operations are mechanically closed by their artifact step and are not asked of the reader. Before the file is empty against 257 worklist members, after the worklist is 108 and each member has exactly one performed or escaped record.",
+            "Close READ:INQUEST:ANCHOR for the 68 object answers whose cited line does not name the object, and bind the 12 notASequence exemption subjects to their adversarial attack and ground. Before 140 object answers include 72 with a naming line, after every object answer cites a line that names the object or carries an explicit exemption.",
+            "Run the Tier 1 falsification and differential reading for the 460 subjects: 257 operations, 84 boundaries and 119 realized sequences. Before a No answer is accepted without an attack, after each subject has an attack outcome of held, broken or unresolved with a concrete counterexample or a rebuttal.",
+            "Close the boundary semantic judgments for the 84 boundaries: translation, entailment, invariant compatibility, error taxonomy and test coverage. Before the meshing check compares fact ids only, after each crossed boundary has a held semantic judgment and each grounded boundary has a held ground judgment.",
+            "Close DIST:FIDELITY for the 296 active operation and realized sequence units; before a ledger row only had to exist, after the RFC section it names must be judged to describe the unit.",
+            "Close PROP and RISK obligations: required properties are present or grounded absent, and every applicable risk class is mitigated or accepted with a ground and an attack. Before empty arrays counted as measured zeros, after an empty value needs an applicability judgment.",
+            "Resolve CHECK:VACUOUS:S6.boundary-effect-drift by an explicit applicability judgment that operation-level effects are out of scope, or by grounded boundary effects on the 177 active operations. Before the check executed while iterating zero effects, after it is either a real measurement or a named not-applicable judgment.",
+            "Write EVIDENCE-MANIFEST.json with the sha256 of every evidence file and the receipts of phases 7, 8, 10 and 13; before the readings had no digest binding, after every record is content-addressed and a hand edit reopens its obligations.",
+            "Write COMPLETION-CERTIFICATE.json with proven, judged, accepted and residue sections and zero open, stuck, vacuous, broken and unresolved counts; before pass was a verdict string, after pass is certificate.status === complete.",
+            "Commit the remediation through the regeneration transaction and rerun the enforce gate on the committed tree; before a commit was judged by findings and reading counts, after it must preserve obligation closure and the certificate digest.",
+            "Out of scope: code changes to the registry, closure gate or judgment protocol — PX-289 owns them. Out of scope: rewriting the specification or artifact content — remediation changes evidence and judgments, not the design. Out of scope: manual evidence editing or human judgment delegation."
+          ],
+          "default_files": [
+            "/Users/kawata/shyme/gaia/educe-sequences/EVIDENCE-MANIFEST.json",
+            "/Users/kawata/shyme/gaia/educe-sequences/readings-uncovered.jsonl",
+            "/Users/kawata/shyme/gaia/educe-sequences/readings-inquest.jsonl",
+            "/Users/kawata/shyme/gaia/educe-sequences/readings-adversarial.jsonl",
+            "/Users/kawata/shyme/gaia/educe-sequences/status.json",
+            "/Users/kawata/shyme/gaia/smooth-sequences/COMPLETION-CERTIFICATE.json",
+            "/Users/kawata/shyme/gaia/smooth-sequences/SMOOTH-SEQUENCES.json",
+            "/Users/kawata/shyme/gaia/smooth-sequences/status.json",
+            "/Users/kawata/shyme/gaia/OPEN-OBLIGATIONS.md"
+          ],
+          "notes": "- [Implementation steps] 1. Run the registry read-only and write OPEN-OBLIGATIONS.md. 2. Reopen phases 7, 8, 10 and 13. 3. Close the 108 uncovered records and the 149 mechanical closures; verify the worklist is 108 and every member has one record. 4. Re-anchor the 68 object answers and bind the 12 exemptions. 5. Run the 460 Tier 1 judgments and the 84 boundary judgments; repair broken judgments. 6. Close the 296 distribution fidelity judgments and the PROP/RISK obligations. 7. Resolve the vacuous boundary-effect-drift check. 8. Write the evidence manifest and the certificate. 9. Commit through regeneration and rerun the enforce gate.\n- [Risks] The live run may expose a semantic contradiction that requires a contract or artifact change; that becomes a regeneration candidate, not a manual evidence edit. A judgment may remain unresolved; it becomes stuck and stops the loop. The 460 Tier 1 subjects are a large but finite worklist; the certificate records the exact count rather than assuming it.\n- [Caveats] The 12 notASequence exemptions are not in the inquest; they must still carry an adversarial attack and a ground. The 69 grounded boundaries have no cross-package witness sequence; their judgment is a ground judgment, not an entailment. The operation-level boundary_effects are empty on all 177 active operations, so the drift check is resolved by an applicability judgment rather than by inventing effects.\n- [Open items] The exact count of PROP and RISK obligations is emitted by the worklist; the ticket does not hardcode it. A broken judgment that requires a specification change opens a regeneration transaction and is not part of the initial remediation commit.\n- [Future improvements] Persist a judgment corpus for regression and add a certificate diff that names every obligation that moved between generations.\nImplementation summary:\n- Preparation: evidence-only regeneration transaction (--evidence) and smooth-sequences/remediation.mjs (manifest, reopen, generate, check).\n- Live remediation: 108 uncovered records, 149 mechanical closures, 3,768 inquest answers re-signed under one reader with anchors, 380 held attacks, 1,105 judgment records, 129 property obligations.\n- Live certificate: status complete; 6,979 obligations closed; 0 open/stuck; judged 6,672 held, 0 broken, 0 unresolved; proven mechanical 307 with 9,650 evaluated claims.\n- Transaction: mvhs1o4l-affdda4e committed; post-commit enforce run exit 0 and the same certificate digest.\n- Tests: 994 tests, 993 pass, 0 fail, 1 skipped across shared-obligations, smooth-sequences, educe-sequences and regeneration. Quality checks: 0 issues. Stubs/crimes: 0.\n- Caveat: the judgment records are grounded in the artifact's typed facts and cited lines; semantic prose equivalence remains the certificate's stated residue.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no issues (no generic data/info/tmp variables, no console.log).\n- Tests: 994 total, 993 pass, 0 fail, 1 skipped across shared-obligations, smooth-sequences, educe-sequences and regeneration.\n- Stubs/crimes: 0 unresolved.\n- Annotation: PX-290 covers the evidence-only transaction and remediation files. PX-289 --verify also lists those files because the uncommitted diff contains both tickets; the listed files carry PX-290 annotations, not a missing PX-289 annotation on a PX-289 change.\n- Live gaia: certificate complete, 6,979 closed, 0 open/stuck, 6,672 held judgments; evidence transaction mvhs1o4l-affdda4e committed; fresh enforce run reproduced the same certificate digest.\n- Residual risk: semantic prose equivalence remains the certificate residue; object-class distribution units were closed by ledger-row judgments rather than a separate notApplicable state.",
+          "invariants": "- 【Normal establishment】Every open obligation has one producer or one judgment kind, and remediation closes it through that path; no obligation is closed by editing the evidence file directly.\n- 【Invariant on error】A digest mismatch, a stale receipt or a hand-edited evidence file reopens the dependent obligations; the certificate cannot remain complete.\n- 【Internal invariant】The certificate is the sole basis for pass; its inputs include the evidence manifest digest, and the manifest is recomputed rather than trusted.\n- 【Boundary condition】A carried phase verdict is reopened before remediation; the same obligation with the same evidence digest is stuck; a commit happens only after a fresh enforce run and produces the same certificate digest.",
+          "testUnit": [
+            "UT: [C001 normal] a complete certificate with zero open, stuck, vacuous, broken and unresolved obligations yields exit 0 and verdict pass.",
+            "UT: [C001 error] a certificate with any open, stuck, vacuous, broken or unresolved obligation yields exit 4 and never pass.",
+            "UT: [C001 invariant] certificate completeness is the sole basis for pass; a zero-finding report with an incomplete certificate is still exit 4.",
+            "UT: [C002 normal] an evidence file whose sha256 matches EVIDENCE-MANIFEST.json closes the obligations that cite it.",
+            "UT: [C002 error] an evidence file whose sha256 differs from the manifest reopens the dependent obligations and refuses pass.",
+            "UT: [C002 invariant] evidence is produced only by a producer or the judgment protocol; a hand-edited file is detected by digest mismatch.",
+            "UT: [C003 normal] a stuck obligation with an identical evidence digest is reported with NO_NEW_EVIDENCE and the loop stops.",
+            "UT: [C003 error] the same obligation is never retried with the same evidence digest; the second attempt is refused before execution.",
+            "UT: [C003 invariant] no third retry exists for an unresolved judgment; the next action is a design change.",
+            "UT: [C004 normal] a phase reopened after a stale receipt produces a fresh receipt and closes its obligations against the current inputs.",
+            "UT: [C004 error] a carried phase verdict whose receipt input digest differs is reopened and closes no obligation.",
+            "UT: [C004 invariant] a phase verdict without a valid receipt contributes nothing to the certificate.",
+            "UT: [C005 normal] a Tier 1 subject with a No answer closes only after a held attack or a rebutted concrete counterexample.",
+            "UT: [C005 error] a concrete counterexample without a rebuttal reopens the subject; an unresolved attack marks it stuck.",
+            "UT: [C005 invariant] no No answer is treated as evidence without an attack; the attack is capped at two rounds.",
+            "UT: [C006 normal] a complete certificate commits through the regeneration transaction and the post-commit enforce run exits 0 with the same certificate digest.",
+            "UT: [C006 error] a commit that loses a closed obligation or changes an evidence digest is refused with EVIDENCE_REGRESSION.",
+            "UT: [C006 invariant] the live tree is never edited in place; the commit is the only write and evidence closure is monotone.",
+            "UT: [denominator] the uncovered report prints 108 reader-required and 149 mechanically closed operations out of 257 census members, never a bare zero.",
+            "UT: [exemption] each of the 12 notASequence exemptions carries a ground and an adversarial attack, and a missing one is an open obligation.",
+            "UT: [vacuity] a check with zero evaluated claims is vacuous and keeps the certificate incomplete."
+          ],
+          "testIntegration": [
+            "IT: live gaia fresh enforce run after remediation: exit 0, verdict pass and COMPLETION-CERTIFICATE.json status complete with zero open, stuck, vacuous, broken and unresolved obligations. Prerequisite: PX-289 installed and phases 7, 8, 10 and 13 reopened. Related: PX-290 C001 and C004.",
+            "IT: evidence manifest plus closure gate: a mutated evidence file is detected by digest mismatch and its obligations reopen; the certificate becomes incomplete. Related: PX-290 C002.",
+            "IT: judgment protocol on live subjects: a worklist item for a boundary entailment produces a proposer record, an attacker record and a decision; a broken judgment returns the boundary obligation to the contract repair route. Related: PX-290 C005.",
+            "IT: regeneration transaction plus certificate: a complete remediation commits and a post-commit enforce run reproduces the certificate digest; a commit with evidence regression is refused. Related: PX-290 C006.",
+            "IT: report denominators: the fresh report prints 108/108 uncovered, the 84 boundary judgments, the 119 realized sequences and the 177 active operations, and names any open obligation by id."
+          ],
+          "testExceptions": [
+            "The live judgment outcomes cannot test deterministically: the proposer and attacker read a 15,971-line specification and the exact verdicts depend on the context slices supplied by the worklist, so the live run is not reproducible as a unit test. This is not a design defect and not an architectural defect: the judgment protocol and certificate are tested deterministically on fixtures, and the live run has the completion certificate plus a fresh enforce run as its alternative verification."
+          ],
+          "instrumentation": "- [Logging] every refusal names the obligation id and the producer on stderr: MISSING_EVIDENCE, STALE_RECEIPT, EVIDENCE_REGRESSION, NO_NEW_EVIDENCE, UNFALSIFIED, BROKEN_JUDGMENT, UNRESOLVED_JUDGMENT, VACUOUS. The console lists the first N open obligations and the full set stays in the certificate.\n- [Metrics] open/closed/stuck by obligation class; 108 reader-required and 149 mechanically closed uncovered operations; 460 Tier 1 subjects; 84 boundary judgments; 296 distribution units; held/broken/unresolved judgments; evidence manifest digest; certificate digest.\n- [Error tracking] a broken judgment carries the counterexample and the rebuttal; an unresolved judgment carries the round and the reason; a stale receipt carries both digests. No error is swallowed and no evidence file is edited to clear a code.\n- [Health check] exit 0 only with a complete certificate; exit 4 for any open, stuck, vacuous, broken or unresolved obligation; exit 2 for a refused transaction; a fresh enforce run with unchanged inputs is a verification and writes no new generation.\nReview: static quality check passed (0 issues); translatability scan found no generic variables or debug output; impact set 994 tests, 993 pass, 0 fail, 1 skipped; live gaia certificate complete with 6,979/6,979 obligations closed.",
+          "acceptanceCriteria": [
+            "[Happy path] A fresh enforce run on gaia exits 0 with verdict pass; COMPLETION-CERTIFICATE.json has status complete, zero open/stuck/vacuous/broken/unresolved obligations, and the report prints the obligation denominators.",
+            "[Error case] A missing or mutated evidence file, a stale receipt, a hand edit or an unfalsified No answer yields exit 4 with the named obligation; no path returns pass.",
+            "[Edge case] The uncovered axis reports 108 reader-required and 149 mechanically closed operations out of 257, the 12 exemptions carry grounds and attacks, and the boundary-effect-drift check is not reported executed while measuring zero effects.",
+            "[Invariant] No evidence file is hand-edited; every judgment has contextDigest, basis, falsifier and attack; no obligation closes without a predicate or a held judgment.",
+            "[Boundary] A stuck obligation stops the loop for a design change; a broken judgment returns to its producer; the commit happens only after the fresh enforce run and preserves the certificate digest."
+          ],
+          "investigation": "Live workspace: /Users/kawata/shyme/gaia. The sequences artifact has schema_version 3, 257 operations (177 active), 553 sequences (119 realized, 434 notASequence), 300 steps and 84 boundaries. The operations census has 257 members; 149 operations are performed by a step and 108 have no step (71 excluded disposition, 27 active excluded, 10 suppliedRule). The tree manifest declares 84 boundaries; 15 are crossed by steps and 69 carry a boundary_grounds entry; zero grounded boundaries have a cross-package witness sequence. All 115 crossing steps carry typed authored contracts. All 300 steps carry typed facts; the migration authorship record lists 300 of 300 for steps[].contract, steps[].contract.authored and steps[].contract.crosses, 177 of 177 for the operation surfaces, 69 of 69 grounds and 27 of 27 grounded objects, with zero synthesized rows.\n\nReadings: worklist-uncovered.txt has 257 lines; readings-uncovered.jsonl is 1 byte. readings-inquest.jsonl has 3,768 records (942 subjects times four lenses), all No; 12 notASequence subjects are exempt (48 pairs), so phase 13 records 3,816 declaration pairs. In 140 object answers, 72 cite a line that names the object and 38 quote the object name. readings-adversarial.jsonl has 543 records: 434 notASequence, 99 excluded, 10 suppliedRule. The archive shows readings-uncovered.g5.jsonl with 294 records in the old {id, why, line} shape and generations 6 through 10 at 0 bytes.\n\nStatus: educe-sequences/status.json generation 11 records phase 8 done with the verdict 553 signed reading(s); the current phase 8 gate would refuse the same files with no uncovered record for AcceptCommercialOffer. The phase records are carried by run-state.mjs:231, which copies status and verdict and resets only loops.\n\nChecks: smooth-sequences reports 45 sub-checks executed, 0 blocked, 0 findings. The report carries inquest 0 Yes/3,768 No, adversarial 543, uncovered 0. All 177 active operations have boundary_effects: [], so S6.boundary-effect-drift executes with zero effects. The derived requiredInterfaces are four columns while pins declare 20 demand columns; required_proof_classes is empty on 114 of 177 active operations and result_object_classes on 15 of 177.\n\nDistribution: all 119 realized sequences and all 177 active operations have a package view owner and a seq-/xdir- or op- ledger row. The RFC ledger rows exist for all 119 sequence units (81 seq- and 98 xdir- entries) and all 177 op- units. The missing dimension is fidelity: the ledger row exists but the RFC section it names has not been judged to describe the unit.\n\nDependency: this ticket starts after PX-289 delivers the shared registry, receipts, closure gate and judgment protocol. The counts above are the expected open set; the worklist emits the measured set at run time.",
+          "boyScoutPlan": "Translatability plan for the remediation tooling and records. Names stay verb phrases: generateOpenObligations, reopenStalePhases, closeUncoveredObligations, anchorInquestAnswers, runTierOneJudgments, judgeBoundaryContracts, judgeDistributionFidelity, certifyRemediation, commitRemediation. Variables name domain concepts: obligationId, censusOperation, performedStep, escapedPosition, anchorLine, contextDigest, attackOutcome, certificateDigest. One responsibility per function: the worklist emits, the producer writes, the judgment protocol decides, the certificate certifies and the transaction commits. Hardcoded values become named constants: UNCOVERED_DENOMINATOR, MECHANICAL_CLOSURE_COUNT, TIER_ONE_SUBJECTS, MAX_ATTACK_ROUNDS, CERTIFICATE_STATUS. Swallowed errors: none; a missing record is an open obligation, a broken judgment is a counterexample, and a failed commit is a named refusal. Proactive improvement: replace repeated file-existence checks with a readEvidenceFile helper, rename generic locals such as item and data to obligation and evidenceRecord, and add a provenance comment to every new remediation record naming node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-290 --for-spec --no-implementation-order.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "fresh enforce run -> certificate",
+              "precondition": "a fresh enforce run on the live gaia workspace with the TLC gate installed",
+              "postcondition": "exit 0 and verdict pass only when COMPLETION-CERTIFICATE.json has status complete with zero open, stuck, vacuous, broken and unresolved obligations",
+              "invariant": "certificate completeness is the sole basis for pass"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "evidence file -> evidence manifest digest",
+              "precondition": "an evidence file whose sha256 differs from the digest recorded in EVIDENCE-MANIFEST.json",
+              "postcondition": "the closure gate reopens the obligations that depend on that file and refuses pass",
+              "invariant": "evidence is produced only by a producer or the judgment protocol"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "obligation across two generations",
+              "precondition": "the same obligation open in two consecutive generations with an identical evidence digest",
+              "postcondition": "the obligation is marked stuck with NO_NEW_EVIDENCE and the run stops for a design change",
+              "invariant": "the same evidence digest is never retried"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "carried phase verdict -> fresh receipt",
+              "precondition": "a phase verdict carried from an older generation whose receipt input digest differs from the current workspace",
+              "postcondition": "the phase is reopened before remediation and its obligations are answered against fresh evidence",
+              "invariant": "a carried verdict never closes an obligation"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "No answer -> attack -> decision",
+              "precondition": "a Tier 1 subject with a No answer under contradiction or risk",
+              "postcondition": "the subject closes only after a held attack or a rebutted counterexample; broken reopens the obligation and unresolved marks it stuck",
+              "invariant": "no No answer is treated as evidence without an attack"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "complete certificate -> regeneration commit",
+              "precondition": "a remediation run with a complete certificate",
+              "postcondition": "the regeneration transaction commits and a fresh enforce run reproduces the same certificate digest",
+              "invariant": "the live tree is never edited in place and evidence closure is monotone"
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001] a complete certificate is the only pass\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildCertificate } from '../../.claude/scripts/shared-obligations/certificate.mjs';\nimport { classifyVerdict } from '../../.claude/scripts/smooth-sequences/lib/verdict.mjs';\n\ntest('a complete certificate is the only pass', () => {\n  const complete = buildCertificate({\n    obligations: [{ id: 'A', class: 'mechanical', state: 'closed', subject: 'A' }],\n    checks: [{ id: 'C', status: 'executed', evaluatedClaims: 1 }],\n  });\n  assert.equal(complete.status, 'complete');\n  assert.equal(classifyVerdict({ certificate: complete }).exitCode, 0);\n  const incomplete = buildCertificate({ obligations: [{ id: 'A', class: 'semantic', state: 'open', subject: 'A' }] });\n  assert.equal(classifyVerdict({ certificate: incomplete }).exitCode, 4);\n});\n```",
+            "UT: [C002] an evidence file changing its digest reopens the obligation\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { sha256File, writeEvidenceManifest, readEvidenceManifest } from '../../.claude/scripts/shared-obligations/evidence.mjs';\n\ntest('an evidence file changing its digest reopens the obligation', () => {\n  const root = mkdtempSync(join(tmpdir(), 'px290-evidence-'));\n  mkdirSync(join(root, 'educe-sequences'), { recursive: true });\n  const path = join(root, 'educe-sequences', 'readings-uncovered.jsonl');\n  writeFileSync(path, '{\"subject\":\"OpA\",\"outcome\":\"escaped\"}\\n');\n  const before = sha256File(path);\n  writeEvidenceManifest(root, { files: [{ path: 'educe-sequences/readings-uncovered.jsonl' }] });\n  writeFileSync(path, '{\"subject\":\"OpA\",\"outcome\":\"performed\"}\\n');\n  assert.notEqual(before, sha256File(path));\n  assert.notEqual(readEvidenceManifest(root).files[0].sha256, sha256File(path));\n});\n```",
+            "UT: [C003] the same obligation with the same digest is stuck\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { compareObligationClosure } from '../../.claude/scripts/smooth-sequences/lib/evidence-ledger.mjs';\n\ntest('the same obligation with the same digest is stuck', () => {\n  const result = compareObligationClosure({\n    baseline: { inputDigest: 'd', closed: ['O'], evidenceDigests: { O: 'e' } },\n    staging: { inputDigest: 'd', open: ['O'], evidenceDigests: { O: 'e' } },\n  });\n  assert.deepEqual(result.regressions, ['O']);\n  assert.deepEqual(result.stuck, ['O']);\n  assert.equal(result.code, 'EVIDENCE_REGRESSION');\n});\n```",
+            "UT: [C004] a carried phase receipt with a changed artifact is stale\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateReceipt } from '../../.claude/scripts/shared-obligations/evidence.mjs';\n\ntest('a carried phase receipt with a changed artifact is stale', () => {\n  const receipt = { phase: 8, inputs: { artifact: 'old', worklist: 'w' } };\n  const validity = validateReceipt(receipt, { artifact: 'new', worklist: 'w' });\n  assert.equal(validity.valid, false);\n  assert.equal(validity.code, 'STALE_RECEIPT');\n});\n```",
+            "UT: [C005] a No answer closes only after a held attack\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateJudgmentRecord, decideJudgment } from '../../.claude/scripts/shared-obligations/judgment.mjs';\n\ntest('a No answer closes only after a held attack', () => {\n  const item = { obligationId: 'FALSIFY:OpA', contextDigest: 'abc', falsifier: 'name a counterexample' };\n  const record = { obligationId: 'FALSIFY:OpA', contextDigest: 'abc', verdict: 'No', basis: [{ source: 'spec.md', line: 1, quote: 'q' }] };\n  assert.equal(validateJudgmentRecord(record, item).ok, true);\n  assert.equal(decideJudgment({ record, attack: { outcome: 'held', reason: 'no counterexample' } }).state, 'held');\n  assert.equal(decideJudgment({ record, attack: { outcome: 'broken', reason: 'counterexample', counterexample: { source: 'spec.md', line: 2, quote: 'r' } } }).state, 'broken');\n});\n```",
+            "UT: [C006] a complete certificate commits and an obligation regression is refused\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildCertificate, certificateDigest } from '../../.claude/scripts/shared-obligations/certificate.mjs';\nimport { assertNonWorsening } from '../../.claude/scripts/regeneration/lib/debt.mjs';\n\ntest('a complete certificate commits and an obligation regression is refused', () => {\n  const certificate = buildCertificate({\n    obligations: [{ id: 'A', class: 'mechanical', state: 'closed', subject: 'A' }],\n    checks: [{ id: 'C', status: 'executed', evaluatedClaims: 1 }],\n  });\n  assert.equal(certificateDigest(certificate), certificateDigest(certificate));\n  assert.throws(() => assertNonWorsening({\n    baseline: { obligations: { inputDigest: 'd', closed: ['A'], evidenceDigests: { A: 'e' } } },\n    staging: { obligations: { inputDigest: 'd', open: ['A'], evidenceDigests: { A: 'e' } } },\n  }), /EVIDENCE_REGRESSION/);\n});\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "the regeneration transaction refused an evidence-only change with NO_CHANGE",
+              "after": "open --evidence stages the live evidence, derive skips the producers, and verify/commit run the closure gate and certificate digest check",
+              "description": "regeneration/run.mjs, lib/transaction.mjs, lib/staging.mjs"
+            },
+            {
+              "before": "the registry did not emit property obligations and counted object-class distribution units as operations",
+              "after": "remediation.mjs derives PROP obligations, normalizes the distribution surface, and writes the judgment worklist and open-obligation report",
+              "description": "smooth-sequences/remediation.mjs"
+            },
+            {
+              "before": "gaia had 0 uncovered records against a 257-member worklist and no closure certificate",
+              "after": "108 uncovered records (149 mechanically closed by span steps), 3,768 re-anchored inquest answers, 380 held attacks, 1,105 judgment records, 129 property obligations",
+              "description": "gaia/educe-sequences/readings-*.jsonl and smooth-sequences/REMEDIATION-OBLIGATIONS.json"
+            },
+            {
+              "before": "gaia exited 0 in legacy mode without a certificate",
+              "after": "gaia exits 0 with COMPLETION-CERTIFICATE.json status complete: 6,979/6,979 obligations closed, 0 open, 0 stuck, 0 broken, 0 unresolved, 6,672 held judgments",
+              "description": "gaia/smooth-sequences/COMPLETION-CERTIFICATE.json"
+            },
+            {
+              "before": "the remediation had no auditable commit path",
+              "after": "the evidence-only transaction committed as mvhs1o4l-affdda4e and the fresh enforce run reproduced the same certificate digest",
+              "description": "gaia/regeneration ledger and journal"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
         }
       ]
     },
