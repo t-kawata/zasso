@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
  * A smooth-sequences workspace assembled from fixtures.
  *
@@ -34,6 +35,8 @@ const OPERATION_DEFAULTS = Object.freeze({
   idempotency_scope: 'operation identity tuple',
   initial_status: 'open',
   allowed_status_transitions: { open: ['accepted'], accepted: ['closed'], closed: [] },
+  registry_contribution: 'required',
+  boundary_effects: [],
   external_dependency_class: 'none',
   result_object_classes: [],
   finality_predicate: 'closed when the accepted transition completes',
@@ -196,7 +199,7 @@ export function minimalV2Artifact() {
     quote: step.quote,
     contract: step.contract.post[0]?.text ?? step.contract.pre[0]?.text ?? 'the step contract',
   }));
-  artifact.operations = artifact.operations.map(({ registry_contribution, ...operation }) => operation);
+  artifact.operations = artifact.operations.map(({ registry_contribution, boundary_effects, ...operation }) => operation);
   return artifact;
 }
 

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
@@ -11,6 +12,7 @@ import {
   defaultAllocateManifest,
   defectiveWorkspace,
   materializeSmoothWorkspace,
+  minimalV2Artifact,
   minimalV3Artifact,
 } from './helpers/workspace-fixture.mjs';
 
@@ -127,7 +129,40 @@ test('exit 1 prints the route block and a next line on stdout', () => {
     assert.match(text, /^smooth-sequences: \d+ finding\(s\) in \d+ repair route\(s\)/m);
     assert.match(text, /^route: .+ \| rerun: .+$/m);
     assert.match(text, /S1\.step-unresolved-operation .+ \| why: .+ \| fix: /);
-    assert.match(output.stdout.at(-1), /^next: fix every finding above, then rerun this command\./);
+    assert.match(output.stdout.at(-1), /^next: fix every finding above; blocked surfaces must also be restored\./);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('unresolved inquest readings make a clean run unproven', () => {
+  const workspace = materializeSmoothWorkspace({
+    readings: { inquest: [{ subject: 'A-1', lens: 'omission', answer: 'Yes' }] },
+  });
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root], output.io);
+    assert.equal(result.report.readings.inquest.yes, 1);
+    assert.equal(result.report.verdict, 'unproven');
+    assert.equal(result.exitCode, 4);
+    assert.match(output.stdout.at(-1), /verdict: unproven; exit: 4/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C004
+test('--advisory-readings keeps the same run pass and prints the policy', () => {
+  const workspace = materializeSmoothWorkspace({
+    readings: { inquest: [{ subject: 'A-1', lens: 'omission', answer: 'Yes' }] },
+  });
+  const output = capture();
+  try {
+    const result = runCommand([workspace.root, '--advisory-readings'], output.io);
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.report.verdict, 'pass');
+    assert.match(output.stdout.join('\n'), /advisory; not blocking/);
   } finally {
     workspace.remove();
   }
@@ -148,17 +183,22 @@ test('a clean run prints next: none and no finding line', () => {
 });
 
 // @verifies C004
-test('a clean v2 run names the withheld surface and says not proved', () => {
-  const artifact = { ...minimalV3Artifact(), schema_version: 2 };
-  const workspace = materializeSmoothWorkspace({ artifact });
+test('a v2 run is unproven and lists the blocked surfaces', () => {
+  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   const output = capture();
   try {
     const result = runCommand([workspace.root], output.io);
     const text = output.stdout.join('\n');
-    assert.equal(result.exitCode, 0);
-    assert.match(text, /withheld: B \(v3 step contract absent\), S4:S4\.contribution \(v2 artifact carries no registry_contribution\) — not proved/);
-    assert.match(output.stdout.at(-1), /^next: none\. verdict: pass with 2 unproven surfaces\./);
-    assert.doesNotMatch(text, /verdict: proved/);
+    assert.equal(result.exitCode, 4);
+    assert.equal(result.report.verdict, 'unproven');
+    assert.ok(result.report.blocked.length > 0);
+    const blockedIds = new Set(result.report.blocked.map((entry) => entry.checkId));
+    assert.equal([...blockedIds].filter((id) => id.startsWith('S5.')).length, 8);
+    assert.equal([...blockedIds].filter((id) => id.startsWith('S4.contribution')).length, 3);
+    assert.equal(blockedIds.has('S6.boundary-effect-drift'), true);
+    assert.match(text, /blocked: \d+ check\(s\) in \d+ surfaces?/);
+    assert.match(output.stdout.at(-1), /^next: restore every blocked surface or record a waiver with a ground\. verdict: unproven; exit: 4\./);
+    assert.doesNotMatch(text, /verdict: pass/);
   } finally {
     workspace.remove();
   }
@@ -171,6 +211,81 @@ test('exit 2 prints the misuse repair and a next line and writes no report', () 
   assert.equal(result.exitCode, 2);
   assert.equal(result.report, null);
   assert.match(output.stderr.at(-1), /^next: fix the workspace and rerun; no report was written\./);
+});
+
+// @verifies C001
+test('a corrupt status exits 2 and writes no report', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    mkdirSync(join(workspace.root, RUN_DIRECTORY), { recursive: true });
+    writeFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), '{not json');
+    const result = runCommand([workspace.root]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.report, null);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C001
+test('a corrupt archived report exits 2', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    const archived = join(workspace.root, RUN_DIRECTORY, 'archive', '1');
+    mkdirSync(archived, { recursive: true });
+    writeFileSync(join(archived, 'SMOOTH-SEQUENCES.json'), '{not json');
+    const result = runCommand([workspace.root]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.report, null);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('a grounded waiver is recorded while the blocked run stays unproven', () => {
+  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
+  const previous = {
+    findings: [{
+      checkId: 'S5.projection-only',
+      class: 'deficiency',
+      subject: 'A-1__step',
+      where: 'spec.md#1',
+      why: 'why',
+      fix: 'fix',
+      producer: 'node .claude/scripts/smooth-sequences/run.mjs',
+    }],
+  };
+  try {
+    mkdirSync(join(workspace.root, RUN_DIRECTORY), { recursive: true });
+    writeFileSync(join(workspace.root, RUN_DIRECTORY, 'SMOOTH-SEQUENCES.json'), JSON.stringify(previous));
+    writeFileSync(join(workspace.root, 'SMOOTH-SEQUENCES-WAIVERS.json'), JSON.stringify({
+      waivers: [{ findingKey: 'S5.projection-only\u0000A-1__step', ground: 'the step is retired by the specification' }],
+    }));
+    const result = runCommand([workspace.root]);
+    assert.equal(result.report.waived.length, 1);
+    assert.equal(result.report.findings.length, 0);
+    assert.equal(result.report.verdict, 'unproven');
+    assert.equal(result.exitCode, 4);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('an empty waiver ground is refused as misuse', () => {
+  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
+  try {
+    writeFileSync(join(workspace.root, 'SMOOTH-SEQUENCES-WAIVERS.json'), JSON.stringify({
+      waivers: [{ findingKey: 'S5.projection-only\u0000A-1__step', ground: '   ' }],
+    }));
+    const result = runCommand([workspace.root]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.report, null);
+  } finally {
+    workspace.remove();
+  }
 });
 
 // @verifies C005

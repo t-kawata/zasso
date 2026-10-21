@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
  * The authored surface and the producer that re-derive a finding's verdict.
  *
@@ -25,6 +26,7 @@ export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run
 
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 const SPEC_CHECK_IDS = Object.freeze([
+  'S.evidence-withdrawn',
   'S1.duplicate-id',
   'S1.not-a-sequence-ground-missing',
   'S1.sequence-without-step',
@@ -81,8 +83,8 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
 ]));
 
 /** A path with the row a reader opens, or the bare path when no row is known. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-function withLocator(filePath, locator) {
+// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+function appendLocator(filePath, locator) {
   return typeof locator === 'string' && locator.trim() !== '' ? `${filePath}#${locator.trim()}` : filePath;
 }
 
@@ -101,11 +103,11 @@ function requirePackage(context) {
 }
 
 /** A regeneration route: the live spec is evidence, never an edit surface. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function specTarget(context) {
+// [::TICKET::] PX-278, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-285) --for-spec --no-implementation-order`.
+function buildSpecTarget(context) {
   const specPath = context.artifact?.spec?.path;
   const where = typeof specPath === 'string' && specPath.trim() !== ''
-    ? `${withLocator(specPath, context.locator)} (read-only; copy it to a candidate first)`
+    ? `${appendLocator(specPath, context.locator)} (read-only; copy it to a candidate first)`
     : 'candidate spec (the artifact records no spec path)';
   return { where, producer: REGENERATION_COMMAND, repairClass: 'regeneration' };
 }
@@ -122,23 +124,23 @@ export function repairRouteFor(checkId, context = {}) {
   }
   switch (surface) {
     case SURFACE.SPEC:
-      return specTarget(context);
+      return buildSpecTarget(context);
     case SURFACE.ALLOCATE_DECISIONS:
       return {
-        where: withLocator(ALLOCATE_DECISIONS_PATH, context.locator),
+        where: appendLocator(ALLOCATE_DECISIONS_PATH, context.locator),
         producer: REGENERATION_ALLOCATE_COMMAND,
         repairClass: 'regeneration',
       };
     case SURFACE.PACKAGE_RFC:
       return {
-        where: withLocator(`${requirePackage({ ...context, checkId }).path}/RFC.md`, context.locator),
+        where: appendLocator(`${requirePackage({ ...context, checkId }).path}/RFC.md`, context.locator),
         producer: DETECTOR_COMMAND,
         repairClass: 'in-place',
       };
     case SURFACE.PACKAGE_OBLIGATION: {
       const pkg = requirePackage({ ...context, checkId });
       return {
-        where: withLocator(`${pkg.path}/OBLIGATION.json`, context.locator),
+        where: appendLocator(`${pkg.path}/OBLIGATION.json`, context.locator),
         producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
         repairClass: 'in-place',
       };
@@ -146,7 +148,7 @@ export function repairRouteFor(checkId, context = {}) {
     case SURFACE.PACKAGE_VIEW: {
       const pkg = requirePackage({ ...context, checkId });
       return {
-        where: withLocator(`${pkg.path}/SEQUENCES.json`, context.locator),
+        where: appendLocator(`${pkg.path}/SEQUENCES.json`, context.locator),
         producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
         repairClass: 'in-place',
       };

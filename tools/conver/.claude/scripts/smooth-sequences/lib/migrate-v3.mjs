@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
  * Migrate a schema-v2 sequences artifact to schema v3.
  *
@@ -7,6 +8,8 @@
  * second run is a no-op. The v2 fields are preserved; the migration only adds fields.
  */
 import { createHash } from 'node:crypto';
+
+import { SURFACES } from './surfaces.mjs';
 
 export const SCHEMA_V2 = 2;
 export const SCHEMA_V3 = 3;
@@ -320,6 +323,13 @@ export function migrateArtifactToV3(input) {
       to_schema_version: SCHEMA_V3,
       source_digest: sourceDigestOf(artifact, sourceDigest),
       migrated_by: 'smooth-sequences/migrate-v3',
+      synthesized_surfaces: [
+        SURFACES.TYPED_STEP_CONTRACTS,
+        SURFACES.OPERATION_TRANSITIONS,
+        SURFACES.REGISTRY_CONTRIBUTION,
+        SURFACES.BOUNDARY_EFFECTS,
+        SURFACES.GROUNDED_OBJECTS,
+      ],
     },
   };
 }

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
@@ -93,6 +94,11 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   assert.match(command, /exit 0 only when/i);
   assert.match(command, /exit 1 is an input|not completion/i);
+  assert.match(command, /exit 4/);
+  assert.match(command, /v2 artifact[^.]*never pass/i);
+  assert.match(command, /S\.evidence-withdrawn/);
+  assert.match(command, /SMOOTH-SEQUENCES-WAIVERS\.json/);
+  assert.doesNotMatch(command, /Step 2b/);
   assert.match(command, /persisted/);
   assert.match(command, /never hand-edit|never edit a generated file|not hand-edited/i);
 });

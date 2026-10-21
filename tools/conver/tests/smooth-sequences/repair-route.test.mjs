@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -66,7 +67,9 @@ test('a finding missing any repair field is rejected before rendering', () => {
 
 // @verifies C002
 test('every emitted checkId has a route and no route is stale', () => {
-  const emitted = [...emittedCheckIds()].sort();
+  // S.evidence-withdrawn is emitted only when a previous finding loses its surface,
+  // so the fixture-based emitted set never contains it; the route is still required.
+  const emitted = [...emittedCheckIds(), 'S.evidence-withdrawn'].sort();
   assert.ok(emitted.length > 0);
   assert.deepEqual(emitted, Object.keys(REPAIR_ROUTE_BY_CHECK_ID).sort());
 });

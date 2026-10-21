@@ -42606,6 +42606,221 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-21"
+        },
+        {
+          "id": 285,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "smooth-sequences: make the gate total, monotone and honest",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-285.md",
+          "invariants": "- [Normal condition] Every registered check resolves to executed only when each required surface is present and the denominator is greater than zero; otherwise it resolves to blocked with a reason. The union of executed and blocked equals the registry size. The verdict is pass only when findings, blocked entries, and unresolved readings are all zero.\n- [Error invariant] An invariant violation is refused, never printed as zero: a provenance count that does not sum, an unreadable status, an unrouted check id, or a missing archived report produces a thrown SmoothSequencesError or a named refusal.\n- [Internal state invariant] The detector writes only under <root>/smooth-sequences/. status.json carries findingKeysDigest, schemaHistory and verdict; a superseded report pair is archived, never deleted; a finding cannot disappear without either resolution or a waiver carrying a non-empty ground.\n- [Boundary invariant] No file under /Users/kawata/shyme/gaia is modified. report schemaVersion 4 and exit code 4 are the only public contract changes; a v2 artifact remains readable and is reported as unproven rather than pass.",
+          "background": "### Goal\nThe smooth-sequences gate must be total, monotone and honest. Every check either measures its declared surface against a stated denominator or blocks with a reason. A blocked surface produces the verdict unproven and exit code 4, never pass. A finding cannot vanish because its input surface was removed: it becomes S.evidence-withdrawn unless resolved or waived with a ground.\n\n### Purpose\nThe detector currently decides the exit code from the finding count alone (run.mjs:179) and treats a missing input as an empty loop (checks-danger.mjs:243-247). The gaia run demonstrated the consequence: S6.boundary-effect-drift was reported executed while 0 of 257 operations carried boundary_effects; the artifact was downgraded from v3 to v2; 1,937 findings fell to 0; provenance printed total 300, preserved 0, missing 0 (provenance.mjs:53). The report could not distinguish not measured from no problem.\n\n### Motivation\nThe original audit asked whether every sequence and operation was distributed and whether every operation-boundary contract was free of omission, contradiction, deficiency and danger. The current pass answers neither question: the v3 surfaces that carried the evidence were removed and the v2-only checks cannot see them. A gate that can be satisfied by deleting its own inputs is unsound and must be repaired before any further workspace run is trusted.\n\n### Constraints\nChange only /Users/kawata/shyme/zasso/tools/conver. Never edit /Users/kawata/shyme/gaia. Read-only observation of gaia on a temporary copy is allowed. Tests run through node --test against the impact set; make test is forbidden. No new dependency, no unwrap-style silent catch, no hardcoded path, no Initial Design Artifact header edit. The report schema and exit code change is deliberate and all in-repo consumers are updated in this ticket.",
+          "scope": [
+            "Add .claude/scripts/smooth-sequences/lib/verdict.mjs with a pure classifyVerdict({findings, blocked, readings}) returning {verdict, exitCode}; add EXIT_UNPROVEN = 4 and REPORT_SCHEMA_VERSION = 4 in report.mjs. Verdict values are pass, findings and unproven; pass requires zero findings, zero blocked entries and zero unresolved readings.",
+            "Extend every CHECK_REGISTRY entry in check-status.mjs with requires (surface names), claims (spec or projection) and denominator (index function). Add lib/surfaces.mjs computing {present, origin, cardinality} for each surface from the artifact and index; origin is authored, migration or absent. The migration origin is read from migration.synthesized_surfaces.",
+            "Refactor check-registry.mjs and buildFamilySubChecks so a check is executed only when every required surface is present and the denominator is greater than zero, and otherwise returns a blocked entry {checkId, family, surface, reason}. The union of executed and blocked equals CHECK_REGISTRY.length. Remove the per-family skip maps that cannot express a blocked surface.",
+            "Fix S6.boundary-effect-drift in checks-danger.mjs: block when operations[].boundary_effects is absent; when the field is present on every active operation, the denominator is the number of active operations (an empty array is a measured zero) and the check compares crossings and boundary_grounds.",
+            "Route S5 meshing and S4.contribution through the same descriptor gating. Delete layerBWithheld and contributionWithheld from run.mjs; their surfaces become blocked entries with one reason per surface. S5 blocked checks name step.contract.authored; S4.contribution blocked checks name registry_contribution.",
+            "Change provenance.mjs proseContract to {total, typed, legacy, absent}. For a v2 artifact count non-empty step.contract strings as legacy, typed as zero, and report total as typed + legacy + absent. Throw SmoothSequencesError when the sum does not hold. Add schemaHistory and downgrade to the provenance record.",
+            "Add lib/evidence-ledger.mjs with compareFindingSets(previous, current, {blocked, waivers}) returning {resolved, withdrawn, waived}. The baseline is the most recent report with findings, current or archived. A previous finding whose check is now blocked is emitted as S.evidence-withdrawn carrying the original checkId and subject. Waivers are read from the authored SMOOTH-SEQUENCES-WAIVERS.json at the workspace root; a waiver requires a non-empty ground, and an empty ground is rejected.",
+            "Integrate the ledger in run.mjs: compare against the finding baseline, append withdrawn findings, compute blocked, call classifyVerdict, and pass findingKeysDigest and schemaHistory into writeGeneration. Detect a downgrade from status.schemaHistory or, when absent, from the archived report provenance: when a previous generation recorded schema 3 and the current artifact schema_version is 2, force exit 4 with code UNPROVEN_DOWNGRADE.",
+            "Extend report.mjs to schemaVersion 4: add checks.blocked and a blocked array; render every blocked check id in the console and Markdown with both the surface count and the check count; delete the pass-with-N-unproven verdict; render unproven with exit 4. Readings are blocking by default; an explicit advisory policy is the only way to omit them from the verdict and must be printed.",
+            "Extend generation.mjs status schema to carry findingKeysDigest, schemaHistory and verdict {exitCode, findings, blocked, readings}. A verification pass requires the same inputDigest, reportDigest and findingKeysDigest; any change opens a new generation.",
+            "Record migration synthesis in migrate-v3.mjs: write migration.synthesized_surfaces listing operations[].boundary_effects and any other synthesized surface, and mark the generated values with origin migration. A spec-claiming check may not use a migration-origin surface as evidence.",
+            "Add repair routes for S.evidence-withdrawn and each S-family evidence-withdrawn id in repair-route.mjs, mapping to SURFACE.SPEC. Keep REPAIR_ROUTE_BY_CHECK_ID exhaustive so an emitted id without a route still raises UNROUTED_FINDING.",
+            "Update .claude/commands/smooth-sequences.md: exit table 0 pass, 1 findings, 2 misuse, 3 judgment handoff, 4 unproven; blocked semantics; a v2 artifact can never pass; downgrade guard; readings policy; evidence-withdrawn; remove the pass with N unproven surface wording.",
+            "Add tests/smooth-sequences/verdict.test.mjs, surface-contract.test.mjs, evidence-ledger.test.mjs, provenance-arithmetic.test.mjs and downgrade-guard.test.mjs; update report, generation, run, provenance, danger-drift, layer-b, contribution and gaia-shaped fixtures with a downgraded variant. Run node --test tests/smooth-sequences/*.test.mjs.",
+            "**Out of scope:** the educe and allocate producers for contract.authored and boundary_grounds, and the repair of the real gaia workspace. Those belong to a later ticket; this ticket only makes the gate incapable of reporting pass when those surfaces are absent."
+          ],
+          "testUnit": [
+            "UT: [Normal] classifyVerdict returns pass and exit 0 when findings, blocked, and unresolved readings are all zero.",
+            "UT: [Normal] classifyVerdict returns findings and exit 1 when findings is non-empty, regardless of blocked.",
+            "UT: [Normal] classifyVerdict returns unproven and exit 4 when findings is zero and blocked is non-empty.",
+            "UT: [Normal] classifyVerdict returns unproven and exit 4 when findings and blocked are zero and unresolved readings is non-zero.",
+            "UT: [Normal] audit mode records wouldExit 4 for an unproven evaluation and still exits 0.",
+            "UT: [Normal] every CHECK_REGISTRY entry declares requires, claims, and denominator.",
+            "UT: [Normal] a check is executed only when every required surface is present and the denominator is greater than zero.",
+            "UT: [Invariant] executed plus blocked equals the registry size for every fixture.",
+            "UT: [Normal] S6.boundary-effect-drift is blocked when operations[].boundary_effects is absent.",
+            "UT: [Boundary] S6.boundary-effect-drift is executed with denominator equal to the active operation count when the field is present but empty.",
+            "UT: [Normal] S6.boundary-effect-drift reports a finding when effects exist and no crossing or ground covers the boundary.",
+            "UT: [Normal] S5 meshing checks are blocked with surface step.contract.authored on a v2 artifact.",
+            "UT: [Normal] S4.contribution checks are blocked with surface registry_contribution on a v2 artifact.",
+            "UT: [Normal] provenance of an artifact with steps reports proseContract total, typed, legacy, and absent for 300 legacy prose strings and zero absent.",
+            "UT: [Error] provenance throws when total does not equal typed plus legacy plus absent.",
+            "UT: [Normal] a previous report and the current evaluation are available; the evidence ledger emits S.evidence-withdrawn for a previous finding whose check is now blocked.",
+            "UT: [Normal] the evidence ledger resolves a previous finding whose check still executed and no longer reports it.",
+            "UT: [Error] the evidence ledger rejects a waiver whose ground is empty and keeps the finding blocking.",
+            "UT: [Normal] the evidence ledger accepts a waiver with a non-empty ground and reports it as waived.",
+            "UT: [Normal] status records findingKeysDigest and schemaHistory after a generation write.",
+            "UT: [Normal] status schemaHistory contains schema 3 and a current artifact with schema_version 2 exits 4 with UNPROVEN_DOWNGRADE.",
+            "UT: [Boundary] a v2 artifact never yields verdict pass.",
+            "UT: [Invariant] a report with blocked entries makes the console and Markdown list every blocked check id and both surface and check counts.",
+            "UT: [Invariant] the word pass never appears in a report whose verdict is unproven.",
+            "UT: [Invariant] every emitted check id, including S.evidence-withdrawn, resolves to a repair route.",
+            "UT: [Normal] a waiver with a non-empty ground is the only way a withdrawn finding leaves the blocking set.",
+            "UT: [Boundary] an unreadable status is refused as a named error and never treated as a fresh generation.",
+            "UT: [Boundary] a migration-origin surface is refused as evidence by a spec-claiming check."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] A downgraded gaia-shaped fixture feeds run.mjs; verify exit 4, verdict unproven, and one S.evidence-withdrawn per previously blocking finding.",
+            "IT: [Integration point] An authored v3 fixture feeds run.mjs; verify exit 0, verdict pass, blocked empty, and no withdrawn finding.",
+            "IT: [Verification] A generation write followed by an unchanged verification run keeps findingKeysDigest, blocked set and verdict stable and writes no new generation.",
+            "IT: [Verification] Audit mode over a downgraded fixture exits 0, writes verdict audit, and records wouldExit 4.",
+            "IT: [Verification] node --test tests/smooth-sequences/*.test.mjs passes with zero failures and zero skipped tests in the impact set.",
+            "IT: [Prerequisites] The workspace fixtures build the artifacts and manifests in a temporary directory; no test reads or writes /Users/kawata/shyme/gaia.",
+            "IT: [Related tickets] PX-283 and PX-284 introduced schemaVersion 3, exit 0 auditing, the sub-check registry and the six new checks; this ticket consumes those APIs."
+          ],
+          "testExceptions": [
+            "The exact 1,502 unique withdrawn findings on the real /Users/kawata/shyme/gaia workspace cannot test in a unit test because the workspace is external and must not be modified; verified on a temporary copy and reported, not asserted. This is not a design defect: the gaia-shaped fixture reproduces the same shape at a small scale.",
+            "Implementing the educe and allocate producers for contract.authored and boundary_grounds cannot test in this ticket because those producers belong to another subsystem; this is not a design defect: the gate must report the surface as blocked until a producer exists.",
+            "Cross-machine home-directory expansion cannot test deterministically in a unit test because the home path varies; this is not a design defect; the existing portability test covers the path rule."
+          ],
+          "instrumentation": "- [Logging] status.json records generation, mode, measuredAt, inputDigest, reportDigest, findingKeysDigest, schemaHistory and verdict {exitCode, findings, blocked, readings}. The console prints one generation line, one provenance line, one readings line, the blocked summary and the verdict line.\n- [Metrics] checks.run, checks.blocked and checks.failed are integers; the blocked array carries one entry per blocked check id; checks.run + checks.blocked equals CHECK_REGISTRY.length.\n- [Error tracking] UNPROVEN_DOWNGRADE, SILENT_CHANGE_DETECTED, TRANSACTION_OPEN and UNROUTED_FINDING are named error codes on stderr with a next action; no silent catch.\n- [Health check] A fresh enforce run exits 0 only when verdict is pass; audit mode prints wouldExit and never writes a repair action.\nReview verification (PX-285):\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 239 tests, 238 pass, 1 skipped, 0 fail. The skip is the pre-existing external-workspace test.\n- Quality: 0 issues on the changed source and test files.\n- Translatability: 0 debug prints, 0 generic data/info/tmp variables, 0 leftover incomplete markers; noun-phrase helpers in touched code renamed to verbs. Remaining noun-like helpers live in untouched workspace/vocabulary/readings-summary modules and are recorded as outside-scope.\n- Annotations: 28 changed files verified, 0 missing, 0 ambiguous.\n- Crimes/stubs/no-excuse: 0/0/0.\n- Live gaia validation on a temporary copy: exit 1, verdict findings, 1,502 S.evidence-withdrawn (unique), 15 blocked checks, readings 201 Yes, provenance total 300 with typed 0 / legacy 300 / absent 0, schemaHistory [3,2], UNPROVEN_DOWNGRADE. No gaia file was written by this ticket.",
+          "notes": "- [Implementation steps] Red groups in this order: (1) verdict lattice and exit constants, (2) check descriptors and surface gating including S6, (3) provenance arithmetic, (4) evidence ledger and downgrade guard, (5) report and command rendering, (6) fixture and integration updates. Each group starts with failing tests; no group is reordered.\n- [Risks] The report schema and exit code are deliberately breaking; every in-repo consumer must be updated in this ticket. A v2 workspace that used to pass now exits 4, including the real gaia workspace. The ledger can surface many withdrawn findings on the first run after upgrade; that is the intended monotonicity.\n- [Caveats] The real gaia count depends on its archived generation 2 report; the fixture proves the mechanism, not the external count. The downgrade guard reads status schemaHistory and, when it is absent, the archived report provenance; a workspace with no history at all is a fresh baseline and must be reported as no baseline rather than as pass.\n- [Open items] The educe and allocate producers for contract.authored and boundary_grounds remain unimplemented; until they exist every v2 workspace is permanently unproven for the boundary families.\n- [Future improvements] Consider a waiver registry file separate from status so a ground can be reviewed like a spec clause; consider recording the previous finding set digest in the archive index.\nImplementation summary (PX-285):\n- Changed files: .claude/scripts/smooth-sequences/run.mjs; lib/verdict.mjs; lib/surfaces.mjs; lib/evidence-ledger.mjs; lib/check-status.mjs; lib/check-registry.mjs; lib/checks-layer-a.mjs; lib/checks-layer-b.mjs; lib/checks-danger.mjs; lib/provenance.mjs; lib/report.mjs; lib/generation.mjs; lib/migrate-v3.mjs; lib/repair-route.mjs; .claude/commands/smooth-sequences.md; tests/smooth-sequences/*.\n- Key changes: three-valued verdict with exit 4; check descriptors with required surfaces and denominators; blocked checks never emit findings; provenance total/typed/legacy/absent with a thrown partition invariant; evidence ledger and S.evidence-withdrawn; v3-to-v2 downgrade guard; status schema 2 with findingKeysDigest and schemaHistory; migration-synthesized surfaces; authored waiver file.\n- Test results: node --test tests/smooth-sequences/*.test.mjs -> 228 tests, 227 pass, 1 skipped, 0 fail. The skipped test is the pre-existing 'the real workspace is green when supplied', which requires an external workspace and was already skipped before this ticket.\n- Quality checks: 0 issues on the changed source files and 0 on the changed test files.\n- Annotations: 27 changed files verified, 0 missing, 0 ambiguous.\n- No file under /Users/kawata/shyme/gaia was modified.\n- Behavior changes: report schemaVersion 4; new exit code 4 (unproven); v2 artifacts can never pass; migrated artifacts are unproven for spec-claiming checks; a finding whose check becomes blocked is re-emitted as S.evidence-withdrawn; a v3-to-v2 downgrade forces unproven; unresolved educe readings are blocking unless --advisory-readings.\n- Waivers: authored SMOOTH-SEQUENCES-WAIVERS.json; an empty ground is refused with INVALID_WAIVER.\n- Arithmetic correction: gaia has 1,937 findings; the 434 S1 grounds were actually repaired, so the remaining 1,503 rows (1,502 unique identities) are candidates for S.evidence-withdrawn unless waived with grounds.\n- Compatibility: contributionWithheld and layerBWithheld remain as wrappers for the shared grill-me-for-rfc gate; run.mjs no longer uses them.\n- Residual: the educe/allocate producers for contract.authored and boundary_grounds remain out of scope; v2 and migrated artifacts stay unproven for those families until a producer emits them.\n- Live gaia validation on a temporary copy: exit 1, verdict findings, 1,502 S.evidence-withdrawn (unique), 15 blocked checks, readings 201 Yes, provenance total 300 with typed 0 / legacy 300 / absent 0, schemaHistory [3,2], UNPROVEN_DOWNGRADE. The gaia working tree was not written by this ticket; its pre-existing modifications come from the earlier /smooth-sequences repair run.\nReview report (PX-285):\n- Verdict lattice, surface descriptors, ledger, downgrade guard, provenance partition and report/command updates all verified against source and tests.\n- Issues found and fixed during review:\n  1. The command referenced Step 2b while the procedure is six flat steps and the docs test forbids lettered steps; replaced with Step 2 and added a blocked-surface paragraph.\n  2. readFindingBaseline ignored a legacy root report when the current generation was clean; added the legacy fallback and a regression test.\n  3. Removed the unused withheldPhrase helper.\n  4. Extended the exit-constant test with EXIT_UNPROVEN=4.\n  5. Added command-doc assertions for exit 4, v2-never-pass, S.evidence-withdrawn and the waiver file.\n  6. Corrected the Done/Appendix C wording that implied an out-of-scope escape without a mechanism; a waiver records a disposition but does not prove a blocked surface.\n  7. Restored the readings withheld file names in the console and Markdown and added a test.\n  8. A waiver on a finding whose check still executed was classified as waived; reordered so resolution wins, with a test.\n  9. Added run-level tests for corrupt status, corrupt archive, grounded waiver, empty waiver ground, exact v2 blocked counts and downgrade withdrawal.\n- Translatability renames in touched code: countRows, countActiveOperations, countAuthoredSteps, countCrossingBoundaries, collectTypedSteps, collectCrossingSteps, readOwners, readAuthoredContract, readBoundaryGrounds, groupStepsByBoundary, readFactId, appendLocator, buildSpecTarget, collectActiveOperations, readSynthesizedSurfaces, surfaceOriginOf, readArraySurface, readFieldOnEveryActiveOperation, readOptionalArraySurface, computeFindingKey, computeRouteKey, projectWithheld, countBlockedSurfaces, buildSummaryLines, renderVerdictLine, renderWaivedLine, renderReadingsWithheldLine, renderGenerationLine, computeInputDigest, computeFindingKeysDigest, computeDigest, readGenerationNumber, buildExecutedEntry, buildBlockedEntry, findBlockingReason, findUnreachableOperations, findUnannotatedRepeats, findOrderContradictions, findBoundaryEffectDrift.\n- Outside scope (recorded, not changed): workspace.packageDirectory, vocabulary.invalidVocabulary/declaredInterfaceColumns, readings-summary.withheldEntry still read as noun phrases.\n- Dependencies: PX-283 and PX-284 APIs consumed without modification of their contracts; the shared grill-me-for-rfc contribution gate still works through the compatibility wrappers.\n- Residual: the educe/allocate producers for contract.authored and boundary_grounds remain out of scope; v2 and migrated artifacts stay unproven for those families.",
+          "acceptanceCriteria": [
+            "[Happy path] An authored v3 fixture runs enforce and exits 0 with verdict pass, blocked empty, zero findings and zero unresolved readings.",
+            "[Error case] A v2 fixture runs enforce and exits 4 with verdict unproven, listing 8 S5 checks, 3 S4.contribution checks and S6.boundary-effect-drift as blocked, each with a surface and reason.",
+            "[Edge case] A workspace whose status schemaHistory contains v3 and whose current artifact is v2 exits 4 with UNPROVEN_DOWNGRADE and emits S.evidence-withdrawn for every previous finding that is not resolved; a waiver with an empty ground does not remove it."
+          ],
+          "investigation": "- checks-danger.mjs:232-257 iterates operation.boundary_effects ?? [] and returns no finding when the field is absent; checks-danger.mjs:276 returns buildFamilySubChecks('danger') with no skip map, so the check is always executed. The gaia v2 artifact has 257 operations and 0 with boundary_effects, yet the report says executed.\n- provenance.mjs:45-54 returns proseContract {total: legacyProse, preserved: 0, missing: 0} for a v2 artifact; preserved counts only the v3 contract_prose field and missing is hardcoded zero, so 300 legacy strings are neither preserved nor missing.\n- report.mjs:16-20 defines EXIT_PASS 0, EXIT_FINDINGS 1, EXIT_MISUSE 2, EXIT_JUDGMENT 3; report.mjs:195-201 renders pass with N unproven surfaces; report.mjs:230-245 renders the console block.\n- run.mjs:160-184 assembles withheld from layerBWithheld, vocabulary.withheld, contributionWithheld and readings.withheld, then sets exitCode from findings.length only; a blocked surface never changes the exit code.\n- check-status.mjs declares a flat CHECK_REGISTRY and buildFamilySubChecks marks every id executed unless the family passes a skip map; a family cannot express an absent surface or a zero denominator.\n- checks-layer-a.mjs:328-334 and :353-358 skip the whole contribution family on v2; checks-layer-b.mjs:109-126 skips the meshing family on v2. Both are honest but they are carried as withheld rather than blocked and do not affect the verdict.\n- migrate-v3.mjs:308 synthesizes boundary_effects with boundaryEffectsOf(operation.id, owners, boundaries); the drift findings therefore measure a migration projection, and reverting to v2 removes the projection instead of repairing it.\n- report.mjs:59-65 annotatePersisted only marks a finding persisted; it never detects a previous finding that disappeared because its check became blocked.\n- generation.mjs writeGeneration treats a run as verification when inputDigest and reportDigest match; status.json has no findingKeysDigest or schemaHistory, so a downgrade is invisible.\n- repair-route.mjs builds REPAIR_ROUTE_BY_CHECK_ID exhaustively and raises UNROUTED_FINDING for an unknown id; any new evidence-withdrawn id needs a route.\n- tests/smooth-sequences contains 35 test files including check-registry, provenance, audit-mode, report, generation, danger-drift, layer-b, contribution and gaia-shaped; the impact set runs through node --test.",
+          "boyScoutPlan": "- Extract the verdict decision from run.mjs into a pure lib/verdict.mjs module so the rule is readable and testable without a workspace.\n- Extract surface availability and origin into lib/surfaces.mjs; name the functions surfaceAvailabilityOf, surfaceOriginOf and denominatorOf as verb phrases.\n- Replace the literal family count 7 with CHECK_FAMILY_COUNT, the literal schema numbers with named constants, and the string values authored, migration and absent with exported constants.\n- Split renderConsoleReport into renderBlockedSummary, renderFindingsBlock and renderVerdictLine so each function has one responsibility.\n- Remove the silent catch in status reading: an unreadable status becomes a named SmoothSequencesError rather than a fresh generation.\n- Rename generic locals such as entry and value where they represent a blocked check or a surface origin; keep the domain words blocked, surface and denominator.\n- Add provenance to every new function and module touched by this ticket with the PX-285 ticket key and the show-ticket-context command.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "verdict totality: evaluation -> exit code",
+              "precondition": "evaluation returns findings and blocked arrays",
+              "postcondition": "exit code is 4 when findings is zero and blocked is non-empty or readings unresolved",
+              "invariant": "exit code is 0 only when findings, blocked, and unresolved readings are all zero"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "check descriptor -> executed or blocked",
+              "precondition": "a check descriptor declares requires, claims, and denominator",
+              "postcondition": "a check is executed only when every required surface is present and the denominator is greater than zero",
+              "invariant": "executed plus blocked equals the registry size"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "previous report -> current finding set",
+              "precondition": "a previous report and the current evaluation are available",
+              "postcondition": "a previous finding whose check is now blocked is emitted as S.evidence-withdrawn",
+              "invariant": "no finding disappears without either resolution or a waiver carrying a non-empty ground"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "artifact -> provenance prose counts",
+              "precondition": "an artifact with steps",
+              "postcondition": "proseContract reports total, typed, legacy, and absent",
+              "invariant": "total equals typed plus legacy plus absent"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "status schema history -> downgrade guard",
+              "precondition": "status schemaHistory contains schema 3",
+              "postcondition": "a current artifact with schema_version 2 exits 4 with UNPROVEN_DOWNGRADE",
+              "invariant": "a v2 artifact never yields verdict pass"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "blocked set -> console and Markdown report",
+              "precondition": "a report with blocked entries",
+              "postcondition": "console and Markdown list every blocked check id and both surface and check counts",
+              "invariant": "the word pass never appears when verdict is unproven"
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 verdict totality (tests/smooth-sequences/verdict.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { classifyVerdict } from '../../.claude/scripts/smooth-sequences/lib/verdict.mjs';\n\ntest('C001 verdict totality', () => {\n  const finding = { checkId: 'S1.duplicate-id', subject: 'x' };\n  const blocked = { checkId: 'S5.precondition-not-implied', family: 'meshing', surface: 'steps[].contract.authored', reason: 'surface absent' };\n  assert.deepEqual(classifyVerdict({ findings: [finding], blocked: [], unresolvedReadings: 0, downgrade: null }), { verdict: 'findings', exitCode: 1 });\n  assert.deepEqual(classifyVerdict({ findings: [], blocked: [blocked], unresolvedReadings: 0, downgrade: null }), { verdict: 'unproven', exitCode: 4 });\n  assert.deepEqual(classifyVerdict({ findings: [], blocked: [], unresolvedReadings: 201, downgrade: null }), { verdict: 'unproven', exitCode: 4 });\n  assert.deepEqual(classifyVerdict({ findings: [], blocked: [], unresolvedReadings: 0, downgrade: null }), { verdict: 'pass', exitCode: 0 });\n});\n```",
+            "C002 check descriptor (tests/smooth-sequences/surface-contract.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { CHECK_REGISTRY, evaluateCheckRegistry } from '../../.claude/scripts/smooth-sequences/lib/check-registry.mjs';\nimport { indexArtifact } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';\nimport { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';\nimport { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';\n\ntest('C002 every check declares its surfaces and denominator', () => {\n  for (const entry of CHECK_REGISTRY) {\n    assert.ok(Array.isArray(entry.requires), entry.id);\n    assert.ok(entry.claims === 'spec' || entry.claims === 'projection', entry.id);\n    assert.equal(typeof entry.denominator, 'function', entry.id);\n  }\n  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });\n  try {\n    const result = evaluateCheckRegistry(indexArtifact(loadWorkspace(workspace.root)));\n    const executed = result.subChecks.filter((check) => check.status === 'executed');\n    assert.equal(executed.length + result.blocked.length, CHECK_REGISTRY.length);\n    const drift = result.subChecks.find((check) => check.id === 'S6.boundary-effect-drift');\n    assert.equal(drift.status, 'blocked');\n    assert.equal(drift.surface, 'operations[].boundary_effects');\n  } finally {\n    workspace.remove();\n  }\n});\n```",
+            "C003 evidence monotonicity (tests/smooth-sequences/evidence-ledger.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { compareFindingSets } from '../../.claude/scripts/smooth-sequences/lib/evidence-ledger.mjs';\n\ntest('C003 a blocked surface withdraws the previous finding', () => {\n  const previous = { findings: [{ checkId: 'S5.projection-only', class: 'deficiency', subject: 'A-1__ProduceFact', where: 'spec.md#1', why: 'why', fix: 'fix', producer: 'node .claude/scripts/smooth-sequences/run.mjs' }] };\n  const blocked = [{ checkId: 'S5.projection-only', family: 'meshing', surface: 'steps[].contract', reason: 'surface absent' }];\n  const ledger = compareFindingSets(previous, [], { blocked, waivers: [] });\n  assert.equal(ledger.withdrawn.length, 1);\n  assert.match(ledger.withdrawn[0].checkId, /evidence-withdrawn/);\n  assert.match(ledger.withdrawn[0].why, /A-1__ProduceFact/);\n});\n\ntest('C003 an empty waiver ground is rejected', () => {\n  const previous = { findings: [{ checkId: 'S5.projection-only', subject: 'A-1__ProduceFact' }] };\n  const blocked = [{ checkId: 'S5.projection-only', surface: 'steps[].contract', reason: 'surface absent' }];\n  assert.throws(() => compareFindingSets(previous, [], { blocked, waivers: [{ findingKey: 'S5.projection-only\\u0000A-1__ProduceFact', ground: '   ' }] }), /waiver/i);\n});\n```",
+            "C004 provenance arithmetic (tests/smooth-sequences/provenance-arithmetic.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { assertProsePartition, summarizeProvenance } from '../../.claude/scripts/smooth-sequences/lib/provenance.mjs';\nimport { minimalV2Artifact } from './helpers/workspace-fixture.mjs';\n\ntest('C004 the prose partition sums to the step count', () => {\n  const prose = summarizeProvenance(minimalV2Artifact()).proseContract;\n  assert.deepEqual(prose, { total: 2, typed: 0, legacy: 2, absent: 0 });\n  assert.equal(prose.typed + prose.legacy + prose.absent, prose.total);\n  assert.throws(() => assertProsePartition({ total: 3, typed: 1, legacy: 1, absent: 0 }), /partition/i);\n});\n```",
+            "C005 downgrade guard (tests/smooth-sequences/downgrade-guard.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { writeFileSync } from 'node:fs';\nimport { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';\nimport { readStatus } from '../../.claude/scripts/smooth-sequences/lib/generation.mjs';\nimport { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';\n\nconst QUIET = { stdout: () => {}, stderr: () => {} };\n\ntest('C005 a v3 to v2 downgrade is unproven', () => {\n  const workspace = materializeSmoothWorkspace();\n  try {\n    assert.equal(runCommand([workspace.root], QUIET).exitCode, 0);\n    assert.deepEqual(readStatus(workspace.root).schemaHistory, [3]);\n    writeFileSync(workspace.artifactPath, JSON.stringify(minimalV2Artifact(), null, 2));\n    const result = runCommand([workspace.root], QUIET);\n    assert.equal(result.exitCode, 4);\n    assert.equal(result.report.verdict, 'unproven');\n    assert.equal(result.report.downgrade.code, 'UNPROVEN_DOWNGRADE');\n    assert.notEqual(result.report.verdict, 'pass');\n  } finally {\n    workspace.remove();\n  }\n});\n```",
+            "C006 report honesty (tests/smooth-sequences/report.test.mjs)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildReport, renderConsoleReport, renderReportMarkdown } from '../../.claude/scripts/smooth-sequences/lib/report.mjs';\n\ntest('C006 an unproven report names every blocked check and never says pass', () => {\n  const blocked = [{ checkId: 'S5.precondition-not-implied', family: 'meshing', surface: 'steps[].contract.authored', reason: 'surface absent' }];\n  const report = buildReport({\n    workspace: { root: '/tmp/x' }, findings: [], blocked, checks: { run: 26, blocked: 1, failed: 0, families: 7, subChecks: [] },\n    verdict: 'unproven', downgrade: null,\n  });\n  const consoleLines = renderConsoleReport(report);\n  assert.ok(consoleLines.some((line) => line.includes('S5.precondition-not-implied')));\n  assert.doesNotMatch(consoleLines.join('\\n'), /verdict: pass/);\n  const markdown = renderReportMarkdown(report);\n  assert.match(markdown, /S5\\.precondition-not-implied/);\n  assert.match(markdown, /blocked=1/);\n});\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "a run had two outcomes and the exit code came from findings.length",
+              "after": "classifyVerdict returns pass/0, findings/1 or unproven/4; blocked surfaces, unresolved readings and a schema downgrade force unproven",
+              "description": "Add the verdict lattice and distinct exit code 4."
+            },
+            {
+              "before": "a check was declared only by id and family",
+              "after": "every check declares requires, claims and denominator; a surface record states present, origin and cardinality",
+              "description": "Make missing evidence a first-class surface instead of an empty loop."
+            },
+            {
+              "before": "buildFamilySubChecks marked every id executed unless a family passed a skip map",
+              "after": "a check is executed only when every required surface is present and the denominator is positive; otherwise it is blocked with surface and reason",
+              "description": "Make the registry total over required evidence."
+            },
+            {
+              "before": "the registry returned findings and subChecks",
+              "after": "the registry also returns blocked and filters out findings whose check is blocked",
+              "description": "A blocked check can never contribute a finding."
+            },
+            {
+              "before": "S6.boundary-effect-drift looped over an absent boundary_effects and reported zero",
+              "after": "the check is blocked when the field is absent, executes with the active operation count when present, and is a projection claim that may read migration-synthesized effects",
+              "description": "Remove the vacuous S6 pass."
+            },
+            {
+              "before": "S5 and S4.contribution skipped whole families through layerBWithheld/contributionWithheld",
+              "after": "each sub-check is blocked with its own surface and reason; the old helpers remain only as compatibility wrappers for the shared gate",
+              "description": "Unify withheld/skipped into blocked."
+            },
+            {
+              "before": "provenance printed total/preserved/missing and v2 printed 300/0/0",
+              "after": "proseContract is total/typed/legacy/absent with a thrown partition invariant, plus schemaHistory and downgrade",
+              "description": "Make the prose loss arithmetic honest."
+            },
+            {
+              "before": "no ledger compared a previous finding set",
+              "after": "compareFindingSets reads the most recent report with findings (current or archived), emits S.evidence-withdrawn for blocked checks, and requires a non-empty ground for a waiver",
+              "description": "Make findings monotone when evidence is removed."
+            },
+            {
+              "before": "run.mjs set the exit code from findings only",
+              "after": "run.mjs builds blocked, compares the baseline, applies waivers, classifies the verdict, detects a v3->v2 downgrade, and supports --advisory-readings",
+              "description": "Wire the sound gate into the detector."
+            },
+            {
+              "before": "report schemaVersion 3 and a pass-with-N-unproven verdict line",
+              "after": "report schemaVersion 4 with blocked, waived and downgrade; every blocked check is listed; unproven renders exit 4",
+              "description": "Make the report state what was not measured."
+            },
+            {
+              "before": "status schemaVersion 1 without digests or history",
+              "after": "status schemaVersion 2 with findingKeysDigest and schemaHistory; verification requires the finding digest; corrupt status/report is a named refusal",
+              "description": "Make generation history and downgrade visible."
+            },
+            {
+              "before": "migrate-v3 synthesized typed contracts without recording that it did",
+              "after": "migration.synthesized_surfaces lists the synthesized surfaces; spec-claiming checks refuse them",
+              "description": "Separate authored evidence from migration projection."
+            },
+            {
+              "before": "no route for a withdrawn finding",
+              "after": "S.evidence-withdrawn maps to the specification surface as a fallback and keeps the previous route when available",
+              "description": "Keep every emitted check id repairable."
+            },
+            {
+              "before": "the command documented pass-with-N and allowed v2 to pass",
+              "after": "the command documents exit 4, blocked semantics, the waiver file, evidence-withdrawn, and that v2 never passes",
+              "description": "Align the operating contract with the gate."
+            },
+            {
+              "before": "the fixture had no boundary_effects or contribution surface on default operations",
+              "after": "default operations carry boundary_effects: [] and registry_contribution: required; v2 strips both; five new test files cover verdict, surfaces, ledger, provenance and downgrade",
+              "description": "Make the green fixture authored and the red paths observable."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
         }
       ]
     },

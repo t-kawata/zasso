@@ -12,7 +12,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 # /smooth-sequences
 
 Command = repair loop. Script decides; executing AI repairs.
-Only terminal state: fresh run exits 0.
+Only terminal state: a fresh run exits 0 **and** its verdict is `pass`.
 Frozen inputs: regeneration transaction only; no in-place edits.
 
 `/smooth-sequences`: never asks; never delegates a ground to a human; AI decides by default.
@@ -45,23 +45,24 @@ Only human surface: delegated design command's direction questions within its ow
 - `WORKSPACIFY-ALLOCATE-MANIFEST.json`: `contract_registry`, optional `declared_interfaces`.
 - Optional artifact `vocabulary`: `terminalStatuses`, `requiredInterfaces`. Absent → derive names from active operation status graphs and allocate `declared_interfaces`; artifact pins last. No record states a name → withhold that check; no invented default. Malformed `vocabulary` → misuse, exit 2; not finding. No separate vocabulary file.
 - Hash chain: tree `input.source_hash`, `integrity.manifest_hash`; allocate `input_tree_manifest`; artifact `artifact.spec.path`, `spec.sha256`.
+- Optional authored waiver file `SMOOTH-SEQUENCES-WAIVERS.json`: `{"waivers":[{"findingKey":"<checkId>\u0000<subject>","ground":"..."}]}`. A waiver without a non-empty ground is refused (`INVALID_WAIVER`); the file is authored, never generated.
 
 ## Outputs
 
 - Run directory `<cwd>/smooth-sequences/`; created only when a generation is written.
-- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 3`. Beside the finding set it carries `checks.subChecks` (every check id executed or skipped with a reason), `provenance` (the artifact migration and how many authored `contract_prose` sentences survived), `readings` (educe inquest/adversarial/uncovered counts and the unresolved Yes subjects), `denominator` (the members each demand axis was measured against), `verdict`, and `wouldExit` (audit mode only).
+- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 4`. Beside the finding set it carries `checks.subChecks` (every check id executed or blocked with a surface and reason), `blocked` (one entry per blocked check), `waived` (findings removed by a grounded waiver), `downgrade` (a v3 to v2 step, or null), `provenance` (migration, schema history, and the typed/legacy/absent prose partition), `readings` (educe inquest/adversarial/uncovered counts, the unresolved Yes subjects and the blocking/advisory policy), `denominator`, `verdict`, and `wouldExit` (audit mode only).
 - `SMOOTH-SEQUENCES.md`: human repair view; max 200 findings; explicit `…and N more findings` overflow line. It repeats the provenance, readings and denominator lines.
-- `status.json`: `schemaVersion: 1`; `generation`, `mode`, `measuredAt`, `inputDigest`, `reportDigest`, `verdict`.
+- `status.json`: `schemaVersion: 2`; `generation`, `mode`, `measuredAt`, `inputDigest`, `reportDigest`, `findingKeysDigest`, `schemaHistory`, `verdict` (`exitCode`, `findings`, `blocked`, `readings`; audit adds `wouldExit`).
 - `archive/<N>/`: the pair generation N wrote; moved byte-identically; never deleted.
 - Console: one `route:` header/authored surface; one line/finding; `generation: N (new generation|verification; no new generation)`; final `next:`.
-- Exits: `0` pass; `1` blocking findings; `2` misuse/refusal (broken chain, open transaction); `3` AI handoff (ground to settle / educe phase to run); not a request to a human; not completion.
+- Exits: `0` pass; `1` blocking findings; `2` misuse/refusal (broken chain, open transaction); `3` AI handoff (ground to settle / educe phase to run); `4` unproven (a required surface is absent or synthesized, a reading is unresolved, or the artifact was downgraded from v3 to v2); not a request to a human; only `0` is completion.
 
 ## Generations
 
 - Report-writing run opens the next generation under `<cwd>/smooth-sequences/`.
 - Superseded pair → `archive/<previous generation>/`; then the new pair; then `status.json`.
-- `inputDigest` + `reportDigest` unchanged → `verification`; no generation, no write.
-- Unreadable `status.json` or report → no history; next run opens generation 1.
+- `inputDigest` + `reportDigest` + `findingKeysDigest` unchanged → `verification`; no generation, no write.
+- Unreadable `status.json` or report → named refusal (`UNREADABLE_STATUS` / `UNREADABLE_REPORT`); repair or remove it. A corrupt history is never a fresh generation.
 - Legacy `<cwd>/SMOOTH-SEQUENCES.json`/`.md`: read for `persisted`; never moved or deleted.
 
 ## Steps
@@ -73,12 +74,13 @@ cmd (once, workspace root):
 ```bash
 node .claude/scripts/smooth-sequences/run.mjs
 node .claude/scripts/smooth-sequences/run.mjs --audit
+node .claude/scripts/smooth-sequences/run.mjs --advisory-readings
 ```
 
 Judge current directory; no parent search.
 Before design read: resolve interrupted regeneration commit; refuse while a transaction owns workspace; verify hash chain.
 
-`--audit` runs every check family and reports every finding, but exits `0` and records `verdict: audit` with `wouldExit`. It changes no finding and writes no repair action. Use it to observe a workspace that is expected to be red; the enforce path is the invocation without the flag.
+`--audit` runs every check family and reports every finding and blocked surface, but exits `0` and records `verdict: audit` with `wouldExit` (0, 1 or 4). It changes no finding and writes no repair action. Use it to observe a workspace that is expected to be red or unproven; the enforce path is the invocation without the flag. `--advisory-readings` is the only way to keep unresolved educe readings out of the verdict; the report prints `(advisory; not blocking)`.
 
 | exit | meaning | next |
 |---|---|---|
@@ -86,6 +88,7 @@ Before design read: resolve interrupted regeneration commit; refuse while a tran
 | `1` | findings; report written | Step 2 |
 | `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node .claude/scripts/regeneration/run.mjs status` to identify it (`state: none` = none); `node .claude/scripts/regeneration/run.mjs continue`; follow `next:`; Step 1 |
 | `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node .claude/scripts/regeneration/run.mjs continue`; Step 1 |
+| `4` | unproven: report written | Step 2: restore each blocked surface, record a grounded waiver, or open a regeneration; never read exit 4 as completion |
 
 Open transaction → resume; never abandon.
 Transaction owns workspace in open/derived/verified/committing → no detector report.
@@ -93,7 +96,7 @@ judgment-required → read and report: Step 5 needs live findings to act.
 
 ### Step 2 — Repair loop (the body)
 
-Exit 1 → loop input; never command output. Findings remain → not completion.
+Exit 1 and exit 4 → loop input; never command output. Findings or blocked surfaces remain → not completion.
 
 Every finding has a repair class:
 
@@ -102,6 +105,9 @@ Every finding has a repair class:
 | `in-place` | package `RFC.md` (distribution ledger, boundary name), obligation, view | Edit authored file; run route `rerun:` (view: `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`); rerun this command |
 | `regeneration` | specification-derived artifact findings; allocate decisions | No live-spec edit. Copy to candidate; change candidate or decisions; run transaction |
 | `judgment-required` | unresolved RFC/obligation ground | Step 5: owning AI command in staging; then `continue` |
+| `blocked` | a required surface is absent or migration-synthesized | Step 2: restore the authored surface with its producer, or record a grounded waiver in `SMOOTH-SEQUENCES-WAIVERS.json`; rerun |
+
+Blocked surfaces have no authored file of their own. Restore the producer that emits the surface (`operations[].boundary_effects`, `operations[].registry_contribution`, `steps[].contract`, `steps[].contract.crosses`, `steps[].contract.authored`, or the vocabulary record), or record a grounded waiver in `SMOOTH-SEQUENCES-WAIVERS.json`. A waiver records the finding's disposition; it does not turn a blocked surface into a measured one.
 
 Loop rules:
 
@@ -284,10 +290,11 @@ In-place staged-candidate edit → `CANDIDATE_CHANGED`.
 
 ### Step 6 — Complete
 
-Done iff fresh exit 0: chain verifies; transaction closed; zero findings; `status.json` names the generation the fresh run computed.
+Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed.
 
-- Zero findings + zero withheld → `verdict: pass`.
-- Zero findings + withheld → list every withheld surface; end `verdict: pass with N unproven surface(s)`; never call proved.
+- Zero findings + zero blocked + zero unresolved readings under the run's readings policy → `verdict: pass`. The default policy is blocking; `--advisory-readings` must be printed in the report.
+- Any blocked surface, unresolved reading or schema downgrade → `verdict: unproven`, exit 4. List every blocked check and surface; never call it pass and never call it proved.
+- A grounded waiver removes a finding from the blocking set; it does not turn a blocked surface into a measured one. The run remains `unproven` until the surface is restored; a waiver records the finding's disposition, not a proof.
 - Report verdict; quote boundary verbatim:
 
 > does not guarantee: whether the enumeration is complete relative to the world; semantic prose equivalence remains a judgment.
@@ -296,13 +303,13 @@ Done iff fresh exit 0: chain verifies; transaction closed; zero findings; `statu
 
 One detector invocation runs all check families; console groups by repair route. Diagnostic reference only; not operating step.
 
-Every check id is listed once in `lib/check-status.mjs`; a family reports it as `executed` or `skipped` with a reason. The report's `checks.run` is the number of executed sub-checks, not the number of families.
+Every check id is listed once in `lib/check-status.mjs` with `requires`, `claims` and a `denominator`; a family reports it as `executed` or `blocked` with a surface and reason. A check whose required surface is absent, whose denominator is zero, or whose spec-claiming input was synthesized by migration is blocked; a blocked check never contributes a finding. The report's `checks.run` is the number of executed sub-checks, not the number of families.
 
 - S1 enumeration integrity: duplicate ids; unresolved step operation/sequence; drawn sequence without step; a `notASequence` region without a ground (`ground`, `reason`, `grounding.classification`, or `ground_ref`). `predicateLimb: none-applies` alone is not a ground.
 - S3 operation envelope: initial status; transition targets; transitions out of terminal status; external-dependency finality; every required interface. Terminal names: artifact `vocabulary`, else union of statuses active operations end at. Interfaces: `vocabulary`, else allocate `declared_interfaces` columns, else columns artifact pins reach. No record states vocabulary → withhold corresponding check. The migration closes a transition target only when the operation records `status_terminality_ground` for it.
 - S4 boundary clauses: required/extra `stage2_contract_scope` clauses; provider/consumer direction + counterpart; contribution completeness. v3 operation: `registry_contribution` ∈ `required`/`not_required`; `not_required` requires `registry_contribution_ground`; owner distribution ledger requires `op-<operationId>` row. Ledger `Kind` does not map to contribution value. An active operation reachable only through `obligationUnits` is `S4.contribution-unowned`, not skipped.
-- S5 contract meshing (v3 only): precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`.
-- S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step; an operation `boundary_effects` entry no step crosses and no `boundary_grounds` entry covers (`S6.boundary-effect-drift`).
+- S5 contract meshing: precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`. The whole family is blocked when the typed contract or authored surface is absent.
+- S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step; an operation `boundary_effects` entry no step crosses and no `boundary_grounds` entry covers (`S6.boundary-effect-drift`). The graph checks read typed step contracts and are blocked when the surface is absent or migration-synthesized. The drift check is a projection claim: it may read migration-synthesized effects but is blocked when `boundary_effects` is absent. A finding whose check later becomes blocked is re-emitted as `S.evidence-withdrawn` from the most recent report that carried findings, current or archived; it leaves the blocking set only through resolution or a grounded waiver.
 - S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC; an `obligationUnits` operation/sequence subject the artifact does not declare (`S7.obligation-unit-unknown`).
 
 ## Appendix B — Frozen inputs and the chain
@@ -312,16 +319,21 @@ Recorded hashes must agree before detector runs; disagreement → `SILENT_CHANGE
 Change: open regeneration → derive in staging → verify chain + every ground → commit with rollback.
 Live design files remain byte-identical until commit.
 
-## Appendix C — Withheld surfaces
+## Appendix C — Blocked surfaces and evidence provenance
 
-Withheld check: named in report; not pass. `withheld` entries: `{layer, check, reason}`:
+A blocked check is named in the report with `{checkId, family, surface, reason}`; it is not pass and it never contributes a finding. `blocked` is the authoritative list; `withheld` remains as a compatibility projection for older readers.
 
-- `B`: v2 artifact lacks typed step contract → Layer B withheld.
-- `vocabulary:S3.terminal-status` / `vocabulary:S3.interface-mapping`: neither artifact `vocabulary` nor derivable records state corresponding list.
-- `S4.contribution`: v2 artifact lacks `registry_contribution`.
-- `readings:<file>`: an educe readings file is unreadable or a JSONL line is malformed; the reason names the file and line. A reading is never converted to a finding; the report carries its counts separately.
+- `operations[].allowed_status_transitions` absent or migration-synthesized → S3 status checks blocked.
+- `operations[].registry_contribution` absent or migration-synthesized → S4.contribution blocked.
+- `operations[].boundary_effects` absent → S6.boundary-effect-drift blocked. A field present on every active operation, even as `[]`, is a measured zero.
+- `steps[].contract` absent or migration-synthesized → S5.projection-only and the S6 graph checks blocked.
+- `steps[].contract.authored` absent → S5 meshing checks blocked; the step may still be reported as `S5.projection-only` when its typed contract exists.
+- `steps[].contract.crosses` absent → S5 crossing and coverage checks blocked.
+- `vocabulary.terminalStatuses` / `vocabulary.requiredInterfaces` absent → the corresponding S3 check blocked.
+- `S.evidence-withdrawn` is emitted when a previous finding's check is now blocked. The finding keeps its previous repair route; restore the surface or record a waiver with a non-empty ground in `SMOOTH-SEQUENCES-WAIVERS.json`.
+- `readings:<file>`: an educe readings file is unreadable or a JSONL line is malformed; the reason names the file and line. Unresolved Yes readings are blocking by default; `--advisory-readings` makes them advisory and prints that policy.
 
-Never rewrite v2 artifact or require v3.
+A v2 artifact is readable but can never pass: its v3-only surfaces are blocked and the verdict is `unproven` (exit 4). A v3 artifact whose history records v3 and whose current schema is v2 is a `UNPROVEN_DOWNGRADE`; the run is unproven regardless of findings. Never rewrite a v2 artifact to escape a finding; restore the surface instead.
 
 ## Appendix D — Rare states
 
@@ -343,7 +355,7 @@ node .claude/scripts/smooth-sequences/run.mjs
 # generation: 1 (new generation)
 # route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>
 #   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
-# next: fix every finding above, then rerun this command. exit 0 only when this block is empty.
+# next: fix every finding above; blocked surfaces must also be restored. exit 0 only when both sets are empty.
 
 node .claude/scripts/regeneration/run.mjs open --spec=regeneration/candidates/spec.md --reason="S3.interface-mapping-missing: map grpc"
 node .claude/scripts/regeneration/run.mjs continue

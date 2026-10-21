@@ -10,7 +10,7 @@
  * Every finding names the authored surface and the producer that re-derives the verdict.
  */
 import { finding } from './index.mjs';
-import { buildFamilySubChecks, skipWholeFamily } from './check-status.mjs';
+import { buildFamilySubChecks } from './check-status.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const V3 = 3;
@@ -18,8 +18,8 @@ const BOUNDARY_FACT_PREFIX = 'boundary:';
 const AUTHORED_CONTRACT_FIELD = 'authored';
 
 /** The id of a typed or authored fact. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
-function factIdOf(fact) {
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+function readFactId(fact) {
   return typeof fact === 'string' ? fact : fact?.factId;
 }
 
@@ -32,8 +32,8 @@ function hasAuthoredFacts(authored) {
 }
 
 /** The authored contract of a step, or null when the step carries only a projection. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
-function authoredContractOf(step) {
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+function readAuthoredContract(step) {
   const authored = step.contract?.[AUTHORED_CONTRACT_FIELD];
   return hasAuthoredFacts(authored) ? authored : null;
 }
@@ -45,8 +45,8 @@ function hasContractProse(step) {
 }
 
 /** The boundaries a non-empty ground covers. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
-function boundaryGroundsOf(index) {
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+function readBoundaryGrounds(index) {
   return new Set((index.artifact.boundary_grounds ?? [])
     .filter((entry) => typeof entry?.ground === 'string' && entry.ground.trim() !== '')
     .map((entry) => entry.boundary));
@@ -74,20 +74,28 @@ function belongsToBoundary(factId, boundaryId) {
   return isBoundaryFact(factId) && factId.startsWith(`${BOUNDARY_FACT_PREFIX}${boundaryId}/`);
 }
 
-/** The Layer B withholding record, or an empty list when the artifact is v3. */
+/**
+ * The legacy withheld view of the meshing family.
+ *
+ * The detector itself now reports blocked sub-checks; this wrapper keeps older callers
+ * on the same observable value without restoring a second source of truth.
+ */
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function layerBWithheld(index) {
-  return index.schemaVersion === V3 ? [] : [{ layer: 'B', reason: 'v3 step contract absent' }];
+  if (index.schemaVersion !== V3) return [{ layer: 'B', reason: 'v3 step contract absent' }];
+  const blocked = buildFamilySubChecks('meshing', index).filter((entry) => entry.status === 'blocked');
+  return blocked.length === 0 ? [] : [{ layer: 'B', reason: blocked[0].reason }];
 }
 
 /** The packages a step's operation belongs to. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-function ownersOf(index, operationId) {
+// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+function readOwners(index, operationId) {
   return index.operationOwners.get(operationId) ?? new Set();
 }
 
 /** The steps that cross one boundary. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-function stepsByBoundary(index) {
+// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+function groupStepsByBoundary(index) {
   const byBoundary = new Map();
   for (const step of index.artifact.steps ?? []) {
     for (const boundary of step.contract?.crosses ?? []) {
@@ -110,26 +118,26 @@ export function collectCrossingContracts(index) {
   if (index.schemaVersion !== V3) {
     return {
       findings: [],
-      subChecks: buildFamilySubChecks('meshing', skipWholeFamily('meshing', 'v3 step contract absent')),
+      subChecks: buildFamilySubChecks('meshing', index),
     };
   }
   const findings = [];
   checkCrossingDeclarations(index, findings);
   collectProjectionOnly(index, findings);
   collectBoundaryCoverage(index, findings);
-  for (const [boundaryId, steps] of stepsByBoundary(index)) {
+  for (const [boundaryId, steps] of groupStepsByBoundary(index)) {
     const contract = index.contractsByBoundary.get(boundaryId);
     if (contract === undefined) continue;
     checkBoundaryMeshing(index, boundaryId, steps, contract, findings);
   }
-  return { findings, subChecks: buildFamilySubChecks('meshing') };
+  return { findings, subChecks: buildFamilySubChecks('meshing', index) };
 }
 
 /** One finding for a step that carries no authored contract at all. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 function collectProjectionOnly(index, findings) {
   for (const step of index.artifact.steps ?? []) {
-    if (authoredContractOf(step) !== null || hasContractProse(step)) continue;
+    if (readAuthoredContract(step) !== null || hasContractProse(step)) continue;
     addFinding(findings, 'S5.projection-only', step.id, {
       className: 'deficiency',
       route: routeForStep('S5.projection-only', index, step),
@@ -140,10 +148,10 @@ function collectProjectionOnly(index, findings) {
 }
 
 /** One finding for a declared boundary that no step crosses and no ground covers. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 function collectBoundaryCoverage(index, findings) {
-  const crossed = new Set(stepsByBoundary(index).keys());
-  const grounded = boundaryGroundsOf(index);
+  const crossed = new Set(groupStepsByBoundary(index).keys());
+  const grounded = readBoundaryGrounds(index);
   for (const boundary of index.treeManifest.dependencies?.boundaries ?? []) {
     if (crossed.has(boundary.id) || grounded.has(boundary.id)) continue;
     const effectOperations = (index.artifact.operations ?? [])
@@ -186,10 +194,10 @@ function checkCrossingDeclarations(index, findings) {
 }
 
 /** One boundary: both sides exist, and every consumer contract is met by the provider. */
-// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285) --for-spec --no-implementation-order`.
 function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
   for (const step of steps) {
-    const owners = ownersOf(index, step.operation);
+    const owners = readOwners(index, step.operation);
     if (owners.has(contract.provider_package) || owners.has(contract.consumer_package)) continue;
     addFinding(findings, 'S5.crossing-direction-mismatch', step.id, {
       className: 'contradiction',
@@ -198,8 +206,8 @@ function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
       fix: `move ${step.id} to a package that holds a side of ${boundaryId}, or remove the crossing`,
     });
   }
-  const providerSteps = steps.filter((step) => ownersOf(index, step.operation).has(contract.provider_package));
-  const consumerSteps = steps.filter((step) => ownersOf(index, step.operation).has(contract.consumer_package));
+  const providerSteps = steps.filter((step) => readOwners(index, step.operation).has(contract.provider_package));
+  const consumerSteps = steps.filter((step) => readOwners(index, step.operation).has(contract.consumer_package));
   if (providerSteps.length === 0 || consumerSteps.length === 0) {
     addFinding(findings, 'S5.crossing-side-missing', boundaryId, {
       className: 'omission',
@@ -213,24 +221,24 @@ function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
   // A projection is not an authored contract. When either side carries only the
   // registry projection, the meshing comparison would compare the registry with
   // itself; the projection-only check names the step and this check makes no claim.
-  const authoredProviderSteps = providerSteps.filter((step) => authoredContractOf(step) !== null);
-  const authoredConsumerSteps = consumerSteps.filter((step) => authoredContractOf(step) !== null);
+  const authoredProviderSteps = providerSteps.filter((step) => readAuthoredContract(step) !== null);
+  const authoredConsumerSteps = consumerSteps.filter((step) => readAuthoredContract(step) !== null);
   if (authoredProviderSteps.length === 0 || authoredConsumerSteps.length === 0) return;
 
   const providerFacts = new Set();
   const providerErrors = new Set();
   for (const step of authoredProviderSteps) {
-    const authored = authoredContractOf(step);
+    const authored = readAuthoredContract(step);
     for (const fact of authored.post ?? []) {
-      const id = factIdOf(fact);
+      const id = readFactId(fact);
       if (belongsToBoundary(id, boundaryId)) providerFacts.add(id);
     }
     for (const produced of authored.produces ?? []) {
-      const id = factIdOf(produced);
+      const id = readFactId(produced);
       if (belongsToBoundary(id, boundaryId)) providerFacts.add(id);
     }
     for (const error of authored.errors ?? []) {
-      const id = factIdOf(error);
+      const id = readFactId(error);
       if (belongsToBoundary(id, boundaryId)) providerErrors.add(id);
     }
   }
@@ -241,12 +249,12 @@ function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
 }
 
 /** One consumer: its authored preconditions, consumed facts and expected errors against the provider. */
-// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285) --for-spec --no-implementation-order`.
 function checkConsumerContracts(index, boundaryId, consumer, provider, findings) {
-  const authored = authoredContractOf(consumer);
+  const authored = readAuthoredContract(consumer);
   const { providerFacts, providerErrors } = provider;
   const missing = (authored.pre ?? [])
-    .map(factIdOf)
+    .map(readFactId)
     .filter((fact) => belongsToBoundary(fact, boundaryId) && !providerFacts.has(fact));
   for (const fact of missing) {
     addFinding(findings, 'S5.precondition-not-implied', `${boundaryId}/${consumer.id}`, {
@@ -256,12 +264,12 @@ function checkConsumerContracts(index, boundaryId, consumer, provider, findings)
       fix: `add ${fact} to the provider postconditions or remove it from the consumer preconditions`,
     });
   }
-  for (const consumed of (authored.consumes ?? []).map(factIdOf)) {
+  for (const consumed of (authored.consumes ?? []).map(readFactId)) {
     if (!belongsToBoundary(consumed, boundaryId)) continue;
     if (providerFacts.has(consumed)) continue;
     const producedEarlier = (index.stepsBySequence.get(consumer.sequence) ?? [])
       .filter((step) => step.line < consumer.line)
-      .some((step) => (authoredContractOf(step)?.produces ?? []).map(factIdOf).includes(consumed));
+      .some((step) => (readAuthoredContract(step)?.produces ?? []).map(readFactId).includes(consumed));
     if (producedEarlier) continue;
     addFinding(findings, 'S5.consumes-not-produced', `${boundaryId}/${consumer.id}`, {
       className: 'omission',
@@ -270,7 +278,7 @@ function checkConsumerContracts(index, boundaryId, consumer, provider, findings)
       fix: `produce ${consumed} in an earlier step or declare it as an external input`,
     });
   }
-  for (const error of (authored.errors ?? []).map(factIdOf)) {
+  for (const error of (authored.errors ?? []).map(readFactId)) {
     if (!belongsToBoundary(error, boundaryId)) continue;
     if (providerErrors.has(error)) continue;
     addFinding(findings, 'S5.error-set-mismatch', `${boundaryId}/${consumer.id}`, {

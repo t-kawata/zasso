@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -7,6 +8,7 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import {
   materializeSmoothWorkspace,
   minimalV2Artifact,
+  minimalV3Artifact,
 } from './helpers/workspace-fixture.mjs';
 
 /** The input `migrateArtifactToV3` reads from a materialized workspace. */
@@ -45,10 +47,26 @@ test('the migration does not silently close an ungranted transition target', () 
     const migrated = materializeSmoothWorkspace({ artifact: v3 });
     try {
       const result = runCommand([migrated.root, '--audit']);
-      assert.ok(findingsOf(result, 'S3.transition-target-unknown').some((finding) => finding.subject === 'ProduceFact'));
+      const blocked = result.report.blocked.find((entry) => entry.checkId === 'S3.transition-target-unknown');
+      assert.equal(blocked.surface, 'operations[].allowed_status_transitions');
+      assert.match(blocked.reason, /synthesized by migration/);
+      assert.equal(findingsOf(result, 'S3.transition-target-unknown').length, 0);
     } finally {
       migrated.remove();
     }
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('a native v3 artifact still reports an ungranted transition target', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0].initial_status = 'open';
+  artifact.operations[0].allowed_status_transitions = { open: ['recovered'] };
+  const workspace = materializeSmoothWorkspace({ artifact });
+  try {
+    const result = runCommand([workspace.root, '--audit']);
+    assert.ok(findingsOf(result, 'S3.transition-target-unknown').some((finding) => finding.subject === 'ProduceFact'));
   } finally {
     workspace.remove();
   }
@@ -70,6 +88,7 @@ test('a status_terminality_ground closes the target and removes the finding', ()
     try {
       const result = runCommand([migrated.root, '--audit']);
       assert.equal(findingsOf(result, 'S3.transition-target-unknown').length, 0);
+      assert.equal(result.report.blocked.some((entry) => entry.checkId === 'S3.transition-target-unknown'), true);
     } finally {
       migrated.remove();
     }

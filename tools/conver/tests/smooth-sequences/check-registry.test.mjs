@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -31,13 +32,13 @@ test('a v3 clean workspace executes every registered sub-check', () => {
   }
 });
 
-test('a v2 artifact skips the meshing and contribution families with a named reason', () => {
+test('a v2 artifact blocks the meshing and contribution families with a named surface', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   try {
     const result = evaluateCheckRegistry(indexOf(workspace));
-    const skipped = new Map(result.subChecks.filter((entry) => entry.status === 'skipped').map((entry) => [entry.id, entry.reason]));
-    assert.match(skipped.get('S5.error-set-mismatch'), /v3 step contract absent/);
-    assert.match(skipped.get('S4.contribution-missing'), /v2 artifact carries no registry_contribution/);
+    const blocked = new Map(result.blocked.map((entry) => [entry.checkId, entry]));
+    assert.equal(blocked.get('S5.error-set-mismatch').surface, 'steps[].contract.authored');
+    assert.equal(blocked.get('S4.contribution-missing').surface, 'operations[].registry_contribution');
     assert.equal(result.subChecks.length, CHECK_REGISTRY.length);
   } finally {
     workspace.remove();
@@ -45,15 +46,16 @@ test('a v2 artifact skips the meshing and contribution families with a named rea
 });
 
 // @verifies C003
-test('executed + skipped equals the registry size and every skip carries a reason', () => {
+test('executed + blocked equals the registry size and every block carries a reason', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   try {
     const result = evaluateCheckRegistry(indexOf(workspace));
     const executed = result.subChecks.filter((entry) => entry.status === 'executed');
-    const skipped = result.subChecks.filter((entry) => entry.status === 'skipped');
-    assert.equal(executed.length + skipped.length, CHECK_REGISTRY.length);
-    assert.ok(skipped.length > 0);
-    assert.ok(skipped.every((entry) => typeof entry.reason === 'string' && entry.reason.length > 0));
+    const blocked = result.subChecks.filter((entry) => entry.status === 'blocked');
+    assert.equal(executed.length + blocked.length, CHECK_REGISTRY.length);
+    assert.ok(blocked.length > 0);
+    assert.ok(blocked.every((entry) => typeof entry.reason === 'string' && entry.reason.length > 0));
+    assert.ok(blocked.every((entry) => typeof entry.surface === 'string' && entry.surface.length > 0));
     assert.ok(executed.every((entry) => entry.reason === undefined));
   } finally {
     workspace.remove();

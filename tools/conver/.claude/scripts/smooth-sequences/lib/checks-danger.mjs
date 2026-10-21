@@ -8,6 +8,7 @@
  */
 import { finding } from './index.mjs';
 import { buildFamilySubChecks } from './check-status.mjs';
+import { SURFACES, surfaceAvailabilityOf } from './surfaces.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const ESCAPES = new Set(['suppliedRule', 'excluded']);
@@ -24,8 +25,8 @@ function addFinding(findings, checkId, subject, entry) {
 }
 
 /** The operation graph edges implied by consumed and produced facts. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-function operationEdges(index) {
+// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+function buildOperationEdges(index) {
   const producers = new Map();
   for (const step of index.artifact.steps ?? []) {
     for (const produced of step.contract?.produces ?? []) {
@@ -72,8 +73,8 @@ export function findCycles(edges) {
 }
 
 /** Operations no step reaches and no escape covers. */
-// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
-function unreachableOperations(index) {
+// [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+function findUnreachableOperations(index) {
   const findings = [];
   for (const operation of index.artifact.operations ?? []) {
     if (operation.disposition !== 'active') continue;
@@ -91,13 +92,13 @@ function unreachableOperations(index) {
 }
 
 /** Facts produced but never consumed, and facts consumed but never produced. */
-// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
-function orphanFacts(index) {
+// [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+function findOrphanFacts(index) {
   if (index.schemaVersion !== 3) return [];
   const context = collectFactContext(index);
   return [
-    ...unconsumedProduced(index, context),
-    ...unproducedConsumed(index, context),
+    ...findUnconsumedProduced(index, context),
+    ...findUnproducedConsumed(index, context),
   ];
 }
 
@@ -136,8 +137,8 @@ function collectFactContext(index) {
 }
 
 /** Produced object facts nothing consumes, unless a ground or a declared output explains them. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-function unconsumedProduced(index, context) {
+// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+function findUnconsumedProduced(index, context) {
   const findings = [];
   for (const fact of context.produced) {
     const objectName = fact.slice('object:'.length);
@@ -157,8 +158,8 @@ function unconsumedProduced(index, context) {
 }
 
 /** Consumed object facts nothing produces, unless a ground explains them. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-function unproducedConsumed(index, context) {
+// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+function findUnproducedConsumed(index, context) {
   const findings = [];
   for (const fact of context.consumed) {
     if (context.produced.has(fact) || context.isGrounded(fact)) continue;
@@ -173,8 +174,8 @@ function unproducedConsumed(index, context) {
 }
 
 /** Repeated operations without a loop, retry or exception annotation. */
-// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
-function unannotatedRepeats(index) {
+// [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+function findUnannotatedRepeats(index) {
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
     const byOperation = new Map();
@@ -206,8 +207,8 @@ function unannotatedRepeats(index) {
 }
 
 /** A step that consumes a fact a later step produces without an exception annotation. */
-// [::TICKET::] PX-273, PX-274, PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277) --for-spec --no-implementation-order`.
-function orderContradictions(index) {
+// [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+function findOrderContradictions(index) {
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
     for (const step of steps) {
@@ -228,9 +229,10 @@ function orderContradictions(index) {
 }
 
 /** An operation effect that none of its steps crosses and no ground covers. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
-function boundaryEffectDrift(index) {
+// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+function findBoundaryEffectDrift(index) {
   const findings = [];
+  if (!surfaceAvailabilityOf(index, SURFACES.BOUNDARY_EFFECTS).present) return findings;
   const grounded = new Set((index.artifact.boundary_grounds ?? [])
     .filter((entry) => typeof entry?.ground === 'string' && entry.ground.trim() !== '')
     .map((entry) => entry.boundary));
@@ -260,7 +262,7 @@ function boundaryEffectDrift(index) {
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectDangers(index) {
   const findings = [];
-  for (const cycle of findCycles(operationEdges(index))) {
+  for (const cycle of findCycles(buildOperationEdges(index))) {
     addFinding(findings, 'S6.cycle', cycle.join(' -> '), {
       className: 'danger',
       route: routeForSpecRow('S6.cycle', index, cycle.join(' -> ')),
@@ -268,12 +270,12 @@ export function collectDangers(index) {
       fix: 'break the cycle by removing a consumed fact or reordering the steps',
     });
   }
-  findings.push(...unreachableOperations(index));
-  findings.push(...orphanFacts(index));
-  findings.push(...unannotatedRepeats(index));
-  findings.push(...orderContradictions(index));
-  findings.push(...boundaryEffectDrift(index));
-  return { findings, subChecks: buildFamilySubChecks('danger') };
+  findings.push(...findUnreachableOperations(index));
+  findings.push(...findOrphanFacts(index));
+  findings.push(...findUnannotatedRepeats(index));
+  findings.push(...findOrderContradictions(index));
+  findings.push(...findBoundaryEffectDrift(index));
+  return { findings, subChecks: buildFamilySubChecks('danger', index) };
 }
 
 /** The findings-only view of the danger family, kept for existing callers. */

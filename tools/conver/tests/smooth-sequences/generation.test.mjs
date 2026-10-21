@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 /**
  * The generation history of a smooth-sequences run.
@@ -67,13 +68,13 @@ test('the first report opens generation 1 under the run directory', () => {
     assert.ok(existsSync(join(runDirectory, 'SMOOTH-SEQUENCES.md')));
 
     const status = JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8'));
-    assert.equal(status.schemaVersion, 1);
+    assert.equal(status.schemaVersion, 2);
     assert.equal(status.generation, 1);
     assert.equal(status.mode, 'new generation');
     assert.equal(status.measuredAt, '2026-10-20T00:00:00.000Z');
     assert.equal(status.inputDigest, 'input-1');
     assert.match(status.reportDigest, /^[0-9a-f]{64}$/);
-    assert.deepEqual(status.verdict, { exitCode: 0, findings: 0, withheld: 0 });
+    assert.deepEqual(status.verdict, { exitCode: 0, findings: 0, blocked: 0, withheld: 0, readings: 0 });
     assert.equal(existsSync(join(workspace.root, 'SMOOTH-SEQUENCES.json')), false);
   } finally {
     workspace.remove();
@@ -124,23 +125,25 @@ test('a changed input archives the current pair and writes the next generation',
 
     const status = JSON.parse(readFileSync(join(runDirectory, 'status.json'), 'utf8'));
     assert.equal(status.generation, 2);
-    assert.deepEqual(status.verdict, { exitCode: 1, findings: 1, withheld: 0 });
+    assert.deepEqual(status.verdict, { exitCode: 1, findings: 1, blocked: 0, withheld: 0, readings: 0 });
   } finally {
     workspace.remove();
   }
 });
 
 // @verifies C001
-test('an unreadable status or report is treated as no history', () => {
+test('an unreadable status or report is refused, never treated as no history', () => {
   const workspace = materializeSmoothWorkspace();
   const runDirectory = join(workspace.root, RUN_DIRECTORY);
   try {
     mkdirSync(runDirectory);
     writeFileSync(join(runDirectory, 'status.json'), '{not json');
     writeFileSync(join(runDirectory, 'SMOOTH-SEQUENCES.json'), '{not json');
-    assert.equal(readStatus(workspace.root), null);
-    assert.equal(readPreviousReport(workspace.root), null);
+    assert.throws(() => readStatus(workspace.root), /not valid JSON/);
+    assert.throws(() => readPreviousReport(workspace.root), /not valid JSON/);
 
+    unlinkSync(join(runDirectory, 'status.json'));
+    unlinkSync(join(runDirectory, 'SMOOTH-SEQUENCES.json'));
     const written = writeGeneration({ root: workspace.root, report: reportFor(workspace.root), inputDigest: 'input-1', exitCode: 0, now: 't1' });
     assert.equal(written.generation, 1);
     assert.equal(readStatus(workspace.root).generation, 1);

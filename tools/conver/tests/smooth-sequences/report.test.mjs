@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
@@ -11,6 +12,8 @@ import {
   buildReport,
   EXIT_FINDINGS,
   EXIT_PASS,
+  EXIT_UNPROVEN,
+  readFindingBaseline,
   readPreviousReport,
   renderConsoleReport,
   renderReportJson,
@@ -59,19 +62,23 @@ function reportOf(overrides = {}) {
 // @verifies C001
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-test('the JSON report is byte-identical, sorted and at schemaVersion 3', () => {
+test('the JSON report is byte-identical, sorted and at schemaVersion 4', () => {
   const first = renderReportJson(reportOf());
   const second = renderReportJson(reportOf());
   assert.equal(first, second);
   const parsed = JSON.parse(first);
-  assert.equal(parsed.schemaVersion, 3);
+  assert.equal(parsed.schemaVersion, 4);
   assert.deepEqual(parsed.findings.map((finding) => finding.checkId), ['S1.a', 'S4.b']);
   assert.equal(parsed.findingsByClass.omission, 1);
   assert.equal(parsed.findingsByClass.contradiction, 1);
   assert.equal(parsed.checks.families, 7);
   assert.equal(parsed.checks.skipped, 0);
+  assert.equal(parsed.checks.blocked, 0);
   assert.deepEqual(parsed.checks.subChecks, []);
   assert.equal(parsed.provenance.status, 'not-recorded');
+  assert.deepEqual(parsed.provenance.proseContract, { total: 0, typed: 0, legacy: 0, absent: 0 });
+  assert.deepEqual(parsed.provenance.schemaHistory, []);
+  assert.equal(parsed.provenance.downgrade, null);
   assert.equal(parsed.readings.status, 'not-available');
   assert.deepEqual(parsed.denominator, { operations: null, sequences: null, boundaries: null, surfaces: null });
   for (const finding of parsed.findings) {
@@ -88,7 +95,7 @@ test('the console block groups findings under route headers and ends with next',
   assert.equal(lines[0], 'smooth-sequences: 2 finding(s) in 2 repair route(s)');
   assert.ok(lines.includes('route: spec.md#1 | rerun: /educe-sequences spec.md'));
   assert.ok(lines.includes('  S1.a A-1__step | why: unresolved operation | fix: declare the operation'));
-  assert.equal(lines.at(-1), 'next: fix every finding above, then rerun this command. exit 0 only when this block is empty.');
+  assert.equal(lines.at(-1), 'next: fix every finding above; blocked surfaces must also be restored. exit 0 only when both sets are empty.');
 });
 
 // @verifies C003
@@ -102,24 +109,25 @@ test('a clean console block prints next: none and no finding line', () => {
   });
   assert.deepEqual(renderConsoleReport(report), [
     'smooth-sequences: 0 finding(s)',
-    'provenance: not-recorded (no migration field)',
+    'provenance: not-recorded (no migration field; prose total 0: typed 0, legacy 0, absent 0)',
     'readings: not-available',
     'next: none. verdict: pass.',
   ]);
 });
 
 // @verifies C004
-test('a console block with withheld surfaces says not proved and never a proved verdict', () => {
+test('a console block with a blocked surface is unproven and never says pass', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
     findings: [],
-    withheld: [{ layer: 'B', reason: 'v3 step contract absent' }],
+    withheld: [{ layer: 'B', check: 'S5.precondition-not-implied', reason: 'v3 step contract absent' }],
     checks: { run: 7, failed: 0 },
   });
   const lines = renderConsoleReport(report);
-  assert.ok(lines.includes('withheld: B (v3 step contract absent) — not proved'));
-  assert.equal(lines.at(-1), 'next: none. verdict: pass with 1 unproven surface.');
-  assert.doesNotMatch(lines.join('\n'), /verdict: proved/);
+  assert.ok(lines.includes('blocked: 1 check(s) in 1 surface'));
+  assert.ok(lines.some((line) => line.includes('S5.precondition-not-implied')));
+  assert.equal(lines.at(-1), 'next: restore every blocked surface or record a waiver with a ground. verdict: unproven; exit: 4.');
+  assert.doesNotMatch(lines.join('\n'), /verdict: pass/);
 });
 
 // @verifies C005
@@ -171,7 +179,28 @@ test('the Markdown report names each withheld surface and its check', () => {
     checks: { run: 7, failed: 0 },
   });
   const markdown = renderReportMarkdown(report);
-  assert.match(markdown, /vocabulary:S3\.terminal-status \(terminalStatuses is not declared\)/);
+  assert.match(markdown, /blocked: 1 check\(s\) in 1 surface\(s\)/);
+  assert.match(markdown, /S3\.terminal-status \| surface: unknown \| reason: terminalStatuses is not declared/);
+});
+
+// @verifies C006
+test('an unreadable readings file is named in the console and Markdown', () => {
+  const readings = {
+    status: 'partial',
+    inquest: { records: 0, byLens: {}, byAnswer: {}, yes: 0, no: 0, unresolvedSubjects: [], overflow: 0 },
+    adversarial: { records: 0, byOutcome: {} },
+    uncovered: { records: 0 },
+    withheld: [{ layer: 'readings', check: 'readings:readings-inquest.jsonl', reason: 'line 2 is malformed' }],
+  };
+  const report = buildReport({
+    workspace: { root: '/tmp/x' },
+    findings: [],
+    readings,
+    checks: { run: 7, failed: 0 },
+    verdict: 'unproven',
+  });
+  assert.ok(renderConsoleReport(report).some((line) => line.includes('readings withheld: readings:readings-inquest.jsonl')));
+  assert.match(renderReportMarkdown(report), /readings withheld: readings:readings-inquest\.jsonl/);
 });
 
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
@@ -201,6 +230,19 @@ test('writeReport writes both documents and returns their paths', () => {
   }
 });
 
+// @verifies C003
+test('readFindingBaseline falls back to a legacy root report when the generation is clean', () => {
+  const root = mkdtempSync(join(tmpdir(), 'smooth-report-baseline-'));
+  try {
+    mkdirSync(join(root, 'smooth-sequences'), { recursive: true });
+    writeFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), JSON.stringify({ findings: [] }));
+    writeFileSync(join(root, 'SMOOTH-SEQUENCES.json'), JSON.stringify({ findings: [{ subject: 'legacy' }] }));
+    assert.equal(readFindingBaseline(root).findings[0].subject, 'legacy');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // @verifies C005
 test('readPreviousReport prefers the generation report over the legacy root report', () => {
   const root = mkdtempSync(join(tmpdir(), 'smooth-report-history-'));
@@ -221,4 +263,5 @@ test('readPreviousReport prefers the generation report over the legacy root repo
 test('exit constants are stable', () => {
   assert.equal(EXIT_PASS, 0);
   assert.equal(EXIT_FINDINGS, 1);
+  assert.equal(EXIT_UNPROVEN, 4);
 });

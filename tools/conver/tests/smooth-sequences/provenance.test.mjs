@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -26,18 +27,14 @@ test('a v3 artifact with no migration field reports not-recorded and counts miss
   const summary = summarizeProvenance(minimalV3Artifact());
   assert.equal(summary.status, 'not-recorded');
   assert.equal(summary.fromSchemaVersion, null);
-  assert.equal(summary.proseContract.total, 2);
-  assert.equal(summary.proseContract.preserved, 0);
-  assert.equal(summary.proseContract.missing, 2);
+  assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 0, absent: 2 });
 });
 
 test('a v2 artifact reports v2 and counts its prose contracts without claiming preservation', () => {
   const summary = summarizeProvenance(minimalV2Artifact());
   assert.equal(summary.status, 'v2');
   assert.equal(summary.fromSchemaVersion, 2);
-  assert.equal(summary.proseContract.total, 2);
-  assert.equal(summary.proseContract.preserved, 0);
-  assert.equal(summary.proseContract.missing, 0);
+  assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 2, absent: 0 });
 });
 
 // @verifies C001
@@ -52,9 +49,7 @@ test('a migrated artifact records its source and preserves every prose contract'
     assert.equal(summary.toSchemaVersion, 3);
     assert.equal(summary.migratedBy, 'smooth-sequences/migrate-v3');
     assert.equal(typeof summary.sourceDigest, 'string');
-    assert.equal(summary.proseContract.total, 2);
-    assert.equal(summary.proseContract.preserved, 2);
-    assert.equal(summary.proseContract.missing, 0);
+    assert.deepEqual(summary.proseContract, { total: 2, typed: 2, legacy: 0, absent: 0 });
   } finally {
     workspace.remove();
   }
@@ -70,8 +65,7 @@ test('a migrated artifact without contract_prose reports every step as missing',
     };
     const summary = summarizeProvenance(stripped);
     assert.equal(summary.status, 'recorded');
-    assert.equal(summary.proseContract.preserved, 0);
-    assert.equal(summary.proseContract.missing, 2);
+    assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 0, absent: 2 });
   } finally {
     workspace.remove();
   }
