@@ -12,6 +12,8 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+import { appendReceipt, readEvidenceManifest, sha256File, updateManifestArtifact } from '../../shared-obligations/evidence.mjs';
+
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
 import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
@@ -112,6 +114,7 @@ export const PHASE_GUIDANCE = Object.freeze({
 
 /** Merge readings by subject, so a later brief's verdict replaces the earlier one. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function mergeBySubject(...groups) {
   const merged = new Map();
   for (const group of groups) for (const reading of group) merged.set(reading.subject, reading);
@@ -164,6 +167,7 @@ function claimedInBrief(directory, brief) {
  * A `[read]` phase has no action: the library cannot read, and giving it one would be
  * the substitution the whole design refuses.
  */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
 const ACTIONS = Object.freeze({
 // [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   6: (ctx) => {
@@ -214,6 +218,7 @@ const ACTIONS = Object.freeze({
       },
       supplied: digestOfSupplied(ctx.status[SUPPLIED_FIELD] ?? []),
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
+      previousArtifact: previous,
     });
     // A merge is an improvement and is permitted; a merge that loses a name is not, so the
     // names are compared before anything is written. The adjudications are proven here, beside
@@ -284,8 +289,16 @@ export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot =
  *            expects: string|null, exitCode: number, loops: number}}
  */
 export function runPhase(id, ctx) {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const phase = phaseById(id);
   if (phase === null) return { id, tag: null, ok: false, halted: false, reason: `there is no phase ${id}`, backTo: null, expects: null, exitCode: 1, loops: 0 };
+
+  // Phase 7 is the first reading phase: bind the manifest to the artifact those readings
+  // measure, so a later artifact change makes the receipts stale instead of silently
+  // inheriting an older measurement.
+  if (id === 7 && existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
+    updateManifestArtifact(ctx.directory, { spec: ctx.spec, artifactPath: ctx.artifactPath });
+  }
 
   // A halt names no back-edge and asks the reader for nothing: the phase is not to be
   // repeated, so the two fields that tell a caller how to repeat it would be a
@@ -324,6 +337,20 @@ export function runPhase(id, ctx) {
     noteDone(ctx.status, id, { verdict: exit.reason, tag: phase.tag });
     if (phase.tag === PHASE_TAGS.READ) {
       noteReading(ctx.status, phase.name, { claims: claimedBy(ctx.directory, id), vacuous: exit.vacuous === true });
+    }
+    if (existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
+      appendReceipt(ctx.directory, {
+        phase: id,
+        inputs: {
+          spec: ctx.spec.sha256,
+          declaration: sha256File(join(ctx.directory, DECLARATION_FILE)),
+          artifact: sha256File(ctx.artifactPath),
+          worklist: sha256File(join(ctx.directory, WORKLIST_FILE)),
+        },
+        outputs: {},
+        verdict: exit.reason,
+        reader: 'educe-sequences',
+      });
     }
   } else {
     noteLoop(ctx.status, id, phase.tag, exit.reason);
@@ -515,10 +542,23 @@ export function beginRun({ specPath, spec, material = '', namedPaths = [], root 
   // the set this generation holds and not the set the run found.
   const inheritedDigest = assetDigestOf(opened.directory);
 
+  const manifest = readEvidenceManifest(dirname(opened.directory));
+  const receipts = manifest?.receipts ?? null;
+  const currentDigests = receipts === null ? null : {
+    spec: spec.sha256,
+    declaration: sha256File(join(opened.directory, DECLARATION_FILE)),
+    artifact: sha256File(artifactPathFor(specPath)),
+    worklist: sha256File(join(opened.directory, WORKLIST_FILE)),
+  };
+
   const carried = reopenPhases(
     beginGeneration(status, {
       spec: { path: basename(specPath), sha256: spec.sha256, lines: spec.lineCount },
       digest: inheritedDigest,
+      directory: opened.directory,
+      artifactPath: artifactPathFor(specPath),
+      receipts,
+      currentDigests,
       // The generation being superseded records what its audit asked and answered, so the
       // next report can print the two beside each other and a reader can see whether the
       // questions moved anything.

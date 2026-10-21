@@ -252,6 +252,7 @@ Hand rendered brief + worklist to reader subagent.
 - reader answers one question per entry: *is the named operation performed by the named actor inside the entry's own span?*
 - reader writes `<dir of spec-file>/educe-sequences/readings-span.jsonl`: one signed line per entry; each carries `steps` and `operations` read there.
 - reader writes `<dir of spec-file>/educe-sequences/readings-uncovered.jsonl`: one signed line per operation the borrowed census names and no step performs; each accounted for by placing it or naming the escape covering it.
+- **Mechanical closure (PX-289)**: a span step that names the operation is proof the operation is performed, so the gate closes that member without a reader record. The worklist keeps every census member, but only the members with no span step owe a record. The phase verdict states both counts, for example `108 uncovered operation(s) accounted for; 149 mechanically closed by a span step`. An absent or empty file leaves every required member open; it is never read as zero debt.
 
 Every step carries act `subject`, `predicate`, `object`, `contract` + `line` and `quote` (verbatim from that line).
 - four act fields insufficient alone: decomposition can carry all, in order, relation holding, and not be a reading.
@@ -296,7 +297,7 @@ node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
 
 Brief carries tree; its `SHARE:` lines rank rulings: operation another sequence also names ⇒ misreading takes more than this ruling down ⇒ search weakest link there first.
 
-Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: one signed attack per ruling; names the single weakest link. Refused when a ruling was never attacked. FAIL: back to Step 9; max 3 loops. no entry ruled non-sequence → gate passes as **vacuous**; report says so; not counted as signed work.
+Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: one signed ruling per subject (`excluded`, `notASequence` or `suppliedRule`), naming the single weakest link. Reader writes `<dir of spec-file>/educe-sequences/readings-attack.jsonl`: one attack per ruling, with `obligationId: READ:ADVERSARIAL:<subject>`, `rulingId`, `subject`, `outcome`, `reader` and `searched` (source, line range, quote). Refused when a ruling was never attacked. FAIL: back to Step 9; max 3 loops. no entry ruled non-sequence → gate passes as **vacuous**; report says so; not counted as signed work.
 
 ### Step 11 — reroute `[read]` (AI judgment)
 
@@ -334,6 +335,10 @@ node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 13
 Pass asks the specification something rather than checking an answer to it. declaration and readings record what was found; cannot record what nobody looked for; this Step closes that gap. every generation asks again ⇒ changed text, or thinly read apparatus, is interrogated, not re-verified.
 
 Brief names every declared subject (each section, each entry) under each of four lenses, with what previous generation answered. Reader writes `<dir of spec-file>/educe-sequences/readings-inquest.jsonl`: one signed record per (subject, lens) pair; carries question, answer in closed vocabulary, line answer rests on + its quote.
+- **Anchor (PX-289)**: an `@object:` answer must cite a line that names the object, or carry `anchor: {quote}` naming it. A quote-at-line alone can rest on a line that never mentions the subject and is refused.
+- **Attack (PX-289)**: when the run directory carries `EVIDENCE-MANIFEST.json`, every active operation and every realized sequence is a Tier 1 subject; a `No` under either high-consequence lens closes only with a held attack in `readings-attack.jsonl`. An unheld subject is refused by name. Legacy runs without a manifest keep the old gate until they migrate.
+- **Finding (PX-292)**: a `Yes` is a finding. It stays open until the record carries a `resolution` whose `kind` is `spec-change` or `artifact-change`, whose `artifactDigest` equals the current artifact, and whose `evidence` cites a line and quote; or until the pair is exempt in the declaration. A `Yes` is never counted as clean.
+- **Freshness (PX-292)**: every inquest record carries `artifactDigest`. A record without it is `LEGACY_RECORD`; a record with a different digest is `STALE_EVIDENCE`. Neither closes the obligation.
 
 Refused while: pair carries no answer and no exemption; answer carries no signature; quote not carried by named line. FAIL: back to Step 12; max 3 loops.
 

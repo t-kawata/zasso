@@ -69,7 +69,7 @@ function detect({ root, allowTransaction }) {
 }
 
 /** Parse the command line, refusing any force or hash argument. */
-// [::TICKET::] PX-278, PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const [command, ...rest] = argv;
   const options = {};
@@ -85,6 +85,7 @@ function parseArguments(argv) {
     else if (arg.startsWith('--allocate-decisions=')) options.allocateDecisions = arg.slice('--allocate-decisions='.length);
     else if (arg.startsWith('--tree-decisions=')) options.treeDecisions = arg.slice('--tree-decisions='.length);
     else if (arg.startsWith('--annotations=')) options.annotations = arg.slice('--annotations='.length);
+    else if (arg.startsWith('--evidence=')) options.evidence = arg.slice('--evidence='.length);
     else if (arg.startsWith('--reason=')) options.reason = arg.slice('--reason='.length);
     else if (arg.startsWith('--transaction=')) options.transaction = arg.slice('--transaction='.length);
     else if (arg.startsWith('--')) {
@@ -112,7 +113,7 @@ function transactionIdOf(root, options) {
 }
 
 /** Print the identity and next command of one transaction. */
-// [::TICKET::] PX-279, PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-280, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280|PX-287|PX-290) --for-spec --no-implementation-order`.
 function printTransaction(entry, status) {
   process.stdout.write(`id: ${entry.id}\n`);
   process.stdout.write(`state: ${entry.state}\n`);
@@ -122,6 +123,7 @@ function printTransaction(entry, status) {
   process.stdout.write(`candidate-allocate-decisions: ${display(entry.candidateAllocateDecisions)}\n`);
   process.stdout.write(`candidate-tree-decisions: ${display(entry.candidateTreeDecisions)}\n`);
   process.stdout.write(`candidate-annotations: ${display(entry.candidateAnnotations)}\n`);
+  process.stdout.write(`candidate-evidence: ${display(entry.candidateEvidence)}\n`);
   process.stdout.write(`next: ${status.next}\n`);
 }
 
@@ -162,12 +164,12 @@ function printUnverified(receipt) {
 }
 
 /** Run one command and print its outcome. */
-// [::TICKET::] PX-278, PX-279, PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287|PX-290) --for-spec --no-implementation-order`.
 function run(argv) {
   const root = cwd();
   const { command, options } = parseArguments(argv);
   if (command === 'open') {
-    if (options.reason === undefined || (options.spec === undefined && options.allocateDecisions === undefined && options.treeDecisions === undefined && options.annotations === undefined)) {
+    if (options.reason === undefined || (options.spec === undefined && options.allocateDecisions === undefined && options.treeDecisions === undefined && options.annotations === undefined && options.evidence === undefined)) {
       throw new RegenerationError('open needs --reason and at least one candidate', {
         code: 'MISSING_ARGUMENT',
         repair: USAGE,
@@ -179,6 +181,7 @@ function run(argv) {
       candidateAllocateDecisions: options.allocateDecisions,
       candidateTreeDecisions: options.treeDecisions,
       candidateAnnotations: options.annotations,
+      candidateEvidence: options.evidence,
       reason: options.reason,
     });
     process.stdout.write(`opened ${opened.transactionId}\n`);

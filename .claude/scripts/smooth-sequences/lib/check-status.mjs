@@ -329,16 +329,49 @@ export const CHECK_REGISTRY = Object.freeze([
   }),
 ]);
 
-/** A check that executed, with the denominator it measured. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-function buildExecutedEntry(entry, denominator) {
-  return { id: entry.id, family: entry.family, status: 'executed', denominator };
+/** A check that executed, with the denominator and the claims it measured. */
+// [::TICKET::] PX-285, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290) --for-spec --no-implementation-order`.
+function buildExecutedEntry(entry, denominator, evaluatedClaims = denominator) {
+  return { id: entry.id, family: entry.family, status: 'executed', denominator, evaluatedClaims };
 }
 
 /** A check that could not execute, with the surface and reason. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290) --for-spec --no-implementation-order`.
 function buildBlockedEntry(entry, surface, reason) {
-  return { id: entry.id, family: entry.family, status: 'blocked', surface, reason, denominator: 0 };
+  return { id: entry.id, family: entry.family, status: 'blocked', surface, reason, denominator: 0, evaluatedClaims: 0 };
+}
+
+/** A check whose surface is present but whose evaluated claim count is zero. */
+// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+function buildVacuousEntry(entry, denominator) {
+  return {
+    id: entry.id,
+    family: entry.family,
+    status: 'vacuous',
+    denominator,
+    evaluatedClaims: 0,
+    reason: 'zero evaluated claims',
+  };
+}
+
+/**
+ * Classify one check by its denominator and the claims it actually evaluated.
+ *
+ * A zero denominator is blocked; a positive denominator with no evaluated claim is
+ * vacuous; only a positive evaluated claim count is executed.
+ */
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+export function classifyCheck({ denominator, evaluatedClaims, required = true }) {
+  if (denominator === 0) return { status: 'blocked', reason: 'empty denominator', evaluatedClaims: 0 };
+  if (required && evaluatedClaims === 0) return { status: 'vacuous', reason: 'zero evaluated claims', evaluatedClaims: 0 };
+  return { status: 'executed', reason: null, evaluatedClaims };
+}
+
+/** The claims a check actually evaluates, over and above its row denominator. */
+// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+function evaluatedClaimsFor(entry, index, denominator) {
+  if (entry.id === 'S6.boundary-effect-drift') return countActiveOperations(index);
+  return denominator;
 }
 
 /** The first reason a descriptor cannot execute over this index, or null. */
@@ -382,7 +415,12 @@ export function buildFamilySubChecks(family, index, skippedReasons = new Map()) 
       const reason = findBlockingReason(entry, index);
       if (reason !== null) return buildBlockedEntry(entry, reason.surface, reason.reason);
       const denominator = entry.denominator(index);
-      if (denominator === 0) return buildBlockedEntry(entry, entry.requires[0] ?? 'unknown', 'empty denominator');
-      return buildExecutedEntry(entry, denominator);
+      const evaluatedClaims = evaluatedClaimsFor(entry, index, denominator);
+      const resolution = classifyCheck({ denominator, evaluatedClaims, required: true });
+      if (resolution.status === 'blocked') {
+        return buildBlockedEntry(entry, entry.requires[0] ?? 'unknown', resolution.reason);
+      }
+      if (resolution.status === 'vacuous') return buildVacuousEntry(entry, denominator);
+      return buildExecutedEntry(entry, denominator, resolution.evaluatedClaims);
     });
 }

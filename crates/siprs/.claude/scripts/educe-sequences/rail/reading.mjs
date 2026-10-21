@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ENTRY_OUTCOMES, carriesValue, digestOf, writeArtifact } from './load.mjs';
+import { isSameRevision } from './artifact.mjs';
 // The reading vocabularies are declared with the files that carry them, so the driver and
 // the validator cannot hold two copies of what a reading is: the copy this module used to
 // keep beside its own `neighbour` literal was a second thing to drift.
@@ -521,16 +522,7 @@ export function subjectsHeldBy(artifact) {
   return names;
 }
 
-/** Whether the two artifacts were read from the same specification and the same material. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
-function sameRevision(previous, next) {
-  return previous.spec?.sha256 === next.spec?.sha256
-    && previous.spec?.lines === next.spec?.lines
-    && previous.supplied?.digest === next.supplied?.digest;
-}
-
-/**
- * The names a generation is held to that the artifact it writes carries nowhere.
+/** The names a generation is held to that the artifact it writes carries nowhere.
  *
  * A merge is an improvement carrying a smaller number, so the count of what an artifact
  * holds cannot be what this answers — a rule with a threshold would refuse the merge it
@@ -549,9 +541,10 @@ function sameRevision(previous, next) {
  * @returns {string[]} — the names that left, in the order the previous artifact held them
  */
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function vanishedSubjects({ previous, next }) {
   if (previous === null || previous === undefined) return [];
-  if (!sameRevision(previous, next)) return [];
+  if (!isSameRevision(previous, next)) return [];
 
   const carried = subjectsNamedBy(next);
   return [...subjectsHeldBy(previous)].filter((name) => !carried.has(name));
