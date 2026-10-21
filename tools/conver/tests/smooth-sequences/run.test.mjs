@@ -183,6 +183,7 @@ test('a clean run prints next: none and no finding line', () => {
 });
 
 // @verifies C004
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('a v2 run is unproven and lists the blocked surfaces', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   const output = capture();
@@ -193,11 +194,13 @@ test('a v2 run is unproven and lists the blocked surfaces', () => {
     assert.equal(result.report.verdict, 'unproven');
     assert.ok(result.report.blocked.length > 0);
     const blockedIds = new Set(result.report.blocked.map((entry) => entry.checkId));
-    assert.equal([...blockedIds].filter((id) => id.startsWith('S5.')).length, 8);
+    assert.equal([...blockedIds].filter((id) => id.startsWith('S5.')).length, 9);
     assert.equal([...blockedIds].filter((id) => id.startsWith('S4.contribution')).length, 3);
     assert.equal(blockedIds.has('S6.boundary-effect-drift'), true);
     assert.match(text, /blocked: \d+ check\(s\) in \d+ surfaces?/);
-    assert.match(output.stdout.at(-1), /^next: restore every blocked surface or record a waiver with a ground\. verdict: unproven; exit: 4\./);
+    assert.match(text, /blocked: S5\.precondition-not-implied \| surface: steps\[\]\.contract\.authored \| producer: node \.claude\/scripts\/smooth-sequences\/migrate-v3\.mjs/);
+    assert.match(output.stdout.at(-1), /^next: restore every blocked surface with its producer: .+\. verdict: unproven; exit: 4\.$/);
+    assert.doesNotMatch(text, /waiver/);
     assert.doesNotMatch(text, /verdict: pass/);
   } finally {
     workspace.remove();

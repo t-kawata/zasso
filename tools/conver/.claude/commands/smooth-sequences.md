@@ -50,7 +50,7 @@ Only human surface: delegated design command's direction questions within its ow
 ## Outputs
 
 - Run directory `<cwd>/smooth-sequences/`; created only when a generation is written.
-- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 4`. Beside the finding set it carries `checks.subChecks` (every check id executed or blocked with a surface and reason), `blocked` (one entry per blocked check), `waived` (findings removed by a grounded waiver), `downgrade` (a v3 to v2 step, or null), `provenance` (migration, schema history, and the typed/legacy/absent prose partition), `readings` (educe inquest/adversarial/uncovered counts, the unresolved Yes subjects and the blocking/advisory policy), `denominator`, `verdict`, and `wouldExit` (audit mode only).
+- `SMOOTH-SEQUENCES.json`: complete report; `schemaVersion: 4`. Beside the finding set it carries `checks.subChecks` (every check id executed or blocked with a surface, producer and reason), `blocked` (one entry per blocked check with its producer), `waived` (findings removed by a grounded waiver), `downgrade` (a v3 to v2 step, or null), `provenance` (migration, schema history, and the typed/legacy/absent prose partition), `readings` (educe inquest/adversarial/uncovered counts, the readings file path, the full unresolved-subject count, capped subject/line/quote details, and the blocking/advisory policy), `denominator`, `verdict`, and `wouldExit` (audit mode only).
 - `SMOOTH-SEQUENCES.md`: human repair view; max 200 findings; explicit `…and N more findings` overflow line. It repeats the provenance, readings and denominator lines.
 - `status.json`: `schemaVersion: 2`; `generation`, `mode`, `measuredAt`, `inputDigest`, `reportDigest`, `findingKeysDigest`, `schemaHistory`, `verdict` (`exitCode`, `findings`, `blocked`, `readings`; audit adds `wouldExit`).
 - `archive/<N>/`: the pair generation N wrote; moved byte-identically; never deleted.
@@ -88,7 +88,7 @@ Before design read: resolve interrupted regeneration commit; refuse while a tran
 | `1` | findings; report written | Step 2 |
 | `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node .claude/scripts/regeneration/run.mjs status` to identify it (`state: none` = none); `node .claude/scripts/regeneration/run.mjs continue`; follow `next:`; Step 1 |
 | `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node .claude/scripts/regeneration/run.mjs continue`; Step 1 |
-| `4` | unproven: report written | Step 2: restore each blocked surface, record a grounded waiver, or open a regeneration; never read exit 4 as completion |
+| `4` | unproven: report written | Step 2: restore each blocked surface with its named producer, or resolve the readings; never read exit 4 as completion |
 
 Open transaction → resume; never abandon.
 Transaction owns workspace in open/derived/verified/committing → no detector report.
@@ -105,9 +105,41 @@ Every finding has a repair class:
 | `in-place` | package `RFC.md` (distribution ledger, boundary name), obligation, view | Edit authored file; run route `rerun:` (view: `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`); rerun this command |
 | `regeneration` | specification-derived artifact findings; allocate decisions | No live-spec edit. Copy to candidate; change candidate or decisions; run transaction |
 | `judgment-required` | unresolved RFC/obligation ground | Step 5: owning AI command in staging; then `continue` |
-| `blocked` | a required surface is absent or migration-synthesized | Step 2: restore the authored surface with its producer, or record a grounded waiver in `SMOOTH-SEQUENCES-WAIVERS.json`; rerun |
+| `blocked` | a required surface is absent, migration-synthesized, or has unknown provenance | Step 2: restore the surface with its producer (`migrate-v3 --annotations` for the v3 evidence surfaces; specification regeneration for vocabulary); rerun |
 
-Blocked surfaces have no authored file of their own. Restore the producer that emits the surface (`operations[].boundary_effects`, `operations[].registry_contribution`, `steps[].contract`, `steps[].contract.crosses`, `steps[].contract.authored`, or the vocabulary record), or record a grounded waiver in `SMOOTH-SEQUENCES-WAIVERS.json`. A waiver records the finding's disposition; it does not turn a blocked surface into a measured one.
+Blocked surfaces have no authored file of their own. Every blocked line names its producer. The v3 evidence surfaces (`operations[].allowed_status_transitions`, `operations[].registry_contribution`, `operations[].boundary_effects`, `steps[].contract`, `steps[].contract.authored`, `steps[].contract.crosses`) are restored by an annotations document:
+
+```bash
+node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<annotations-file>
+```
+
+**Authoring annotations.** The document carries `contracts`, `operations` and `boundary_grounds`:
+
+```json
+{
+  "contracts": {
+    "<step-id>": {
+      "pre": [], "post": [], "invariants": [],
+      "consumes": [], "produces": [], "errors": [],
+      "crosses": ["<boundary-id>"]
+    }
+  },
+  "operations": {
+    "<operation-id>": {
+      "registry_contribution": "required|not_required",
+      "registry_contribution_ground": "<ground when not_required>",
+      "boundary_effects": [{ "boundary": "<boundary-id>", "direction": "provides|consumes" }]
+    }
+  },
+  "boundary_grounds": [
+    { "boundary": "<boundary-id>", "ground": "<why no operation crosses>", "source": { "reasonCode": "<tree dependency_reason_code>" } }
+  ]
+}
+```
+
+Every entry in `pre`, `post` and `invariants` is `{factId, text, source: {step, line, quote}}`. The quote must appear in the step quote at that line; an uncited assertion is refused with `UNCITED_AUTHORED_FACT`. A ground whose `reasonCode` does not match the tree boundary is refused with `UNCITED_BOUNDARY_GROUND`. The migration is incremental: a later annotations document updates only the rows it names, and the same document is byte-identical on a second run. A step is authored only when every row of its surface is authored; a partial surface stays blocked and the reason reports `authored N/M`. A waiver records a finding's disposition; it never turns a blocked surface into a measured one.
+
+**Readings.** An inquest `Yes` answer is not a finding and cannot be waived. Revise the specification for the named subject and line, open a regeneration, rerun the educe reader phases, and confirm the new readings have zero `Yes`. `--advisory-readings` is a diagnostic policy, never a repair.
 
 Loop rules:
 
@@ -146,6 +178,7 @@ No in-place edits: specification, tree manifest, allocate manifest, artifact.
 | specification-derived (`spec.md#Lnn`) | the tree manifest's `input.spec_path` (a basename at the root) | `regeneration/candidates/<id>.md` | `--spec=<candidate>` |
 | allocate decisions (`workspacify/allocate/DECISIONS.json#...`) | `workspacify/allocate/DECISIONS.json` | `regeneration/candidates/<id>-ALLOCATE.json` | `--allocate-decisions=<candidate>` |
 | tree decisions (a derive failure names a tree decision) | `workspacify/tree/DECISIONS.json` | `regeneration/candidates/<id>-TREE.json` | `--tree-decisions=<candidate>` |
+| annotations (a blocked v3 surface) | the producer named on the blocked line | `regeneration/candidates/<id>-ANNOTATIONS.json` | `--annotations=<candidate>` |
 | more than one | each live file | each candidate | each flag |
 
 `<id>` = finding `checkId` (e.g. `S3.interface-mapping-missing`); any name unique in `regeneration/candidates/` accepted and ledger-recorded.
@@ -173,6 +206,15 @@ $EDITOR regeneration/candidates/<id>.md   # or the -ALLOCATE / -TREE candidate
 
 Live decisions absent (usual for tree) → write candidate instead of copying.
 Supplied document with no live counterpart = change; `open` accepts.
+
+**Annotations candidate.** When a blocked line names `migrate-v3 --annotations`, write the annotations document described in Step 2 to `regeneration/candidates/<id>-ANNOTATIONS.json` and open with `--annotations=<candidate>`. The file is hashed at open; editing the candidate or the staged copy after open raises `CANDIDATE_CHANGED`. The staging producer applies `migrate-v3` after educe and before the views, so a specification change does not lose the authored contracts.
+
+```bash
+node .claude/scripts/regeneration/run.mjs open \
+  --spec=regeneration/candidates/<id>.md \
+  --annotations=regeneration/candidates/<id>-ANNOTATIONS.json \
+  --reason="<checkId>: <evidence and why the change is correct>"
+```
 
 Preconditions:
 
@@ -205,11 +247,13 @@ node .claude/scripts/regeneration/run.mjs continue
 | `educe-pending` | artifact does not record staged specification | Read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (contract below); pass writes `<spec-dir>/<spec-base>-sequences.json` beside spec. Then `node .claude/scripts/regeneration/run.mjs continue` |
 | `derived` / `verified` | advanced; unfinished; unexpected from `continue` | `node .claude/scripts/regeneration/run.mjs continue` |
 | `judgment-required` | mechanically unsettled ground | Step 5; then `continue` |
-| `unverified` | chain/detector refused | `node .claude/scripts/regeneration/run.mjs verify` prints every failed `link:`/`finding:`; its `next:` advisory only. No staging-tree repair: `abort`; amend candidate; open from current baseline |
+| `unverified` | chain refused, or the staging result adds debt (`DEBT_INCREASED`) | `node .claude/scripts/regeneration/run.mjs verify` prints every failed `link:`/`finding:` and the first new finding, blocked check or reading subject; its `next:` advisory only. No staging-tree repair: `abort`; amend candidate; open from current baseline |
 | `derive-failed` | producer refused | `node .claude/scripts/regeneration/run.mjs abort`; fix candidate; `open` again |
 | `commit-failed` | live tree restored | Inspect `regeneration/archive/<id>/`; open new transaction |
 | `committed` | generation live | Step 1 |
 | `aborted` | staging discarded | Open new transaction |
+
+**Non-worsening transaction gate.** Verify and commit compare the staged debt with the live baseline: finding identities, blocked check ids, reading subjects, the full Yes count and unreadable readings. A new identity or a rising count is refused with `DEBT_INCREASED`; carried debt verifies and commits. The receipt records `baseline`, `staging` and `increase`, so a carried-debt commit is never mistaken for a pass. Only the final enforce run's exit 0 with verdict pass is completion.
 
 Recovery/inspection commands:
 
@@ -308,7 +352,7 @@ Every check id is listed once in `lib/check-status.mjs` with `requires`, `claims
 - S1 enumeration integrity: duplicate ids; unresolved step operation/sequence; drawn sequence without step; a `notASequence` region without a ground (`ground`, `reason`, `grounding.classification`, or `ground_ref`). `predicateLimb: none-applies` alone is not a ground.
 - S3 operation envelope: initial status; transition targets; transitions out of terminal status; external-dependency finality; every required interface. Terminal names: artifact `vocabulary`, else union of statuses active operations end at. Interfaces: `vocabulary`, else allocate `declared_interfaces` columns, else columns artifact pins reach. No record states vocabulary → withhold corresponding check. The migration closes a transition target only when the operation records `status_terminality_ground` for it.
 - S4 boundary clauses: required/extra `stage2_contract_scope` clauses; provider/consumer direction + counterpart; contribution completeness. v3 operation: `registry_contribution` ∈ `required`/`not_required`; `not_required` requires `registry_contribution_ground`; owner distribution ledger requires `op-<operationId>` row. Ledger `Kind` does not map to contribution value. An active operation reachable only through `obligationUnits` is `S4.contribution-unowned`, not skipped.
-- S5 contract meshing: precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`. The whole family is blocked when the typed contract or authored surface is absent.
+- S5 contract meshing: precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. An authored assertion must cite its step line and a quote the step carries; `S5.authored-source-missing` reports an uncited assertion. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`; a ground also covers a one-sided crossing. The whole family is blocked when the typed contract or authored surface is absent.
 - S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step; an operation `boundary_effects` entry no step crosses and no `boundary_grounds` entry covers (`S6.boundary-effect-drift`). The graph checks read typed step contracts and are blocked when the surface is absent or migration-synthesized. The drift check is a projection claim: it may read migration-synthesized effects but is blocked when `boundary_effects` is absent. A finding whose check later becomes blocked is re-emitted as `S.evidence-withdrawn` from the most recent report that carried findings, current or archived; it leaves the blocking set only through resolution or a grounded waiver.
 - S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC; an `obligationUnits` operation/sequence subject the artifact does not declare (`S7.obligation-unit-unknown`).
 
@@ -321,19 +365,22 @@ Live design files remain byte-identical until commit.
 
 ## Appendix C — Blocked surfaces and evidence provenance
 
-A blocked check is named in the report with `{checkId, family, surface, reason}`; it is not pass and it never contributes a finding. `blocked` is the authoritative list; `withheld` remains as a compatibility projection for older readers.
+A blocked check is named in the report with `{checkId, family, surface, producer, reason}`; it is not pass and it never contributes a finding. `blocked` is the authoritative list; `withheld` remains as a compatibility projection for older readers.
 
-- `operations[].allowed_status_transitions` absent or migration-synthesized → S3 status checks blocked.
+- The v3 evidence surfaces are restored with `node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<file>`. A blocked line prints that command as its producer.
+- `operations[].allowed_status_transitions` absent, migration-synthesized, or unknown provenance → S3 status checks blocked. A v2-authored transition graph stays authored; a migration that adds a terminal closure makes the surface migration.
 - `operations[].registry_contribution` absent or migration-synthesized → S4.contribution blocked.
 - `operations[].boundary_effects` absent → S6.boundary-effect-drift blocked. A field present on every active operation, even as `[]`, is a measured zero.
-- `steps[].contract` absent or migration-synthesized → S5.projection-only and the S6 graph checks blocked.
+- `steps[].contract` absent, migration-synthesized, or unknown provenance → S5.projection-only and the S6 graph checks blocked.
 - `steps[].contract.authored` absent → S5 meshing checks blocked; the step may still be reported as `S5.projection-only` when its typed contract exists.
-- `steps[].contract.crosses` absent → S5 crossing and coverage checks blocked.
+- `steps[].contract.crosses` absent or inheriting a migration origin → S5 crossing and coverage checks blocked.
 - `vocabulary.terminalStatuses` / `vocabulary.requiredInterfaces` absent → the corresponding S3 check blocked.
-- `S.evidence-withdrawn` is emitted when a previous finding's check is now blocked. The finding keeps its previous repair route; restore the surface or record a waiver with a non-empty ground in `SMOOTH-SEQUENCES-WAIVERS.json`.
-- `readings:<file>`: an educe readings file is unreadable or a JSONL line is malformed; the reason names the file and line. Unresolved Yes readings are blocking by default; `--advisory-readings` makes them advisory and prints that policy.
+- An authored assertion without a matching source step/line/quote is refused by `migrate-v3` and reported by `S5.authored-source-missing`.
+- A non-empty `artifact.boundary_grounds` entry covers both `S5.boundary-uncovered` and `S5.crossing-side-missing` for that boundary. An empty ground covers neither.
+- `S.evidence-withdrawn` is emitted when a previous finding's check is now blocked. The finding keeps its previous repair route; restore the surface with its producer or record a waiver with a non-empty ground in `SMOOTH-SEQUENCES-WAIVERS.json`. A waiver does not clear the blocked surface.
+- `readings:<file>`: an educe readings file is unreadable or a JSONL line is malformed; the reason names the file and line. The report also carries the readings file path, the full distinct unresolved-subject count, and capped subject/line/quote details. Unresolved Yes readings are blocking by default; `--advisory-readings` makes them advisory and prints that policy.
 
-A v2 artifact is readable but can never pass: its v3-only surfaces are blocked and the verdict is `unproven` (exit 4). A v3 artifact whose history records v3 and whose current schema is v2 is a `UNPROVEN_DOWNGRADE`; the run is unproven regardless of findings. Never rewrite a v2 artifact to escape a finding; restore the surface instead.
+A v2 artifact is readable but can never pass: its v3-only surfaces are blocked and the verdict is `unproven` (exit 4). A v3 artifact whose history records v3 and whose current schema is v2 is a `UNPROVEN_DOWNGRADE`; the run is unproven regardless of findings. A v3 artifact that records `migration` but neither `authorship` nor `synthesized_surfaces` has unknown provenance and blocks every spec claim. Never rewrite a v2 artifact to escape a finding; restore the surface with `migrate-v3 --annotations` instead.
 
 ## Appendix D — Rare states
 

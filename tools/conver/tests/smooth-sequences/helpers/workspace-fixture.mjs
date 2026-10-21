@@ -65,6 +65,7 @@ function defaultOperations() {
 /** The two steps of the clean fixture: one produces order_id, the next consumes it. */
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 export function defaultSteps() {
   return [
     {
@@ -83,7 +84,11 @@ export function defaultSteps() {
         crosses: [BOUNDARY],
         authored: {
           pre: [],
-          post: ['order_id'],
+          post: [{
+            factId: 'order_id',
+            text: 'order_id is derived',
+            source: { step: 'A-1__ProduceFact', line: 1, quote: 'the producer derives order_id' },
+          }],
           invariants: [],
           consumes: [],
           produces: ['order_id'],
@@ -106,7 +111,11 @@ export function defaultSteps() {
         errors: [],
         crosses: [BOUNDARY],
         authored: {
-          pre: ['order_id'],
+          pre: [{
+            factId: 'order_id',
+            text: 'order_id is present',
+            source: { step: 'A-1__ConsumeFact', line: 2, quote: 'the consumer reads order_id' },
+          }],
           post: [],
           invariants: [],
           consumes: ['order_id'],

@@ -45,6 +45,7 @@ import { RegenerationError } from '../regeneration/lib/errors.mjs';
 import { STATES, activeTransaction } from '../regeneration/lib/ledger.mjs';
 import { groundHandoff } from '../regeneration/lib/transaction.mjs';
 import { indexArtifact } from './lib/index.mjs';
+import { producerForBlockedSurface } from './lib/repair-route.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 import { snapshotDesignFiles } from '../regeneration/lib/staging.mjs';
 
@@ -185,6 +186,7 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
   return { active, refused: false };
 }
 
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = io.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -208,8 +210,13 @@ export function runCommand(argv, io = {}) {
 
     const index = indexArtifact(loaded);
     const evaluation = evaluateCheckRegistry(index);
+    const blocked = evaluation.blocked.map((entry) => ({
+      ...entry,
+      producer: producerForBlockedSurface(entry.surface),
+      repairClass: 'regeneration',
+    }));
     const waivers = readWaivers(root);
-    const ledger = compareFindingSets(baseline, evaluation.findings, { blocked: evaluation.blocked, waivers });
+    const ledger = compareFindingSets(baseline, evaluation.findings, { blocked, waivers });
     const findings = annotatePersisted([...evaluation.findings, ...ledger.withdrawn], baseline);
 
     const readings = {
@@ -221,7 +228,7 @@ export function runCommand(argv, io = {}) {
       : (readings.inquest?.yes ?? 0) + (readings.withheld?.length ?? 0);
     const decision = classifyVerdict({
       findings,
-      blocked: evaluation.blocked,
+      blocked,
       unresolvedReadings,
       downgrade,
     });
@@ -236,12 +243,12 @@ export function runCommand(argv, io = {}) {
     const checks = {
       families: CHECK_FAMILY_COUNT,
       run: executed,
-      blocked: evaluation.blocked.length,
+      blocked: blocked.length,
       failed: findings.length,
       subChecks: evaluation.subChecks,
     };
     const withheld = [
-      ...evaluation.blocked.map((entry) => ({ layer: entry.family, check: entry.checkId, reason: entry.reason })),
+      ...blocked.map((entry) => ({ layer: entry.family, check: entry.checkId, reason: entry.reason })),
       ...readings.withheld,
     ];
     const denominator = summarizeDenominator(loaded);
@@ -249,7 +256,7 @@ export function runCommand(argv, io = {}) {
       workspace: loaded,
       findings,
       withheld,
-      blocked: evaluation.blocked,
+      blocked,
       waived: ledger.waived,
       downgrade,
       checks,

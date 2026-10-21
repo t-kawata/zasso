@@ -25,10 +25,15 @@ test('S5 accepts a consumer precondition the provider postcondition implies', ()
 
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('S5 rejects a consumer precondition the provider does not imply', () => {
   const artifact = minimalV3Artifact();
   artifact.steps[1].contract.pre.push({ factId: 'boundary:boundary-001/preconditions/99', text: 'the lease is active', source: 'boundary:boundary-001/preconditions/99' });
-  artifact.steps[1].contract.authored.pre.push('boundary:boundary-001/preconditions/99');
+  artifact.steps[1].contract.authored.pre.push({
+    factId: 'boundary:boundary-001/preconditions/99',
+    text: 'the lease is active',
+    source: { step: 'A-1__ConsumeFact', line: 2, quote: 'the consumer reads order_id' },
+  });
   const { workspace, index } = indexOf(artifact);
   try {
     const findings = checkCrossingContracts(index);

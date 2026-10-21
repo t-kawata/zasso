@@ -7,14 +7,18 @@
  * target from its backup byte-identically. A journal left by a crash is resolved by
  * recoverCommit before a consumer reads.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import * as nodeFs from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { digestOf } from '../../educe-sequences/rail/load.mjs';
+import { readDebtBaseline } from '../../smooth-sequences/lib/report.mjs';
+import { readUnresolvedReadingSubjects } from '../../smooth-sequences/lib/readings-summary.mjs';
 import { verifyChain } from './chain.mjs';
+import { computeDebtIncrease, debtOfDetectorReport, debtOfReadings, summarizeDebt } from './debt.mjs';
 import { RegenerationError } from './errors.mjs';
 import { STATES, readEntry, transition } from './ledger.mjs';
-import { collectDesignFiles, removeStaging, snapshotDesignFiles } from './staging.mjs';
+import { ANNOTATIONS_FILE_NAME, collectDesignFiles, removeStaging, snapshotDesignFiles } from './staging.mjs';
 
 export const JOURNAL_FILE_NAME = 'COMMIT-JOURNAL.json';
 export const JOURNAL_STATES = Object.freeze({ PREPARED: 'prepared', APPLYING: 'applying', VERIFYING: 'verifying' });
@@ -110,11 +114,12 @@ function rollbackTargets(root, journal) {
  */
 export function commitGeneration({ root, transactionId, fileSystem = nodeFs, runDetector }) {
   const entry = requireVerifiedEntry(root, transactionId, runDetector);
-  const journal = prepareCommit(root, entry);
+  const baseline = readDebtBaseline(root);
+  const journal = prepareCommit(root, entry, baseline);
   try {
     applyTargets(root, entry.stagingRoot, journal, fileSystem);
-    verifyCommitted(root, journal, runDetector);
-    finishCommit(root, transactionId, entry, journal);
+    const increase = verifyCommitted(root, journal, runDetector, baseline);
+    finishCommit(root, transactionId, entry, journal, { baseline: summarizeDebt(baseline), increase });
     return { state: STATES.COMMITTED, archiveRoot: journal.archiveRoot };
   } catch (error) {
     rollbackTargets(root, journal);
@@ -130,6 +135,7 @@ export function commitGeneration({ root, transactionId, fileSystem = nodeFs, run
 
 /** The entry a commit may act on, or a refusal that names why not. */
 // [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function requireVerifiedEntry(root, transactionId, runDetector) {
   const entry = readEntry(root, transactionId);
   if (entry === null) {
@@ -174,17 +180,33 @@ function requireVerifiedEntry(root, transactionId, runDetector) {
       repair: 'Abort this transaction and open a new one from the current baseline.',
     });
   }
+  if (entry.candidateAnnotationsHash !== undefined && entry.candidateAnnotationsHash !== null) {
+    const stagedAnnotations = join(entry.stagingRoot, ANNOTATIONS_FILE_NAME);
+    if (!existsSync(stagedAnnotations) || digestOf(stagedAnnotations) !== entry.candidateAnnotationsHash) {
+      throw new RegenerationError('the staged annotations changed after open', {
+        code: 'CANDIDATE_CHANGED',
+        path: entry.stagingRoot,
+        repair: 'Abort, restore the annotations candidate, and open a new transaction.',
+      });
+    }
+  }
   return entry;
 }
 
 /** Back up the live targets and write the prepared journal. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function prepareCommit(root, entry) {
+// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+function prepareCommit(root, entry, baseline) {
   mkdirSync(entry.archiveRoot, { recursive: true });
+  const stagedAnnotations = join(entry.stagingRoot, ANNOTATIONS_FILE_NAME);
+  if (existsSync(stagedAnnotations)) {
+    copyFileSync(stagedAnnotations, join(entry.archiveRoot, ANNOTATIONS_FILE_NAME));
+  }
   const journal = {
     transactionId: entry.id,
     state: JOURNAL_STATES.PREPARED,
     archiveRoot: entry.archiveRoot,
+    debtBaseline: summarizeDebt(baseline),
+    annotationsHash: entry.candidateAnnotationsHash ?? null,
     targets: backupTargets(root, entry.stagingRoot, entry.archiveRoot),
   };
   writeCommitJournal(root, journal);
@@ -204,24 +226,35 @@ function applyTargets(root, stagingRoot, journal, fileSystem) {
 }
 
 /** Verify the live chain and the detector after the write. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function verifyCommitted(root, journal, runDetector) {
+// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+function verifyCommitted(root, journal, runDetector, baseline) {
   journal.state = JOURNAL_STATES.VERIFYING;
   writeCommitJournal(root, journal);
   const chain = verifyChain(root);
   const detector = runDetector({ root });
-  if (chain.ok && detector.exitCode === 0) return;
+  const liveReadings = readUnresolvedReadingSubjects(root);
+  const stagingDebt = {
+    ...debtOfDetectorReport(detector),
+    ...debtOfReadings({
+      subjects: liveReadings.subjects,
+      count: liveReadings.count,
+      withheldCount: detector.readings?.withheld?.length ?? liveReadings.withheldCount,
+      present: liveReadings.present,
+    }),
+  };
+  const increase = computeDebtIncrease({ baseline, staging: stagingDebt });
+  if (chain.ok && !increase.increased) return increase;
   const detail = !chain.ok
     ? `post-commit chain failed: ${chain.links.filter((link) => !link.ok).map((link) => link.code).join(', ')}`
-    : `post-commit detector failed: ${detector.findings.length} finding(s)`;
+    : `post-commit debt increased: ${increase.newFindings[0] ?? increase.newBlocked[0] ?? increase.newReadingSubjects[0] ?? 'reading count'}`;
   throw new RegenerationError(detail, { code: 'COMMIT_ROLLED_BACK', path: root, repair: 'The old generation was restored.' });
 }
 
 /** Close the journal, record the commit and discard staging. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function finishCommit(root, transactionId, entry, journal) {
+// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+function finishCommit(root, transactionId, entry, journal, debt) {
   rmSync(commitJournalPath(root), { force: true });
-  transition(root, transactionId, STATES.COMMITTED, { committedAt: new Date().toISOString() });
+  transition(root, transactionId, STATES.COMMITTED, { committedAt: new Date().toISOString(), debt });
   removeStaging(entry.stagingRoot);
   return journal;
 }

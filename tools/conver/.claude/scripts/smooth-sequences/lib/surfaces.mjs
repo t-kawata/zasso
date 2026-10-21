@@ -8,9 +8,12 @@
  * `cardinality` says how many rows the check would measure. A check may execute only
  * when every required surface is present and its denominator is positive.
  *
- * `migration` origin is the second half of the rule: a surface a migration synthesized
- * is not authored evidence. A spec-claiming check must refuse it; a projection-claiming
- * check may still measure it because its question is about the projection itself.
+ * Since PX-286 the record also partitions rows into authored and synthesized counts. A
+ * migration may preserve an authored v2 field while deriving another; a single surface
+ * name is no longer enough to say which rows are evidence and which are projection. A
+ * surface is authored only when no row was synthesized. Origin `unknown` is a third
+ * state: a v3 artifact whose migration record states neither an authorship map nor a
+ * synthesized list cannot be trusted as authored, so a spec claim over it is blocked.
  */
 import { SmoothSequencesError } from './errors.mjs';
 
@@ -36,20 +39,21 @@ export const SURFACES = Object.freeze({
 export const ORIGIN = Object.freeze({
   AUTHORED: 'authored',
   MIGRATION: 'migration',
+  UNKNOWN: 'unknown',
   ABSENT: 'absent',
 });
 
 const ACTIVE_DISPOSITION = 'active';
 const AUTHORED_FACT_FIELDS = Object.freeze(['pre', 'post', 'consumes', 'produces', 'errors']);
+const AUTHORSHIP_KEY = 'authorship';
+const SYNTHESIZED_SURFACES_KEY = 'synthesized_surfaces';
 
 /** The active operations a status or effect surface is measured over. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function collectActiveOperations(index) {
   return (index.artifact?.operations ?? []).filter((operation) => operation?.disposition === ACTIVE_DISPOSITION);
 }
 
 /** Whether a step carries typed authored facts, or an authored prose contract. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
   const authored = step?.contract?.authored;
   if (authored !== null && typeof authored === 'object') {
@@ -60,7 +64,6 @@ function hasAuthoredContract(step) {
 }
 
 /** The steps that carry a typed (object) contract. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function collectTypedSteps(index) {
   return (index.artifact?.steps ?? []).filter((step) => step?.contract !== null
     && typeof step?.contract === 'object'
@@ -68,61 +71,108 @@ function collectTypedSteps(index) {
 }
 
 /** The steps that carry an authored contract rather than a registry projection. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function collectAuthoredSteps(index) {
   return (index.artifact?.steps ?? []).filter((step) => hasAuthoredContract(step));
 }
 
 /** The steps that declare at least one crossing. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function collectCrossingSteps(index) {
   return collectTypedSteps(index).filter((step) => Object.prototype.hasOwnProperty.call(step.contract, 'crosses'));
 }
 
-/** The surfaces a migration synthesized, if the artifact records any. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+/** The authorship map a migration recorded, or null when it recorded none. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readAuthorship(index) {
+  const authorship = index.artifact?.migration?.[AUTHORSHIP_KEY];
+  return authorship !== null && typeof authorship === 'object' && !Array.isArray(authorship) ? authorship : null;
+}
+
+/** The surfaces a migration marked synthesized, or null when it marked none. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readSynthesizedSurfaces(index) {
-  const listed = index.artifact?.migration?.synthesized_surfaces;
-  return new Set(Array.isArray(listed) ? listed : []);
+  const listed = index.artifact?.migration?.[SYNTHESIZED_SURFACES_KEY];
+  return Array.isArray(listed) ? new Set(listed) : null;
+}
+
+/** The authorship record for one surface, inheriting the typed contract for crossings. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readAuthorshipRecord(index, surface) {
+  const authorship = readAuthorship(index);
+  if (authorship === null) return null;
+  const own = authorship[surface];
+  if (own !== undefined) return own;
+  if (surface === SURFACES.STEP_CROSSINGS) return authorship[SURFACES.TYPED_STEP_CONTRACTS] ?? null;
+  return null;
 }
 
 /** The origin of one surface. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function surfaceOriginOf(index, surface) {
-  return readSynthesizedSurfaces(index).has(surface) ? ORIGIN.MIGRATION : ORIGIN.AUTHORED;
+  const authorship = readAuthorship(index);
+  if (authorship !== null) {
+    const record = readAuthorshipRecord(index, surface);
+    if (record === null) return ORIGIN.AUTHORED;
+    if (!Array.isArray(record.authored) || !Array.isArray(record.synthesized)) return ORIGIN.UNKNOWN;
+    return record.synthesized.length === 0 ? ORIGIN.AUTHORED : ORIGIN.MIGRATION;
+  }
+
+  const migration = index.artifact?.migration;
+  if (migration === undefined || migration === null) return ORIGIN.AUTHORED;
+  const listed = readSynthesizedSurfaces(index);
+  if (listed === null) return ORIGIN.UNKNOWN;
+  if (surface === SURFACES.STEP_CROSSINGS && listed.has(SURFACES.TYPED_STEP_CONTRACTS)) {
+    return ORIGIN.MIGRATION;
+  }
+  return listed.has(surface) ? ORIGIN.MIGRATION : ORIGIN.AUTHORED;
+}
+
+/** The authored and synthesized row counts a surface declares. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function countOrigins(index, surface, cardinality, origin) {
+  if (origin === ORIGIN.ABSENT) return { authoredCardinality: 0, synthesizedCardinality: 0 };
+  if (origin === ORIGIN.AUTHORED) return { authoredCardinality: cardinality, synthesizedCardinality: 0 };
+  if (origin === ORIGIN.MIGRATION) {
+    const record = readAuthorshipRecord(index, surface);
+    const authored = Array.isArray(record?.authored) ? Math.min(record.authored.length, cardinality) : 0;
+    return { authoredCardinality: authored, synthesizedCardinality: cardinality - authored };
+  }
+  return { authoredCardinality: 0, synthesizedCardinality: cardinality };
+}
+
+/** A surface record with its row partition. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function surfaceRecord(index, surface, present, cardinality) {
+  const origin = present ? surfaceOriginOf(index, surface) : ORIGIN.ABSENT;
+  return { present, origin, cardinality, ...countOrigins(index, surface, cardinality, origin) };
 }
 
 /** A surface backed by a top-level array. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-function readArraySurface(rows, origin) {
-  return {
-    present: Array.isArray(rows),
-    origin: Array.isArray(rows) ? origin : ORIGIN.ABSENT,
-    cardinality: Array.isArray(rows) ? rows.length : 0,
-  };
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readArraySurface(index, surface, rows) {
+  const present = Array.isArray(rows);
+  return surfaceRecord(index, surface, present, present ? rows.length : 0);
 }
 
 /** A field that every active operation must carry for the surface to be complete. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-function readFieldOnEveryActiveOperation(index, field, origin) {
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readFieldOnEveryActiveOperation(index, surface, field) {
   const operations = collectActiveOperations(index);
-  if (operations.length === 0) return { present: false, origin: ORIGIN.ABSENT, cardinality: 0 };
+  if (operations.length === 0) return surfaceRecord(index, surface, false, 0);
   const carrying = operations.filter((operation) => Object.prototype.hasOwnProperty.call(operation, field));
-  return {
-    present: carrying.length === operations.length,
-    origin: carrying.length === operations.length ? origin : ORIGIN.ABSENT,
-    cardinality: carrying.length,
-  };
+  if (carrying.length !== operations.length) return surfaceRecord(index, surface, false, 0);
+  return surfaceRecord(index, surface, true, operations.length);
 }
 
-/** A surface that is optional: absence means no exemptions, not missing evidence. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-function readOptionalArraySurface(rows, origin) {
-  return {
-    present: true,
-    origin,
-    cardinality: Array.isArray(rows) ? rows.length : 0,
-  };
+/** The record for a surface whose rows are computed by a collector. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readCollectedSurface(index, surface, rows) {
+  return surfaceRecord(index, surface, rows.length > 0, rows.length);
+}
+
+/** A surface that is optional: absence means no rows, not missing evidence. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function readOptionalArraySurface(index, surface, rows) {
+  return surfaceRecord(index, surface, true, Array.isArray(rows) ? rows.length : 0);
 }
 
 /**
@@ -130,59 +180,49 @@ function readOptionalArraySurface(rows, origin) {
  *
  * @param {object} index — the value `indexArtifact` returns
  * @param {string} surface — one of `SURFACES`
- * @returns {{ present: boolean, origin: string, cardinality: number }}
+ * @returns {{ present: boolean, origin: string, cardinality: number,
+ *   authoredCardinality: number, synthesizedCardinality: number }}
  */
 export function surfaceAvailabilityOf(index, surface) {
-  const origin = surfaceOriginOf(index, surface);
   switch (surface) {
     case SURFACES.OPERATIONS:
-      return readArraySurface(index.artifact?.operations, origin);
+      return readArraySurface(index, surface, index.artifact?.operations);
     case SURFACES.SEQUENCES:
-      return readArraySurface(index.artifact?.sequences, origin);
+      return readArraySurface(index, surface, index.artifact?.sequences);
     case SURFACES.STEPS:
-      return readArraySurface(index.artifact?.steps, origin);
+      return readArraySurface(index, surface, index.artifact?.steps);
     case SURFACES.OPERATION_TRANSITIONS:
-      return readFieldOnEveryActiveOperation(index, 'allowed_status_transitions', origin);
+      return readFieldOnEveryActiveOperation(index, surface, 'allowed_status_transitions');
     case SURFACES.REGISTRY_CONTRIBUTION:
-      return readFieldOnEveryActiveOperation(index, 'registry_contribution', origin);
+      return readFieldOnEveryActiveOperation(index, surface, 'registry_contribution');
     case SURFACES.BOUNDARY_EFFECTS:
-      return readFieldOnEveryActiveOperation(index, 'boundary_effects', origin);
-    case SURFACES.TYPED_STEP_CONTRACTS: {
-      const steps = collectTypedSteps(index);
-      return { present: steps.length > 0, origin: steps.length > 0 ? origin : ORIGIN.ABSENT, cardinality: steps.length };
-    }
-    case SURFACES.AUTHORED_CONTRACTS: {
-      const steps = collectAuthoredSteps(index);
-      return { present: steps.length > 0, origin: steps.length > 0 ? origin : ORIGIN.ABSENT, cardinality: steps.length };
-    }
-    case SURFACES.STEP_CROSSINGS: {
-      const steps = collectCrossingSteps(index);
-      return { present: steps.length > 0, origin: steps.length > 0 ? origin : ORIGIN.ABSENT, cardinality: steps.length };
-    }
+      return readFieldOnEveryActiveOperation(index, surface, 'boundary_effects');
+    case SURFACES.TYPED_STEP_CONTRACTS:
+      return readCollectedSurface(index, surface, collectTypedSteps(index));
+    case SURFACES.AUTHORED_CONTRACTS:
+      return readCollectedSurface(index, surface, collectAuthoredSteps(index));
+    case SURFACES.STEP_CROSSINGS:
+      return readCollectedSurface(index, surface, collectCrossingSteps(index));
     case SURFACES.BOUNDARY_GROUNDS:
-      return readOptionalArraySurface(index.artifact?.boundary_grounds, origin);
+      return readOptionalArraySurface(index, surface, index.artifact?.boundary_grounds);
     case SURFACES.GROUNDED_OBJECTS:
-      return readOptionalArraySurface(index.artifact?.groundedObjects, origin);
+      return readOptionalArraySurface(index, surface, index.artifact?.groundedObjects);
     case SURFACES.CONTRACT_REGISTRY:
-      return readArraySurface(index.allocateManifest?.contract_registry, origin);
+      return readArraySurface(index, surface, index.allocateManifest?.contract_registry);
     case SURFACES.PACKAGE_VIEWS:
-      return {
-        present: (index.packages ?? []).length > 0,
-        origin,
-        cardinality: (index.packages ?? []).length,
-      };
+      return surfaceRecord(index, surface, (index.packages ?? []).length > 0, (index.packages ?? []).length);
     case SURFACES.OBLIGATION_UNITS: {
       const views = (index.packages ?? []).filter((pkg) => Array.isArray(pkg.view?.obligationUnits));
       const cardinality = views.reduce((total, pkg) => total + pkg.view.obligationUnits.length, 0);
-      return { present: views.length > 0, origin: views.length > 0 ? origin : ORIGIN.ABSENT, cardinality };
+      return surfaceRecord(index, surface, views.length > 0, cardinality);
     }
     case SURFACES.TERMINAL_STATUSES: {
       const names = index.vocabulary?.terminalStatuses;
-      return { present: names !== null, origin, cardinality: Array.isArray(names) ? names.length : 0 };
+      return surfaceRecord(index, surface, names !== null, Array.isArray(names) ? names.length : 0);
     }
     case SURFACES.REQUIRED_INTERFACES: {
       const names = index.vocabulary?.requiredInterfaces;
-      return { present: names !== null, origin, cardinality: Array.isArray(names) ? names.length : 0 };
+      return surfaceRecord(index, surface, names !== null, Array.isArray(names) ? names.length : 0);
     }
     default:
       throw new SmoothSequencesError(`unknown surface ${surface}`, {

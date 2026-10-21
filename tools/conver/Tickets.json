@@ -42821,6 +42821,343 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-21"
+        },
+        {
+          "id": 286,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "smooth-sequences: author every blocked surface and close every repair route",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-286.md",
+          "background": "PX-285 made the gate total (every declared check is executed or blocked), monotone (a finding whose evidence disappears becomes S.evidence-withdrawn), and honest (pass only when every required authored surface was measured). It did not make the gate closable.\n\nEvidence from the source and from a gaia-shaped workspace:\n- educe writes schema 2: rail/artifact.mjs:62 reads schema_version from artifact-schema.json, whose value is 2. No phase writes schema 3.\n- migrate-v3 is the only producer of typed contracts, registry_contribution and boundary_effects. It records whole surfaces in migration.synthesized_surfaces (lib/migrate-v3.mjs:326-332), and check-status.mjs:285 refuses a migration-origin surface for every check that claims the specification.\n- contract.authored and boundary_grounds have no producer anywhere in the repository; they are read by checks-layer-b.mjs and surfaces.mjs only.\n- S5.crossing-side-missing ignores boundary_grounds (checks-layer-b.mjs:211-219), so a ground cannot close a one-sided crossing.\n- The unproven verdict line recommends a waiver (report.mjs:286), but a waiver cannot clear a blocked surface (commands/smooth-sequences.md:110,297). The printed next action is a no-op.\n- migrate-v3 applies annotations only to a v2 artifact; on a v3 artifact it returns early (lib/migrate-v3.mjs:267) and the CLI applies only the loop/retry annotation field (migrate-v3.mjs:60-74). Incremental authoring is impossible today.\n\nMeasured on the real gaia workspace: 84 declared boundaries; operations on both sides 29, provider only 18, consumer only 11, neither 26; 300 v2 steps with 0 typed contracts; 201 Yes readings over 146 subjects.\n\nThis ticket makes the gate closable generically. It adds an authoring producer with source citations, distinguishes authored from synthesized evidence per surface and field, makes a ground cover both boundary checks, and replaces the no-op waiver recommendation with the producer command. It does not optimize the gate for gaia and does not change the regeneration transaction; PX-287 owns that boundary.",
+          "invariants": "- [Normal establishment] Every blocked check id has exactly one producer command, and every surface record has an origin of authored, migration or unknown.\n- [Invariant on error] An uncited authored fact or ground is refused before it is written; a migration-origin or unknown-origin surface never satisfies a spec-claiming check; a waiver never clears a blocked surface.\n- [Internal invariant] For every surface, authored rows plus synthesized rows equal the rows the surface declares; a surface is authored only when synthesized rows are zero.\n- [Boundary condition] A v2 artifact still exits 4; a fully annotated v3 fixture exits 0; a partially annotated v3 fixture exits 4 with the authored N/M count; an empty ground suppresses neither boundary check.",
+          "scope": [
+            "lib/surfaces.mjs: extend the surface record with authoredCardinality and synthesizedCardinality. Read migration.authorship when present; fall back to migration.synthesized_surfaces for older artifacts. A v3 artifact that records migration but records neither provenance field is origin unknown and blocks every spec claim. Export ORIGIN.UNKNOWN as a named constant.",
+            "lib/surfaces.mjs: compute STEP_CROSSINGS and TYPED_STEP_CONTRACTS from the same per-step origin so steps[].contract.crosses inherits the parent contract origin. This closes the current hole where steps[].contract is synthesized but its crosses are treated as authored.",
+            "lib/migrate-v3.mjs: extend the annotations document with contracts (per step: pre, post, invariants, consumes, produces, errors, crosses), operations (registry_contribution and registry_contribution_ground), and boundary_grounds (boundary, ground, source). Build step.contract and step.contract.authored from the same annotation; write migration.authorship as a per-surface {authored: [ids], synthesized: [ids]} map and record annotations_digest.",
+            "lib/migrate-v3.mjs: preserve v2-authored fields. If the v2 artifact carries allowed_status_transitions on every active operation, the migrated surface is authored, not synthesized. A surface is migration only when the migration added at least one row. The surface origin is authored only when every row is authored; a single synthesized row makes it migration and the blocked reason reports authored N/M.",
+            "lib/migrate-v3.mjs: support incremental authoring. On a v3 artifact, merge a new annotations document into the named rows instead of returning the artifact unchanged. Preserve migration.source_digest, update annotations_digest and the affected authorship entries, and keep the result byte-identical for the same annotations document.",
+            "lib/migrate-v3.mjs: require a source citation. An authored fact source is {step, line, quote}; the step must exist, line must equal step.line, and quote must be a non-empty substring of step.quote after whitespace normalization. A ground source is {reasonCode}; reasonCode must equal the tree boundary dependency_reason_code. Refuse an uncited fact with UNCITED_AUTHORED_FACT and an uncited ground with UNCITED_BOUNDARY_GROUND.",
+            "lib/check-status.mjs and lib/surfaces.mjs: add S5.authored-source-missing (family meshing, claims spec, requires AUTHORED_CONTRACTS, denominator authored steps). It reports an authored fact whose source step, line or quote does not match the step. Keep the registry total explicit; update every assertion that counts check descriptors.",
+            "lib/checks-layer-b.mjs: make S5.crossing-side-missing consult readBoundaryGrounds. A non-empty ground for the boundary suppresses the finding together with S5.boundary-uncovered; an empty or whitespace-only ground suppresses neither. Keep S5.crossing-direction-mismatch unchanged.",
+            "lib/repair-route.mjs: add S5.authored-source-missing to the spec check ids. Add a producerForBlockedSurface(surface) table mapping steps[].contract, steps[].contract.authored, steps[].contract.crosses, operations[].registry_contribution, operations[].boundary_effects and operations[].allowed_status_transitions to migrate-v3 --annotations; vocabulary surfaces map to the spec regeneration. An unknown surface raises UNROUTED_BLOCKED_SURFACE.",
+            "run.mjs: attach producer and repairClass to every blocked entry. Pass the readings file path and unresolved details into the report. Keep classifyVerdict unchanged: a blocked surface still forces exit 4.",
+            "lib/report.mjs: render producer on every blocked line. Replace the unproven verdict line with the producer list and remove the waiver recommendation. Keep the finding route rendering unchanged.",
+            "lib/readings-summary.mjs and lib/report.mjs: add readings.inquest.path, readings.inquest.unresolvedSubjectCount (the full count of distinct Yes subjects) and readings.inquest.unresolvedDetails as [{subject, line, quote}] capped at 50, beside the existing unresolvedSubjects and overflow. The count and details are additive; do not change the report schema version or the verdict policy.",
+            ".claude/commands/smooth-sequences.md: in Step 2, replace the blocked row with the migrate-v3 --annotations producer and add an Authoring annotations subsection containing the JSON shape, the source-citation requirement and the incremental merge rule. Add the readings repair route: revise the spec, open a regeneration, re-run the educe reader phases, and confirm the new readings have zero Yes. Remove the claim that a waiver clears a blocked surface. Keep Step 6 strict: only exit 0 with verdict pass is completion.",
+            "Tests and fixtures: add tests/smooth-sequences/provenance-authorship.test.mjs, migrate-v3-annotations.test.mjs, boundary-crossing-ground.test.mjs, blocked-routes.test.mjs and readings-details.test.mjs. Add fixture helpers for annotated v2 workspaces, one-sided boundaries and cited grounds. Update surface-contract, check-registry, migration, provenance-arithmetic, status-terminality, run, report and docs tests for the new provenance model and check id.",
+            "Acceptance fixtures: (1) a v2 workspace with two steps, one boundary with both sides, complete annotations, one ground and zero readings runs enforce and exits 0 with verdict pass; (2) the same workspace with one of two steps annotated exits 4 and the blocked reason contains authored 1/2; (3) a one-sided crossed boundary with a non-empty ground emits neither S5.crossing-side-missing nor S5.boundary-uncovered; (4) a v3 artifact with migration but no provenance detail exits 4 with unknown provenance.",
+            "**Out of scope:** the regeneration transaction (PX-287), educe native schema-3 emission, and the design repair of the real gaia workspace. This ticket makes the producer and the routes exist and proves them on fixtures; it does not make gaia pass."
+          ],
+          "testUnit": [
+            "UT: [Normal] surfaceAvailabilityOf returns authored and synthesized cardinalities that sum to the surface row count.",
+            "UT: [Normal] a surface whose every row is authored has origin authored and a spec-claiming check executes.",
+            "UT: [Error] one synthesized row makes the surface migration; a spec-claiming check blocks with a reason containing authored N/M.",
+            "UT: [Boundary] a v3 artifact with migration but neither authorship nor synthesized_surfaces has origin unknown and blocks every spec claim.",
+            "UT: [Normal] a v2-authored allowed_status_transitions stays authored after migration and S3 executes.",
+            "UT: [Normal] an annotation populates step.contract and step.contract.authored with the same fact ids.",
+            "UT: [Normal] a second migration with the same annotations is byte-identical and keeps annotations_digest.",
+            "UT: [Normal] a v3 artifact accepts a new annotations document and updates only the named rows.",
+            "UT: [Error] an authored fact without source is refused with UNCITED_AUTHORED_FACT.",
+            "UT: [Error] an authored fact citing a line or quote that does not match its step is reported by S5.authored-source-missing.",
+            "UT: [Error] a boundary ground without a matching reasonCode is refused with UNCITED_BOUNDARY_GROUND.",
+            "UT: [Normal] a non-empty boundary ground suppresses S5.crossing-side-missing and S5.boundary-uncovered for that boundary.",
+            "UT: [Boundary] an empty or whitespace-only ground suppresses neither boundary check.",
+            "UT: [Normal] producerForBlockedSurface returns a migrate-v3 command for every v3 surface and the spec command for vocabulary; an unknown surface raises UNROUTED_BLOCKED_SURFACE.",
+            "UT: [Normal] the unproven verdict line lists producers and does not contain the word waiver.",
+            "UT: [Normal] readings.inquest.unresolvedDetails carries subject, line and quote for the first 50 Yes answers and overflow counts the rest.",
+            "UT: [Boundary] an old v3 artifact with migration and no provenance cannot reach verdict pass.",
+            "UT: [Normal] readings.inquest.unresolvedSubjectCount reports the full distinct subject count even when unresolvedDetails is capped at 50."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] A v2 fixture with two steps, one two-sided boundary, complete cited annotations and zero readings runs runCommand enforce; verify exit 0, verdict pass, blocked empty, findings empty.",
+            "IT: [Integration point] The same fixture with one of two steps annotated runs enforce; verify exit 4, the blocked reason contains authored 1/2, and no spec finding is emitted from the synthesized step.",
+            "IT: [Integration point] migrate-v3 --annotations on a temporary workspace writes schema 3; a second run with the same file writes identical bytes; a changed file updates only the named row.",
+            "IT: [Integration point] A gaia-shaped fixture with one one-sided crossed boundary and a cited ground exits 0; adding one Yes reading makes it exit 4 and the report names the readings file and the subject.",
+            "IT: [Prerequisite] PX-285 is reviewed; its 239-test baseline stays green. No regeneration transaction is opened by this ticket."
+          ],
+          "testExceptions": [
+            "The real gaia workspace is not testable from this ticket because it is an external workspace with its own unpushed repair state; a deterministic gaia-shaped fixture is used instead. This is an external-dependency limitation, not a design defect.",
+            "The semantic truth of an authored fact is not testable mechanically because meaning is a judgment rather than a deterministic function. This is not a design defect: the ticket makes the citation mechanical (step line and quote) and the gate boundary already excludes semantic prose equivalence.",
+            "The live-artifact write path is not testable through a regeneration transaction in this ticket because the transaction belongs to PX-287; the CLI is tested on a temporary workspace. This is an integration boundary, not an architectural defect."
+          ],
+          "instrumentation": "- [Logging] Each blocked line prints checkId, surface, producer and reason. Each unproven verdict prints the distinct producer commands. The readings line prints the readings file path and the unresolved detail count.\n- [Metrics] The report and console print checks.run, checks.blocked, authoredSteps, synthesizedSteps, authoredOperations and synthesizedOperations; the JSON report carries the same counts.\n- [Error tracking] UNCITED_AUTHORED_FACT, UNCITED_BOUNDARY_GROUND, UNKNOWN_PROVENANCE and UNROUTED_BLOCKED_SURFACE are named SmoothSequencesError codes with a repair action; no silent catch.\n- [Health check] A fully annotated fixture exits 0 with verdict pass; a partially annotated fixture exits 4 with authored N/M; an empty ground leaves both boundary findings in place.\nReview verification (PX-286):\n- Static quality check: passed (0 issues on the changed source and test files).\n- Translatability: no issues; no debug output, no generic data/info/tmp variables, no leftover incomplete markers. The PX-286 helpers that read as nouns were already addressed in implementation; the PX-287 openTransaction parameter fold is recorded on PX-287.\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 269 tests, 268 pass, 1 skipped, 0 fail. The skip is the pre-existing external-workspace test. The acceptance fixtures (complete annotations -> exit 0; partial -> exit 4 with authored 1/2; one-sided ground; unknown provenance) pass.\n- Annotations: 18 PX-286-only files verified, 0 missing, 0 ambiguous. The three shared files (report.mjs, readings-summary.mjs, docs.test.mjs) carry both PX-286 and PX-287 annotations at their respective definitions.\n- Crimes/stubs/no-excuse: 0/0/0.\n- Pre-existing failures outside PX-286: tests/regeneration/default-producer.test.mjs CLI commit/continue also fail at HEAD 6a5b5596; not caused by this ticket.",
+          "notes": "- [Implementation steps] Red groups in this order: (1) surface provenance records and per-row/field origin, (2) annotations schema, citation validation and migration merge, (3) boundary ground coverage, (4) blocked producers and report/command rendering, (5) readings details, (6) fixtures and integration tests. No group is reordered.\n- [Risks] The provenance model is the highest-risk change: every spec-claiming check depends on it. The all-or-nothing surface origin is deliberate; it prevents a partial surface from claiming a spec. The citation check reduces but does not eliminate semantic error. The new check id changes the registry total and every test that asserts it.\n- [Caveats] The fixture proves the mechanism, not gaia. migrate-v3 writes the live artifact; run it only when no regeneration transaction is open. The annotation file is an authored input and must be reviewed like a spec clause.\n- [Open items] PX-287 integrates the migration into staging so authored contracts survive a spec regeneration. educe native schema-3 emission remains future work.\n- [Future improvements] Once the provenance model is stable, execute spec checks over authored rows and report synthesized rows as individual blocked rows instead of all-or-nothing.\nImplementation summary (PX-286):\n- Changed files: .claude/scripts/smooth-sequences/lib/surfaces.mjs; lib/migrate-v3.mjs; lib/check-status.mjs; lib/checks-layer-b.mjs; lib/repair-route.mjs; lib/report.mjs; lib/readings-summary.mjs; migrate-v3.mjs; run.mjs; .claude/commands/smooth-sequences.md; tests/smooth-sequences/*.\n- Key changes: per-row provenance with authored/synthesized counts and unknown origin; annotation-authored contracts, contributions, effects and grounds with citation validation and incremental merge; S5.authored-source-missing; a ground covers one-sided crossings; blocked producers and the producer/readings unproven line; readings path, full subject count and details; unified CLI.\n- Test results: node --test tests/smooth-sequences/*.test.mjs -> 269 tests, 268 pass, 1 skipped, 0 fail. The skip is the pre-existing external-workspace test.\n- Acceptance: a v2 fixture with complete cited annotations runs enforce and exits 0 with verdict pass; one of two steps annotated exits 4 with authored 1/2; a one-sided crossed boundary with a ground emits neither boundary finding; a v3 artifact with migration but no provenance exits 4 with unknown provenance.\n- Quality checks: 0 issues on the changed source files and 0 on the changed test files.\n- Annotations: 21 changed files verified (install copies staged out of the diff), 0 missing, 0 ambiguous.\n- No file under /Users/kawata/shyme/gaia was modified.\n- Pre-existing failures outside this ticket: tests/regeneration/default-producer.test.mjs has two CLI commit tests that also fail at HEAD 6a5b5596; tests/workspacify-order/unit/counters.test.mjs imports a missing generationOf export at HEAD. Neither is caused by PX-286.\n- Residual: PX-287 integrates the migration into the regeneration staging so authored contracts survive a specification change; educe native schema-3 emission remains future work.\nReview report (PX-286):\n- Static quality check: passed.\n- Translatability: no issues.\n- Dependencies: PX-287 consumes the annotation schema, migration.authorship and annotations_digest without changing their contract; the shared files are annotated for both tickets.\n- Issues found and fixes applied: no PX-286-specific defect was found. The review verified the six contracts against source and tests: per-row provenance, annotation authoring, citation refusal, ground coverage of one-sided crossings, blocked producers and legacy unknown provenance. The PX-287 review fixes (readings presence and staged annotations hash) do not alter the PX-286 surface.\n- Validation: node --test tests/smooth-sequences/*.test.mjs -> 269 tests, 268 pass, 1 skipped, 0 fail; quality 0; annotations 18 files verified; no crime, stub or excuse.\n- Residual: educe native schema-3 emission and the real gaia design repair remain future work.",
+          "acceptanceCriteria": [
+            "[Happy path] A v2 fixture with complete cited annotations runs enforce and exits 0 with verdict pass, blocked empty, findings empty and zero readings.",
+            "[Error case] The same fixture with one of two steps annotated exits 4; the blocked reason contains authored 1/2; no spec finding is emitted from the synthesized row; the unproven line names the migrate-v3 producer and does not mention waiver.",
+            "[Edge case] A one-sided crossed boundary with a non-empty cited ground emits neither S5.crossing-side-missing nor S5.boundary-uncovered; an empty ground leaves both findings; a v3 artifact with migration but no provenance exits 4 with unknown provenance."
+          ],
+          "investigation": "Source investigation (PX-286):\n- educe writes schema 2: .claude/scripts/educe-sequences/rail/artifact.mjs:62 reads schema_version from .claude/scripts/educe-sequences/rail/artifact-schema.json:2. No educe phase writes schema 3.\n- migrate-v3 is the only writer of typed contracts and operation fields: .claude/scripts/smooth-sequences/lib/migrate-v3.mjs:275-313. It records whole surfaces in migration.synthesized_surfaces at :326-332.\n- The detector refuses migration-origin surfaces for spec claims: .claude/scripts/smooth-sequences/lib/check-status.mjs:281-290. surfaceOriginOf reads only the whole-surface list: lib/surfaces.mjs:89-93.\n- contract.authored and boundary_grounds have no producer: a repository-wide grep finds only readers, tests and specs.\n- S5.crossing-side-missing does not read grounds: lib/checks-layer-b.mjs:211-219; S5.boundary-uncovered does: :152-173.\n- The verdict line recommends a waiver: lib/report.mjs:284-288; the command says a waiver does not clear a blocked surface: .claude/commands/smooth-sequences.md:110,297.\n- migrate-v3 cannot increment: lib/migrate-v3.mjs:267 returns an existing v3 artifact; the CLI applies only step annotation fields: migrate-v3.mjs:60-74.\n\nMeasured experiments:\n- Fixture with authored facts but steps[].contract marked synthesized: 10 blocked (S3 x3, S4 x3, S5.projection-only, S6 x3), wouldExit 4.\n- Fixture projection-only with the same marking: 13 blocked, wouldExit 4.\n- Fixture projection-only without marking: 2 S5.projection-only findings, wouldExit 1.\n- One-sided boundary with a non-empty ground: S5.crossing-side-missing still emitted (1 finding).\n- Existing suite: node --test tests/smooth-sequences/*.test.mjs -> 239 tests, 238 pass, 1 skipped, 0 fail.\n\nGaia measurements (read-only): 84 boundaries, both sides 29, provider only 18, consumer only 11, neither 26; 300 steps, 257 operations (177 active), 0 typed contracts, 0 contract_prose, 0 registry_contribution, 0 boundary_effects; readings 3,768 records, 201 Yes, 146 subjects.",
+          "boyScoutPlan": "- Extract surface provenance into readProvenanceFor, mergeAuthorship and surfaceOriginOf with verb names; keep the domain words authored, synthesized and unknown.\n- Replace literal surface-origin strings with ORIGIN.AUTHORED, ORIGIN.MIGRATION and ORIGIN.UNKNOWN; replace literal error codes with named constants.\n- Split annotation validation into validateAnnotations, assertCitedFact and assertCitedGround so one function has one responsibility.\n- Replace the generic local entry in the surface and blocked paths with surfaceRecord and blockedCheck.\n- Replace silent absence with a named refusal: an unknown provenance or an uncited fact raises SmoothSequencesError instead of returning an empty origin.\n- Add PX-286 provenance comments to every new function and module, naming the show-ticket-context command.\n- Rename noun-like helpers touched in this ticket to verb phrases; record untouched noun-like helpers outside scope.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "artifact provenance -> surface availability",
+              "precondition": "a v3 artifact records migration.authorship for a surface",
+              "postcondition": "the surface origin is authored only when every row is authored; otherwise it is migration, and the blocked reason reports authored N/M",
+              "invariant": "authored rows plus synthesized rows equal the surface row count, and a synthesized row never satisfies a spec claim"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "annotations document -> migrated artifact",
+              "precondition": "a v2 or v3 artifact and an annotations document with cited contracts and grounds",
+              "postcondition": "step.contract and step.contract.authored carry the annotated facts, grounds are present, and annotations_digest records the document",
+              "invariant": "a second run with the same annotations is byte-identical; a changed document updates only the named rows"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "authored evidence -> citation check",
+              "precondition": "an authored fact or boundary ground",
+              "postcondition": "the fact cites its step, line and a quote substring; the ground cites the boundary reason code",
+              "invariant": "uncited evidence is refused with UNCITED_AUTHORED_FACT or UNCITED_BOUNDARY_GROUND and never reaches the artifact"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "boundary ground -> crossing coverage",
+              "precondition": "a declared boundary crossed on one side and a boundary_grounds entry",
+              "postcondition": "a non-empty ground suppresses S5.crossing-side-missing and S5.boundary-uncovered for that boundary",
+              "invariant": "an empty or whitespace-only ground suppresses neither check"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "blocked surface -> repair route",
+              "precondition": "a report with at least one blocked check",
+              "postcondition": "every blocked entry carries a producer command and the unproven verdict lists them",
+              "invariant": "no blocked surface is cleared by a waiver and no unproven verdict recommends one"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "legacy provenance -> spec claim",
+              "precondition": "a v3 artifact with migration but neither authorship nor synthesized_surfaces",
+              "postcondition": "every spec-claiming check blocks with origin unknown",
+              "invariant": "such an artifact never reaches verdict pass"
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 provenance -> surface availability\n```js\nconst artifact = minimalV3Artifact();\nartifact.migration = {\n  from_schema_version: 2,\n  to_schema_version: 3,\n  authorship: {\n    'steps[].contract': { authored: ['A-1__ProduceFact'], synthesized: ['A-1__ConsumeFact'] },\n    'steps[].contract.crosses': { authored: ['A-1__ProduceFact'], synthesized: ['A-1__ConsumeFact'] },\n  },\n};\nconst workspace = materializeSmoothWorkspace({ artifact });\nconst index = indexArtifact(loadWorkspace(workspace.root));\nconst surface = surfaceAvailabilityOf(index, SURFACES.TYPED_STEP_CONTRACTS);\nassert.equal(surface.origin, 'migration');\nassert.equal(surface.authoredCardinality, 1);\nassert.equal(surface.synthesizedCardinality, 1);\nassert.equal(surface.authoredCardinality + surface.synthesizedCardinality, surface.cardinality);\nconst evaluation = evaluateCheckRegistry(index);\nassert.ok(evaluation.blocked.some((entry) => entry.checkId === 'S6.cycle' && entry.reason.includes('authored 1/2')));\nassert.equal(evaluation.findings.some((finding) => finding.checkId === 'S6.cycle'), false);\n```",
+            "C002 annotations -> migrated artifact\n```js\nconst workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });\nconst input = migrationInput(workspace);\nconst annotations = {\n  contracts: {\n    'A-1__ProduceFact': {\n      pre: [],\n      post: [{ factId: 'order_id', text: 'order_id is derived', source: { step: 'A-1__ProduceFact', line: 1, quote: 'the producer derives order_id' } }],\n      invariants: [], consumes: [], produces: ['order_id'], errors: [], crosses: ['boundary-001'],\n    },\n  },\n};\nconst first = migrateArtifactToV3({ ...input, annotations });\nassert.deepEqual(first.steps[0].contract.post.map((fact) => fact.factId), ['order_id']);\nassert.deepEqual(first.steps[0].contract.authored.produces, ['order_id']);\nassert.equal(first.migration.authorship['steps[].contract'].authored.includes('A-1__ProduceFact'), true);\nconst second = migrateArtifactToV3({ ...input, artifact: first, annotations });\nassert.equal(renderArtifact(second), renderArtifact(first));\nassert.equal(second.migration.annotations_digest, first.migration.annotations_digest);\n```",
+            "C003 authored evidence -> citation check\n```js\nconst workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });\nconst input = migrationInput(workspace);\nassert.throws(\n  () => migrateArtifactToV3({ ...input, annotations: { contracts: { 'A-1__ProduceFact': { pre: [{ factId: 'x', text: 'x' }] } } } }),\n  (error) => error.code === 'UNCITED_AUTHORED_FACT',\n);\nconst grounded = migrateArtifactToV3({\n  ...input,\n  annotations: { boundary_grounds: [{ boundary: 'boundary-001', ground: 'not crossed by an enumerated sequence', source: { reasonCode: 'canonical-object' } }] },\n});\nassert.equal(grounded.boundary_grounds.length, 1);\nassert.throws(\n  () => migrateArtifactToV3({ ...input, annotations: { boundary_grounds: [{ boundary: 'boundary-999', ground: 'x', source: { reasonCode: 'canonical-object' } }] } }),\n  (error) => error.code === 'UNCITED_BOUNDARY_GROUND',\n);\n```",
+            "C004 boundary ground -> crossing coverage\n```js\nconst artifact = minimalV3Artifact();\nartifact.steps = artifact.steps.filter((step) => step.operation !== 'ConsumeFact');\nartifact.operations.find((operation) => operation.id === 'ConsumeFact').disposition = 'excluded';\nartifact.boundary_grounds = [{ boundary: 'boundary-001', ground: 'the consumer package owns no operations', source: { reasonCode: 'canonical-object' } }];\nconst grounded = materializeSmoothWorkspace({ artifact });\nconst groundedResult = runCommand([grounded.root, '--audit']);\nassert.equal(groundedResult.report.findings.some((finding) => finding.checkId === 'S5.crossing-side-missing'), false);\nassert.equal(groundedResult.report.findings.some((finding) => finding.checkId === 'S5.boundary-uncovered'), false);\nartifact.boundary_grounds = [{ boundary: 'boundary-001', ground: '   ' }];\nconst empty = materializeSmoothWorkspace({ artifact });\nconst emptyResult = runCommand([empty.root, '--audit']);\nassert.ok(emptyResult.report.findings.some((finding) => finding.checkId === 'S5.crossing-side-missing'));\nassert.ok(emptyResult.report.findings.some((finding) => finding.checkId === 'S5.boundary-uncovered'));\n```",
+            "C005 blocked surface -> repair route\n```js\nconst blocked = [\n  { checkId: 'S5.precondition-not-implied', surface: 'steps[].contract.authored', reason: 'surface absent' },\n  { checkId: 'S4.contribution-missing', surface: 'operations[].registry_contribution', reason: 'surface absent' },\n];\nfor (const entry of blocked) {\n  assert.match(producerForBlockedSurface(entry.surface), /migrate-v3\\.mjs .*--annotations=/);\n}\nassert.throws(() => producerForBlockedSurface('unknown.surface'), (error) => error.code === 'UNROUTED_BLOCKED_SURFACE');\nconst lines = renderConsoleReport({ ...minimalReport(), verdict: 'unproven', blocked });\nassert.ok(lines.some((line) => line.includes('producer:')));\nassert.equal(lines.some((line) => /waiver/.test(line)), false);\n```",
+            "C006 legacy provenance -> spec claim\n```js\nconst artifact = minimalV3Artifact();\nartifact.migration = { from_schema_version: 2, to_schema_version: 3 };\nconst workspace = materializeSmoothWorkspace({ artifact });\nconst result = runCommand([workspace.root, '--audit']);\nassert.equal(result.report.verdict, 'audit');\nassert.equal(result.report.wouldExit, 4);\nassert.ok(result.report.blocked.some((entry) => entry.reason.includes('unknown')));\nassert.notEqual(result.report.verdict, 'pass');\nassert.equal(runCommand([workspace.root]).exitCode, 4);\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "A surface had one origin for all its rows; a migration marked whole surfaces synthesized and an old v3 artifact with a migration record but no provenance was treated as authored.",
+              "after": "surfaceAvailabilityOf returns authoredCardinality and synthesizedCardinality; origin is authored, migration, unknown or absent; steps[].contract.crosses inherits the typed-contract origin; a migration with neither authorship nor synthesized_surfaces is unknown and blocks every spec claim.",
+              "description": "Make evidence provenance per surface and per row."
+            },
+            {
+              "before": "migrate-v3 accepted annotations only for loop/retry and operation contribution; a v3 artifact returned unchanged; authored facts and grounds had no producer.",
+              "after": "annotations.contracts, annotations.operations and annotations.boundary_grounds write the typed and authored contract, contributions, effects and grounds; every assertion cites its step line and quote; an existing v3 artifact merges the named rows; migration.authoring records authored/synthesized ids and annotations_digest.",
+              "description": "Add the authoring producer and incremental merge."
+            },
+            {
+              "before": "No check validated an authored assertion's citation.",
+              "after": "S5.authored-source-missing is a spec-claiming meshing check over authored steps; an assertion without the matching step, line and quote is a finding.",
+              "description": "Keep authored evidence cited."
+            },
+            {
+              "before": "S5.crossing-side-missing ignored boundary_grounds, so a one-sided crossing could not be closed by a ground.",
+              "after": "A non-empty ground suppresses S5.crossing-side-missing and S5.boundary-uncovered; an empty ground suppresses neither.",
+              "description": "Let a ground cover both boundary checks."
+            },
+            {
+              "before": "A blocked check printed a surface and reason but no producer; the unproven verdict recommended a waiver that cannot clear a blocked surface.",
+              "after": "Every blocked entry carries producerForBlockedSurface(surface); the unproven verdict lists the producers and, when readings are unresolved, the readings repair route; no waiver is recommended.",
+              "description": "Make every blocked surface closeable."
+            },
+            {
+              "before": "The readings summary capped the subject list and did not name the readings file.",
+              "after": "readings.inquest carries path, unresolvedSubjectCount (full distinct Yes subjects), unresolvedDetails ({subject,line,quote}, capped at 50) and the existing overflow.",
+              "description": "Make readings repairable from the report."
+            },
+            {
+              "before": "The CLI had a separate v3 branch that applied only step annotations.",
+              "after": "The CLI calls migrateArtifactToV3 for both schema versions: v2 builds, v3 merges; the summary names authored steps, boundary grounds and grounded objects.",
+              "description": "Unify the CLI migration path."
+            },
+            {
+              "before": "The command's blocked row offered a waiver and did not name the authoring producer.",
+              "after": "Step 2 names migrate-v3 --annotations, documents the annotations JSON and citation rule, adds the readings repair route, and states that a waiver never clears a blocked surface; Appendix C names the producer and the unknown-provenance state.",
+              "description": "Align the operating contract with the closable gate."
+            },
+            {
+              "before": "The fixture's authored facts were uncited; tests asserted the old waiver line and the old S5 blocked count.",
+              "after": "The fixture cites every authored assertion; new provenance, annotation, source, ground, route and readings tests cover the acceptance; the v2 run expects 9 blocked S5 checks and the producer line.",
+              "description": "Prove the acceptance and update the affected assertions."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
+        },
+        {
+          "id": 287,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "regeneration: apply authoring in staging and gate on non-worsening debt",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-287.md",
+          "background": "The regeneration transaction is the only legal way to change a frozen input (specification, tree decisions, allocate decisions, artifact). verifyGeneration requires detector exitCode 0 (.claude/scripts/regeneration/lib/transaction.mjs:488-493), and the detector it runs is the enforce path, not --audit (.claude/scripts/regeneration/run.mjs:59-66).\n\nFor a specification change, readArtifactCurrency sees the artifact stale, so runPipelineProducer runs the educe rail (transaction.mjs:352-367). The rail writes schema 2 because artifact-schema.json pins schema_version 2 and artifact.mjs:62 copies it. The detector on that staging artifact exits 4 (blocked v3 surfaces), verifyGeneration returns unverified, and the transaction cannot commit. The 201 Yes readings require a specification change, so the deadlock blocks the only repair path.\n\nThis ticket makes the transaction gate non-worsening instead of absolute: existing blocked and reading debt may be carried, any new debt is refused, and the final /smooth-sequences run remains strict (exit 0 with verdict pass). The non-worsening policy is the decision on the open point. It is chosen because it is reversible, keeps the final gate strict, and avoids a single big-bang transaction that must fix all 201 readings and author all surfaces at once. It also applies the PX-286 authoring migration in staging after educe so authored contracts are not lost when a specification change regenerates the artifact.\n\nThe baseline is the live current report, or the most recent archived report, or empty. The debt identity sets are: findings {checkId, subject}, blocked {checkId}, and readings {subjects, count}. A transaction commits only when no identity is added and the reading count does not increase.",
+          "invariants": "- [Normal establishment] A spec-change transaction with an annotations candidate stages a v3 artifact, projects views from it, and records the annotations hash.\n- [Invariant on error] A transaction that adds a finding identity, a blocked check id or a reading subject, or that raises the reading count, is refused and the live tree is unchanged.\n- [Internal invariant] The baseline debt is read from the live current or archived report; the staging debt is read from the staging report; the increase is computed from identity sets, not from exit codes alone.\n- [Boundary condition] No live report means an empty baseline and strict behavior; no annotations means no migration and the non-worsening policy still applies; the final enforce run never reaches verdict pass while debt remains.",
+          "scope": [
+            "regeneration/run.mjs: accept --annotations=<candidate> in open and status; do not add force or hash flags. Pass the candidate path into openTransaction. Keep the existing --spec, --allocate-decisions and --tree-decisions arguments unchanged.",
+            "regeneration/lib/transaction.mjs: resolve the annotations candidate, copy it to the staging root under ANNOTATIONS_FILE_NAME, record its hash in the transaction entry, and include it in assertStagedCandidatesMatch so an edit after open raises CANDIDATE_CHANGED.",
+            "regeneration/lib/transaction.mjs: in runPipelineProducer, after the educe artifact is current and before runPackageViews, run migrate-v3 in staging when the annotations file exists: runNode(stagingRoot, 'smooth-sequences/migrate-v3.mjs', [stagingRoot, '--annotations=' + annotationsPath]). On failure return DERIVE_FAILED with the stderr; on success re-read the artifact and project views from the migrated artifact.",
+            "regeneration/lib/transaction.mjs: replace the exitCode-only detector gate with a debt comparison. Read the live baseline through an exported readDebtBaseline(root) from smooth-sequences/lib/report.mjs; compute the staging debt from the detector report; commit only when no finding identity, blocked check id or reading subject is added and the reading count does not increase. Record baseline, staging and increase in the detector receipt.",
+            "regeneration/lib/transaction.mjs: keep chain and ground failures stricter than debt. A chain failure is unverified; a ground failure is judgment-required; a debt increase is unverified with code DEBT_INCREASED. A carried debt is verified.",
+            "regeneration/lib/commit.mjs: make verifyCommitted use the same non-worsening comparison against the live baseline after the write. A new finding, blocked check or reading subject, or a rising reading count, restores the live tree. Carried debt does not roll back.",
+            "regeneration/run.mjs: extend detect to return blocked and readings from the detector report, not only findings and withheld. Keep the enforce mode; do not add --audit to the transaction path.",
+            "smooth-sequences/lib/report.mjs: export readDebtBaseline(root) returning {findings: Set, blocked: Set, readingSubjects: Set, readingCount, source}. The baseline report is the current report when present, then archived generations descending, then the legacy root report, then empty; do not skip a current report merely because it has zero findings. readingSubjects is the full set of answer === Yes subjects read from the readings JSONL, not the display-capped report list; readingCount is the full Yes count. Reuse the report reader rather than duplicating the path order.",
+            "regeneration/lib/transaction.mjs: include the annotations hash in the transaction ledger and in the committed archive so a later audit can reproduce the authored artifact. Never delete the annotations candidate after commit.",
+            ".claude/commands/smooth-sequences.md: document the annotations candidate under Step 4, the non-worsening transaction policy, the carried-debt receipt, and the fact that only the final enforce run's exit 0 with verdict pass is completion. Keep Step 6 strict and do not mention a waiver for blocked surfaces.",
+            "Tests: add tests/regeneration/regeneration-authoring.test.mjs and debt-gate.test.mjs. Update transaction, verify, commit and run tests for the new receipt shape. Add fixture helpers for a v2 workspace with a spec change, an annotations candidate and a live report.",
+            "Acceptance fixtures: (1) a v2 workspace with a spec change and complete annotations commits; the post-commit enforce detector exits 0; (2) a v2 workspace with a spec change and no annotations commits under non-worsening and the final enforce run still exits 4; (3) a change that adds one finding, one blocked check or one reading subject is refused with DEBT_INCREASED; (4) editing the annotations candidate after open raises CANDIDATE_CHANGED; (5) a migration failure returns DERIVE_FAILED and restores the live tree.",
+            "**Out of scope:** educe native schema-3 emission, the real gaia design repair, and any change to the final detector's strict verdict. This ticket makes incremental specification repair possible; it does not make gaia pass."
+          ],
+          "testUnit": [
+            "UT: [Normal] open with --annotations records the candidate path and hash in the transaction entry.",
+            "UT: [Error] editing the annotations candidate after open raises CANDIDATE_CHANGED.",
+            "UT: [Normal] prepareDerivationRoot copies the annotations file into the staging root under ANNOTATIONS_FILE_NAME.",
+            "UT: [Normal] runPipelineProducer runs migrate-v3 after educe and before views when the annotations file exists.",
+            "UT: [Error] a failing migrate-v3 returns DERIVE_FAILED and leaves the staging artifact unchanged.",
+            "UT: [Normal] computeDebtIncrease returns an empty increase for identical finding, blocked and reading sets.",
+            "UT: [Error] computeDebtIncrease names a new finding identity, a new blocked check id and a new reading subject separately.",
+            "UT: [Error] a rising reading count with the same subject set is an increase.",
+            "UT: [Normal] a transaction without annotations does not run migrate-v3; a passing workspace still verifies.",
+            "UT: [Boundary] no live report yields an empty baseline and strict behavior.",
+            "UT: [Normal] verifyGeneration accepts carried debt and records baseline, staging and increase in the receipt.",
+            "UT: [Error] verifyGeneration returns unverified with DEBT_INCREASED when a new identity appears.",
+            "UT: [Normal] commitGeneration accepts carried debt and rolls back on new debt.",
+            "UT: [Normal] the final enforce run after a carried-debt commit still exits 4; the transaction does not turn it into pass.",
+            "UT: [Boundary] a Yes reading subject beyond the 50-item display cap is still present in the baseline debt set and a newly added one is refused."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] A v2 fixture with a spec change and complete PX-286 annotations commits; the post-commit smooth-sequences enforce run exits 0 with verdict pass.",
+            "IT: [Integration point] A v2 fixture with a spec change and no annotations commits under non-worsening; the final enforce run exits 4. This proves the transaction policy is not a pass.",
+            "IT: [Integration point] A spec change that adds one blocked check or one reading subject is refused with DEBT_INCREASED and the live tree is byte-identical.",
+            "IT: [Integration point] A decisions-only transaction with no annotations still works; a passing workspace verifies and commits.",
+            "IT: [Integration point] A migration failure or a commit failure restores the live tree and leaves the failed generation in regeneration/archive/.",
+            "IT: [Prerequisite] PX-286 is reviewed; its migration API, annotation schema and readDebtBaseline export are available. No live gaia workspace is modified."
+          ],
+          "testExceptions": [
+            "The real gaia workspace is not testable from this ticket because it is an external workspace with an unpushed repair state; a deterministic gaia-shaped fixture is used instead. This is an external-dependency limitation, not a design defect.",
+            "The meaning of an annotation is not testable mechanically because semantic equivalence is a judgment. This is not a design defect: PX-286 owns citation validation (step line and quote), and this ticket tests that the annotated rows reach staging and that the debt comparison is correct."
+          ],
+          "instrumentation": "- [Logging] continue/verify print state, baseline debt counts, staging debt counts and the increase. A refusal prints the first new finding, blocked check and reading subject with DEBT_INCREASED.\n- [Metrics] The transaction receipt records findings, blocked and readings counts for baseline, staging and increase; the committed archive keeps the annotations hash.\n- [Error tracking] DEBT_INCREASED, DERIVE_FAILED, CANDIDATE_CHANGED and MIGRATION_FAILED are named RegenerationError codes with a next action; no silent catch.\n- [Health check] A carried-debt transaction commits and the final enforce run still exits 4; a no-debt transaction commits and the final enforce run exits 0.\nReview verification (PX-287):\n- Static quality check: passed (0 issues after folding openTransaction into a single input parameter).\n- Translatability: no issues; the debt module and the transaction functions use verb phrases and domain names, and no debug output remains.\n- Tests: node --test tests/regeneration/*.test.mjs -> 96 tests, 94 pass, 2 fail. The 2 failures are the CLI commit/continue tests that also fail at HEAD 6a5b5596 (the real detector on the empty fixture); they are pre-existing. node --test tests/smooth-sequences/*.test.mjs -> 269 tests, 268 pass, 1 skipped, 0 fail. The new PX-287 tests are 20/20 green, including a passing end-to-end commit whose final enforce run exits 0.\n- Annotations: 7 PX-287-only files verified, 0 missing, 0 ambiguous. The three shared files carry both PX-286 and PX-287 annotations at their respective definitions.\n- Crimes/stubs/no-excuse: 0/0/0.\n- Pre-existing failures outside PX-287: the two regeneration CLI tests at HEAD; not caused by this ticket.",
+          "notes": "- [Implementation steps] Red groups in this order: (1) annotations candidate open/copy/hash, (2) staging migration in the producer, (3) debt baseline reader and computeDebtIncrease, (4) verify and commit non-worsening gates, (5) detect report fields, (6) docs and integration fixtures. No group is reordered.\n- [Risks] The transaction contract changes from exit-code to identity-set comparison. A wrong baseline could allow new debt, so the baseline reader must reuse the same current/archive/legacy order as the evidence ledger and be tested for each branch. The final gate remains the authority and is not weakened.\n- [Caveats] This ticket does not make gaia pass. It makes incremental specification repair possible after PX-286; the 300 contracts, 55 grounds and 201 readings remain design work. A carried-debt commit is not completion and must never be reported as pass.\n- [Open items] educe native schema-3 emission; per-row execution of spec checks; a debt ledger shown in the smooth-sequences report.\n- [Future improvements] Once educe emits v3 natively, the staging migration can become a fallback for legacy artifacts instead of the default path.\nImplementation summary (PX-287):\n- Changed files: .claude/scripts/regeneration/lib/debt.mjs; lib/transaction.mjs; lib/commit.mjs; lib/staging.mjs; regeneration/run.mjs; .claude/scripts/smooth-sequences/lib/report.mjs; lib/readings-summary.mjs; .claude/commands/smooth-sequences.md; tests/regeneration/debt-gate.test.mjs; tests/regeneration/regeneration-authoring.test.mjs; tests/smooth-sequences/docs.test.mjs.\n- Key changes: non-worsening debt gate with identity-set comparison; readDebtBaseline and full reading subjects; annotations candidate with hash/copy/CANDIDATE_CHANGED; migrate-v3 in staging after educe; commit rollback on new debt; archive of the annotations file; actionable DEBT_INCREASED output.\n- Decision: non-worsening transaction gate. Existing blocked/readings debt may be carried; new debt is refused; the final enforce run remains strict. This keeps the final gate honest and allows incremental specification repair.\n- Test results: node --test tests/regeneration/*.test.mjs -> 93 tests, 91 pass, 2 fail. The 2 failures are the CLI commit/continue tests that also fail at HEAD 6a5b5596 (the real detector on the empty fixture); they are pre-existing, not caused by PX-287. node --test tests/smooth-sequences/*.test.mjs -> 269 tests, 268 pass, 1 skipped, 0 fail. The new PX-287 tests are 17/17 green, including a passing end-to-end commit whose final enforce run exits 0.\n- Quality checks: 0 issues on the changed source and test files after folding openTransaction into a single input parameter.\n- Annotations: 7 PX-287-only files verified with 0 missing and 0 ambiguous; the three shared files (report.mjs, readings-summary.mjs, docs.test.mjs) were annotated at the new PX-287 definitions and their PX-286 annotations restored. The install copies were staged out of the diff.\n- No file under /Users/kawata/shyme/gaia was modified.\n- Residual: educe native schema-3 emission; the real gaia design repair (300 contracts, 55 grounds, 201 readings) remains design work. The two pre-existing regeneration CLI failures are out of scope.\nReview report (PX-287):\n- Static quality check: passed.\n- Translatability: no issues.\n- Dependencies: PX-286's annotation schema, migration.authorship and annotations_digest are consumed unchanged; the debt baseline reuses the smooth-sequences report reader and the readings JSONL.\n- Issues found and fixes applied during review:\n  1. Deleting or losing the readings file would have looked like a debt decrease. Added readingPresent to the debt model and readings summary, readingsRemoved/readingsUnmeasured to computeDebtIncrease, wired them through verify and commit, and added unit/integration tests.\n  2. The commit path did not re-check the staged annotations hash after verify, so an edit after verify could be archived. Added a CANDIDATE_CHANGED refusal in requireVerifiedEntry and a regression test.\n  3. openTransaction had six destructured parameters (quality issue); folded them into a single input object with no caller change.\n  4. printUnverified now names readings removal and unmeasured readings.\n- Validation: node --test tests/regeneration/*.test.mjs -> 96 tests, 94 pass, 2 pre-existing failures; smooth suite 269/268/1 skip/0; quality 0; annotations 7 files verified; no crime, stub or excuse.\n- Decision: non-worsening transaction gate; carried debt commits, new debt is refused, and the final enforce run remains strict. A carried-debt commit is not pass.\n- Residual: educe native schema-3 emission and the real gaia design repair remain future work.",
+          "acceptanceCriteria": [
+            "[Happy path] A v2 fixture with a spec change and complete annotations opens, derives, verifies and commits; the post-commit enforce run exits 0 with verdict pass.",
+            "[Error case] A spec change that adds a finding identity, a blocked check id or a reading subject is refused with DEBT_INCREASED and the live tree is unchanged; an annotations edit after open is refused with CANDIDATE_CHANGED.",
+            "[Edge case] A spec change with no annotations commits under non-worsening but the final enforce run still exits 4; a no-baseline workspace is strict; a migration failure returns DERIVE_FAILED and restores the live tree."
+          ],
+          "investigation": "Source investigation (PX-287):\n- verifyGeneration requires detector exitCode 0: .claude/scripts/regeneration/lib/transaction.mjs:488-493.\n- The detector wrapper runs the enforce path, not --audit: .claude/scripts/regeneration/run.mjs:59-66.\n- A spec change makes the artifact stale and runs educe: transaction.mjs:352-367. educe writes schema 2: .claude/scripts/educe-sequences/rail/artifact.mjs:62 and rail/artifact-schema.json:2.\n- prepareDerivationRoot copies the specification, decisions, artifacts and educe-sequences into staging: .claude/scripts/regeneration/lib/staging.mjs:145-165. The annotations candidate is not copied today.\n- verifyChain checks artifact.spec.sha256 against the spec, not an artifact self-hash: .claude/scripts/regeneration/lib/chain.mjs:115-125. A migration preserves spec.sha256, so the chain survives.\n- snapshotDesignFiles includes root *-sequences.json and educe-sequences: staging.mjs:96-115. A migration or a readings regeneration changes the input digest and opens a new generation.\n- commitGeneration verifies the chain and detector after the write: .claude/scripts/regeneration/lib/commit.mjs:206-216. It also requires exit 0 today, so it must use the same non-worsening comparison.\n- The smooth-sequences evidence ledger already reads the current/archive/legacy baseline: .claude/scripts/smooth-sequences/lib/report.mjs, readFindingBaseline. Reuse that order for readDebtBaseline.\n\nMeasured facts: the existing smooth-sequences suite is 239 tests, 238 pass, 1 skipped, 0 fail. Gaia has 15 blocked checks, 1,502 withdrawn findings and 201 Yes readings; a spec change is required for the readings, and no such change can currently commit.",
+          "boyScoutPlan": "- Extract the debt model into a pure lib with computeDebtIncrease and assertNonWorsening; keep the domain words baseline, staging and increase.\n- Extract readDebtBaseline from the existing finding-baseline reader instead of duplicating the current/archive/legacy order.\n- Split verifyGeneration into verifyChainStep, verifyGroundsStep, runDetectorStep and compareDebtStep so each has one responsibility.\n- Replace exitCode literals with named constants and the string states with the existing STATES constants.\n- Make detect return a named detectorResult rather than an anonymous object; remove the duplicate exit-code gate in commit by using the same comparison.\n- Add PX-287 provenance comments to every new function and module, naming the show-ticket-context command.\n- Rename the generic entry local to transactionEntry where it is read in verify and commit.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "annotations candidate -> staging artifact",
+              "precondition": "a transaction opened with an annotations candidate and a changed spec",
+              "postcondition": "educe writes the artifact, migrate-v3 applies the annotations in staging, and views are projected from the migrated artifact",
+              "invariant": "the annotations bytes in staging match the candidate hash recorded at open"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "live baseline + staging report -> commit decision",
+              "precondition": "a live debt baseline and a staging detector report",
+              "postcondition": "the transaction verifies and commits only when no finding identity, blocked check id or reading subject is added and the reading count does not increase",
+              "invariant": "carried debt does not roll back; any new debt is refused with DEBT_INCREASED"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "transaction verdict -> final gate",
+              "precondition": "a committed transaction with carried debt",
+              "postcondition": "the next enforce /smooth-sequences run still exits 4",
+              "invariant": "the non-worsening policy never produces verdict pass"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "annotations candidate -> transaction ledger",
+              "precondition": "an annotations candidate edited after open",
+              "postcondition": "the transaction raises CANDIDATE_CHANGED and refuses to verify",
+              "invariant": "the staged annotations and the recorded hash agree at every verify"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "producer or commit failure -> live tree",
+              "precondition": "a migration failure or a post-write debt increase",
+              "postcondition": "the live tree is restored byte-identically and the failed generation remains in the archive",
+              "invariant": "no partially migrated artifact becomes live"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "no annotations -> legacy behavior",
+              "precondition": "a transaction without an annotations candidate",
+              "postcondition": "migrate-v3 does not run and the non-worsening comparison still governs verify and commit",
+              "invariant": "a passing workspace without annotations verifies and commits as before"
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 annotations candidate -> staging artifact\n```js\nconst workspace = materializeRealWorkspace();\nconst candidateAnnotations = writeCandidateAnnotations(workspace);\nconst opened = openTransaction({\n  root: workspace.root,\n  candidateSpec: writeCandidateSpec(workspace),\n  candidateAnnotations,\n  reason: 'PX-287 authoring',\n});\nconst entry = readLedger(workspace.root).transactions.at(-1);\nassert.equal(entry.candidateAnnotationsHash, digestOf(candidateAnnotations));\nassert.equal(existsSync(join(opened.stagingRoot, ANNOTATIONS_FILE_NAME)), true);\nderiveGeneration({ root: workspace.root, transactionId: opened.transactionId });\nwriteV2ArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));\nconst derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });\nassert.equal(derived.state, 'derived');\nconst artifact = JSON.parse(readFileSync(join(opened.stagingRoot, 'spec-sequences.json'), 'utf8'));\nassert.equal(artifact.schema_version, 3);\nassert.ok(artifact.migration.authorship !== undefined);\nassert.ok(existsSync(join(opened.stagingRoot, 'crates/protocol/core/SEQUENCES.json')));\n```",
+            "C002 live baseline + staging report -> commit decision\n```js\nconst baseline = {\n  findings: new Set(['S1.a\\u0000x']),\n  blocked: new Set(['S5.x']),\n  readingSubjects: new Set(['@a']),\n  readingCount: 1,\n  source: 'current',\n};\nconst carried = {\n  findings: new Set(['S1.a\\u0000x']),\n  blocked: new Set(['S5.x']),\n  readingSubjects: new Set(['@a']),\n  readingCount: 1,\n};\nassert.equal(computeDebtIncrease({ baseline, staging: carried }).increased, false);\nconst increased = computeDebtIncrease({\n  baseline,\n  staging: {\n    findings: new Set(['S1.a\\u0000x', 'S1.b\\u0000y']),\n    blocked: new Set(['S5.x', 'S5.y']),\n    readingSubjects: new Set(['@a', '@b']),\n    readingCount: 2,\n  },\n});\nassert.deepEqual(increased.newFindings, ['S1.b\\u0000y']);\nassert.deepEqual(increased.newBlocked, ['S5.y']);\nassert.deepEqual(increased.newReadingSubjects, ['@b']);\nassert.equal(increased.readingCountDelta, 1);\nassert.equal(increased.increased, true);\n```",
+            "C003 transaction verdict -> final gate\n```js\nconst committed = commitGeneration({\n  root: workspace.root,\n  transactionId: opened.transactionId,\n  runDetector: () => carriedDebtDetector,\n});\nassert.equal(committed.state, 'committed');\nconst final = runCommand([workspace.root]);\nassert.equal(final.exitCode, 4);\nassert.equal(final.report.verdict, 'unproven');\nassert.equal(final.report.verdict === 'pass', false);\n```",
+            "C004 annotations candidate -> transaction ledger\n```js\nconst opened = openTransaction({\n  root: workspace.root,\n  candidateSpec: writeCandidateSpec(workspace),\n  candidateAnnotations,\n  reason: 'PX-287 candidate integrity',\n});\nwriteFileSync(candidateAnnotations, '{\"contracts\":{}}');\nassert.throws(\n  () => verifyGeneration({ root: workspace.root, transactionId: opened.transactionId, runDetector: fixtureDetectorOk }),\n  (error) => error.code === 'CANDIDATE_CHANGED',\n);\n```",
+            "C005 producer or commit failure -> live tree\n```js\nconst before = snapshotDesignTree(workspace.root);\nassert.throws(\n  () => commitGeneration({\n    root: workspace.root,\n    transactionId: opened.transactionId,\n    runDetector: () => increasedDebtDetector,\n  }),\n  (error) => error.code === 'COMMIT_ROLLED_BACK',\n);\nassert.deepEqual(snapshotDesignTree(workspace.root), before);\n```",
+            "C006 no annotations -> legacy behavior\n```js\nconst opened = openTransaction({\n  root: workspace.root,\n  candidateSpec: writeCandidateSpec(workspace),\n  reason: 'PX-287 no annotations',\n});\nassert.equal(existsSync(join(opened.stagingRoot, ANNOTATIONS_FILE_NAME)), false);\nderiveGeneration({ root: workspace.root, transactionId: opened.transactionId });\nwriteV2ArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));\nconst derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });\nassert.equal(derived.state, 'derived');\nconst artifact = JSON.parse(readFileSync(join(opened.stagingRoot, 'spec-sequences.json'), 'utf8'));\nassert.equal(artifact.schema_version, 2);\nconst verified = verifyGeneration({ root: workspace.root, transactionId: opened.transactionId, runDetector: () => carriedDebtDetector });\nassert.equal(verified.state, 'verified');\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "The regeneration verify required detector exit 0; a spec change made educe write schema 2 and the detector exit 4, so the transaction could never commit.",
+              "after": "verifyGeneration and commitGeneration compare the staged debt with the live baseline by finding identity, blocked check id, reading subject, Yes count and unreadable readings; carried debt verifies and commits, new debt is refused with DEBT_INCREASED.",
+              "description": "Replace the absolute transaction gate with a non-worsening gate."
+            },
+            {
+              "before": "There was no baseline reader that used a current report with zero findings, and the reading subjects were available only as a display-capped list.",
+              "after": "readDebtBaseline reads the current report first, then archived generations, then the legacy report, then empty; readUnresolvedReadingSubjects reads every Yes subject from the JSONL.",
+              "description": "Make the debt baseline complete and honest."
+            },
+            {
+              "before": "regeneration open accepted spec, allocate decisions and tree decisions only; the annotations candidate had no path into staging.",
+              "after": "open accepts --annotations=<candidate>, hashes it at open, copies it to staging as ANNOTATIONS.json, and refuses a candidate or staged copy edited after open with CANDIDATE_CHANGED.",
+              "description": "Stage the authoring input with the same integrity as the spec and decisions."
+            },
+            {
+              "before": "A spec change regenerated the artifact as schema 2 and lost the PX-286 authored contracts.",
+              "after": "runPipelineProducer runs migrate-v3 --annotations after educe and before the views; a refusal returns DERIVE_FAILED with no partial artifact; a second derive is idempotent.",
+              "description": "Preserve authored contracts across a specification change."
+            },
+            {
+              "before": "The commit verified only detector exit 0 and did not archive the annotations input.",
+              "after": "commit reads the pre-write baseline, refuses any post-write debt increase and rolls back byte-identically; the archive keeps the staged annotations file and the journal records the baseline and annotations hash.",
+              "description": "Make commit non-worsening and auditable."
+            },
+            {
+              "before": "detect returned findings and withheld only; the unverified output did not name the new debt.",
+              "after": "detect also returns blocked and readings; printUnverified prints DEBT_INCREASED with the first new finding, blocked check, reading subject and count deltas.",
+              "description": "Make the transaction refusal actionable."
+            },
+            {
+              "before": "The command documented the three existing candidates but not the annotations candidate or the non-worsening policy.",
+              "after": "Step 4 documents --annotations, the candidate hash, the staging migration, the non-worsening gate, the carried-debt receipt and the final strictness; Step 6 remains the only completion.",
+              "description": "Align the operating contract with the new transaction policy."
+            },
+            {
+              "before": "The transaction tests covered the absolute detector gate.",
+              "after": "debt-gate.test.mjs covers the debt model, baseline selection, full reading subjects, carried/new verify, carried/new commit and the still-unproven final run; regeneration-authoring.test.mjs covers the annotations candidate, CANDIDATE_CHANGED, the staging migration, its refusal, the archive copy and a passing end-to-end commit.",
+              "description": "Prove the non-worsening policy and the authoring integration."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
         }
       ]
     },

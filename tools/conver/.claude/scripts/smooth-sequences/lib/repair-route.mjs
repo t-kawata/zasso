@@ -9,6 +9,7 @@
  * `UNROUTED_FINDING` rather than rendering a blank repair line.
  */
 import { SmoothSequencesError } from './errors.mjs';
+import { SURFACES } from './surfaces.mjs';
 
 export const SURFACE = Object.freeze({
   SPEC: 'spec',
@@ -23,6 +24,40 @@ export const REGENERATION_COMMAND = 'node .claude/scripts/regeneration/run.mjs o
 export const REGENERATION_ALLOCATE_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=<reason>';
 export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
 export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
+export const MIGRATE_V3_ANNOTATIONS_COMMAND = 'node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<file>';
+
+/** The producer that restores one blocked evidence surface. */
+const BLOCKED_PRODUCER_BY_SURFACE = Object.freeze({
+  [SURFACES.OPERATIONS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.SEQUENCES]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.STEPS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.OPERATION_TRANSITIONS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.REGISTRY_CONTRIBUTION]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.BOUNDARY_EFFECTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.TYPED_STEP_CONTRACTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.AUTHORED_CONTRACTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.STEP_CROSSINGS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.BOUNDARY_GROUNDS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.GROUNDED_OBJECTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.CONTRACT_REGISTRY]: REGENERATION_ALLOCATE_COMMAND,
+  [SURFACES.PACKAGE_VIEWS]: SEQUENCES_SLICE_COMMAND,
+  [SURFACES.OBLIGATION_UNITS]: SEQUENCES_SLICE_COMMAND,
+  [SURFACES.TERMINAL_STATUSES]: REGENERATION_COMMAND,
+  [SURFACES.REQUIRED_INTERFACES]: REGENERATION_COMMAND,
+});
+
+/** The producer a blocked surface names, or a refusal that cannot render a blank line. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+export function producerForBlockedSurface(surface) {
+  const producer = BLOCKED_PRODUCER_BY_SURFACE[surface];
+  if (producer === undefined) {
+    throw new SmoothSequencesError(`no producer for blocked surface ${surface}`, {
+      code: 'UNROUTED_BLOCKED_SURFACE',
+      repair: 'Add the surface to BLOCKED_PRODUCER_BY_SURFACE with the command that restores it.',
+    });
+  }
+  return producer;
+}
 
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 const SPEC_CHECK_IDS = Object.freeze([
@@ -47,6 +82,7 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S5.crossing-side-missing',
   'S5.error-set-mismatch',
   'S5.precondition-not-implied',
+  'S5.authored-source-missing',
   'S5.projection-only',
   'S6.boundary-effect-drift',
   'S6.cycle',

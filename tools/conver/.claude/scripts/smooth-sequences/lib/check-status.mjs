@@ -232,6 +232,11 @@ export const CHECK_REGISTRY = Object.freeze([
     claims: 'spec',
     denominator: (index) => collectTypedSteps(index).length,
   }),
+  check('S5.authored-source-missing', 'meshing', {
+    requires: [SURFACES.AUTHORED_CONTRACTS],
+    claims: 'spec',
+    denominator: countAuthoredSteps,
+  }),
   check('S6.cycle', 'danger', {
     requires: [SURFACES.TYPED_STEP_CONTRACTS],
     claims: 'spec',
@@ -277,13 +282,19 @@ function buildBlockedEntry(entry, surface, reason) {
 }
 
 /** The first reason a descriptor cannot execute over this index, or null. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 function findBlockingReason(entry, index) {
   for (const surface of entry.requires) {
     const availability = surfaceAvailabilityOf(index, surface);
     if (!availability.present) return { surface, reason: `${surface} is absent` };
     if (entry.claims === 'spec' && availability.origin === ORIGIN.MIGRATION) {
-      return { surface, reason: `${surface} is synthesized by migration` };
+      return {
+        surface,
+        reason: `${surface} is synthesized by migration (authored ${availability.authoredCardinality}/${availability.cardinality})`,
+      };
+    }
+    if (entry.claims === 'spec' && availability.origin === ORIGIN.UNKNOWN) {
+      return { surface, reason: `${surface} has unknown provenance; rerun migrate-v3 with annotations` };
     }
   }
   return null;

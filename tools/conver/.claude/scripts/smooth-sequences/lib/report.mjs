@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { SmoothSequencesError } from './errors.mjs';
 import { CHECK_FAMILY_COUNT } from './check-status.mjs';
 import { formatProvenanceLine, emptyProvenance } from './provenance.mjs';
-import { emptyReadings, formatReadingsLine } from './readings-summary.mjs';
+import { emptyReadings, formatReadingsLine, readUnresolvedReadingSubjects } from './readings-summary.mjs';
 import { EXIT_FINDINGS, EXIT_JUDGMENT, EXIT_MISUSE, EXIT_PASS, EXIT_UNPROVEN } from './verdict.mjs';
 
 export { EXIT_FINDINGS, EXIT_JUDGMENT, EXIT_MISUSE, EXIT_PASS, EXIT_UNPROVEN };
@@ -151,6 +151,58 @@ export function readFindingBaseline(root) {
   return current;
 }
 
+/**
+ * The most recent report, regardless of whether it carries findings.
+ *
+ * The debt gate needs the whole debt a reader can see: a current report with zero
+ * findings but blocked surfaces is the baseline, not a reason to fall back to an
+ * older report. The finding ledger keeps its own "most recent with findings" rule.
+ */
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+export function readBaselineReport(root) {
+  const current = readGenerationReport(root);
+  if (current !== null) return { report: current, source: 'current' };
+  const archiveDirectory = join(runDirectoryFor(root), ARCHIVE_DIRECTORY_NAME);
+  if (existsSync(archiveDirectory)) {
+    const generations = readdirSync(archiveDirectory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+      .map((entry) => Number(entry.name))
+      .sort((left, right) => right - left);
+    for (const generation of generations) {
+      const path = join(archiveDirectory, String(generation), JSON_FILE_NAME);
+      if (existsSync(path)) return { report: readReportFile(path), source: `archive/${generation}` };
+    }
+  }
+  const legacyPath = join(root, JSON_FILE_NAME);
+  if (existsSync(legacyPath)) return { report: readReportFile(legacyPath), source: 'legacy' };
+  return { report: null, source: 'empty' };
+}
+
+/**
+ * The debt a regeneration transaction may carry.
+ *
+ * Findings and blocked checks come from the most recent report; reading subjects and
+ * the Yes count come from the JSONL, because the report's display list is capped.
+ *
+ * @param {string} root — workspace root
+ * @returns {{ findings: Set<string>, blocked: Set<string>, readingSubjects: Set<string>,
+ *   readingCount: number, readingWithheld: number, source: string }}
+ */
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+export function readDebtBaseline(root) {
+  const { report, source } = readBaselineReport(root);
+  const readings = readUnresolvedReadingSubjects(root);
+  return {
+    findings: new Set((report?.findings ?? []).map((finding) => `${finding.checkId}\u0000${finding.subject}`)),
+    blocked: new Set((report?.blocked ?? []).map((entry) => entry.checkId ?? entry.check)),
+    readingSubjects: readings.subjects,
+    readingCount: readings.count,
+    readingPresent: readings.present,
+    readingWithheld: report?.readings?.withheld?.length ?? readings.withheldCount,
+    source,
+  };
+}
+
 /** The denominator a report carries when no axis was measured. */
 export function emptyDenominator() {
   return { operations: null, sequences: null, boundaries: null, surfaces: null };
@@ -266,24 +318,36 @@ function countBlockedSurfaces(blocked) {
 }
 
 /** Every blocked check, one line each. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 function renderBlockedSummary(blocked) {
   if (blocked.length === 0) return [];
   const surfaceCount = countBlockedSurfaces(blocked);
   const surfaceWord = surfaceCount === 1 ? 'surface' : 'surfaces';
   return [
     `blocked: ${blocked.length} check(s) in ${surfaceCount} ${surfaceWord}`,
-    ...blocked.map((entry) => `  blocked: ${entry.checkId} | surface: ${entry.surface} | reason: ${entry.reason}`),
+    ...blocked.map((entry) => `  blocked: ${entry.checkId} | surface: ${entry.surface} | producer: ${entry.producer ?? 'unrouted'} | reason: ${entry.reason}`),
   ];
+}
+
+/** The next action for an unproven run: a producer per blocked surface, and readings. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286) --for-spec --no-implementation-order`.
+function renderUnprovenNext(report) {
+  const producers = [...new Set((report.blocked ?? []).map((entry) => entry.producer).filter(Boolean))];
+  const unresolvedReadings = report.readings?.inquest?.yes ?? 0;
+  const actions = [];
+  if (producers.length > 0) actions.push(`restore every blocked surface with its producer: ${producers.join(' | ')}`);
+  if (unresolvedReadings > 0) actions.push(`resolve ${unresolvedReadings} Yes reading(s) by revising the spec and rerunning the educe reader phases`);
+  const action = actions.length === 0 ? 'restore every blocked surface with its producer' : actions.join('; ');
+  return `next: ${action}. verdict: unproven; exit: 4.`;
 }
 
 /** The verdict line a run ends at. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 function renderVerdictLine(report) {
   if (report.verdict === 'audit') return `next: none. verdict: audit; wouldExit: ${report.wouldExit ?? 0}.`;
-  if (report.verdict === 'unproven') return 'next: restore every blocked surface or record a waiver with a ground. verdict: unproven; exit: 4.';
+  if (report.verdict === 'unproven') return renderUnprovenNext(report);
   if (report.verdict === 'findings') return NEXT_FIX;
   return 'next: none. verdict: pass.';
 }

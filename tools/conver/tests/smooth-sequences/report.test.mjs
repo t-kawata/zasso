@@ -116,6 +116,7 @@ test('a clean console block prints next: none and no finding line', () => {
 });
 
 // @verifies C004
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('a console block with a blocked surface is unproven and never says pass', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -126,7 +127,7 @@ test('a console block with a blocked surface is unproven and never says pass', (
   const lines = renderConsoleReport(report);
   assert.ok(lines.includes('blocked: 1 check(s) in 1 surface'));
   assert.ok(lines.some((line) => line.includes('S5.precondition-not-implied')));
-  assert.equal(lines.at(-1), 'next: restore every blocked surface or record a waiver with a ground. verdict: unproven; exit: 4.');
+  assert.equal(lines.at(-1), 'next: restore every blocked surface with its producer. verdict: unproven; exit: 4.');
   assert.doesNotMatch(lines.join('\n'), /verdict: pass/);
 });
 
@@ -171,6 +172,7 @@ test('the Markdown report caps the list and names the remainder', () => {
 
 // @verifies C001
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the Markdown report names each withheld surface and its check', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -180,7 +182,7 @@ test('the Markdown report names each withheld surface and its check', () => {
   });
   const markdown = renderReportMarkdown(report);
   assert.match(markdown, /blocked: 1 check\(s\) in 1 surface\(s\)/);
-  assert.match(markdown, /S3\.terminal-status \| surface: unknown \| reason: terminalStatuses is not declared/);
+  assert.match(markdown, /S3\.terminal-status \| surface: unknown \| producer: unrouted \| reason: terminalStatuses is not declared/);
 });
 
 // @verifies C006

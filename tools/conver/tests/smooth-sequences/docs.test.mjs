@@ -62,6 +62,7 @@ test('the command body is six flat numbered steps from Prepare to Complete, with
 });
 
 // @verifies C004
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('Step 4 carries every operational regeneration command', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   const start = command.indexOf('### Step 4 — Regeneration');
@@ -74,6 +75,10 @@ test('Step 4 carries every operational regeneration command', () => {
   for (const token of ['CANDIDATE_CHANGED', 'STAGING_CHANGED', 'SILENT_CHANGE_DETECTED', 'TRANSACTION_TERMINAL', 'BASELINE_CHANGED']) {
     assert.match(step, new RegExp(token), token);
   }
+  assert.match(step, /--annotations/);
+  assert.match(step, /DEBT_INCREASED/);
+  assert.match(step, /non-worsening/i);
+  assert.match(step, /carried debt/i);
 });
 
 // @verifies C004
@@ -90,6 +95,7 @@ test('Step 5 routes judgment-required to the owning AI command', () => {
 });
 
 // @verifies C006
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the command makes a fresh exit 0 the loop sole exit and exit 1 not completion', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   assert.match(command, /exit 0 only when/i);
@@ -98,11 +104,19 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   assert.match(command, /v2 artifact[^.]*never pass/i);
   assert.match(command, /S\.evidence-withdrawn/);
   assert.match(command, /SMOOTH-SEQUENCES-WAIVERS\.json/);
+  assert.match(command, /migrate-v3\.mjs/);
+  assert.match(command, /--annotations=/);
+  assert.match(command, /UNCITED_AUTHORED_FACT/);
+  assert.match(command, /UNCITED_BOUNDARY_GROUND/);
+  assert.match(command, /S5\.authored-source-missing/);
+  assert.match(command, /reader phases/);
+  assert.doesNotMatch(command, /restore the authored surface with its producer, or record a grounded waiver/);
   assert.doesNotMatch(command, /Step 2b/);
   assert.match(command, /persisted/);
   assert.match(command, /never hand-edit|never edit a generated file|not hand-edited/i);
 });
 
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('every step names the command, path and argument that performs it', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   const section = (start, end) => {
@@ -159,6 +173,7 @@ test('the command keeps judgment with the AI and names only direction questions 
 });
 
 // @verifies C004
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('Appendix A keeps the check-family detail out of the steps', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   const appendix = command.slice(command.indexOf('## Appendix A'));
@@ -166,6 +181,7 @@ test('Appendix A keeps the check-family detail out of the steps', () => {
   assert.match(appendix, /S3 operation envelope/);
   assert.match(appendix, /S4 boundary clauses/);
   assert.match(appendix, /S5 contract meshing/);
+  assert.match(appendix, /S5\.authored-source-missing/);
   assert.match(appendix, /S6 danger/);
   assert.match(appendix, /S7 artifact\/view\/RFC consistency/);
 });

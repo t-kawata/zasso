@@ -124,6 +124,7 @@ export function collectCrossingContracts(index) {
   const findings = [];
   checkCrossingDeclarations(index, findings);
   collectProjectionOnly(index, findings);
+  checkAuthoredSources(index, findings);
   collectBoundaryCoverage(index, findings);
   for (const [boundaryId, steps] of groupStepsByBoundary(index)) {
     const contract = index.contractsByBoundary.get(boundaryId);
@@ -131,6 +132,48 @@ export function collectCrossingContracts(index) {
     checkBoundaryMeshing(index, boundaryId, steps, contract, findings);
   }
   return { findings, subChecks: buildFamilySubChecks('meshing', index) };
+}
+
+/** The fields whose entries are assertions and therefore need a citation. */
+const CITED_CONTRACT_FIELDS = Object.freeze(['pre', 'post', 'invariants']);
+
+/** Whitespace-normalized text for a quote comparison. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function normalizeQuote(text) {
+  return String(text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Whether a fact cites the step line and a quote the step actually carries. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function isCitedFact(fact, step) {
+  if (fact === null || typeof fact !== 'object' || Array.isArray(fact)) return false;
+  const source = fact.source;
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) return false;
+  if (source.step !== step.id || source.line !== step.line) return false;
+  const quote = normalizeQuote(source.quote);
+  return quote !== '' && normalizeQuote(step.quote).includes(quote);
+}
+
+/** One finding for every authored assertion that cites no matching step quote. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+function checkAuthoredSources(index, findings) {
+  for (const step of index.artifact.steps ?? []) {
+    const authored = step?.contract?.authored;
+    if (authored === null || typeof authored !== 'object' || Array.isArray(authored)) continue;
+    const carriesAssertion = CITED_CONTRACT_FIELDS.some((field) => Array.isArray(authored[field]) && authored[field].length > 0);
+    if (!carriesAssertion) continue;
+    for (const field of CITED_CONTRACT_FIELDS) {
+      for (const [position, fact] of (authored[field] ?? []).entries()) {
+        if (isCitedFact(fact, step)) continue;
+        addFinding(findings, 'S5.authored-source-missing', `${step.id}/${field}/${position}`, {
+          className: 'deficiency',
+          route: routeForStep('S5.authored-source-missing', index, step),
+          why: `authored ${field}[${position}] of ${step.id} cites no matching step line and quote`,
+          fix: `record source {step: ${step.id}, line: ${step.line}, quote: <substring of the step quote>}`,
+        });
+      }
+    }
+  }
 }
 
 /** One finding for a step that carries no authored contract at all. */
@@ -194,7 +237,7 @@ function checkCrossingDeclarations(index, findings) {
 }
 
 /** One boundary: both sides exist, and every consumer contract is met by the provider. */
-// [::TICKET::] PX-277, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284, PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285|PX-286) --for-spec --no-implementation-order`.
 function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
   for (const step of steps) {
     const owners = readOwners(index, step.operation);
@@ -209,6 +252,10 @@ function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
   const providerSteps = steps.filter((step) => readOwners(index, step.operation).has(contract.provider_package));
   const consumerSteps = steps.filter((step) => readOwners(index, step.operation).has(contract.consumer_package));
   if (providerSteps.length === 0 || consumerSteps.length === 0) {
+    // A ground is the authored statement that the missing side is not an enumerated
+    // operation (for example, a package with no operations). It covers the boundary for
+    // both the uncovered and the one-sided question; without it the gap is a finding.
+    if (readBoundaryGrounds(index).has(boundaryId)) return;
     addFinding(findings, 'S5.crossing-side-missing', boundaryId, {
       className: 'omission',
       route: routeForSpecRow('S5.crossing-side-missing', index, boundaryId),

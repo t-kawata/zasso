@@ -39,6 +39,7 @@ function findingsOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId);
 }
 
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the migration does not silently close an ungranted transition target', () => {
   const workspace = materializeSmoothWorkspace({ artifact: openTargetArtifact() });
   try {
@@ -47,10 +48,10 @@ test('the migration does not silently close an ungranted transition target', () 
     const migrated = materializeSmoothWorkspace({ artifact: v3 });
     try {
       const result = runCommand([migrated.root, '--audit']);
-      const blocked = result.report.blocked.find((entry) => entry.checkId === 'S3.transition-target-unknown');
-      assert.equal(blocked.surface, 'operations[].allowed_status_transitions');
-      assert.match(blocked.reason, /synthesized by migration/);
-      assert.equal(findingsOf(result, 'S3.transition-target-unknown').length, 0);
+      assert.equal(result.report.blocked.some((entry) => entry.checkId === 'S3.transition-target-unknown'), false);
+      const findings = findingsOf(result, 'S3.transition-target-unknown');
+      assert.equal(findings.length, 1);
+      assert.equal(findings[0].subject, 'ProduceFact');
     } finally {
       migrated.remove();
     }

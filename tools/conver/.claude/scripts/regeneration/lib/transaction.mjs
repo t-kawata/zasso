@@ -13,8 +13,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { digestOf } from '../../educe-sequences/rail/load.mjs';
+import { readDebtBaseline } from '../../smooth-sequences/lib/report.mjs';
+import { readUnresolvedReadingSubjects } from '../../smooth-sequences/lib/readings-summary.mjs';
 import { ARTIFACT_SUFFIX, verifyChain } from './chain.mjs';
 import { commitGeneration, recoverCommit } from './commit.mjs';
+import { computeDebtIncrease, debtOfDetectorReport, debtOfReadings, summarizeDebt } from './debt.mjs';
 import { RegenerationError } from './errors.mjs';
 import {
   ACTIVE_STATES,
@@ -29,6 +32,7 @@ import {
 } from './ledger.mjs';
 import {
   ALLOCATE_DECISIONS_PATH,
+  ANNOTATIONS_FILE_NAME,
   TREE_DECISIONS_PATH,
   liveSpecPath,
   mergeAuthoredDocuments,
@@ -132,8 +136,8 @@ function assertCandidateExists(candidatePath) {
  * documents participate only when supplied; a missing live decisions document is a
  * null hash, so supplying one is a change.
  */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
-function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions }) {
+// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
+function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations }) {
   const specRelativePath = liveSpecPath(root);
   const liveSpecPathAbs = join(root, specRelativePath);
   const liveTreeDecisions = join(root, TREE_DECISIONS_PATH);
@@ -141,18 +145,22 @@ function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecision
   const specPath = candidateSpec ?? liveSpecPathAbs;
   const treeDecisionsPath = candidateTreeDecisions ?? liveTreeDecisions;
   const allocateDecisionsPath = candidateAllocateDecisions ?? liveAllocateDecisions;
+  const annotationsPath = candidateAnnotations ?? null;
 
   assertCandidateExists(candidateSpec);
   assertCandidateExists(candidateTreeDecisions);
   assertCandidateExists(candidateAllocateDecisions);
+  assertCandidateExists(candidateAnnotations);
 
   const specHash = computeFileDigest(specPath);
   const treeDecisionsHash = hashIfPresent(treeDecisionsPath);
   const allocateDecisionsHash = hashIfPresent(allocateDecisionsPath);
+  const annotationsHash = hashIfPresent(annotationsPath);
   const changedInputs = [];
   if (specHash !== hashIfPresent(liveSpecPathAbs)) changedInputs.push('spec');
   if (treeDecisionsHash !== hashIfPresent(liveTreeDecisions)) changedInputs.push('tree-decisions');
   if (allocateDecisionsHash !== hashIfPresent(liveAllocateDecisions)) changedInputs.push('allocate-decisions');
+  if (annotationsPath !== null) changedInputs.push('annotations');
   if (changedInputs.length === 0) {
     throw new RegenerationError('no candidate differs from the live input', {
       code: 'NO_CHANGE',
@@ -168,6 +176,8 @@ function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecision
     treeDecisionsHash,
     allocateDecisionsPath,
     allocateDecisionsHash,
+    annotationsPath,
+    annotationsHash,
     changedInputs,
   };
 }
@@ -178,9 +188,10 @@ function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecision
  * @param {{ root: string, candidateSpec?: string, candidateAllocateDecisions?: string, candidateTreeDecisions?: string, reason: string }} input
  * @returns {{ transactionId: string, stagingRoot: string, stagingSpecPath: string }}
  */
-export function openTransaction({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, reason }) {
+export function openTransaction(input) {
+  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, reason } = input;
   assertThawable({ root, reason });
-  const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions });
+  const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations });
   const transactionId = newTransactionId();
   const base = snapshotDesignFiles(root);
   const { stagingRoot } = prepareDerivationRoot({ root, candidates, transactionId });
@@ -195,6 +206,8 @@ export function openTransaction({ root, candidateSpec, candidateAllocateDecision
     candidateAllocateDecisionsHash: candidates.allocateDecisionsHash,
     candidateTreeDecisions: candidateTreeDecisions ?? null,
     candidateTreeDecisionsHash: candidates.treeDecisionsHash,
+    candidateAnnotations: candidateAnnotations ?? null,
+    candidateAnnotationsHash: candidates.annotationsHash,
     changedInputs: candidates.changedInputs,
     specRelativePath: candidates.specRelativePath,
     stagingRoot,
@@ -370,6 +383,23 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
     return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'artifact', stderr: artifact.reason };
   }
 
+  const annotationsPath = join(stagingRoot, ANNOTATIONS_FILE_NAME);
+  if (existsSync(annotationsPath)) {
+    const migration = runNode(stagingRoot, 'smooth-sequences/migrate-v3.mjs', [stagingRoot, `--annotations=${annotationsPath}`]);
+    if (!migration.ok) {
+      return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'migrate-v3', stderr: migration.stderr };
+    }
+    artifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+    if (artifact.state !== 'current') {
+      return {
+        state: STATES.DERIVE_FAILED,
+        setupDone: true,
+        failedStep: 'migrate-v3',
+        stderr: artifact.reason ?? 'the migrated artifact is not current',
+      };
+    }
+  }
+
   const views = runPackageViews({ stagingRoot, treeManifest, artifactPath: artifact.artifactPath });
   if (!views.ok) return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: views.failedStep, stderr: views.stderr };
   return { state: STATES.DERIVED, setupDone: true };
@@ -433,7 +463,7 @@ export function deriveGeneration({ root, transactionId, runProducer = runPipelin
 }
 
 /** Refuse a staged authored input that no longer matches the candidate recorded at open. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
 function assertStagedCandidatesMatch(entry) {
   const specRelativePath = entry.specRelativePath ?? liveSpecPath(entry.stagingRoot);
   const mismatches = [];
@@ -442,6 +472,10 @@ function assertStagedCandidatesMatch(entry) {
     && hashIfPresent(join(entry.stagingRoot, TREE_DECISIONS_PATH)) !== entry.candidateTreeDecisionsHash) mismatches.push('tree-decisions');
   if (entry.candidateAllocateDecisionsHash !== undefined
     && hashIfPresent(join(entry.stagingRoot, ALLOCATE_DECISIONS_PATH)) !== entry.candidateAllocateDecisionsHash) mismatches.push('allocate-decisions');
+  if (entry.candidateAnnotationsHash !== undefined && entry.candidateAnnotationsHash !== null) {
+    if (hashIfPresent(join(entry.stagingRoot, ANNOTATIONS_FILE_NAME)) !== entry.candidateAnnotationsHash) mismatches.push('annotations');
+    if (hashIfPresent(entry.candidateAnnotations) !== entry.candidateAnnotationsHash) mismatches.push('annotations-candidate');
+  }
   if (mismatches.length > 0) {
     throw new RegenerationError(`the staged input changed after open: ${mismatches.join(', ')}`, {
       code: 'CANDIDATE_CHANGED',
@@ -486,10 +520,31 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
     return { state: STATES.JUDGMENT_REQUIRED, receipt, reason: grounds.reason ?? 'a ground no longer resolves' };
   }
   const detector = runDetector({ root: entry.stagingRoot });
-  const receipt = { chain, grounds, detector };
-  if (detector.exitCode !== 0) {
+  const baseline = readDebtBaseline(root);
+  const stagingReadings = readUnresolvedReadingSubjects(entry.stagingRoot);
+  const stagingDebt = {
+    ...debtOfDetectorReport(detector),
+    ...debtOfReadings({
+      subjects: stagingReadings.subjects,
+      count: stagingReadings.count,
+      withheldCount: detector.readings?.withheld?.length ?? stagingReadings.withheldCount,
+      present: stagingReadings.present,
+    }),
+  };
+  const increase = computeDebtIncrease({ baseline, staging: stagingDebt });
+  const receipt = {
+    chain,
+    grounds,
+    detector,
+    debt: {
+      baseline: summarizeDebt(baseline),
+      staging: summarizeDebt(stagingDebt),
+      increase,
+    },
+  };
+  if (increase.increased) {
     transition(root, transactionId, STATES.DERIVED, { receipt });
-    return { state: 'unverified', receipt };
+    return { state: 'unverified', receipt, reason: 'DEBT_INCREASED' };
   }
   transition(root, transactionId, STATES.VERIFIED, {
     receipt,
@@ -500,11 +555,11 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
 }
 
 /** Whether the entry's last verification receipt records a failure. */
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-280|PX-287) --for-spec --no-implementation-order`.
 function receiptFailed(entry) {
   const chainFailed = entry.receipt?.chain !== undefined && entry.receipt.chain !== null && entry.receipt.chain.ok === false;
-  const detectorFailed = entry.receipt?.detector !== undefined && entry.receipt.detector !== null && entry.receipt.detector.exitCode !== 0;
-  return chainFailed || detectorFailed;
+  const debtFailed = entry.receipt?.debt?.increase?.increased === true;
+  return chainFailed || debtFailed;
 }
 
 /** The exact next command for one entry, including a failed verification. */
