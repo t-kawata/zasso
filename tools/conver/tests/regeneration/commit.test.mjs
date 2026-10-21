@@ -32,6 +32,7 @@ import {
 
 /** Open, derive and verify a transaction. */
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function verifiedTransaction(workspace, runDetector = fixtureDetectorOk) {
   const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'commit test' });
   deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
@@ -244,7 +245,7 @@ test('the post-commit detector may run while its own transaction is committing',
     transition(workspace.root, transaction.transactionId, 'committing');
 
     const refusedLines = [];
-    const refused = runCommand([workspace.root], {
+    const refused = runCommand([workspace.root, '--legacy'], {
       stdout: () => {},
       stderr: (line) => refusedLines.push(line),
     });
@@ -252,7 +253,7 @@ test('the post-commit detector may run while its own transaction is committing',
     assert.match(refusedLines.join('\n'), /TRANSACTION_OPEN/);
 
     const allowedLines = [];
-    const allowed = runCommand([workspace.root], {
+    const allowed = runCommand([workspace.root, '--legacy'], {
       stdout: () => {},
       stderr: (line) => allowedLines.push(line),
       allowTransaction: transaction.transactionId,

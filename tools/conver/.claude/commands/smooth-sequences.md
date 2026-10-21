@@ -336,12 +336,32 @@ In-place staged-candidate edit → `CANDIDATE_CHANGED`.
 
 Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed.
 
+**Closure mode.** A v3 workspace enters closure mode by default; `--legacy` keeps the old report path. When the workspace carries `educe-sequences/EVIDENCE-MANIFEST.json`, pass is the `smooth-sequences/COMPLETION-CERTIFICATE.json` status `complete`, not a zero-finding count. An absent or empty readings file is an open obligation (`MISSING_EVIDENCE`); a phase receipt whose input digest no longer matches is `STALE_RECEIPT`; a check that evaluated zero claims is `vacuous`. Open semantic obligations are written to `smooth-sequences/JUDGMENT-WORKLIST.json` and close only through a held decision. A workspace without the manifest keeps the legacy path so an old report stays readable, but it cannot claim the closure guarantee.
+
+**Judgment decisions.** Every obligation receives one decision: `held` (a validated judgment or a signed reading), `proven` (mechanical or census), `not_applicable`, `broken`, `stuck` or `open`. Only `held`, `proven` and `not_applicable` close an obligation; `broken`, `stuck` and `open` keep the certificate incomplete. A judgment record closes an obligation only when its `obligationId` matches a worklist item and its `worklistDigest`, `contextDigest` and `artifactDigest` match the current run; `schemaVersion` is 2; `provisional` is false; the verdict is in the kind's vocabulary and is a closing verdict; every basis quote occurs on its cited line inside the obligation anchors; the basis is not reused by another obligation; and a Tier 1 obligation carries an attack written by a different reader whose `searched` states the rows it read. Rejection codes are `CONTEXT_MISMATCH`, `WORKLIST_MISMATCH`, `STALE_EVIDENCE`, `LEGACY_RECORD`, `PROVISIONAL_EVIDENCE`, `VERDICT_NOT_ALLOWED`, `BASIS_SHAPE`, `QUOTE_NOT_FOUND`, `BASIS_OUT_OF_SCOPE`, `REUSED_BASIS`, `NO_ATTACK`, `SELF_ATTACK`, `ATTACK_UNGROUNDED`, `COUNTEREXAMPLE_MISSING` and `ROUND_CAP`. The certificate `assurance` block reports `anchoredRatio`, `genericBasis`, `reusedBasis`, `staleRecords`, `provisionalRecords`, `unattackedTier1` and `independentAttacks`; `complete` requires every counter clean and `anchoredRatio` 1.
+
 - Zero findings + zero blocked + zero unresolved readings under the run's readings policy → `verdict: pass`. The default policy is blocking; `--advisory-readings` must be printed in the report.
 - Any blocked surface, unresolved reading or schema downgrade → `verdict: unproven`, exit 4. List every blocked check and surface; never call it pass and never call it proved.
 - A grounded waiver removes a finding from the blocking set; it does not turn a blocked surface into a measured one. The run remains `unproven` until the surface is restored; a waiver records the finding's disposition, not a proof.
 - Report verdict; quote boundary verbatim:
 
 > does not guarantee: whether the enumeration is complete relative to the world; semantic prose equivalence remains a judgment.
+
+An inquest `Yes` is a finding, not a clean answer: it stays open as `FINDING_OPEN` until the same generation records a `resolution` whose `kind` is `spec-change` or `artifact-change`, whose `artifactDigest` matches the current artifact, and whose `evidence` cites a line and quote. A `No` closes only with its own line and quote. `readings-adversarial.jsonl` carries rulings (`excluded`, `notASequence`, `suppliedRule`); `readings-attack.jsonl` carries an attack that names the ruling, and a broken or unresolved attack leaves the obligation open. An empty pinned column is an open property obligation unless `operation.grounding.properties[column]` carries a classification, a citation and a quote.
+
+The certificate states the same limit as `residue` and separates `proven` (mechanical closure), `judged` (validated judgment decisions), `readings` (signed reading closures) and `accepted` (risk dispositions and declaration exemptions). A `complete` status means no open, stuck, vacuous, broken or unresolved obligation remains and every assurance counter is clean; it does not turn the residual judgments into proofs.
+
+### Judgment pass (J1–J4)
+
+J1. Run the gate. `smooth-sequences/JUDGMENT-WORKLIST.json` lists every open semantic obligation with its `contextDigest`, `worklistDigest`, `artifactDigest`, `anchorSet`, `answerVocabulary`, `reader` and `attackReader`.
+
+J2. Answer the worklist in `educe-sequences/readings-judgment.jsonl` and `educe-sequences/readings-attack.jsonl`. A judgment record carries `schemaVersion: 2`, `obligationId`, `contextDigest`, `worklistDigest`, `artifactDigest`, a closing verdict from the item vocabulary, a kind-specific `basis`, `reader: <worklist reader>` and a `recordId` equal to the digest of the body. A Tier 1 item also owes an attack with `reader: <worklist attackReader>`, the same context and worklist digests, `outcome` and `searched` (source, line range, quote). A FALSIFY item is answered by its attack alone.
+
+J3. Re-run. The gate validates every record and leaves rejected records named; it rewrites the worklist with the remaining open set.
+
+J4. A `broken` or `stuck` decision is reported by name. The loop ends at `complete`, or at a named incomplete set; it never converts an open finding into a held judgment to reach complete.
+
+Batching: `--scope=<obligation-prefix>` writes only the matching worklist items (for example `--scope=READ:INQUEST:`), and a later unscoped run reports the remainder. The reader is `educe-sequences/generation-<n>` and the attack reader is the same id with `/attack`; a ticket key is never a reader. Do not generate records, reuse one quote across obligations, cite line 1 as a generic basis, or rewrite a record's reader.
 
 ## Appendix A — Check families
 

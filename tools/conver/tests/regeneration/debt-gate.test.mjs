@@ -20,6 +20,7 @@ const SEPARATOR = '\u0000';
 
 /** A live report and its readings file. */
 // [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function writeLiveDebt(root, { findings = [], blocked = [], yes = [] }) {
   mkdirSync(join(root, 'smooth-sequences'), { recursive: true });
   writeFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), `${JSON.stringify({
@@ -289,7 +290,7 @@ test('a carried-debt commit leaves the final enforce run unproven', () => {
       runDetector: detector({ blocked: [{ checkId: 'S5.x' }], yes: 1 }),
     });
     assert.equal(committed.state, 'committed');
-    const final = runCommand([workspace.root], { stdout: () => {}, stderr: () => {} });
+    const final = runCommand([workspace.root, '--legacy'], { stdout: () => {}, stderr: () => {} });
     assert.equal(final.exitCode, 4);
     assert.equal(final.report.verdict, 'unproven');
   } finally {

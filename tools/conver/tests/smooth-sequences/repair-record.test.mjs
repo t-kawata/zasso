@@ -13,6 +13,7 @@ import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function workspaceWithRepairRecord() {
   return materializeSmoothWorkspace();
 }
@@ -111,7 +112,7 @@ test('C007 the detector leaves every generated and upstream file byte-identical'
       providerRfc: readFileSync(workspace.rfcPathOf('pkg-0001'), 'utf8'),
       consumerRfc: readFileSync(workspace.rfcPathOf('pkg-0002'), 'utf8'),
     };
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
     assert.deepEqual({
       artifact: readFileSync(workspace.artifactPath, 'utf8'),
       tree: readFileSync(workspace.treeManifestPath, 'utf8'),
@@ -142,7 +143,7 @@ test('C006 the existing gates and the detector exit 0 on the fixture workspace',
     }
     const defect = spawnSync(process.execPath, ['.claude/scripts/grill-me-for-rfc/defect-report.js', workspace.root, '--gate'], { encoding: 'utf8' });
     assert.equal(defect.status, 0, defect.stderr);
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
   } finally {
     workspace.remove();
   }
@@ -152,14 +153,14 @@ test('C006 the existing gates and the detector exit 0 on the fixture workspace',
 test('C010 the detector is green and a reintroduced finding is red', () => {
   const workspace = workspaceWithRepairRecord();
   try {
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
     const allocate = JSON.parse(readFileSync(workspace.allocateManifestPath, 'utf8'));
     delete allocate.contract_registry[0].clauses.preconditions;
     writeFileSync(workspace.allocateManifestPath, JSON.stringify(allocate, null, 2));
-    assert.equal(runCommand([workspace.root]).exitCode, 1);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 1);
     allocate.contract_registry[0].clauses.preconditions = ['the identity material is present'];
     writeFileSync(workspace.allocateManifestPath, JSON.stringify(allocate, null, 2));
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
   } finally {
     workspace.remove();
   }

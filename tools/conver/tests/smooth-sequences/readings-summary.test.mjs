@@ -53,12 +53,15 @@ test('the unresolved subject list is capped and the overflow is stated', () => {
   }
 });
 
-test('a workspace with no readings directory reports not-available', () => {
+test('a workspace with no readings directory reports absent, never clean', () => {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const workspace = materializeSmoothWorkspace();
   try {
     const summary = summarizeReadings(workspace.root);
-    assert.equal(summary.status, 'not-available');
+    assert.equal(summary.status, 'absent');
+    assert.equal(summary.present, false);
     assert.deepEqual(summary.inquest.unresolvedSubjects, []);
+    assert.deepEqual(summary.open, []);
   } finally {
     workspace.remove();
   }

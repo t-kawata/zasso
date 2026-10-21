@@ -112,7 +112,7 @@ span, at `pins.mjs:311`. A neighbour that merely covers the span is not a candid
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
-The integrator at `reading.mjs:474` proves every field of every reading before anything is
+The integrator at `reading.mjs:475` proves every field of every reading before anything is
 written, and a refusal leaves the artifact byte-identical to its state before the call. A
 partial write is the failure that module exists to make impossible.
 
@@ -146,7 +146,7 @@ without recorded readings is refused at the first `[read]` phase by design.
 ## 7. The phase driver
 
 A phase table is a claim until something evaluates it. The eighteen phases are declared
-once, at `gates.mjs:148`, and each entry carries its tag, the phases it requires, the edge
+once, at `gates.mjs:265`, and each entry carries its tag, the phases it requires, the edge
 it returns to when it refuses, and how many times it may loop. The command file's table is
 a summary of that array, not a second copy of it.
 
@@ -190,7 +190,7 @@ inferred — inferring it would be a guess about the document of exactly the kin
 is meant to replace — and it travels with the block partition, because how a partition was
 taken is not a finding about the text.
 
-`phases.mjs:286` is the driver: it evaluates the entry gate, performs the phase if the
+`phases.mjs:291` is the driver: it evaluates the entry gate, performs the phase if the
 library can perform it, and evaluates the exit gate. A refusal spends one loop, reports the
 back-edge, the loops spent, and the file a reader must produce, and leaves the phase
 `refused` rather than `done`. That last part is the ordering: `requires` is satisfied by
@@ -210,7 +210,7 @@ parsing the prose.
 
 The run's working state — where it has reached, which loops it has spent, which briefs have
 reported — lives in a run directory **beside the specification**, at
-`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:183`. It is not
+`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:191`. It is not
 ignored by the tool, because the declaration and the readings in it are the evidence for
 the artifact and a reader of the specification has to be able to find them. PX-240 kept
 the state under the tool so that the one-argument contract would be a statement about
@@ -251,7 +251,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:309` before anything downstream sees them. Two files are
+line by line at `readings.mjs:500` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 
@@ -347,9 +347,9 @@ would give one fact two homes and compare counts where the artifact itself is av
 The consequence is that a loss is refused at the generation that causes it, which is the
 earlier and the more useful refusal.
 
-A repeat over an unchanged set is noticed, not refused. `gates.mjs:526` still reads the
+A repeat over an unchanged set is noticed, not refused. `gates.mjs:693` still reads the
 three facts — the previous generation halted, nothing it inherits moved, the specification
-is the same revision — and `phases.mjs:436` reports them as a line of output while opening
+is the same revision — and `phases.mjs:463` reports them as a line of output while opening
 the generation anyway. The reasoning that made it a refusal was wrong twice: re-asking the
 reader is the mechanism by which a generation finds what the last one missed, so refusing
 it refused the mechanism; and because the specification is inviolable, the only ways to

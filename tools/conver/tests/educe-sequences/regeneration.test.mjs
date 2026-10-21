@@ -51,6 +51,7 @@ const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 
 /** The span reading the fixture's declaration is read with, in the shape a run records it. */
 // [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function spanReading() {
   const [first, ...rest] = RUN_INPUT.readings.sequences;
   return [{ ...first, steps: RUN_INPUT.readings.steps, operations: RUN_INPUT.readings.operations }, ...rest];
@@ -287,8 +288,8 @@ test('C005 a re-opened read phase is not settled until the reader writes the fil
   openNextGeneration(run);
   assert.notEqual(spawnSync('node', [PHASE, 'run', run.specPath, '8'], { encoding: 'utf8' }).status, 0);
 
-  writeReadingsFile(join(run.directory, readingsFileName('span')), spanReading());
-  const passed = spawnSync('node', [PHASE, 'run', run.specPath, '8'], { encoding: 'utf8' });
+  writeFixtureReadings(run.directory);
+  const passed = spawnSync('node', [PHASE, 'through', run.specPath, '8'], { encoding: 'utf8' });
 
   assert.equal(passed.status, 0, passed.stdout + passed.stderr);
   const status = JSON.parse(readFileSync(join(run.directory, 'status.json'), 'utf8'));

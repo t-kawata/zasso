@@ -64,6 +64,7 @@ function reportOf(overrides = {}) {
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('the JSON report is byte-identical, sorted and at schemaVersion 4', () => {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const first = renderReportJson(reportOf());
   const second = renderReportJson(reportOf());
   assert.equal(first, second);
@@ -80,7 +81,7 @@ test('the JSON report is byte-identical, sorted and at schemaVersion 4', () => {
   assert.deepEqual(parsed.provenance.proseContract, { total: 0, typed: 0, legacy: 0, absent: 0 });
   assert.deepEqual(parsed.provenance.schemaHistory, []);
   assert.equal(parsed.provenance.downgrade, null);
-  assert.equal(parsed.readings.status, 'not-available');
+  assert.equal(parsed.readings.status, 'absent');
   assert.deepEqual(parsed.denominator, {
     operations: { all: null, active: null },
     sequences: { realized: null, entryRegions: null, source: 'unstated', members: null },
@@ -107,6 +108,7 @@ test('the console block groups findings under route headers and ends with next',
 // @verifies C003
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('a clean console block prints next: none and no finding line', () => {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const report = buildReport({
     workspace: { root: '/tmp/x' },
     findings: [],
@@ -116,7 +118,7 @@ test('a clean console block prints next: none and no finding line', () => {
   assert.deepEqual(renderConsoleReport(report), [
     'smooth-sequences: 0 finding(s)',
     'provenance: not-recorded (no migration field; prose total 0: typed 0, legacy 0, absent 0)',
-    'readings: not-available',
+    'readings: absent; required readings are open',
     'next: none. verdict: pass.',
   ]);
 });

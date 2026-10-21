@@ -24,7 +24,7 @@ import { artifactPathFor } from '../../.claude/scripts/educe-sequences/rail/path
 import { ENGINE_DECLARED_CHECK_COUNT } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
 import { buildContext, exitCodeFor, HALT_EXIT_CODE, nextPhase, runPhase, runThrough, startRun } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 import { isComplete, readPhaseSettled } from '../../.claude/scripts/educe-sequences/rail/report.mjs';
-import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { readArtifact, readSpecification, writeArtifact } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { INQUEST_FILE, writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import { digestOfTree, railExitStoreFor, writeRailExit } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
 import { railExitTemplate, readCasesFile, scaffoldCheck } from '../../.claude/scripts/educe-sequences/rail/adhoc.mjs';
@@ -154,6 +154,57 @@ test('a refused phase is not done, so it cannot satisfy a phase that requires it
   const dependent = runPhase(3, context);
   assert.equal(dependent.ok, false);
   assert.equal(dependent.reason, 'phase 2 is not done', 'the dependent phase is refused by naming the one that never passed');
+});
+
+test('a manifest-bearing run refuses a reading from a previous generation', () => {
+  const { context } = open();
+  runThrough(context, 7);
+  writeFileSync(join(context.directory, 'EVIDENCE-MANIFEST.json'), `${JSON.stringify({ schemaVersion: 1, generation: 2, receipts: [] }, null, 2)}\n`);
+  const stale = { ...RUN_INPUT.readings.sequences[0], reader: 'educe-sequences/generation-1' };
+  writeReadingsFile(join(context.directory, 'readings-span.jsonl'), [stale]);
+  const ctx = { ...context, status: { ...context.status, generation: 2 } };
+
+  const result = runPhase(8, ctx);
+
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /READER_STALE/);
+});
+
+// @verifies C005
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+test('without a manifest a named previous generation keeps the legacy behavior', () => {
+  const { context } = open();
+  runThrough(context, 7);
+  const legacy = { ...RUN_INPUT.readings.sequences[0], reader: 'educe-sequences/generation-1' };
+  writeReadingsFile(join(context.directory, 'readings-span.jsonl'), [legacy]);
+
+  const result = runPhase(8, context);
+
+  assert.equal(result.ok, true, result.reason);
+});
+
+// @verifies C001
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+test('phase 9 preserves a v3 artifact that is already present', () => {
+  const { context } = open();
+  runThrough(context, 8);
+  runPhase(9, context);
+  const composed = readArtifact(context.artifactPath);
+  const typedContract = { pre: [], post: [], invariants: [], consumes: [], produces: [], errors: [], crosses: [] };
+  const previous = {
+    ...composed,
+    schema_version: 3,
+    steps: composed.steps.map((step) => ({ ...step, contract: typedContract, contract_prose: step.contract })),
+    operations: composed.operations.map((operation) => ({ ...operation, registry_contribution: 'required', boundary_effects: [] })),
+  };
+  writeArtifact(context.artifactPath, previous);
+
+  runPhase(9, context);
+
+  const preserved = readArtifact(context.artifactPath);
+  assert.equal(preserved.schema_version, 3);
+  assert.deepEqual(preserved.steps[0].contract, typedContract);
+  assert.equal(preserved.operations[0].registry_contribution, 'required');
 });
 
 test('a phase that has spent its loop limit is halted, naming its count and its last refusal', () => {

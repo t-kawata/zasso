@@ -194,6 +194,26 @@ export function mergeAuthoredDocuments({ root, stagingRoot, treeManifest }) {
   }
 }
 
+/**
+ * Complete a staging tree for an evidence-only transaction.
+ *
+ * An evidence transaction does not run the producers, so the manifests and package
+ * documents a detector reads are copied from the live tree. Nothing authored changes;
+ * the copy is the baseline the evidence is judged against.
+ */
+// [::TICKET::] PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-290 --for-spec --no-implementation-order`.
+export function stageEvidenceWorkspace({ root, stagingRoot }) {
+  copyFileSync(join(root, TREE_MANIFEST_FILE_NAME), join(stagingRoot, TREE_MANIFEST_FILE_NAME));
+  copyIfPresent(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), join(stagingRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));
+  const tree = JSON.parse(readFileSync(join(root, TREE_MANIFEST_FILE_NAME), 'utf8'));
+  for (const pkg of tree.workspace?.packages ?? []) {
+    cpSync(join(root, pkg.path), join(stagingRoot, pkg.path), { recursive: true });
+  }
+  const smoothDirectory = join(stagingRoot, 'smooth-sequences');
+  mkdirSync(smoothDirectory, { recursive: true });
+  copyIfPresent(join(root, 'smooth-sequences', 'REMEDIATION-OBLIGATIONS.json'), join(smoothDirectory, 'REMEDIATION-OBLIGATIONS.json'));
+}
+
 /** Remove a staging tree. */
 export function removeStaging(stagingRoot) {
   rmSync(stagingRoot, { recursive: true, force: true });

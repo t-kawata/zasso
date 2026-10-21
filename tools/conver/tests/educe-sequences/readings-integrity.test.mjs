@@ -129,3 +129,13 @@ test('an uncovered record must say performed or escaped and cite its evidence', 
   assert.ok(missing.length > 0);
   assert.match(missing.join(' '), /outcome|position|line|quote|why|reader/);
 });
+
+// @verifies C005
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+test('a non-inquest reading file is checked for a current generation', () => {
+  const rows = [{ subject: 'A-1', outcome: 'direct', reader: 'educe-sequences/generation-11' }];
+  assert.throws(
+    () => assertSingleReader(rows, { currentGeneration: 12 }),
+    (error) => error.code === 'READER_STALE',
+  );
+});

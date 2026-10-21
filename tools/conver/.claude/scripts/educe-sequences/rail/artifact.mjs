@@ -18,6 +18,98 @@ import { digestOfSupplied } from './supplied.mjs';
 export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>';
 
 /**
+ * The fields a v3 artifact carries that a v2 composition cannot reproduce.
+ *
+ * The v3 schema requires `steps[].contract` and `operations[].registry_contribution`;
+ * the migration also writes `contract_prose`, `annotation`, the operation effects and the
+ * top-level grounds. The list is named here rather than derived from the schema because
+ * half of it is migration state, not schema vocabulary.
+ */
+const V3_STEP_SURFACES = Object.freeze(['contract', 'contract_prose', 'annotation']);
+const V3_OPERATION_SURFACES = Object.freeze([
+  'allowed_status_transitions',
+  'registry_contribution',
+  'registry_contribution_ground',
+  'boundary_effects',
+]);
+const V3_ARTIFACT_SURFACES = Object.freeze([
+  'groundedObjects',
+  'boundary_grounds',
+  'migration',
+  'sequence_flow_grounds',
+  'vocabulary',
+]);
+
+/** Whether two artifacts were read from the same specification and the same material. */
+export function isSameRevision(previous, next) {
+  return previous?.spec?.sha256 === next?.spec?.sha256
+    && previous?.spec?.lines === next?.spec?.lines
+    && previous?.supplied?.digest === next?.supplied?.digest;
+}
+
+/**
+ * Merge one row, keeping the previous row as the shape and preserving its v3 fields.
+ *
+ * Starting from the previous row keeps its key order, which is what makes an unchanged
+ * composition byte-identical. A key the new reading dropped is deleted unless it is a v3
+ * surface; a v3 surface is never overwritten by the v2 value that replaced its name.
+ */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+function mergeArtifactRow(previousRow, composedRow, preservedFields) {
+  const merged = { ...previousRow };
+  for (const key of Object.keys(merged)) {
+    if (!(key in composedRow) && !preservedFields.includes(key)) delete merged[key];
+  }
+  for (const [key, value] of Object.entries(composedRow)) {
+    if (!preservedFields.includes(key) || !(key in merged)) merged[key] = value;
+  }
+  return merged;
+}
+
+/** A step new to this generation keeps its prose, and receives no typed contract. */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+function preserveNewStep(step) {
+  const { contract, ...rest } = step;
+  if (contract === undefined) return rest;
+  return { ...rest, contract_prose: step.contract_prose ?? contract };
+}
+
+/**
+ * Carry a v3 artifact's authored surfaces through a v2 composition.
+ *
+ * A v3 workspace re-enters the rail through the same composer that first produced it.
+ * Without this merge the composer writes schema 2 over the migrated artifact, and smooth
+ * reads that as `UNPROVEN_DOWNGRADE`. The merge is deliberately id-based and
+ * revision-bound: a changed specification or supplied material is a new reading, and a
+ * new id is not given an old contract.
+ */
+export function preserveV3Surfaces(previous, composed) {
+  if (previous?.schema_version !== 3) return composed;
+  if (!isSameRevision(previous, composed)) return composed;
+
+  const previousSteps = new Map((previous.steps ?? []).map((step) => [step.id, step]));
+  const previousOperations = new Map((previous.operations ?? []).map((operation) => [operation.id, operation]));
+  const steps = (composed.steps ?? []).map((step) => {
+    const previousStep = previousSteps.get(step.id);
+    return previousStep === undefined
+      ? preserveNewStep(step)
+      : mergeArtifactRow(previousStep, step, V3_STEP_SURFACES);
+  });
+  const operations = (composed.operations ?? []).map((operation) => {
+    const previousOperation = previousOperations.get(operation.id);
+    return previousOperation === undefined
+      ? operation
+      : mergeArtifactRow(previousOperation, operation, V3_OPERATION_SURFACES);
+  });
+
+  const preserved = mergeArtifactRow(previous, composed, V3_ARTIFACT_SURFACES);
+  preserved.schema_version = 3;
+  preserved.steps = steps;
+  preserved.operations = operations;
+  return preserved;
+}
+
+/**
  * The fields of an adjudication row, taken from the reading that recorded it.
  *
  * A reading carries more than the artifact contracts — the reader's own category and reason
@@ -52,7 +144,7 @@ function declaredFieldsOf(reading) {
 // [::TICKET::] PX-240, PX-242, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242|PX-248) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
-export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]), suppliedDocuments = {} }) {
+export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]), suppliedDocuments = {}, previousArtifact = null }) {
   const pins = establishPins(spec.lines, declaration, suppliedDocuments);
   const readingFor = new Map(readings.sequences.map((reading) => [reading.subject, reading]));
 
@@ -89,5 +181,6 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
   // The demand is stated after the rest is composed, because it is read from what was composed:
   // the candidate columns are the pinned vocabularies crossed with this artifact's own operation
   // rows. Who owes a demand is deliberately absent — the rail emits, and the slice assigns.
-  return { ...composed, demand: demandFactsBeside(specPath, composed) };
+  const withDemand = { ...composed, demand: demandFactsBeside(specPath, composed) };
+  return preserveV3Surfaces(previousArtifact, withDemand);
 }

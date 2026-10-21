@@ -8,6 +8,7 @@ import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspa
 
 /** The input the migration reads. */
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {
@@ -240,7 +241,7 @@ test('a fully annotated v2 workspace runs enforce to pass', () => {
     });
     const migratedWorkspace = materializeSmoothWorkspace({ artifact: migrated });
     try {
-      const result = runCommand([migratedWorkspace.root], { stdout: () => {}, stderr: () => {} });
+      const result = runCommand([migratedWorkspace.root, '--legacy'], { stdout: () => {}, stderr: () => {} });
       assert.equal(result.exitCode, 0);
       assert.equal(result.report.verdict, 'pass');
       assert.deepEqual(result.report.blocked, []);
@@ -263,7 +264,7 @@ test('a partially annotated v2 workspace exits 4 with the authored count', () =>
     });
     const migratedWorkspace = materializeSmoothWorkspace({ artifact: migrated });
     try {
-      const result = runCommand([migratedWorkspace.root], { stdout: () => {}, stderr: () => {} });
+      const result = runCommand([migratedWorkspace.root, '--legacy'], { stdout: () => {}, stderr: () => {} });
       assert.equal(result.exitCode, 4);
       assert.equal(result.report.verdict, 'unproven');
       assert.ok(result.report.blocked.some((entry) => entry.reason.includes('authored 1/2')));

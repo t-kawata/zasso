@@ -7,10 +7,45 @@
  * downgrade is recorded in the schema history, because a gate that can lose its typed
  * surfaces must not read the later state as a fresh baseline.
  */
+import { recordIdOf } from '../../shared-obligations/evidence.mjs';
 import { SmoothSequencesError } from './errors.mjs';
 
 const SCHEMA_V2 = 2;
 const SCHEMA_V3 = 3;
+
+/** The stable id of a record, re-exported so callers need one import for provenance. */
+export { recordIdOf };
+
+/**
+ * Replace a record with a new one that names what it supersedes.
+ *
+ * The original is never mutated: a re-anchor performed by a later reader is a new
+ * record, so the earlier reader's signature and quote remain auditable.
+ */
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+export function supersedeRecord(record, patch = {}, { reader } = {}) {
+  const supersedes = record?.recordId ?? recordIdOf(record);
+  const next = { ...record, ...patch, supersedes };
+  if (reader !== undefined) next.reader = reader;
+  return { ...next, recordId: recordIdOf(next) };
+}
+
+/**
+ * Report whether an object answer's cited line still names its object.
+ *
+ * The report is the whole answer: this function never moves the line or the quote, so a
+ * stale anchor stays visible instead of being rewritten into a passing one.
+ */
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+export function detectStaleAnchor(record, lines = []) {
+  if (typeof record?.subject !== 'string' || !record.subject.startsWith('@object:')) {
+    return { stale: false, reason: null };
+  }
+  const name = record.subject.slice('@object:'.length);
+  const line = Number.isInteger(record.line) ? lines[record.line - 1] ?? '' : '';
+  if (typeof line === 'string' && line.includes(name)) return { stale: false, reason: null };
+  return { stale: true, reason: 'ANCHOR_DOES_NOT_NAME_OBJECT', expectedLine: record.line ?? null };
+}
 
 /** The provenance of an artifact with no migration record. */
 export function emptyProvenance() {
@@ -28,6 +63,7 @@ export function emptyProvenance() {
 
 /** Whether a step carries a non-empty typed prose contract. */
 // [::TICKET::] PX-283, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function hasTypedProse(step) {
   return typeof step?.contract_prose === 'string' && step.contract_prose.trim() !== '';
 }

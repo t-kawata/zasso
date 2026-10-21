@@ -103,6 +103,34 @@ function buildWithdrawnFinding(previousFinding, blockedCheck) {
 }
 
 /**
+ * Compare obligation closure across two generations.
+ *
+ * A closed obligation that is open again with the same input and the same evidence digest
+ * is an evidence regression; the same pair is also stuck because another run with the same
+ * evidence cannot change it. New evidence on the same input is not a regression.
+ */
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+export function compareObligationClosure({ baseline = {}, staging = {} } = {}) {
+  const baselineClosed = new Set(Array.isArray(baseline.closed) ? baseline.closed : []);
+  const stagingOpen = new Set(Array.isArray(staging.open) ? staging.open : []);
+  const sameInput = baseline.inputDigest === staging.inputDigest;
+  const baselineDigests = baseline.evidenceDigests ?? {};
+  const stagingDigests = staging.evidenceDigests ?? {};
+  const regressions = [...baselineClosed]
+    .filter((id) => stagingOpen.has(id)
+      && sameInput
+      && (baselineDigests[id] ?? null) === (stagingDigests[id] ?? null))
+    .sort();
+  const newObligations = [...stagingOpen].filter((id) => !baselineClosed.has(id)).sort();
+  return {
+    regressions,
+    stuck: [...regressions],
+    newObligations,
+    code: regressions.length > 0 ? 'EVIDENCE_REGRESSION' : null,
+  };
+}
+
+/**
  * Compare the previous finding set with the current evaluation.
  *
  * @param {object|null} previousReport — the baseline report

@@ -14,6 +14,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { performedOperations } from '../../shared-obligations/span.mjs';
 import { uncoveredRanges } from './coverage.mjs';
 import { CHECKS, checkAll, describeRefusal, escapedOperationsOf } from './engine.mjs';
 import { COUNTER_MUTATION_CORPUS, EXECUTION_FIELDS, SPEC_MUTATION_CORPUS, runCase } from './harness.mjs';
@@ -34,6 +35,7 @@ import {
   readReadingsFile,
   readingsFileName,
   signedCount,
+  validateInquestRecord,
   validateUncoveredRecord,
   verifyResolution,
 } from './readings.mjs';
@@ -52,6 +54,7 @@ export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-h
  * reading of the refusal's prose.
  */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function refuse(reason, extra = {}) {
   return { ok: false, reason, ...extra };
 }
@@ -69,10 +72,18 @@ function prove(reason, extra = {}) {
   return { ok: true, reason, ...extra };
 }
 
+/** The generation a manifest-bearing run is currently reading, or null for a legacy run. */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+function resolveCurrentReaderGeneration(ctx) {
+  return existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))
+    ? generationOf(ctx.status)
+    : null;
+}
+
 /** The readings a brief reported, or a refusal naming the file. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-function readBrief(directory, briefName) {
-  return readReadingsFile(join(directory, `readings-${briefName}.jsonl`));
+// [::TICKET::] PX-240, PX-241, PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-294) --for-spec --no-implementation-order`.
+function readBrief(directory, briefName, options = {}) {
+  return readReadingsFile(join(directory, `readings-${briefName}.jsonl`), options);
 }
 
 /** The declaration a run read, or a refusal naming the file. */
@@ -175,15 +186,23 @@ function uncoveredMembersIn(directory) {
  * position. Duplicate and absent records are refused because neither can be counted.
  */
 export function gateUncovered({ worklist = [], span = [], artifact = {}, records = [] }) {
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const members = worklist.map((line) => String(line).trim().split(/\s+/)[0]).filter((member) => member.length > 0);
   if (members.length === 0) return prove('the uncovered worklist is empty, so there is no escape to account for', { vacuous: true });
+  // A span step is mechanical evidence that the operation is performed. Only the members
+  // with no span step owe a reader record; asking for a record the artifact already proves
+  // is how the worklist and the gate drifted apart (257 members against 108 unperformed).
+  const performedInSpan = performedOperations(span);
+  const mechanical = members.filter((member) => performedInSpan.has(member));
+  const required = members.filter((member) => !performedInSpan.has(member));
   const bySubject = new Map();
   for (const record of records) {
     const subject = String(record?.subject ?? '');
     if (!bySubject.has(subject)) bySubject.set(subject, []);
     bySubject.get(subject).push(record);
   }
-  for (const member of members) {
+  for (const member of required) {
     const entries = bySubject.get(member) ?? [];
     if (entries.length === 0) return refuse(`no uncovered record for ${member}`);
     if (entries.length > 1) return refuse(`duplicate uncovered record for ${member}`);
@@ -209,7 +228,7 @@ export function gateUncovered({ worklist = [], span = [], artifact = {}, records
       }
     }
   }
-  return prove(`${members.length} uncovered operation(s) accounted for`);
+  return prove(`${required.length} uncovered operation(s) accounted for; ${mechanical.length} mechanically closed by a span step`);
 }
 
 /**
@@ -347,7 +366,8 @@ export const PHASES = Object.freeze([
   {
     id: 8, name: 'span', tag: PHASE_TAGS.READ, requires: [7], backTo: 7, maxLoops: 3,
     exit: (ctx) => {
-      const readings = readBrief(ctx.directory, 'span');
+      const currentGeneration = resolveCurrentReaderGeneration(ctx);
+      const readings = readBrief(ctx.directory, 'span', { currentGeneration });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const unsigned = readings.readings.length - signedCount(readings.readings);
       if (unsigned > 0) {
@@ -360,7 +380,7 @@ export const PHASES = Object.freeze([
           ? prove(`${readings.readings.length} signed reading(s); the uncovered worklist is empty`)
           : refuse(`no uncovered reading was written for ${members.length} worklist member(s)`);
       }
-      const uncovered = readReadingsFile(uncoveredPath);
+      const uncovered = readReadingsFile(uncoveredPath, { currentGeneration });
       if (!uncovered.ok) return refuse(uncovered.problems.join('; '));
       const artifact = readArtifact(ctx.artifactPath) ?? { operations: [], steps: [] };
       const gated = gateUncovered({
@@ -390,7 +410,7 @@ export const PHASES = Object.freeze([
   {
     id: 10, name: 'adversarial', tag: PHASE_TAGS.READ, requires: [9], backTo: 9, maxLoops: 3,
     exit: (ctx) => {
-      const readings = readBrief(ctx.directory, 'adversarial');
+      const readings = readBrief(ctx.directory, 'adversarial', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const artifact = readArtifact(ctx.artifactPath);
       // A ruling is a claim the reading made, and so is an escape: an operation no step
@@ -416,7 +436,7 @@ export const PHASES = Object.freeze([
       const artifact = readArtifact(ctx.artifactPath);
       const unbound = entriesOf(artifact).filter((entry) => entry.outcome === null).map((entry) => entry.id);
       if (unbound.length === 0) return prove('every entry carries a verdict, so no entry is bound to a window', { vacuous: true });
-      const readings = readBrief(ctx.directory, 'reroute');
+      const readings = readBrief(ctx.directory, 'reroute', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const rerouted = new Set(readings.readings.map((reading) => reading.subject));
       const missed = unbound.filter((id) => !rerouted.has(id));
@@ -436,7 +456,7 @@ export const PHASES = Object.freeze([
       // no worklist when every entry already carries an outcome, and the other [read] phases treat
       // an absent brief the same way. A file that is there and unreadable is still refused, by name.
       const briefPath = join(ctx.directory, readingsFileName('adjudicate'));
-      const readings = readBrief(ctx.directory, 'adjudicate');
+      const readings = readBrief(ctx.directory, 'adjudicate', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok && existsSync(briefPath)) return refuse(readings.problems.join('; '));
       const proved = proveAdjudicationReadings({ readings: readings.ok ? readings.readings : [], artifact, specLines: ctx.spec.lines });
       if (proved.refused.length > 0) {
@@ -458,11 +478,17 @@ export const PHASES = Object.freeze([
     exit: (ctx) => {
       const declaration = readDeclaration(ctx.directory);
       if (!declaration.ok) return refuse(declaration.problems.join('; '));
-      const answered = readInquestFile(join(ctx.directory, INQUEST_FILE));
+      const answered = readInquestFile(join(ctx.directory, INQUEST_FILE), { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!answered.ok) return refuse(answered.problems.join('; '));
       const unsigned = answered.readings.length - signedCount(answered.readings);
       if (unsigned > 0) {
         return refuse(`${unsigned} answer(s) carry no signature, and an answer with no signature is not a reading`);
+      }
+      // An object answer must cite a line that names the object, or carry an anchor quote
+      // that does. A quote-at-line alone can rest on a line that never mentions the subject.
+      for (const record of answered.readings) {
+        const problems = validateInquestRecord(record, { specLines: ctx.spec.lines, subject: record.subject });
+        if (problems.length > 0) return refuse(`${record.subject}/${record.lens}: ${problems.join('; ')}`);
       }
 
       // The escapes are asked as well, and read from the artifact rather than from the
@@ -484,6 +510,24 @@ export const PHASES = Object.freeze([
         && !isExempt(exemptions, pair));
       if (unanswered !== undefined) {
         return refuse(`no answer for ${unanswered.subject} under the ${unanswered.lens} lens, and no exemption covers it`);
+      }
+      // Once a workspace carries an evidence manifest, a Tier 1 No must have survived an
+      // attack. The manifest is the migration marker: legacy workspaces keep the old gate,
+      // while the closure protocol requires the attack before the certificate can pass.
+      if (existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
+        const attacks = readReadingsFile(join(ctx.directory, 'readings-attack.jsonl'), { currentGeneration: resolveCurrentReaderGeneration(ctx) });
+        if (!attacks.ok) return refuse(attacks.problems.join('; '));
+        const held = new Set(attacks.readings
+          .filter((attack) => attack?.outcome === 'held' && typeof attack?.subject === 'string')
+          .map((attack) => attack.subject));
+        const tierOne = [
+          ...(artifact?.operations ?? []).filter((operation) => operation.disposition === 'active').map((operation) => operation.id),
+          ...(artifact?.sequences ?? [])
+            .filter((sequence) => ['direct', 'viaNeighbour', 'singleStep'].includes(sequence.outcome))
+            .map((sequence) => sequence.id),
+        ];
+        const unheld = tierOne.find((subject) => !held.has(subject));
+        if (unheld !== undefined) return refuse(`no held attack for Tier 1 subject ${unheld}`);
       }
       const gated = gateInquestResolutions({
         previous: previousInquestRecordsIn(ctx.directory),

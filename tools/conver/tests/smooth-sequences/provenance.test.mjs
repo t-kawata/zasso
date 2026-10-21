@@ -1,72 +1,57 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-import { test } from 'node:test';
+// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { migrateArtifactToV3 } from '../../.claude/scripts/smooth-sequences/lib/migrate-v3.mjs';
-import { summarizeProvenance } from '../../.claude/scripts/smooth-sequences/lib/provenance.mjs';
-import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
 import {
-  materializeSmoothWorkspace,
-  minimalV2Artifact,
-  minimalV3Artifact,
-} from './helpers/workspace-fixture.mjs';
+  detectStaleAnchor,
+  recordIdOf,
+  supersedeRecord,
+} from '../../.claude/scripts/smooth-sequences/lib/provenance.mjs';
 
-/** The input `migrateArtifactToV3` reads from a materialized workspace. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-function migrationInput(workspace) {
-  const loaded = loadWorkspace(workspace.root);
-  return {
-    artifact: loaded.artifact,
-    treeManifest: loaded.treeManifest,
-    allocateManifest: loaded.allocateManifest,
-    packages: loaded.packages,
+// @verifies C002
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+test('re-anchoring creates a superseding record and leaves the original reader intact', () => {
+  const original = {
+    subject: '@object:AssetScore',
+    line: 1,
+    quote: 'old quote',
+    reader: 'educe-sequences/generation-1',
+    recordId: 'r1',
   };
-}
-
-test('a v3 artifact with no migration field reports not-recorded and counts missing prose', () => {
-  const summary = summarizeProvenance(minimalV3Artifact());
-  assert.equal(summary.status, 'not-recorded');
-  assert.equal(summary.fromSchemaVersion, null);
-  assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 0, absent: 2 });
+  const next = supersedeRecord(
+    original,
+    { line: 2, quote: 'AssetScore is recomputed' },
+    { reader: 'educe-sequences/generation-2' },
+  );
+  assert.equal(next.supersedes, 'r1');
+  assert.equal(original.reader, 'educe-sequences/generation-1');
+  assert.equal(original.line, 1);
+  assert.notEqual(next.recordId, 'r1');
+  assert.equal(next.reader, 'educe-sequences/generation-2');
 });
 
-test('a v2 artifact reports v2 and counts its prose contracts without claiming preservation', () => {
-  const summary = summarizeProvenance(minimalV2Artifact());
-  assert.equal(summary.status, 'v2');
-  assert.equal(summary.fromSchemaVersion, 2);
-  assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 2, absent: 0 });
+// @verifies C002
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+test('a stale anchor is reported without changing the record', () => {
+  const record = {
+    subject: '@object:AssetScore',
+    line: 1,
+    quote: 'old quote',
+    reader: 'educe-sequences/generation-1',
+  };
+  const report = detectStaleAnchor(record, ['nothing here', 'AssetScore is recomputed']);
+  assert.equal(report.stale, true);
+  assert.equal(report.reason, 'ANCHOR_DOES_NOT_NAME_OBJECT');
+  assert.equal(record.line, 1);
+  const current = detectStaleAnchor(record, ['AssetScore is recomputed', 'nothing here']);
+  assert.equal(current.stale, false);
 });
 
-// @verifies C001
-test('a migrated artifact records its source and preserves every prose contract', () => {
-  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
-  try {
-    const input = migrationInput(workspace);
-    const v3 = migrateArtifactToV3(input);
-    const summary = summarizeProvenance(v3);
-    assert.equal(summary.status, 'recorded');
-    assert.equal(summary.fromSchemaVersion, 2);
-    assert.equal(summary.toSchemaVersion, 3);
-    assert.equal(summary.migratedBy, 'smooth-sequences/migrate-v3');
-    assert.equal(typeof summary.sourceDigest, 'string');
-    assert.deepEqual(summary.proseContract, { total: 2, typed: 2, legacy: 0, absent: 0 });
-  } finally {
-    workspace.remove();
-  }
-});
-
-test('a migrated artifact without contract_prose reports every step as missing', () => {
-  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
-  try {
-    const v3 = migrateArtifactToV3(migrationInput(workspace));
-    const stripped = {
-      ...v3,
-      steps: v3.steps.map(({ contract_prose, ...step }) => step),
-    };
-    const summary = summarizeProvenance(stripped);
-    assert.equal(summary.status, 'recorded');
-    assert.deepEqual(summary.proseContract, { total: 2, typed: 0, legacy: 0, absent: 2 });
-  } finally {
-    workspace.remove();
-  }
+// @verifies C002
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+test('the record id is a pure function of the record body', () => {
+  const record = { subject: 's1', line: 1, quote: 'q', reader: 'educe-sequences/generation-1' };
+  assert.equal(recordIdOf(record), recordIdOf({ ...record }));
+  assert.notEqual(recordIdOf(record), recordIdOf({ ...record, line: 2 }));
+  assert.equal(recordIdOf({ ...record, recordId: 'ignored' }), recordIdOf(record));
 });

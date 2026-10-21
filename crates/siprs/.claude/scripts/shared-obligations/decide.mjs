@@ -1,0 +1,265 @@
+// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+/**
+ * Decide every obligation from validated evidence, not from its recorded state.
+ *
+ * Mechanical and census closures are facts the workspace already carries. A semantic
+ * obligation closes only through a judgment that passes the protocol, or through a
+ * reading that a reader signed. A semantic obligation whose state says `closed` but
+ * which has no worklist item is not trusted: that is exactly the presence-based closure
+ * this module replaces.
+ */
+import {
+  ATTACK_TIER,
+  decideJudgment,
+  validateAttackRecord,
+  validateJudgmentRecord,
+} from './judgment.mjs';
+
+export const DECISION_STATE = Object.freeze({
+  HELD: 'held',
+  BROKEN: 'broken',
+  STUCK: 'stuck',
+  OPEN: 'open',
+  PROVEN: 'proven',
+  NOT_APPLICABLE: 'not_applicable',
+});
+
+export const DECISION_SOURCE = Object.freeze({
+  MECHANICAL: 'mechanical',
+  READING: 'reading',
+  JUDGMENT: 'judgment',
+  NONE: 'none',
+});
+
+/** A basis signature used to detect the same citation closing two obligations. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function basisSignature(basis) {
+  return JSON.stringify(basis.map((entry) => ({
+    source: entry?.source ?? null,
+    path: entry?.path ?? null,
+    line: entry?.line ?? null,
+    quote: entry?.quote ?? null,
+    boundaryId: entry?.boundaryId ?? null,
+    field: entry?.field ?? null,
+    id: entry?.id ?? entry?.operationId ?? null,
+    packageId: entry?.packageId ?? null,
+    unitId: entry?.unitId ?? null,
+    unit: entry?.unit ?? null,
+  })));
+}
+
+/** Index the records by obligation, keeping the first and rejecting duplicates. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function indexRecords(records, rejected, kind) {
+  const byId = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const id = record?.obligationId;
+    if (typeof id !== 'string') {
+      rejected.push({ record, obligationId: null, code: 'UNKNOWN_OBLIGATION', problems: [`the ${kind} names no obligationId`] });
+      continue;
+    }
+    if (byId.has(id)) {
+      rejected.push({ record, obligationId: id, code: 'DUPLICATE_RECORD', problems: [`more than one ${kind} for this obligation`] });
+      continue;
+    }
+    byId.set(id, record);
+  }
+  return byId;
+}
+
+/** The decision for one obligation. */
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+function decideObligation(obligation, item, record, attack, context) {
+  const base = {
+    obligationId: obligation.id,
+    state: DECISION_STATE.OPEN,
+    source: DECISION_SOURCE.NONE,
+    recordId: record?.recordId ?? null,
+    attackId: attack?.recordId ?? null,
+    verdict: record?.verdict ?? null,
+    reason: null,
+  };
+
+  if (obligation.state === 'not_applicable') {
+    return { ...base, state: DECISION_STATE.NOT_APPLICABLE, source: DECISION_SOURCE.MECHANICAL };
+  }
+  if (obligation.class === 'mechanical') {
+    return obligation.state === 'closed'
+      ? { ...base, state: DECISION_STATE.PROVEN, source: DECISION_SOURCE.MECHANICAL }
+      : { ...base, reason: 'MECHANICAL_OPEN' };
+  }
+  if (typeof obligation.id === 'string' && obligation.id.startsWith('READ:')) {
+    // A reading is settled by its own semantics, not by a judgment record. A closed
+    // reading is held with the reading as its source; an open reading carries the reason
+    // the resolver named, so a Yes finding reaches the certificate as FINDING_OPEN.
+    if (obligation.state === 'closed') {
+      return { ...base, state: DECISION_STATE.HELD, source: DECISION_SOURCE.READING, reason: obligation.reason ?? null };
+    }
+    if (obligation.reason === 'LEGACY_RECORD' || obligation.reason === 'STALE_EVIDENCE') {
+      context.staleRecords += 1;
+    }
+    return {
+      ...base,
+      state: obligation.state === 'stuck' ? DECISION_STATE.STUCK : DECISION_STATE.OPEN,
+      source: DECISION_SOURCE.READING,
+      reason: obligation.reason ?? 'READING_OPEN',
+    };
+  }
+  if (item === undefined) {
+    return { ...base, reason: 'NO_WORKLIST_ITEM' };
+  }
+
+  if (typeof obligation.id === 'string' && obligation.id.startsWith('FALSIFY:')) {
+    if (attack === undefined) return { ...base, reason: 'NO_ATTACK' };
+    const result = validateAttackRecord(attack, null, item);
+    if (!result.ok) {
+      context.rejected.push({ record: attack, obligationId: obligation.id, code: result.code, problems: result.problems });
+      return { ...base, reason: result.code };
+    }
+    if (attack.outcome === 'held') {
+      context.anchored += 1;
+      context.independentAttacks += 1;
+      return { ...base, state: DECISION_STATE.HELD, source: DECISION_SOURCE.JUDGMENT };
+    }
+    if (attack.outcome === 'broken') return { ...base, state: DECISION_STATE.BROKEN, source: DECISION_SOURCE.JUDGMENT, reason: 'FALSIFIED' };
+    return { ...base, state: DECISION_STATE.STUCK, source: DECISION_SOURCE.JUDGMENT, reason: 'ATTACK_UNRESOLVED' };
+  }
+
+  if (record === undefined) return { ...base, reason: 'NO_JUDGMENT' };
+
+  const result = validateJudgmentRecord(record, item, context.validateOptions);
+  if (!result.ok) {
+    context.rejected.push({ record, obligationId: obligation.id, code: result.code, problems: result.problems });
+    context.countRejection(result.code);
+    return { ...base, reason: result.code };
+  }
+
+  if (['conflicting', 'not_entailed', 'absent'].includes(record.verdict)) {
+    context.rejected.push({
+      record,
+      obligationId: obligation.id,
+      code: 'VERDICT_NOT_ALLOWED',
+      problems: [`verdict ${record.verdict} states a conflict and cannot close the obligation`],
+    });
+    return { ...base, reason: 'VERDICT_NOT_ALLOWED' };
+  }
+
+  const signature = basisSignature(record.basis);
+  if (context.seenBasis.has(signature)) {
+    const code = 'REUSED_BASIS';
+    context.rejected.push({
+      record,
+      obligationId: obligation.id,
+      code,
+      problems: [`the same basis already decided ${context.seenBasis.get(signature)}`],
+    });
+    context.countRejection(code);
+    return { ...base, reason: code };
+  }
+
+  if (item.attackTier === ATTACK_TIER.TIER_ONE && attack === undefined) {
+    context.unattackedTier1 += 1;
+    return { ...base, reason: 'NO_ATTACK' };
+  }
+  if (attack === undefined) {
+    // A standard-tier judgment is settled by its validated record; only a Tier 1 claim
+    // owes an independent attack.
+    context.seenBasis.set(signature, obligation.id);
+    context.anchored += 1;
+    return { ...base, state: DECISION_STATE.HELD, source: DECISION_SOURCE.JUDGMENT };
+  }
+  if (attack !== undefined) {
+    const attackResult = validateAttackRecord(attack, record, item);
+    if (!attackResult.ok) {
+      context.rejected.push({ record: attack, obligationId: obligation.id, code: attackResult.code, problems: attackResult.problems });
+      context.countRejection(attackResult.code);
+      return { ...base, reason: attackResult.code };
+    }
+  }
+
+  const decision = decideJudgment({ record, attack: attack ?? null });
+  context.seenBasis.set(signature, obligation.id);
+  if (decision.state === 'held') {
+    context.anchored += 1;
+    if (attack !== undefined) context.independentAttacks += 1;
+  }
+  return {
+    ...base,
+    state: decision.state,
+    source: DECISION_SOURCE.JUDGMENT,
+    reason: decision.reason,
+  };
+}
+
+/**
+ * Decide every obligation from the worklist and the signed records.
+ *
+ * @param {{ obligations?: Array<object>, worklist?: Array<object>,
+ *   judgments?: Array<object>, attacks?: Array<object>, artifactDigest?: string|null,
+ *   linesByPath?: object }} input
+ * @returns {{ decisions: Array<object>, rejected: Array<object>, metrics: object }}
+ */
+export function decideAll(input = {}) {
+  const {
+    obligations = [],
+    worklist = [],
+    judgments = [],
+    attacks = [],
+    artifactDigest = null,
+    linesByPath = {},
+  } = input;
+
+  const items = new Map();
+  for (const item of Array.isArray(worklist) ? worklist : []) {
+    if (typeof item?.obligationId === 'string') items.set(item.obligationId, item);
+  }
+  const rejected = [];
+  const records = indexRecords(judgments, rejected, 'judgment');
+  const attackRecords = indexRecords(attacks, rejected, 'attack');
+  const context = {
+    rejected,
+    anchored: 0,
+    genericBasis: 0,
+    reusedBasis: 0,
+    staleRecords: 0,
+    provisionalRecords: 0,
+    unattackedTier1: 0,
+    independentAttacks: 0,
+    seenBasis: new Map(),
+    validateOptions: { linesByPath },
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+    countRejection(code) {
+      if (code === 'BASIS_OUT_OF_SCOPE') this.genericBasis += 1;
+      if (code === 'STALE_EVIDENCE') this.staleRecords += 1;
+      if (code === 'PROVISIONAL_EVIDENCE') this.provisionalRecords += 1;
+      if (code === 'REUSED_BASIS') this.reusedBasis += 1;
+    },
+  };
+
+  const decisions = [];
+  for (const obligation of Array.isArray(obligations) ? obligations : []) {
+    const item = items.get(obligation.id);
+    decisions.push(decideObligation(
+      obligation,
+      item,
+      records.get(obligation.id),
+      attackRecords.get(obligation.id),
+      context,
+    ));
+  }
+
+  const judgedHeld = decisions.filter((entry) => entry.source === DECISION_SOURCE.JUDGMENT && entry.state === DECISION_STATE.HELD).length;
+  return {
+    decisions,
+    rejected,
+    metrics: {
+      anchoredRatio: judgedHeld === 0 ? 1 : context.anchored / judgedHeld,
+      genericBasis: context.genericBasis,
+      reusedBasis: context.reusedBasis,
+      staleRecords: context.staleRecords,
+      provisionalRecords: context.provisionalRecords,
+      unattackedTier1: context.unattackedTier1,
+      independentAttacks: context.independentAttacks,
+    },
+  };
+}

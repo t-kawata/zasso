@@ -31,9 +31,9 @@ import {
 } from './helpers/real-workspace-fixture.mjs';
 
 /** Seed the live debt baseline from the staged artifact, as a real repair would. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-292|PX-293) --for-spec --no-implementation-order`.
 function seedLiveBaseline(workspace, opened) {
-  runCommand([opened.stagingRoot], { stdout: () => {}, stderr: () => {} });
+  runCommand([opened.stagingRoot, '--legacy'], { stdout: () => {}, stderr: () => {} });
   mkdirSync(join(workspace.root, 'smooth-sequences'), { recursive: true });
   copyFileSync(
     join(opened.stagingRoot, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'),
@@ -290,7 +290,7 @@ test('the CLI continue commits a verified transaction with exit 0', () => {
     assert.match(result.stdout, /state: committed/);
     assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
 
-    const detector = runCommand([workspace.root]);
+    const detector = runCommand([workspace.root, '--legacy']);
     assert.notEqual(detector.exitCode, 2);
     assert.notEqual(detector.exitCode, 3);
   } finally {

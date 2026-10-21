@@ -24,12 +24,12 @@ const QUIET = Object.freeze({ stdout: () => {}, stderr: () => {} });
 const RUN_DIRECTORY = 'smooth-sequences';
 
 /** Run the detector with `directory` as the process working directory. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-276|PX-292|PX-293) --for-spec --no-implementation-order`.
 function runFrom(directory, argv = []) {
   const previousDirectory = process.cwd();
   process.chdir(directory);
   try {
-    return runCommand(argv, QUIET);
+    return runCommand([...argv, '--legacy'], QUIET);
   } finally {
     process.chdir(previousDirectory);
   }
@@ -66,7 +66,7 @@ test('an explicit root is checked directly instead of searching its ancestors', 
   mkdirSync(child);
   writeFileSync(join(child, TREE_MANIFEST_FILE_NAME), '{}');
   try {
-    const result = runCommand([child], QUIET);
+    const result = runCommand([child, '--legacy'], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
   } finally {
@@ -77,7 +77,7 @@ test('an explicit root is checked directly instead of searching its ancestors', 
 test('a directory that is not a workspace root exits 2 and writes no report', () => {
   const directory = mkdtempSync(join(tmpdir(), 'smooth-sequences-not-a-root-'));
   try {
-    const result = runCommand([directory], QUIET);
+    const result = runCommand([directory, '--legacy'], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
   } finally {
@@ -89,7 +89,7 @@ test('a root with no sequences artifact exits 2 and writes no report', () => {
   const workspace = materializeSmoothWorkspace();
   unlinkSync(workspace.artifactPath);
   try {
-    const result = runCommand([workspace.root], QUIET);
+    const result = runCommand([workspace.root, '--legacy'], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
@@ -102,7 +102,7 @@ test('a root with two sequences artifacts exits 2 and writes no report', () => {
   const workspace = materializeSmoothWorkspace();
   writeFileSync(join(workspace.root, 'second-sequences.json'), JSON.stringify(minimalV3Artifact()));
   try {
-    const result = runCommand([workspace.root], QUIET);
+    const result = runCommand([workspace.root, '--legacy'], QUIET);
     assert.equal(result.exitCode, 2);
     assert.equal(result.report, null);
     assert.equal(existsSync(join(workspace.root, RUN_DIRECTORY)), false);
@@ -114,7 +114,7 @@ test('a root with two sequences artifacts exits 2 and writes no report', () => {
 test('an artifact path is resolved to its containing root', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    const result = runCommand([workspace.artifactPath], QUIET);
+    const result = runCommand([workspace.artifactPath, '--legacy'], QUIET);
     assert.equal(result.exitCode, 0);
     assert.ok(result.report);
   } finally {

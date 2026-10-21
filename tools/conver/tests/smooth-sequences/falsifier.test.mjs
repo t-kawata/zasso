@@ -1,3 +1,5 @@
+// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -10,16 +12,16 @@ import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 test('planting a defect turns the detector red and removing it restores green', () => {
   const workspace = materializeSmoothWorkspace();
   try {
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
     const allocate = JSON.parse(readFileSync(workspace.allocateManifestPath, 'utf8'));
     delete allocate.contract_registry[0].clauses.preconditions;
     writeFileSync(workspace.allocateManifestPath, JSON.stringify(allocate, null, 2));
-    const red = runCommand([workspace.root]);
+    const red = runCommand([workspace.root, '--legacy']);
     assert.equal(red.exitCode, 1);
     assert.ok(red.report.findings.some((finding) => finding.checkId === 'S4.boundary-clause-missing'));
     allocate.contract_registry[0].clauses.preconditions = ['the identity material is present'];
     writeFileSync(workspace.allocateManifestPath, JSON.stringify(allocate, null, 2));
-    assert.equal(runCommand([workspace.root]).exitCode, 0);
+    assert.equal(runCommand([workspace.root, '--legacy']).exitCode, 0);
   } finally {
     workspace.remove();
   }

@@ -39,6 +39,7 @@ import {
   prepareDerivationRoot,
   removeStaging,
   snapshotDesignFiles,
+  stageEvidenceWorkspace,
 } from './staging.mjs';
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -136,8 +137,9 @@ function assertCandidateExists(candidatePath) {
  * documents participate only when supplied; a missing live decisions document is a
  * null hash, so supplying one is a change.
  */
-// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
-function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations }) {
+// [::TICKET::] PX-279, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
+function resolveCandidateInputs(input) {
+  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence } = input;
   const specRelativePath = liveSpecPath(root);
   const liveSpecPathAbs = join(root, specRelativePath);
   const liveTreeDecisions = join(root, TREE_DECISIONS_PATH);
@@ -161,6 +163,7 @@ function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecision
   if (treeDecisionsHash !== hashIfPresent(liveTreeDecisions)) changedInputs.push('tree-decisions');
   if (allocateDecisionsHash !== hashIfPresent(liveAllocateDecisions)) changedInputs.push('allocate-decisions');
   if (annotationsPath !== null) changedInputs.push('annotations');
+  if (candidateEvidence !== undefined && candidateEvidence !== null) changedInputs.push('evidence');
   if (changedInputs.length === 0) {
     throw new RegenerationError('no candidate differs from the live input', {
       code: 'NO_CHANGE',
@@ -189,9 +192,9 @@ function resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecision
  * @returns {{ transactionId: string, stagingRoot: string, stagingSpecPath: string }}
  */
 export function openTransaction(input) {
-  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, reason } = input;
+  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence, reason } = input;
   assertThawable({ root, reason });
-  const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations });
+  const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence });
   const transactionId = newTransactionId();
   const base = snapshotDesignFiles(root);
   const { stagingRoot } = prepareDerivationRoot({ root, candidates, transactionId });
@@ -208,6 +211,7 @@ export function openTransaction(input) {
     candidateTreeDecisionsHash: candidates.treeDecisionsHash,
     candidateAnnotations: candidateAnnotations ?? null,
     candidateAnnotationsHash: candidates.annotationsHash,
+    candidateEvidence: candidateEvidence ?? null,
     changedInputs: candidates.changedInputs,
     specRelativePath: candidates.specRelativePath,
     stagingRoot,
@@ -458,6 +462,11 @@ export function deriveGeneration({ root, transactionId, runProducer = runPipelin
   }
   assertMutable(entry);
   try {
+    if (entry.candidateEvidence !== undefined && entry.candidateEvidence !== null) {
+      stageEvidenceWorkspace({ root, stagingRoot: entry.stagingRoot });
+      transition(root, transactionId, STATES.DERIVED, { derivedAt: new Date().toISOString(), pending: undefined, setupDone: true });
+      return { state: STATES.DERIVED, setupDone: true };
+    }
     const result = runProducer({
       root,
       transactionId,
@@ -513,6 +522,7 @@ function assertStagedCandidatesMatch(entry) {
  * @param {{ root: string, transactionId: string, runGrounds?: Function, runDetector?: Function }} input
  */
 export function verifyGeneration({ root, transactionId, runGrounds = runGrillGates, runDetector }) {
+// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   if (typeof runDetector !== 'function') {
     throw new RegenerationError('verification needs a detector', { code: 'DETECTOR_REQUIRED', path: root, repair: 'Pass runDetector when verifying a generation.' });
   }
@@ -566,7 +576,7 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
   };
   if (increase.increased) {
     transition(root, transactionId, STATES.DERIVED, { receipt });
-    return { state: 'unverified', receipt, reason: 'DEBT_INCREASED' };
+    return { state: 'unverified', receipt, reason: increase.code ?? 'DEBT_INCREASED' };
   }
   transition(root, transactionId, STATES.VERIFIED, {
     receipt,
