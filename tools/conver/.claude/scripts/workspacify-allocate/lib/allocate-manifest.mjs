@@ -148,6 +148,7 @@ export function renderAllocateManifest(allocateManifest) {
 
 function canonicalContract(entry) {
   const edge = entry.sides?.[entry.consumer_package] ?? entry.sides?.[entry.provider_package] ?? entry.occurrences?.[0]?.edge ?? {};
+  const sourceRefsGround = typeof edge.source_refs_ground === 'string' ? edge.source_refs_ground.trim() : '';
   return {
     contract_id: entry.contract_id,
     boundary_id: entry.boundary_id ?? null,
@@ -157,6 +158,7 @@ function canonicalContract(entry) {
     owners: edge.owners ?? {},
     clauses: edge.clauses ?? {},
     source_refs: edge.source_refs ?? [],
+    ...(sourceRefsGround === '' ? {} : { source_refs_ground: edge.source_refs_ground }),
   };
 }
 

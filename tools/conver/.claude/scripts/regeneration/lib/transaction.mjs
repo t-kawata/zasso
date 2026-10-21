@@ -313,18 +313,28 @@ export function readArtifactCurrency({ stagingRoot, specPath }) {
     : { state: 'stale', artifactPath };
 }
 
-/** Run the one-time setup: tree, allocate, educe begin and the authored-document merge. */
+/**
+ * Run the one-time setup: tree, allocate, educe begin and the authored-document merge.
+ *
+ * `educe begin` starts a new reader generation, which archives the readings it inherits.
+ * An annotations-only or decisions-only transaction stages the live artifact unchanged,
+ * so the staged artifact already records the candidate spec; beginning a generation
+ * there would discard readings no reader is going to rewrite.
+ */
 // [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
-function runSetup({ root, stagingRoot, candidateSpec }) {
-  const tree = runNode(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
+export function runSetup({ root, stagingRoot, candidateSpec, runNodeFn = runNode }) {
+  const tree = runNodeFn(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
   if (!tree.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-tree', stderr: tree.stderr } };
 
   const treeManifestPath = join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json');
-  const allocate = runNode(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize', treeManifestPath]);
+  const allocate = runNodeFn(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize', treeManifestPath]);
   if (!allocate.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-allocate', stderr: allocate.stderr } };
 
-  const educe = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
-  if (!educe.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'educe-sequences', stderr: educe.stderr } };
+  const stagedArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+  if (stagedArtifact.state !== 'current') {
+    const educe = runNodeFn(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
+    if (!educe.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'educe-sequences', stderr: educe.stderr } };
+  }
 
   const treeManifest = JSON.parse(readFileSync(treeManifestPath, 'utf8'));
   mergeAuthoredDocuments({ root, stagingRoot, treeManifest });
@@ -405,14 +415,26 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
   return { state: STATES.DERIVED, setupDone: true };
 }
 
-/** The default ground checks: the grill's mechanical gates over staging. */
-export function runGrillGates({ stagingRoot }) {
-  const commands = [
+/**
+ * The ground checks and the arguments each one measures.
+ *
+ * Every check reads the staged workspace, so each receives the staging root explicitly.
+ * `defect-report.js` takes the root before its flag; omitting it prints usage instead of
+ * measuring, which the transaction would surface as a judgment ground that cannot settle.
+ */
+// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+export function groundCommands(stagingRoot) {
+  return [
     ['grill-me-for-rfc/check-obligation-coverage.js', [stagingRoot]],
     ['grill-me-for-rfc/check-contribution-completeness.js', [stagingRoot]],
     ['grill-me-for-rfc/check-distribution-completeness.js', [stagingRoot]],
-    ['grill-me-for-rfc/defect-report.js', ['--gate']],
+    ['grill-me-for-rfc/defect-report.js', [stagingRoot, '--gate']],
   ];
+}
+
+/** The default ground checks: the grill's mechanical gates over staging. */
+export function runGrillGates({ stagingRoot }) {
+  const commands = groundCommands(stagingRoot);
   for (const [script, args] of commands) {
     const result = runNode(stagingRoot, script, args);
     if (!result.ok) return { ok: false, checked: commands.length, reason: `${script}: ${result.stderr}` };

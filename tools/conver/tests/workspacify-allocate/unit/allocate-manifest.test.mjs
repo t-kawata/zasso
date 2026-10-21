@@ -64,6 +64,22 @@ function build(prepared, review) {
   });
 }
 
+test('C001 a contract source refs ground survives into the registry', () => {
+  const prepared = fixture();
+  try {
+    const ground = 'the provider owns no inventory segment; the conformance suite carries this contract';
+    for (const entry of prepared.contractIndex.values()) {
+      for (const edge of Object.values(entry.sides)) edge.source_refs_ground = ground;
+    }
+
+    const allocateManifest = build(prepared);
+
+    assert.equal(allocateManifest.contract_registry[0].source_refs_ground, ground);
+  } finally {
+    rmSync(prepared.dir, { recursive: true, force: true });
+  }
+});
+
 test('C001 the manifest records the proof, the seed index and its own hash', () => {
   const prepared = fixture();
   try {

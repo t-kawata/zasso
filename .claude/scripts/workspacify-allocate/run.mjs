@@ -178,7 +178,11 @@ function buildContractEdgesForPackage({ manifest, packageId, decision }) {
         },
       },
       relation: { direction: isConsumer ? 'consumer_to_provider' : 'provider_to_consumer', connectionKind: boundary.connection_kind },
-      content: { clauses: authored.clauses ?? {}, sourceRefs: authored.source_refs ?? collectPackageSegments({ manifest, packageId }) },
+      content: {
+        clauses: authored.clauses ?? {},
+        sourceRefs: authored.source_refs ?? collectPackageSegments({ manifest, packageId }),
+        sourceRefsGround: authored.source_refs_ground ?? '',
+      },
     }));
   }
   return edges;

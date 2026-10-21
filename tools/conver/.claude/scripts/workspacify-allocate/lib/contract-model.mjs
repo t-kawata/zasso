@@ -77,17 +77,18 @@ export function canonicalizeClauses(clauses, { contractId = 'this contract' } = 
  * The inputs are grouped by what a coupling contract is made of: the boundary it
  * belongs to, the two sides it joins, the relation between them, and its content.
  *
- * @param {{ boundaryId: string, sides: { consumer: { packageId: string, path?: string }, provider: { packageId: string, path?: string } }, relation?: { direction?: string, connectionKind?: string }, content?: { owners?: object, clauses?: object, sourceRefs?: string[] } }} input
+ * @param {{ boundaryId: string, sides: { consumer: { packageId: string, path?: string }, provider: { packageId: string, path?: string } }, relation?: { direction?: string, connectionKind?: string }, content?: { owners?: object, clauses?: object, sourceRefs?: string[], sourceRefsGround?: string } }} input
  * @returns {object} canonical contract edge
  */
 export function buildContractEdge({ boundaryId, sides, relation = {}, content = {} }) {
   const { consumer = {}, provider = {} } = sides ?? {};
   const { direction = 'consumer_to_provider', connectionKind } = relation;
-  const { owners = {}, clauses = {}, sourceRefs = [] } = content;
+  const { owners = {}, clauses = {}, sourceRefs = [], sourceRefsGround = '' } = content;
   const ownerSlots = {};
   for (const slot of CONTRACT_OWNER_SLOTS) {
     ownerSlots[slot] = typeof owners[slot] === 'string' && owners[slot].length > 0 ? owners[slot] : 'not_applicable';
   }
+  const groundedSourceRefs = typeof sourceRefsGround === 'string' ? sourceRefsGround.trim() : '';
   return {
     contract_id: contractIdForBoundary(boundaryId),
     boundary_id: boundaryId,
@@ -100,6 +101,7 @@ export function buildContractEdge({ boundaryId, sides, relation = {}, content = 
     owners: ownerSlots,
     clauses: canonicalizeClauses(clauses, { contractId: contractIdForBoundary(boundaryId) }),
     source_refs: [...new Set(sourceRefs)].sort(),
+    ...(groundedSourceRefs === '' ? {} : { source_refs_ground: sourceRefsGround }),
   };
 }
 

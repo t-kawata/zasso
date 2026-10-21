@@ -138,6 +138,7 @@ function copyIfPresent(from, to) {
 // [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function copyIfDirectory(from, to) {
   if (!existsSync(from)) return false;
+  mkdirSync(dirname(to), { recursive: true });
   cpSync(from, to, { recursive: true });
   return true;
 }
@@ -149,6 +150,11 @@ function copyIfDirectory(from, to) {
  * the two decisions documents, the artifact and the educe run directory. Package
  * documents are deliberately absent because workspacify-allocate refuses a non-empty
  * planned directory; mergeAuthoredDocuments adds them after allocate publishes.
+ *
+ * The educe toolchain is copied too. An ad-hoc check beside the specification imports
+ * the rail as `../../.claude/scripts/educe-sequences/rail/checks.mjs`, so the staged
+ * workspace must carry that path or the check cannot join the run and the checks phase
+ * refuses a weakest link nothing answers.
  */
 // [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function prepareDerivationRoot({ root, candidates, transactionId }) {
@@ -169,6 +175,7 @@ export function prepareDerivationRoot({ root, candidates, transactionId }) {
     }
   }
   copyIfDirectory(join(root, 'educe-sequences'), join(stagingRoot, 'educe-sequences'));
+  copyIfDirectory(join(root, '.claude/scripts/educe-sequences'), join(stagingRoot, '.claude/scripts/educe-sequences'));
   return { stagingRoot };
 }
 

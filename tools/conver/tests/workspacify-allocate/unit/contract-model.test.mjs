@@ -55,6 +55,20 @@ test('C003 a contract edge is canonical, stable and clause-complete', () => {
   assert.deepEqual(again, edge, 'building twice yields the identical edge');
 });
 
+test('C003 a contract edge carries a source refs ground and omits it when absent', () => {
+  const ground = 'the provider owns no inventory segment';
+  const sides = {
+    consumer: { packageId: 'pkg-b' },
+    provider: { packageId: 'pkg-a' },
+  };
+
+  const grounded = buildContractEdge({ boundaryId: 'boundary-001', sides, content: { clauses: clauses(), sourceRefsGround: ground } });
+  const plain = buildContractEdge({ boundaryId: 'boundary-001', sides, content: { clauses: clauses() } });
+
+  assert.equal(grounded.source_refs_ground, ground);
+  assert.equal('source_refs_ground' in plain, false, 'an absent ground adds no field');
+});
+
 test('C003 an unknown clause, a duplicate and a missing declaration are rejected', () => {
   const target = boundary();
   const edge = buildContractEdge({
