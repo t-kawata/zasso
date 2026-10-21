@@ -72,10 +72,18 @@ function prove(reason, extra = {}) {
   return { ok: true, reason, ...extra };
 }
 
+/** The generation a manifest-bearing run is currently reading, or null for a legacy run. */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+function resolveCurrentReaderGeneration(ctx) {
+  return existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))
+    ? generationOf(ctx.status)
+    : null;
+}
+
 /** The readings a brief reported, or a refusal naming the file. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-function readBrief(directory, briefName) {
-  return readReadingsFile(join(directory, `readings-${briefName}.jsonl`));
+// [::TICKET::] PX-240, PX-241, PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-294) --for-spec --no-implementation-order`.
+function readBrief(directory, briefName, options = {}) {
+  return readReadingsFile(join(directory, `readings-${briefName}.jsonl`), options);
 }
 
 /** The declaration a run read, or a refusal naming the file. */
@@ -358,7 +366,8 @@ export const PHASES = Object.freeze([
   {
     id: 8, name: 'span', tag: PHASE_TAGS.READ, requires: [7], backTo: 7, maxLoops: 3,
     exit: (ctx) => {
-      const readings = readBrief(ctx.directory, 'span');
+      const currentGeneration = resolveCurrentReaderGeneration(ctx);
+      const readings = readBrief(ctx.directory, 'span', { currentGeneration });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const unsigned = readings.readings.length - signedCount(readings.readings);
       if (unsigned > 0) {
@@ -371,7 +380,7 @@ export const PHASES = Object.freeze([
           ? prove(`${readings.readings.length} signed reading(s); the uncovered worklist is empty`)
           : refuse(`no uncovered reading was written for ${members.length} worklist member(s)`);
       }
-      const uncovered = readReadingsFile(uncoveredPath);
+      const uncovered = readReadingsFile(uncoveredPath, { currentGeneration });
       if (!uncovered.ok) return refuse(uncovered.problems.join('; '));
       const artifact = readArtifact(ctx.artifactPath) ?? { operations: [], steps: [] };
       const gated = gateUncovered({
@@ -401,7 +410,7 @@ export const PHASES = Object.freeze([
   {
     id: 10, name: 'adversarial', tag: PHASE_TAGS.READ, requires: [9], backTo: 9, maxLoops: 3,
     exit: (ctx) => {
-      const readings = readBrief(ctx.directory, 'adversarial');
+      const readings = readBrief(ctx.directory, 'adversarial', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const artifact = readArtifact(ctx.artifactPath);
       // A ruling is a claim the reading made, and so is an escape: an operation no step
@@ -427,7 +436,7 @@ export const PHASES = Object.freeze([
       const artifact = readArtifact(ctx.artifactPath);
       const unbound = entriesOf(artifact).filter((entry) => entry.outcome === null).map((entry) => entry.id);
       if (unbound.length === 0) return prove('every entry carries a verdict, so no entry is bound to a window', { vacuous: true });
-      const readings = readBrief(ctx.directory, 'reroute');
+      const readings = readBrief(ctx.directory, 'reroute', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const rerouted = new Set(readings.readings.map((reading) => reading.subject));
       const missed = unbound.filter((id) => !rerouted.has(id));
@@ -447,7 +456,7 @@ export const PHASES = Object.freeze([
       // no worklist when every entry already carries an outcome, and the other [read] phases treat
       // an absent brief the same way. A file that is there and unreadable is still refused, by name.
       const briefPath = join(ctx.directory, readingsFileName('adjudicate'));
-      const readings = readBrief(ctx.directory, 'adjudicate');
+      const readings = readBrief(ctx.directory, 'adjudicate', { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!readings.ok && existsSync(briefPath)) return refuse(readings.problems.join('; '));
       const proved = proveAdjudicationReadings({ readings: readings.ok ? readings.readings : [], artifact, specLines: ctx.spec.lines });
       if (proved.refused.length > 0) {
@@ -469,7 +478,7 @@ export const PHASES = Object.freeze([
     exit: (ctx) => {
       const declaration = readDeclaration(ctx.directory);
       if (!declaration.ok) return refuse(declaration.problems.join('; '));
-      const answered = readInquestFile(join(ctx.directory, INQUEST_FILE));
+      const answered = readInquestFile(join(ctx.directory, INQUEST_FILE), { currentGeneration: resolveCurrentReaderGeneration(ctx) });
       if (!answered.ok) return refuse(answered.problems.join('; '));
       const unsigned = answered.readings.length - signedCount(answered.readings);
       if (unsigned > 0) {
@@ -506,7 +515,7 @@ export const PHASES = Object.freeze([
       // attack. The manifest is the migration marker: legacy workspaces keep the old gate,
       // while the closure protocol requires the attack before the certificate can pass.
       if (existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))) {
-        const attacks = readReadingsFile(join(ctx.directory, 'readings-attack.jsonl'));
+        const attacks = readReadingsFile(join(ctx.directory, 'readings-attack.jsonl'), { currentGeneration: resolveCurrentReaderGeneration(ctx) });
         if (!attacks.ok) return refuse(attacks.problems.join('; '));
         const held = new Set(attacks.readings
           .filter((attack) => attack?.outcome === 'held' && typeof attack?.subject === 'string')

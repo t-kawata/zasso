@@ -167,6 +167,7 @@ function claimedInBrief(directory, brief) {
  * A `[read]` phase has no action: the library cannot read, and giving it one would be
  * the substitution the whole design refuses.
  */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
 const ACTIONS = Object.freeze({
 // [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   6: (ctx) => {
@@ -217,6 +218,7 @@ const ACTIONS = Object.freeze({
       },
       supplied: digestOfSupplied(ctx.status[SUPPLIED_FIELD] ?? []),
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
+      previousArtifact: previous,
     });
     // A merge is an improvement and is permitted; a merge that loses a name is not, so the
     // names are compared before anything is written. The adjudications are proven here, beside

@@ -61,6 +61,7 @@ const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -111,6 +112,7 @@ export async function runCommand(argv, options = {}) {
     readings: runInput.readings,
     supplied: suppliedDigestOf(runDirectoryFor(specPath)),
     suppliedDocuments: material,
+    previousArtifact: ground.existing,
   });
   // The adjudications are proven here as they are in the phase that composes them: a rebuild
   // reads the same file the phase path reads, and a run that refused a row for its word in one

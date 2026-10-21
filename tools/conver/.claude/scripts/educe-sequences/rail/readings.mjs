@@ -274,42 +274,70 @@ export function readDeclarationFile(path) {
   return problems.length > 0 ? { ok: false, problems } : { ok: true, declaration: parsed.value };
 }
 
+/** The suffix a reader uses to name the generation that performed the reading. */
+export const GENERATION_SUFFIX_PATTERN = /generation-?\d+/;
+
+/** The number a reader names, or null when the reader is legacy. */
+export function resolveGenerationNumber(reader) {
+  const match = String(reader ?? '').match(GENERATION_SUFFIX_PATTERN);
+  return match === null ? null : Number.parseInt(match[0].replace(/\D/g, ''), 10);
+}
+
 /**
- * The reader identities an inquest file actually carries.
+ * The reader identities a readings file actually carries.
  *
  * A generation is the unit that owns an answer: a file whose rows were written by two
  * generations is two audits stitched together, and a count over it would be a count over
  * neither. A reader name without a generation suffix is a legacy reader and is one family,
  * because the older files never carried the generation directory.
  */
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function readerGenerationsOf(rows) {
   const generations = new Set();
-  for (const row of rows.filter((entry) => inquestShapeOf(entry) === 'inquest')) {
-    const reader = typeof row.reader === 'string' ? row.reader : '';
-    const match = reader.match(/generation\d+/);
+  for (const row of rows) {
+    const reader = typeof row?.reader === 'string' ? row.reader : '';
+    const match = reader.match(GENERATION_SUFFIX_PATTERN);
     if (match !== null) generations.add(reader.slice(0, match.index + match[0].length));
   }
   return [...generations].sort();
 }
 
 /**
- * Refuse a file written by more than one generation.
+ * Refuse a file written by more than one generation, or by an older one.
  *
  * The same reader name repeated is one generation; the absence of a generation suffix is
  * a legacy reader and is treated as one. A mixture is the laundering path this guard
  * exists to close: the newest generation would otherwise inherit the older generation's
- * answers while its own reader count read as complete.
+ * answers while its own reader count read as complete. A named generation mixed with a
+ * legacy row is a mixture too, because the legacy row has no generation to compare.
+ *
+ * `currentGeneration` is supplied only by a run that carries an evidence manifest; a
+ * legacy workspace has no generation to compare against and keeps the old behavior.
  */
-export function assertSingleReader(rows) {
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+export function assertSingleReader(rows, { currentGeneration = null } = {}) {
   const generations = readerGenerationsOf(rows);
-  if (generations.length > 1) {
+  const legacyPresent = rows.some((row) => resolveGenerationNumber(row?.reader) === null);
+  if (generations.length > 1 || (generations.length === 1 && legacyPresent)) {
+    const named = legacyPresent ? [...generations, 'legacy'] : generations;
     throw new SmoothSequencesError(
-      `READER_MIXED: the inquest carries ${generations.length} reader generations: ${generations.join(', ')}`,
+      `READER_MIXED: the readings carry ${named.length} reader generation(s): ${named.join(', ')}`,
       { code: 'READER_MIXED', repair: 're-answer every question in one generation, or archive the old answers and start a new generation' },
     );
   }
-  if (generations.length === 1) return { ok: true, readers: generations };
-  const legacy = [...new Set(rows.filter((entry) => inquestShapeOf(entry) === 'inquest').map((entry) => String(entry.reader ?? '')))].sort();
+  if (generations.length === 1) {
+    if (Number.isInteger(currentGeneration)) {
+      const stale = generations.find((reader) => resolveGenerationNumber(reader) !== currentGeneration);
+      if (stale !== undefined) {
+        throw new SmoothSequencesError(
+          `READER_STALE: ${stale} is not generation ${currentGeneration}`,
+          { code: 'READER_STALE', repair: `re-answer the file under educe-sequences/generation-${currentGeneration}` },
+        );
+      }
+    }
+    return { ok: true, readers: generations };
+  }
+  const legacy = [...new Set(rows.map((row) => String(row?.reader ?? '')))].sort();
   return { ok: true, readers: legacy };
 }
 
@@ -468,7 +496,8 @@ export function inquestVocabularyProblems(reading) {
  * the line they were found on, so a reader learns which claim to redo rather than that
  * something somewhere is wrong.
  */
-export function readReadingsFile(path) {
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+export function readReadingsFile(path, { currentGeneration = null } = {}) {
   if (!existsSync(path)) return { ok: false, problems: [`${path} does not exist — the brief has not reported`] };
 
   const problems = [];
@@ -497,7 +526,7 @@ export function readReadingsFile(path) {
 
   if (problems.length > 0) return { ok: false, problems };
   try {
-    assertSingleReader(readings);
+    assertSingleReader(readings, { currentGeneration });
   } catch (error) {
     return { ok: false, problems: [error.message] };
   }
@@ -543,9 +572,10 @@ export function previousInquestRecordsIn(directory) {
 }
 
 /** Read and validate the file the audit is answered in. */
-export function readInquestFile(path) {
+// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+export function readInquestFile(path, options = {}) {
   if (!existsSync(path)) return { ok: false, problems: [`${path} does not exist — the audit has not been answered`] };
-  return readReadingsFile(path);
+  return readReadingsFile(path, options);
 }
 
 /**
