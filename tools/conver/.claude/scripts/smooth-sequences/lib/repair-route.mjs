@@ -23,8 +23,10 @@ export const REGENERATION_ALLOCATE_COMMAND = 'node .claude/scripts/regeneration/
 export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
 export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
 
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 const SPEC_CHECK_IDS = Object.freeze([
   'S1.duplicate-id',
+  'S1.not-a-sequence-ground-missing',
   'S1.sequence-without-step',
   'S1.step-unresolved-operation',
   'S1.step-unresolved-sequence',
@@ -35,12 +37,16 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S3.transition-target-unknown',
   'S4.contribution-ground-missing',
   'S4.contribution-missing',
+  'S4.contribution-unowned',
+  'S5.boundary-uncovered',
   'S5.consumes-not-produced',
   'S5.crossing-boundary-unknown',
   'S5.crossing-direction-mismatch',
   'S5.crossing-side-missing',
   'S5.error-set-mismatch',
   'S5.precondition-not-implied',
+  'S5.projection-only',
+  'S6.boundary-effect-drift',
   'S6.cycle',
   'S6.order-contradiction',
   'S6.orphan-object',
@@ -58,7 +64,9 @@ const ALLOCATE_CHECK_IDS = Object.freeze([
 
 const PACKAGE_RFC_CHECK_IDS = Object.freeze(['S7.rfc-boundary-missing']);
 
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 const PACKAGE_VIEW_CHECK_IDS = Object.freeze([
+  'S7.obligation-unit-unknown',
   'S7.view-missing',
   'S7.view-package-mismatch',
   'S7.view-unit-mismatch',

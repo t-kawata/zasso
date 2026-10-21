@@ -61,6 +61,7 @@ function defaultOperations() {
 
 /** The two steps of the clean fixture: one produces order_id, the next consumes it. */
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 export function defaultSteps() {
   return [
     {
@@ -77,6 +78,14 @@ export function defaultSteps() {
         produces: ['order_id'],
         errors: [],
         crosses: [BOUNDARY],
+        authored: {
+          pre: [],
+          post: ['order_id'],
+          invariants: [],
+          consumes: [],
+          produces: ['order_id'],
+          errors: [],
+        },
       },
     },
     {
@@ -93,9 +102,45 @@ export function defaultSteps() {
         produces: [],
         errors: [],
         crosses: [BOUNDARY],
+        authored: {
+          pre: ['order_id'],
+          post: [],
+          invariants: [],
+          consumes: ['order_id'],
+          produces: [],
+          errors: [],
+        },
       },
     },
   ];
+}
+
+/** A v3 artifact with no authored contract facts on its steps. */
+export function projectionOnlyArtifact() {
+  const artifact = minimalV3Artifact();
+  artifact.steps = artifact.steps.map((step) => {
+    const { authored, ...contract } = step.contract;
+    const copy = { ...step, contract };
+    delete copy.contract_prose;
+    return copy;
+  });
+  return artifact;
+}
+
+/** A v3 artifact with one notASequence region, optionally grounded. */
+export function notASequenceArtifact({ grounded = false } = {}) {
+  const artifact = minimalV3Artifact();
+  const region = {
+    id: 'G-1',
+    kind: 'neighbour',
+    firstLine: 1,
+    lastLine: 10,
+    outcome: 'notASequence',
+    predicateLimb: 'none-applies',
+  };
+  if (grounded) region.grounding = { classification: 'no actor performs an ordered act' };
+  artifact.sequences.push(region);
+  return artifact;
 }
 
 /** A v3 artifact that satisfies every Layer A and Layer B check. */
@@ -203,7 +248,16 @@ export function defaultAllocateManifest(contractRegistry = defaultContractRegist
 
 /** A package view with one owned operation and the provider or consumer side of boundary-001. */
 export function packageView(input) {
-  const { packageId, operationId, direction, counterpart, sequenceIds = [], crossSequences = [] } = input;
+  const {
+    packageId,
+    operationId,
+    direction,
+    counterpart,
+    sequenceIds = [],
+    crossSequences = [],
+    operationObligations = [],
+    sequenceObligations = [],
+  } = input;
   return {
     packageId,
     ownedOperationUnits: [{
@@ -224,13 +278,27 @@ export function packageView(input) {
       outcome: 'direct',
       ownerPackageIds,
     })),
-    obligationUnits: [{
-      unitId: `ctr-${BOUNDARY}`,
-      relation: 'carries',
-      subject: BOUNDARY,
-      direction,
-      counterpart,
-    }],
+    obligationUnits: [
+      {
+        unitId: `ctr-${BOUNDARY}`,
+        relation: 'carries',
+        subject: BOUNDARY,
+        direction,
+        counterpart,
+      },
+      ...operationObligations.map((operationIdEntry) => ({
+        unitId: `op-${operationIdEntry}`,
+        relation: 'assigns',
+        subject: operationIdEntry,
+        kind: 'operation',
+      })),
+      ...sequenceObligations.map((sequenceIdEntry) => ({
+        unitId: `seq-${sequenceIdEntry}`,
+        relation: 'assigns',
+        subject: sequenceIdEntry,
+        kind: 'sequence',
+      })),
+    ],
     obligationSource: 'declared',
     lineRange: { claimedLineCount: 100, multiClaimedLineCount: 0, unclaimedLineCount: 0, identityUse: 'not used as an identity', statement: 'fixture' },
     unboundAssignments: [],
@@ -250,12 +318,14 @@ function ledgerKindOf(unitId) {
 }
 
 /** The RFC body that names the boundary and carries its distribution ledger. */
-export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceIds = [], crossSequenceIds = [] }) {
+export function rfcBody(input) {
+  const { packageId, operationId, boundary = BOUNDARY, sequenceIds = [], crossSequenceIds = [], extraUnits = [] } = input;
   const units = [
     { id: `op-${operationId}`, kind: ledgerKindOf(`op-${operationId}`) },
     ...sequenceIds.map((sequenceId) => ({ id: `seq-${sequenceId}`, kind: ledgerKindOf(`seq-${sequenceId}`) })),
     ...crossSequenceIds.map((sequenceId) => ({ id: `xdir-${sequenceId}`, kind: ledgerKindOf(`xdir-${sequenceId}`) })),
     { id: `ctr-${boundary}`, kind: ledgerKindOf(`ctr-${boundary}`) },
+    ...extraUnits,
   ];
   const rows = units.map((unit) => `| ${unit.id} | ${unit.kind} | ${packageId} | 1.1 | the dependency this unit travels along |`).join('\n');
   return [
@@ -280,26 +350,32 @@ export function rfcBody({ packageId, operationId, boundary = BOUNDARY, sequenceI
   ].join('\n');
 }
 
+/** The two package views the clean fixture carries. */
+export function defaultViews() {
+  const crossSequences = [{ sequenceId: 'A-1', ownerPackageIds: [PROVIDER, CONSUMER] }];
+  return {
+    [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences }),
+    [CONSUMER]: packageView({ packageId: CONSUMER, operationId: 'ConsumeFact', direction: 'consumes', counterpart: PROVIDER, crossSequences }),
+  };
+}
+
 /**
  * Materialize a workspace on disk.
  *
  * @param {{ artifact?: object, treeManifest?: object, allocateManifest?: object,
- *   views?: object, rfcBodies?: object }} input
+ *   views?: object, rfcBodies?: object, readings?: object }} input
  * @returns {{ root, artifactPath, treeManifestPath, allocateManifestPath,
  *   directoryOf: (id: string) => string, rfcPathOf: (id: string) => string,
  *   viewPathOf: (id: string) => string, readArtifact: () => object,
  *   remove: () => void }}
  */
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function materializeSmoothWorkspace(input = {}) {
   const root = mkdtempSync(join(tmpdir(), 'smooth-sequences-'));
   const artifact = input.artifact ?? minimalV3Artifact();
   const treeManifest = input.treeManifest ?? defaultTreeManifest();
   const allocateManifest = input.allocateManifest ?? defaultAllocateManifest();
-  const crossSequences = [{ sequenceId: 'A-1', ownerPackageIds: [PROVIDER, CONSUMER] }];
-  const views = input.views ?? {
-    [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences }),
-    [CONSUMER]: packageView({ packageId: CONSUMER, operationId: 'ConsumeFact', direction: 'consumes', counterpart: PROVIDER, crossSequences }),
-  };
+  const views = input.views ?? defaultViews();
   const bodies = input.rfcBodies ?? {
     [PROVIDER]: rfcBody({ packageId: PROVIDER, operationId: 'ProduceFact', sequenceIds: ['A-1'], crossSequenceIds: ['A-1'] }),
     [CONSUMER]: rfcBody({ packageId: CONSUMER, operationId: 'ConsumeFact', crossSequenceIds: ['A-1'] }),
@@ -318,6 +394,17 @@ export function materializeSmoothWorkspace(input = {}) {
   writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   writeFileSync(treeManifestPath, JSON.stringify(treeManifest, null, 2));
   writeFileSync(allocateManifestPath, JSON.stringify(allocateManifest, null, 2));
+
+  if (input.readings !== undefined && input.readings !== null) {
+    const readingsDirectory = join(root, 'educe-sequences');
+    mkdirSync(readingsDirectory, { recursive: true });
+    for (const [name, rows] of Object.entries(input.readings)) {
+      const body = Array.isArray(rows)
+        ? rows.map((row) => JSON.stringify(row)).join('\n') + (rows.length > 0 ? '\n' : '')
+        : rows;
+      writeFileSync(join(readingsDirectory, `readings-${name}.jsonl`), body);
+    }
+  }
 
   return {
     root,

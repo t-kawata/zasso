@@ -58,15 +58,22 @@ function reportOf(overrides = {}) {
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // @verifies C001
 // [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-test('the JSON report is byte-identical, sorted and at schemaVersion 2', () => {
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+test('the JSON report is byte-identical, sorted and at schemaVersion 3', () => {
   const first = renderReportJson(reportOf());
   const second = renderReportJson(reportOf());
   assert.equal(first, second);
   const parsed = JSON.parse(first);
-  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.schemaVersion, 3);
   assert.deepEqual(parsed.findings.map((finding) => finding.checkId), ['S1.a', 'S4.b']);
   assert.equal(parsed.findingsByClass.omission, 1);
   assert.equal(parsed.findingsByClass.contradiction, 1);
+  assert.equal(parsed.checks.families, 7);
+  assert.equal(parsed.checks.skipped, 0);
+  assert.deepEqual(parsed.checks.subChecks, []);
+  assert.equal(parsed.provenance.status, 'not-recorded');
+  assert.equal(parsed.readings.status, 'not-available');
+  assert.deepEqual(parsed.denominator, { operations: null, sequences: null, boundaries: null, surfaces: null });
   for (const finding of parsed.findings) {
     assert.deepEqual(
       Object.keys(finding).sort(),
@@ -85,6 +92,7 @@ test('the console block groups findings under route headers and ends with next',
 });
 
 // @verifies C003
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('a clean console block prints next: none and no finding line', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -92,7 +100,12 @@ test('a clean console block prints next: none and no finding line', () => {
     withheld: [],
     checks: { run: 7, failed: 0 },
   });
-  assert.deepEqual(renderConsoleReport(report), ['smooth-sequences: 0 finding(s)', 'next: none. verdict: pass.']);
+  assert.deepEqual(renderConsoleReport(report), [
+    'smooth-sequences: 0 finding(s)',
+    'provenance: not-recorded (no migration field)',
+    'readings: not-available',
+    'next: none. verdict: pass.',
+  ]);
 });
 
 // @verifies C004
@@ -159,6 +172,22 @@ test('the Markdown report names each withheld surface and its check', () => {
   });
   const markdown = renderReportMarkdown(report);
   assert.match(markdown, /vocabulary:S3\.terminal-status \(terminalStatuses is not declared\)/);
+});
+
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+test('an audit report names the would-be exit in JSON and Markdown', () => {
+  const report = buildReport({
+    workspace: { root: '/tmp/x' },
+    findings,
+    withheld: [],
+    checks: { run: 2, failed: 2 },
+    verdict: 'audit',
+    wouldExit: 1,
+  });
+  const parsed = JSON.parse(renderReportJson(report));
+  assert.equal(parsed.verdict, 'audit');
+  assert.equal(parsed.wouldExit, 1);
+  assert.match(renderReportMarkdown(report), /wouldExit: 1/);
 });
 
 test('writeReport writes both documents and returns their paths', () => {

@@ -80,6 +80,7 @@ function archiveCurrentPair(root, previousGeneration) {
  * @returns {{ mode: string, generation: number, jsonPath: string, markdownPath: string }}
  */
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function writeGeneration({ root, report, inputDigest, exitCode, now = new Date().toISOString() }) {
   const runDirectory = runDirectoryFor(root);
   const reportPath = join(runDirectory, JSON_FILE_NAME);
@@ -105,6 +106,11 @@ export function writeGeneration({ root, report, inputDigest, exitCode, now = new
   mkdirSync(runDirectory, { recursive: true });
   if (currentExists) archiveCurrentPair(root, previousGeneration);
   const paths = writeReport({ report, outputDirectory: runDirectory });
+  const verdict = { exitCode, findings: report.findings.length, withheld: report.withheld.length };
+  if (report.verdict === 'audit') {
+    verdict.audit = true;
+    verdict.wouldExit = report.wouldExit;
+  }
   writeFileSync(statusPathFor(root), `${JSON.stringify({
     schemaVersion: STATUS_SCHEMA_VERSION,
     generation,
@@ -112,7 +118,7 @@ export function writeGeneration({ root, report, inputDigest, exitCode, now = new
     measuredAt: now,
     inputDigest,
     reportDigest,
-    verdict: { exitCode, findings: report.findings.length, withheld: report.withheld.length },
+    verdict,
   }, null, STATUS_INDENT)}\n`);
   return { mode: MODE_NEW_GENERATION, generation, ...paths };
 }

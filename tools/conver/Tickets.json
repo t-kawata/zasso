@@ -42281,6 +42281,331 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-20"
+        },
+        {
+          "id": 283,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "smooth-sequences: audit mode, provenance, and sub-check reporting",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-283.md",
+          "invariants": "- [Normal condition] Every check family registers sub-checks; executed + skipped equals the registry size; checks.run is an integer.\n- [Error invariant] An absent or unreadable readings or migration input is a named withheld entry, never a pass; no silent catch.\n- [Internal state invariant] Provenance and readings are read-only; the detector writes only under <root>/smooth-sequences/.\n- [Boundary invariant] No file under ~/shyme/gaia is modified; report schemaVersion is bumped and older reports remain readable.",
+          "background": "- [Goal] /smooth-sequences reports what it actually executed and where its inputs came from: a sub-check registry with executed/skipped status, the artifact migration provenance, the educe readings summary (inquest/adversarial/uncovered), and the coverage denominator. The verdict and finding set do not change.\n- [Purpose] The current report collapses seven check families into `checks: run=7`, hides the v2→v3 migration that synthesized typed contracts, and never surfaces educe's 3,768 inquest answers (201 Yes) or the coverage denominator. A reader cannot tell which sub-checks ran, which were skipped, or whether the artifact was migrated.\n- [Motivation] The audit of ~/shyme/gaia found that the pass was achieved over a migrated v3 artifact whose 300 authored prose contracts were replaced; the report showed only 0 findings. The next /smooth-sequences run must be observable: it must show provenance, executed/skipped sub-checks, and unresolved readings, while leaving the workspace in a state the repair loop can act on.\n- [Constraints] Change only ~/shyme/zasso/tools/conver; never edit ~/shyme/gaia. Reading or running the detector against gaia is allowed only for observation. The new reporting must not change the exit code or the finding set. The existing `checks: run=N failed=M` line remains for backward compatibility; new detail is additive. No new dependency, no unwrap-style silent catch, no hardcoded path. Report schemaVersion is bumped and the reader tolerates the previous schema.",
+          "scope": [
+            "Add .claude/scripts/smooth-sequences/lib/check-registry.mjs declaring every sub-check {id, family, appliesTo(index), run(index), reasonWhenSkipped}; the union of executed and skipped equals the registry.",
+            "Refactor .claude/scripts/smooth-sequences/run.mjs to build checks = {families, run, skipped, failed, subChecks}; keep checks.run an integer (executed sub-checks) and add checks.families for the previous family count.",
+            "Add .claude/scripts/smooth-sequences/lib/provenance.mjs reading artifact.migration and step.contract_prose; report {status, fromSchemaVersion, toSchemaVersion, sourceDigest, migratedBy, proseContract: {total, preserved, missing}}.",
+            "Add .claude/scripts/smooth-sequences/lib/readings-summary.mjs reading <root>/educe-sequences/readings-inquest.jsonl, readings-adversarial.jsonl, and readings-uncovered.jsonl; report counts by lens and answer and a capped list of unresolved Yes subjects; absent -> status not-available; unreadable -> a named withheld entry.",
+            "Extend lib/report.mjs and the JSON/Markdown schemas with provenance, checks.subChecks, readings, and denominator; keep the existing fields.",
+            "Extend the console report with one provenance line, one readings line, and one line per skipped sub-check, capped.",
+            "Add --audit to the detector: run all families, report every finding, exit 0, and write verdict: audit with wouldExit: 1 when findings exist; non-audit behavior is unchanged.",
+            "Preserve the v2 prose contract in lib/migrate-v3.mjs: when the input step.contract is a non-empty string, write contract_prose before overwriting contract; a v3 step with contract_prose keeps it; a second migration is byte-identical.",
+            "Update .claude/commands/smooth-sequences.md to document --audit, the provenance/readings fields, and that they do not change the verdict.",
+            "Add fixtures: a v2 artifact with string contracts; a v3 artifact with contract_prose; a workspace with educe readings including 201 Yes-like records; a workspace with no readings; a workspace with an unreadable readings file.",
+            "Add unit and integration tests for every field, audit mode, prose preservation, and backward compatibility."
+          ],
+          "testUnit": [
+            "UT: [Normal] check registry lists every sub-check id with status executed when its predicate holds; the union of executed and skipped equals the registry size.",
+            "UT: [Normal] provenance reads artifact.migration and reports fromSchemaVersion 2, toSchemaVersion 3, migratedBy smooth-sequences/migrate-v3, and sourceDigest.",
+            "UT: [Normal] a v3 artifact with no migration field reports provenance.status not-recorded and does not fail.",
+            "UT: [Normal] readings summary parses readings-inquest.jsonl (subject, lens, answer), counts Yes and No by lens, and caps the unresolved subject list with '…and N more'.",
+            "UT: [Error] an unreadable readings file yields a named withheld entry; a malformed JSONL line is withheld, not silently dropped.",
+            "UT: [Boundary] a workspace with no educe-sequences readings reports readings.status not-available.",
+            "UT: [Boundary] the Markdown report caps findings at 200 and prints '…and N more findings'; the JSON report is complete.",
+            "UT: [Invariant] --audit exits 0 and writes verdict audit; without --audit the same workspace keeps its previous exit code and finding set.",
+            "UT: [Contract C001] a v2 step with a string contract is migrated with contract_prose equal to the original string and contract is a typed object; a second migration produces identical bytes.",
+            "UT: [Contract C002] the report carries readings.inquest.byAnswer.Yes and a capped list of unresolved subjects; the readings are never findings and the exit code is unchanged.",
+            "UT: [Contract C003] when a sub-check condition is false, checks.subChecks records status skipped with a reason and checks.run counts only executed sub-checks; executed + skipped equals the registry size.",
+            "UT: [Backward compatibility] an existing fixture produces the same findings and exit code; checks.run remains an integer and checks.families equals 7.",
+            "UT: [Provenance] a v2-to-v3 migration with 300 prose contracts reports total 300 and preserved 300 after the new migration; a v3 artifact without prose reports preserved 0 and missing 300."
+          ],
+          "testIntegration": [
+            "IT: [Detector + report] run the detector on a temp workspace with a v2 artifact, packages, and educe readings; assert the JSON/Markdown fields and the unchanged exit code.",
+            "IT: [migrate-v3 + detector] run migrate-v3.mjs then run.mjs on the same fixture; assert contract_prose preservation, provenance, and a byte-identical second migration.",
+            "IT: [Audit mode] run --audit on a fixture with a known finding; assert exit 0, verdict audit, wouldExit 1, and the finding is still listed.",
+            "IT: [Gaia read-only] copy the gaia workspace to a temp directory and run the detector there; assert no file under the original ~/shyme/gaia path is modified.",
+            "IT: [Related tickets] PX-284 consumes the check registry, provenance, and readings fields; no PX-284 check is enforced here."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] No new runtime log lines; the detector console report carries the provenance and readings summaries.\n- [Metrics] checks.run, checks.skipped, checks.failed, readings.inquest.byAnswer, and provenance.proseContract are machine-readable in SMOOTH-SEQUENCES.json.\n- [Error tracking] Unreadable readings or migration inputs become named withheld entries with a repair hint; no silent catch.\n- [Health check] A second run on an unchanged workspace writes a verification generation and the same summaries.\nReview verification: node --test tests/smooth-sequences/*.test.mjs -> 201 tests, 200 pass, 1 skipped, 0 fail; quality checks 0 issues; final contracts 100%; target validation verifiedEmpty; zero open crimes, stubs or AMBIGUOUS markers; no file under ~/shyme/gaia modified.",
+          "notes": "- [Implementation steps] 1) registry and report schema; 2) provenance and readings; 3) audit mode; 4) prose preservation; 5) fixtures/tests; 6) command documentation.\n- [Risks] The report schema is consumed by tests and downstream tools; bump schemaVersion and keep a tolerant reader. The readings parser must not turn a malformed line into a silent pass.\n- [Caveats] PX-283 does not change the verdict. The checks that make gaia red are PX-284. The gaia run after both tickets must not short-circuit to pass.\n- [Open items] The independent authored-contract model is PX-284; this ticket only preserves the prose and reports the projection.\n- [Future improvements] The readings summary can later be promoted to findings once each Yes is classified.\nImplementation summary (PX-283):\n- Added .claude/scripts/smooth-sequences/lib/check-status.mjs, check-registry.mjs, provenance.mjs and readings-summary.mjs.\n- run.mjs now evaluates the check registry, parses --audit, and reports provenance, readings and denominator.\n- report.mjs is schemaVersion 3; buildReport takes one input object; console and Markdown carry the new summaries.\n- migrate-v3 preserves the v2 prose contract as contract_prose; a second migration is byte-identical.\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 174 tests, 173 pass, 1 skipped, 0 fail.\n- Read-only gaia audit on a temp copy: 31/31 sub-checks executed; provenance 2->3 by migrate-v3, prose 0/300 preserved; readings 201 Yes/3567 No, 50 unresolved subjects (+96 more); verdict audit, wouldExit 0.\n- Quality checks: 0 issues.\n- No file under ~/shyme/gaia was modified.\nReview report (PX-283, PX-284):\n- Status gates: both done; final contracts 100%; target validation verifiedEmpty.\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 201 tests, 200 pass, 1 skipped, 0 fail.\n- Quality checks: 0 issues.\n- Translatability greps: no debug output, TODO/FIXME, single-letter vars or magic numbers in the changed source; the only data hit is the word in a comment.\n- Annotation: all 29 changed files carry a PX-283 or PX-284 [::TICKET::] annotation; PX-284 --verify passes for all 29; zero AMBIGUOUS markers. PX-283 per-key verify reports missing only on definitions PX-284 later changed (a false negative of the combined uncommitted tree), not a missing file annotation.\n- Review fix applied: an empty contract.authored object was treated as authored; authoredContractOf now requires at least one typed fact, covered by layer-b-authored.test.mjs.\n- Live gaia read-only audit on a temp copy: 1,937 findings; audit exit 0 / wouldExit 1; enforce exit 1; 434 S1.not-a-sequence-ground-missing, 69 S5.boundary-uncovered, 300 S5.projection-only, 1,134 S6.boundary-effect-drift; S4/S7/S3 are 0 because the live records are already valid/closed; the gaia-shaped fixture proves those checks fire (18/5/9).\n- Residual: the 9 live S3 statuses were closed by the old migration and are not re-opened; the 201 inquest Yes answers remain readings; the next /smooth-sequences repair loop must adjudicate the 1,937 findings.",
+          "acceptanceCriteria": [
+            "[Happy path] A fixture with a v2 artifact and educe readings produces the same findings and exit code as before, plus provenance, checks.subChecks, readings, and denominator in both JSON and Markdown.",
+            "[Error case] An unreadable readings file yields a named withheld surface, not a silent pass; a malformed line is reported.",
+            "[Edge case] A workspace with no readings reports not-available; a v3 artifact with no migration reports not-recorded; a second migration is byte-identical.",
+            "[Audit] --audit exits 0 and writes verdict audit; non-audit is unchanged.",
+            "[Gaia] The ticket modifies no file under ~/shyme/gaia; after the ticket, gaia's next /smooth-sequences run is still not already completed."
+          ],
+          "investigation": "- run.mjs:140 sets checks = { run: CHECK_FAMILIES.length, failed: findings.length }; run is the number of families, not sub-checks.\n- lib/report.mjs builds schemaVersion 2 with checks {run, failed}, withheld, findingsByClass, findings; there is no provenance, readings, or denominator.\n- lib/checks-layer-a.mjs:295-336 iterates ownedOperationUnitsByPackage only; :373-389 checks ownedOperationUnits and crossBoundarySequenceUnits only; :62-72 treats DRAWN_OUTCOMES only and does not require a notASequence ground.\n- lib/checks-layer-b.mjs:77-87 iterates stepsByBoundary (contract.crosses only); :183 skips the error-set comparison when providerErrors.size === 0.\n- lib/migrate-v3.mjs:274 overwrites step.contract with typedContractFor; :145-178 synthesizes facts from the operation envelope and the contract registry; :209-220 normalizeStatusGraph adds missing transition targets as terminal statuses.\n- Audit evidence: 300 v2 prose contracts (22,775 chars); 281 not preserved verbatim in v3; 185/300 v3 steps have zero boundary facts; 15/84 boundaries appear in step facts; 58 boundaries appear in boundary_effects; 434 notASequence with predicateLimb none-applies and no ground; 201 inquest Yes (116 deficiency, 47 omission, 13 contradiction, 25 risk); 18 assigned-only active operations; 5 obligation-only drawn sequences.\n- Existing tests: tests/smooth-sequences/ contains the detector fixtures and unit tests; node --test on the impact set is the verification command; do not run make test.\n- Gaia: smooth-sequences/SMOOTH-SEQUENCES.json schemaVersion 2, checks run=7 failed=0, withheld [], findings []; status generation 1; educe status generation 10 with 18/18 phases done and 3,768 inquest answers.",
+          "boyScoutPlan": "- Extract the inline 7-family list from run.mjs into check-registry.mjs; name the family count and the sub-check count separately.\n- Replace the magic schemaVersion 2 in report.mjs with a named constant and a tolerant reader.\n- Rename the report builder's local variables to domain terms (findingCount, familyCount, subCheckStatuses).\n- Add a named constant for the 200-finding Markdown cap.\n- Replace any silent catch in the readings parser with a withheld entry carrying the file and line.\n- Keep comments in English; explain why readings are not findings and why prose is preserved.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "design: v2 prose contract must survive the v3 migration",
+              "precondition": "A v2 artifact step carries a string contract.",
+              "postcondition": "The migrated v3 step carries contract_prose equal to the original string and contract is a typed object.",
+              "invariant": "A second migration produces identical bytes."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "design: educe readings are reported, not converted to findings",
+              "precondition": "The workspace carries educe-sequences/readings-inquest.jsonl with Yes and No answers.",
+              "postcondition": "The report carries readings.inquest.byAnswer.Yes and a capped list of unresolved subjects.",
+              "invariant": "The readings are never treated as findings; the exit code is unchanged."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "design: checks report executed and skipped sub-checks",
+              "precondition": "The detector runs a check family whose condition is false.",
+              "postcondition": "checks.subChecks records status skipped with a reason; checks.run counts only executed sub-checks.",
+              "invariant": "executed + skipped equals the registry size."
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "default_files": [
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/scripts/smooth-sequences/lib/check-registry.mjs",
+            ".claude/scripts/smooth-sequences/lib/provenance.mjs",
+            ".claude/scripts/smooth-sequences/lib/readings-summary.mjs",
+            ".claude/scripts/smooth-sequences/lib/report.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-a.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-danger.mjs",
+            ".claude/scripts/smooth-sequences/lib/migrate-v3.mjs",
+            ".claude/scripts/smooth-sequences/migrate-v3.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/smooth-sequences/unit/check-registry.test.mjs",
+            "tests/smooth-sequences/unit/provenance.test.mjs",
+            "tests/smooth-sequences/unit/readings-summary.test.mjs",
+            "tests/smooth-sequences/unit/report.test.mjs",
+            "tests/smooth-sequences/integration/audit-mode.test.mjs",
+            "tests/smooth-sequences/fixtures/v2-prose-artifact.json",
+            "tests/smooth-sequences/fixtures/v3-migrated-artifact.json",
+            "tests/smooth-sequences/fixtures/readings-inquest.jsonl"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Contract C001] v2 prose contract survives the migration\n```js\nconst v2 = minimalV2Artifact();\nconst v3 = migrateArtifactToV3({ artifact: v2, treeManifest, allocateManifest, packages });\nassert.equal(v3.steps[0].contract_prose, v2.steps[0].contract);\nassert.equal(typeof v3.steps[0].contract, 'object');\nconst second = migrateArtifactToV3({ ...input, artifact: v3 });\nassert.equal(renderArtifact(second), renderArtifact(v3));\n```",
+            "UT: [Contract C002] inquest readings are summarized, never converted to findings\n```js\nconst workspace = materializeSmoothWorkspace({\n  readings: { inquest: [\n    { subject: 'A-1010', lens: 'omission', answer: 'Yes', line: 1022, quote: 'quote' },\n    { subject: 'A-1010', lens: 'deficiency', answer: 'No', line: 1022, quote: 'quote' },\n  ] },\n});\nconst result = runCommand([workspace.root]);\nassert.equal(result.exitCode, 0);\nassert.equal(result.report.findings.length, 0);\nassert.equal(result.report.readings.inquest.byAnswer.Yes, 1);\nassert.deepEqual(result.report.readings.inquest.unresolvedSubjects, ['A-1010']);\n```",
+            "UT: [Contract C003] every sub-check is executed or skipped with a reason\n```js\nconst registry = createCheckRegistry();\nconst statuses = evaluateSubChecks(registry, index);\nconst executed = statuses.filter((entry) => entry.status === 'executed');\nconst skipped = statuses.filter((entry) => entry.status === 'skipped');\nassert.equal(executed.length + skipped.length, registry.length);\nassert.equal(report.checks.run, executed.length);\nassert.ok(skipped.every((entry) => typeof entry.reason === 'string' && entry.reason.length > 0));\n```",
+            "UT: [Audit mode] audit exits 0 but records the would-be exit\n```js\nconst result = runCommand([workspace.root, '--audit']);\nassert.equal(result.exitCode, 0);\nassert.equal(result.report.verdict, 'audit');\nassert.equal(result.report.wouldExit, 1);\nassert.ok(result.report.findings.length > 0);\n```",
+            "UT: [Backward compatibility] existing report assertions still hold\n```js\nconst report = buildReport({ workspace: { root: '/tmp/x' }, findings: [], withheld: [], checks: { run: 7, failed: 0 } });\nassert.equal(report.schemaVersion, 3);\nassert.ok(Array.isArray(report.checks.subChecks));\nassert.equal(report.provenance.status, 'not-recorded');\nassert.equal(report.readings.status, 'not-available');\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "checks = { run: CHECK_FAMILIES.length, failed }",
+              "after": "checks = { families, run: executed sub-checks, skipped, failed, subChecks }",
+              "description": "Report the executed and skipped sub-checks instead of the seven-family count."
+            },
+            {
+              "before": "report schemaVersion 2 with checks/withheld/findings only",
+              "after": "report schemaVersion 3 with provenance, readings, denominator, verdict and wouldExit",
+              "description": "Make migration provenance and educe readings visible without converting them to findings."
+            },
+            {
+              "before": "run.mjs accepted only a workspace root",
+              "after": "run.mjs accepts --audit, reports every finding, exits 0 and records wouldExit",
+              "description": "Add an observation path that does not enforce the findings."
+            },
+            {
+              "before": "migrate-v3 overwrote the v2 string contract",
+              "after": "migrate-v3 writes contract_prose beside the typed contract and keeps a second run byte-identical",
+              "description": "Preserve the authored prose contract through the v3 migration."
+            },
+            {
+              "before": "check modules returned only a findings array",
+              "after": "collect* functions return { findings, subChecks }; existing check* wrappers remain",
+              "description": "Give every check id an executed or skipped status with a reason."
+            },
+            {
+              "before": "command doc described schemaVersion 2 and no audit flag",
+              "after": "command doc documents schemaVersion 3, --audit, provenance, readings, denominator and readings withheld entries",
+              "description": "Keep the operating contract aligned with the implementation."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
+        },
+        {
+          "id": 284,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "smooth-sequences: harden boundary, distribution, and danger checks",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-284.md",
+          "invariants": "- [Normal condition] Every new sub-check is registered; executed + skipped equals the registry size; each finding names a check id and a repair route.\n- [Error invariant] A missing ground or unreadable input is a finding or withheld entry, never a pass; no silent catch.\n- [Internal state invariant] The checks read the artifact and manifests only; they write only under <root>/smooth-sequences/.\n- [Boundary invariant] Audit mode exits 0 with wouldExit; enforce mode exits 1 on findings; no file under ~/shyme/gaia is modified.",
+          "background": "- [Goal] /smooth-sequences enforces the checks that close the audit's blind spots: all boundary effects, all ownership routes, notASequence grounds, error-set agreement, status terminality, and a distinction between authored contracts and registry projections.\n- [Purpose] The current S5 checks only 15/84 boundaries and compares facts synthesized from the same contract_registry row; S4/S7 skip assigned-only operations and obligation-only sequences; notASequence has no ground; S3 normalization silences transition findings. The next gaia run must surface these gaps instead of returning 0 findings.\n- [Motivation] The audit of ~/shyme/gaia showed that the pass was not proof of contract completeness: 300 authored prose contracts were replaced, 185/300 steps have zero boundary facts, 69 boundaries are never meshed, 18 active operations are assigned-only, 5 drawn sequences are obligation-only, 434 notASequence regions have no ground, and 201 inquest Yes answers are outside the gate. PX-283 makes these visible; PX-284 makes them enforced and falsifiable.\n- [Constraints] Change only ~/shyme/zasso/tools/conver; never edit ~/shyme/gaia. The new checks must be deterministic and testable with fixtures, not with gaia data. No new dependency, no unwrap-style silent catch, no hardcoded path. The command's residual guarantee language remains. The next /smooth-sequences run on gaia after both tickets must not short-circuit to pass.",
+          "scope": [
+            "Register every new sub-check in .claude/scripts/smooth-sequences/lib/check-registry.mjs from PX-283 so checks.subChecks reports executed or skipped with a reason.",
+            "S5 boundary coverage: collect every boundary named by an active operation's boundary_effects and every boundary: fact id; require a step contract.crosses or a boundary ground; emit S5.boundary-uncovered naming the boundary and the operation.",
+            "S5 projection/authored separation: read contract_prose (PX-283) and contract.authored {pre, post, consumes, produces, errors}; emit S5.projection-only when a step has only a registry projection; never claim a projection-only step is meshed.",
+            "S5 error-set agreement: remove the providerErrors.size === 0 skip in checkConsumerContracts; emit S5.error-set-mismatch when a consumer expects a boundary error the provider does not declare.",
+            "S4 contribution completeness: check every active operation reachable through ownedOperationUnits or obligationUnits, including assigns-only operations; emit S4.contribution-unowned when registry_contribution or the distribution-ledger row is missing.",
+            "S7 obligation-unit validation: validate obligationUnits subjects that name a sequence or operation; emit S7.obligation-unit-unknown when the artifact does not declare the subject.",
+            "S1 notASequence ground: require a non-empty ground, reason, grounding.classification, or external ground reference for every notASequence region; predicateLimb none-applies alone is insufficient; emit S1.not-a-sequence-ground-missing.",
+            "S3 status terminality: stop normalizeStatusGraph from silently adding a transition target as a terminal status; require an explicit status_terminality_ground or emit S3.transition-target-unknown.",
+            "S6 boundary-effect drift: emit S6.boundary-effect-drift when an operation declares a boundary_effect that none of its steps crosses and no ground covers.",
+            "Make the new checks enforced by default; --audit from PX-283 reports every finding with exit 0 and wouldExit; without --audit, findings exit 1.",
+            "Add fixtures modeled on the gaia counts without containing gaia data: 84 boundaries, 15 crossed, 69 boundary_effects-only; 18 assigned-only active operations; 5 obligation-only drawn sequences; 434 notASequence without grounds; 9 normalized statuses; projection-only contracts.",
+            "Update .claude/commands/smooth-sequences.md Appendix A/C to name the new check ids, the ground escapes, the audit/enforce distinction, and the residual guarantees.",
+            "Add unit and integration tests for every new finding and for the no-finding case; assert that the gaia-shaped fixture is red in enforce mode and observable in audit mode."
+          ],
+          "testUnit": [
+            "UT: [Normal] S5 boundary coverage: a fixture with 84 boundaries, 15 crossed, 69 declared by boundary_effects but uncrossed and ungrounded emits 69 S5.boundary-uncovered findings.",
+            "UT: [Normal] a non-empty boundary ground suppresses S5.boundary-uncovered and the count drops to 0.",
+            "UT: [Normal] S5 projection-only: a step with typed facts but no authored facts or contract_prose emits S5.projection-only and is not reported as meshed.",
+            "UT: [Normal] S5 authored meshing: a provider with authored post and a consumer with authored pre is meshed; a consumer pre not implied by the provider post emits S5.precondition-not-implied.",
+            "UT: [Normal] S5 error-set: when the provider declares no boundary errors and the consumer expects one, S5.error-set-mismatch is emitted; the providerErrors.size === 0 skip is gone.",
+            "UT: [Normal] S4 assigned-only operation: an active operation reachable only through obligationUnits and not ownedOperationUnits is checked for registry_contribution and the distribution-ledger row; a missing row emits S4.contribution-unowned.",
+            "UT: [Normal] S7 obligation-only sequence: a drawn sequence in obligationUnits is validated; an unknown subject emits S7.obligation-unit-unknown.",
+            "UT: [Normal] S1 notASequence ground: a region with predicateLimb none-applies and no ground emits S1.not-a-sequence-ground-missing; a non-empty ground or grounding.classification suppresses it.",
+            "UT: [Normal] S3 status terminality: a transition target not declared and with no status_terminality_ground emits S3.transition-target-unknown; a grounded terminal emits nothing.",
+            "UT: [Normal] S6 boundary-effect drift: an operation boundary_effect not crossed by any of its steps and not grounded emits S6.boundary-effect-drift.",
+            "UT: [Boundary] a fixture with all grounds, authored contracts, and obligation units produces 0 findings.",
+            "UT: [Contract C001] boundary_effects declares a boundary, contract.crosses has none, and no boundary ground exists, so S5.boundary-uncovered is emitted; a non-empty boundary ground suppresses the finding and an uncovered boundary is never silently skipped.",
+            "UT: [Contract C002] a v3 step with only a registry projection and no authored contract facts or contract_prose emits S5.projection-only; a projection-only contract never produces a meshing verdict; a step with authored facts is meshed.",
+            "UT: [Contract C003] a notASequence region with predicateLimb none-applies and no ground emits S1.not-a-sequence-ground-missing; a non-empty ground or grounding.classification suppresses the finding.",
+            "UT: [Contract C004] an active operation reachable only through obligationUnits and not ownedOperationUnits is checked for registry_contribution and its distribution-ledger row; no active operation is skipped because of its ownership route.",
+            "UT: [Audit/enforce] the gaia-shaped fixture in --audit exits 0 with every finding listed and wouldExit 1; without --audit it exits 1.",
+            "UT: [Backward compatibility] a fixture with no boundary_effects, no obligationUnits, and no projection-only steps behaves as before and emits no new findings."
+          ],
+          "testIntegration": [
+            "IT: [Gaia-shaped fixture] a temp workspace with 84 boundaries, 15 crossed, 69 boundary_effects-only, 18 assigned-only operations, 5 obligation-only drawn sequences, 434 notASequence without grounds, 9 normalized statuses, and projection-only contracts; audit lists every gap and enforce exits 1.",
+            "IT: [Registry + report] every new sub-check appears in checks.subChecks with executed or skipped status; each finding names the check id and a repair route.",
+            "IT: [Read-only gaia] copy the gaia workspace to a temp directory and run the detector there; assert no file under the original ~/shyme/gaia path is modified and the run is not a verification generation that passes silently.",
+            "IT: [Related tickets] PX-283 supplies check-registry, provenance, and readings; PX-284 adds only finding classes and does not remove a PX-283 field."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] No new runtime log lines; the console report names the new check ids and the repair route.\n- [Metrics] SMOOTH-SEQUENCES.json carries checks.subChecks, findingsByClass, and the new finding ids; audit mode carries wouldExit.\n- [Error tracking] A missing ground is a finding, not a swallowed error; an unreadable artifact remains a named refusal.\n- [Health check] A second run on an unchanged workspace reproduces the same findings and does not downgrade a finding to a pass.\nReview verification: node --test tests/smooth-sequences/*.test.mjs -> 201 tests, 200 pass, 1 skipped, 0 fail; quality checks 0 issues; final contracts 100%; target validation verifiedEmpty; zero open crimes, stubs or AMBIGUOUS markers; no file under ~/shyme/gaia modified.",
+          "notes": "- [Implementation steps] 1) register the new sub-checks; 2) S5 boundary coverage and projection/authored separation; 3) S4/S7 ownership routes; 4) S1/S3/S6 grounds; 5) fixtures and tests; 6) command documentation.\n- [Risks] The new checks will make existing workspaces red, including gaia. That is the intended effect; do not adjudicate gaia data in this ticket. Audit mode must remain the safe observation path.\n- [Caveats] The independent authored-contract model is represented by contract_prose and contract.authored; a full re-reading of all 300 steps is deliberately left to the next /smooth-sequences repair loop.\n- [Open items] The 201 inquest Yes answers remain readings, not findings; PX-283 reports them. Their adjudication is the next repair loop.\n- [Future improvements] Promote the readings summary to findings after each Yes is classified, and add a sequence-level census when an independent one exists.\nImplementation summary (PX-284):\n- Added S1.not-a-sequence-ground-missing, S4.contribution-unowned, S5.boundary-uncovered, S5.projection-only, S6.boundary-effect-drift and S7.obligation-unit-unknown to the check registry and repair routes.\n- S5 reads contract.authored and never meshes a projection-only step; the error-set skip is removed.\n- S4 merges owned and obligation operation units; S7 validates obligation subjects.\n- The v2-to-v3 migration closes a status target only with status_terminality_ground.\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 200 tests, 199 pass, 1 skipped, 0 fail.\n- Quality checks: 0 issues.\n- Read-only gaia audit on a temp copy: 1,937 findings (434 S1 not-a-sequence-ground-missing, 69 S5 boundary-uncovered, 300 S5 projection-only, 1,134 S6 boundary-effect-drift); audit exit 0, enforce exit 1. S4/S7/S3 are 0 on the live data because its contribution/obligation/status records are already valid; the gaia-shaped fixture proves those checks fire (18/5/9).\n- No file under ~/shyme/gaia was modified.\nReview report (PX-283, PX-284):\n- Status gates: both done; final contracts 100%; target validation verifiedEmpty.\n- Tests: node --test tests/smooth-sequences/*.test.mjs -> 201 tests, 200 pass, 1 skipped, 0 fail.\n- Quality checks: 0 issues.\n- Translatability greps: no debug output, TODO/FIXME, single-letter vars or magic numbers in the changed source; the only data hit is the word in a comment.\n- Annotation: all 29 changed files carry a PX-283 or PX-284 [::TICKET::] annotation; PX-284 --verify passes for all 29; zero AMBIGUOUS markers. PX-283 per-key verify reports missing only on definitions PX-284 later changed (a false negative of the combined uncommitted tree), not a missing file annotation.\n- Review fix applied: an empty contract.authored object was treated as authored; authoredContractOf now requires at least one typed fact, covered by layer-b-authored.test.mjs.\n- Live gaia read-only audit on a temp copy: 1,937 findings; audit exit 0 / wouldExit 1; enforce exit 1; 434 S1.not-a-sequence-ground-missing, 69 S5.boundary-uncovered, 300 S5.projection-only, 1,134 S6.boundary-effect-drift; S4/S7/S3 are 0 because the live records are already valid/closed; the gaia-shaped fixture proves those checks fire (18/5/9).\n- Residual: the 9 live S3 statuses were closed by the old migration and are not re-opened; the 201 inquest Yes answers remain readings; the next /smooth-sequences repair loop must adjudicate the 1,937 findings.",
+          "acceptanceCriteria": [
+            "[Happy path] The gaia-shaped fixture in audit mode reports 69 S5.boundary-uncovered, 18 S4.contribution-unowned, 5 S7.obligation-unit-unknown, 434 S1.not-a-sequence-ground-missing, the S5.projection-only findings, and 9 S3 findings, and exits 0.",
+            "[Error case] The same fixture in enforce mode exits 1 with every finding listed and a repair route.",
+            "[Edge case] A fixture with all grounds, authored contracts, and obligation units produces 0 findings.",
+            "[Gaia] After both tickets, the next /smooth-sequences run on gaia is not already completed; it must produce findings rather than a verification pass.",
+            "[Safety] The ticket modifies no file under ~/shyme/gaia."
+          ],
+          "investigation": "- lib/checks-layer-b.mjs:77-87 iterates stepsByBoundary (contract.crosses only), so a boundary named only by boundary_effects is never meshed; :130-151 selects provider/consumer steps from ownersOf; :183 skips when providerErrors.size === 0.\n- lib/checks-layer-a.mjs:295-336 iterates ownedOperationUnitsByPackage only; :373-389 checks ownedOperationUnits and crossBoundarySequenceUnits only; :62-72 treats DRAWN_OUTCOMES only and does not require a notASequence ground.\n- lib/migrate-v3.mjs:274 overwrites step.contract with typedContractFor; :145-178 synthesizes facts from the operation envelope and the contract registry; :209-220 normalizeStatusGraph adds missing transition targets as terminal statuses.\n- Audit evidence: 300 v2 prose contracts (22,775 chars); 281 not preserved verbatim in v3; 185/300 v3 steps have zero boundary facts; 15/84 boundaries appear in step facts; 58 boundaries appear in boundary_effects; 434 notASequence with predicateLimb none-applies and no ground; 201 inquest Yes; 18 assigned-only active operations; 5 obligation-only drawn sequences; 9 S3 transition-target repairs.\n- Existing tests: tests/smooth-sequences/ contains detector fixtures and unit tests; node --test on the impact set is the verification command; do not run make test.\n- Gaia: smooth-sequences/SMOOTH-SEQUENCES.json schemaVersion 2, checks run=7 failed=0; educe status generation 10, 18/18 phases done, 3,768 inquest answers. The next run must not short-circuit to a pass.",
+          "boyScoutPlan": "- Extract the boundary fact collection shared by S5 and S6 into one helper with a domain name; remove the duplicate startsWith checks.\n- Name the boundary-fact prefix, the notASequence outcomes, and the require-ground vocabulary as constants.\n- Rename the local `sides`/`units` variables to providerPackage/consumerPackage and ownedByOperation.\n- Replace the silent providerErrors.size === 0 return with an explicit documented predicate.\n- Split the boundary coverage check from the error-set check so each has one responsibility.\n- Keep comments in English; state why a projection is not a meshing verdict.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "design: every declared boundary effect is checked or grounded",
+              "precondition": "An active operation declares boundary_effects for a boundary, no step declares contract.crosses for it, and no boundary ground exists.",
+              "postcondition": "The detector emits S5.boundary-uncovered naming the boundary and the operation.",
+              "invariant": "A non-empty boundary ground suppresses the finding; an uncovered boundary is never silently skipped."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "design: a registry projection is not an authored contract",
+              "precondition": "A v3 step carries only a registry projection and no authored contract facts or contract_prose.",
+              "postcondition": "The detector emits S5.projection-only and does not claim the step is meshed.",
+              "invariant": "A projection-only contract never produces a meshing verdict."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "design: notASequence requires a ground",
+              "precondition": "A notASequence region carries predicateLimb none-applies and no ground.",
+              "postcondition": "The detector emits S1.not-a-sequence-ground-missing.",
+              "invariant": "A non-empty ground or grounding.classification suppresses the finding."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "design: ownership route does not excuse contribution",
+              "precondition": "An active operation is reachable only through obligationUnits and not ownedOperationUnits.",
+              "postcondition": "The detector checks its registry_contribution and distribution-ledger row.",
+              "invariant": "No active operation is skipped because of its ownership route."
+            }
+          ],
+          "created_at": "2026-10-21",
+          "updated_at": "2026-10-21",
+          "default_files": [
+            ".claude/scripts/smooth-sequences/lib/check-registry.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-a.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-danger.mjs",
+            ".claude/scripts/smooth-sequences/lib/index.mjs",
+            ".claude/scripts/smooth-sequences/lib/migrate-v3.mjs",
+            ".claude/scripts/smooth-sequences/lib/report.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/commands/smooth-sequences.md",
+            "tests/smooth-sequences/unit/checks-layer-a.test.mjs",
+            "tests/smooth-sequences/unit/checks-layer-b.test.mjs",
+            "tests/smooth-sequences/unit/checks-danger.test.mjs",
+            "tests/smooth-sequences/integration/gaia-shaped.test.mjs",
+            "tests/smooth-sequences/fixtures/gaia-shaped-workspace/",
+            "tests/smooth-sequences/fixtures/all-grounded-workspace/"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Contract C001] an uncrossed boundary effect is a finding and a ground suppresses it\n```js\nconst artifact = minimalV3Artifact();\nartifact.operations[0].boundary_effects = [{ boundary: 'boundary-009', direction: 'provides' }];\nconst treeManifest = defaultTreeManifest();\ntreeManifest.dependencies.boundaries.push({ id: 'boundary-009', provider_package: 'pkg-0001', consumer_package: 'pkg-0002', stage2_contract_scope: [] });\nconst registry = [...defaultContractRegistry(), { boundary_id: 'boundary-009', provider_package: 'pkg-0001', consumer_package: 'pkg-0002', clauses: {}, source_refs: [] }];\nconst allocateManifest = defaultAllocateManifest(registry);\nconst workspace = materializeSmoothWorkspace({ artifact, treeManifest, allocateManifest });\nconst result = runCommand([workspace.root, '--audit']);\nassert.ok(result.report.findings.some((finding) => finding.checkId === 'S5.boundary-uncovered' && finding.subject.includes('boundary-009')));\nartifact.boundary_grounds = [{ boundary: 'boundary-009', ground: 'the boundary is not crossed by an enumerated sequence' }];\nconst grounded = runCommand([materializeSmoothWorkspace({ artifact, treeManifest, allocateManifest }).root, '--audit']);\nassert.equal(grounded.report.findings.filter((finding) => finding.checkId === 'S5.boundary-uncovered').length, 0);\n```",
+            "UT: [Contract C002] a projection-only step is named and never meshed\n```js\nconst artifact = minimalV3Artifact();\nartifact.steps[0].contract = { ...artifact.steps[0].contract, authored: undefined };\ndelete artifact.steps[0].contract_prose;\nconst workspace = materializeSmoothWorkspace({ artifact });\nconst result = runCommand([workspace.root, '--audit']);\nassert.ok(result.report.findings.some((finding) => finding.checkId === 'S5.projection-only' && finding.subject === artifact.steps[0].id));\nassert.ok(!result.report.findings.some((finding) => finding.checkId === 'S5.precondition-not-implied' || finding.checkId === 'S5.consumes-not-produced'));\nconst authored = minimalV3Artifact();\nconst authoredResult = runCommand([materializeSmoothWorkspace({ artifact: authored }).root, '--audit']);\nassert.ok(!authoredResult.report.findings.some((finding) => finding.checkId === 'S5.projection-only'));\n```",
+            "UT: [Contract C003] a notASequence region without a ground is a finding\n```js\nconst artifact = minimalV3Artifact();\nartifact.sequences.push({ id: 'G-1', kind: 'neighbour', firstLine: 1, lastLine: 10, outcome: 'notASequence', predicateLimb: 'none-applies' });\nconst workspace = materializeSmoothWorkspace({ artifact });\nconst result = runCommand([workspace.root, '--audit']);\nassert.ok(result.report.findings.some((finding) => finding.checkId === 'S1.not-a-sequence-ground-missing' && finding.subject === 'G-1'));\nartifact.sequences.at(-1).grounding = { classification: 'no actor performs an ordered act' };\nconst grounded = runCommand([materializeSmoothWorkspace({ artifact }).root, '--audit']);\nassert.equal(grounded.report.findings.filter((finding) => finding.checkId === 'S1.not-a-sequence-ground-missing').length, 0);\n```",
+            "UT: [Contract C004] an assigned-only operation is checked through its obligation unit\n```js\nconst artifact = minimalV3Artifact();\nartifact.operations.push(operationRow('AssignedOnly', { registry_contribution: 'required' }));\nconst treeManifest = defaultTreeManifest();\nconst views = {\n  'pkg-0001': { ...packageView({ packageId: 'pkg-0001', operationId: 'ProduceFact', direction: 'provides', counterpart: 'pkg-0002', sequenceIds: ['A-1'], crossSequences: [{ sequenceId: 'A-1', ownerPackageIds: ['pkg-0001', 'pkg-0002'] }] }), obligationUnits: [\n    { unitId: 'ctr-boundary-001', relation: 'carries', subject: 'boundary-001', direction: 'provides', counterpart: 'pkg-0002' },\n    { unitId: 'op-AssignedOnly', relation: 'assigns', subject: 'AssignedOnly', kind: 'operation' },\n  ] },\n  'pkg-0002': packageView({ packageId: 'pkg-0002', operationId: 'ConsumeFact', direction: 'consumes', counterpart: 'pkg-0001', crossSequences: [{ sequenceId: 'A-1', ownerPackageIds: ['pkg-0001', 'pkg-0002'] }] }),\n};\nconst workspace = materializeSmoothWorkspace({ artifact, treeManifest, views });\nconst result = runCommand([workspace.root, '--audit']);\nassert.ok(result.report.findings.some((finding) => finding.checkId === 'S4.contribution-unowned' && finding.subject.includes('AssignedOnly')));\n```",
+            "IT: [Gaia-shaped fixture] audit lists the known gaps and enforce exits 1\n```js\nconst workspace = gaiaShapedWorkspace();\nconst audit = runCommand([workspace.root, '--audit']);\nassert.equal(audit.exitCode, 0);\nassert.equal(audit.report.verdict, 'audit');\nassert.equal(audit.report.wouldExit, 1);\nassert.equal(audit.report.findings.filter((finding) => finding.checkId === 'S5.boundary-uncovered').length, 69);\nassert.equal(audit.report.findings.filter((finding) => finding.checkId === 'S4.contribution-unowned').length, 18);\nassert.equal(audit.report.findings.filter((finding) => finding.checkId === 'S7.obligation-unit-unknown').length, 5);\nassert.equal(audit.report.findings.filter((finding) => finding.checkId === 'S1.not-a-sequence-ground-missing').length, 434);\nconst enforced = runCommand([workspace.root]);\nassert.equal(enforced.exitCode, 1);\n```"
+          ],
+          "startedAt": "2026-10-21",
+          "changes": [
+            {
+              "before": "S5 meshed only the boundaries a step declared in contract.crosses",
+              "after": "S5 checks every tree boundary; a boundary with no crossing step and no boundary_grounds entry is S5.boundary-uncovered",
+              "description": "Check every declared boundary effect, not only the crossed subset."
+            },
+            {
+              "before": "S5 compared typed facts synthesized from the same contract registry",
+              "after": "S5 reads contract.authored; a step with neither authored facts nor contract_prose is S5.projection-only and is never meshed",
+              "description": "Separate an authored contract from a registry projection."
+            },
+            {
+              "before": "S5 skipped the error-set comparison when the provider declared no boundary errors",
+              "after": "S5 compares the consumer error set even when the provider set is empty",
+              "description": "Remove the providerErrors.size === 0 escape."
+            },
+            {
+              "before": "S4 contribution iterated ownedOperationUnits only",
+              "after": "S4 merges owned and obligation operation units; an assigned-only operation without a contribution or ledger row is S4.contribution-unowned",
+              "description": "Check every active operation regardless of its ownership route."
+            },
+            {
+              "before": "S7 validated owned and cross-boundary units only",
+              "after": "S7 validates obligationUnits operation/sequence subjects and emits S7.obligation-unit-unknown",
+              "description": "Validate the obligation surface that carries assigned units."
+            },
+            {
+              "before": "S1 treated predicateLimb none-applies as a complete notASequence ruling",
+              "after": "S1 requires ground, reason, grounding.classification, or ground_ref and emits S1.not-a-sequence-ground-missing",
+              "description": "Require a ground for every negative sequence ruling."
+            },
+            {
+              "before": "normalizeStatusGraph added every missing transition target as a terminal status",
+              "after": "the migration closes a target only when status_terminality_ground states it is terminal; otherwise S3.transition-target-unknown remains",
+              "description": "Stop the migration from silently inventing terminal statuses."
+            },
+            {
+              "before": "S6 had no boundary-effect drift check",
+              "after": "S6 emits S6.boundary-effect-drift when an operation effect has no matching step crossing and no boundary_grounds entry",
+              "description": "Make an operation-to-step boundary effect mismatch a danger."
+            },
+            {
+              "before": "the repair route table had no entries for the new check ids",
+              "after": "S1.not-a-sequence-ground-missing, S4.contribution-unowned, S5.boundary-uncovered, S5.projection-only, S6.boundary-effect-drift and S7.obligation-unit-unknown each have a route",
+              "description": "Keep every emitted check id repairable and the route table exhaustive."
+            },
+            {
+              "before": "the clean fixture had only registry-projected steps and no obligation or ground fixtures",
+              "after": "the fixture carries contract.authored; projection-only, notASequence-ground, assigned-only, status-ground, drift and gaia-shaped fixtures are added",
+              "description": "Prove each new check fires on a fixture and stays quiet on the grounded one."
+            },
+            {
+              "before": "Appendix A described the pre-PX-284 check families",
+              "after": "Appendix A names boundary coverage, projection-only, assigned-only contribution, obligation-unit validation, notASequence ground and boundary-effect drift",
+              "description": "Keep the operating contract aligned with the enforced checks."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-21"
         }
       ]
     },

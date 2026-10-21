@@ -153,19 +153,28 @@ function buildBoundaryMaps(loaded) {
 }
 
 /** The package records, their views, and the operations each view owns. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
 function buildPackageMaps(packages) {
   const ownedOperationUnitsByPackage = new Map();
   const ownedOperationIdsByPackage = new Map();
+  const obligationOperationUnitsByPackage = new Map();
+  const obligationSequenceUnitsByPackage = new Map();
   for (const pkg of packages) {
     const units = pkg.view?.ownedOperationUnits ?? [];
     ownedOperationUnitsByPackage.set(pkg.id, units);
     ownedOperationIdsByPackage.set(pkg.id, new Set(units.map((unit) => unit.operationId)));
+    const obligationUnits = pkg.view?.obligationUnits ?? [];
+    obligationOperationUnitsByPackage.set(pkg.id, obligationUnits.filter((unit) =>
+      unit.kind === 'operation' || String(unit.unitId ?? '').startsWith('op-')));
+    obligationSequenceUnitsByPackage.set(pkg.id, obligationUnits.filter((unit) =>
+      unit.kind === 'sequence' || String(unit.unitId ?? '').startsWith('seq-')));
   }
   return {
     packagesById: new Map(packages.map((pkg) => [pkg.id, pkg])),
     viewsByPackage: new Map(packages.filter((pkg) => pkg.view !== null).map((pkg) => [pkg.id, pkg.view])),
     ownedOperationUnitsByPackage,
     ownedOperationIdsByPackage,
+    obligationOperationUnitsByPackage,
+    obligationSequenceUnitsByPackage,
   };
 }

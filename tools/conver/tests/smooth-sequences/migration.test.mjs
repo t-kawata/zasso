@@ -55,6 +55,23 @@ test('C002 a second migration run is byte-identical', () => {
   }
 });
 
+// @verifies C001
+// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+test('C001 the v2 prose contract is preserved beside the typed contract', () => {
+  const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
+  try {
+    const input = migrationInput(workspace);
+    const v3 = migrateArtifactToV3(input);
+    for (const [index, step] of v3.steps.entries()) {
+      assert.equal(step.contract_prose, input.artifact.steps[index].contract);
+      assert.equal(typeof step.contract, 'object');
+    }
+    assert.equal(renderArtifact(migrateArtifactToV3({ ...input, artifact: v3 })), renderArtifact(v3));
+  } finally {
+    workspace.remove();
+  }
+});
+
 test('the migration derives the crossing and the typed contract from structured records', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   try {
