@@ -6,6 +6,7 @@
  *   node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason="..."
  *   node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason="..."
  *   node .claude/scripts/regeneration/run.mjs open --tree-decisions=<candidate> --reason="..."
+ *   node .claude/scripts/regeneration/run.mjs open --annotations=<candidate> --reason="..."
  *   node .claude/scripts/regeneration/run.mjs status
  *   node .claude/scripts/regeneration/run.mjs continue [--transaction=<id>]
  *   node .claude/scripts/regeneration/run.mjs derive [--transaction=<id>]
@@ -34,7 +35,7 @@ import {
   verifyGeneration,
 } from './lib/transaction.mjs';
 
-const USAGE = 'usage: run.mjs <open|status|continue|derive|verify|commit|abort|recover> [--spec=] [--allocate-decisions=] [--tree-decisions=] [--reason=] [--transaction=]';
+const USAGE = 'usage: run.mjs <open|status|continue|derive|verify|commit|abort|recover> [--spec=] [--allocate-decisions=] [--tree-decisions=] [--annotations=] [--reason=] [--transaction=]';
 const FORBIDDEN = new Set(['--force', '--hash', '--source-hash']);
 const NEXT_OPEN = 'node .claude/scripts/regeneration/run.mjs open';
 const NEXT_CONTINUE = 'node .claude/scripts/regeneration/run.mjs continue';
@@ -55,18 +56,20 @@ function display(value) {
 }
 
 /** A detector run over one workspace root. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287) --for-spec --no-implementation-order`.
 function detect({ root, allowTransaction }) {
   const result = runCommand([root], { stdout: () => {}, stderr: () => {}, allowTransaction });
   return {
     exitCode: result.exitCode,
     findings: result.report?.findings ?? [],
     withheld: result.report?.withheld ?? [],
+    blocked: result.report?.blocked ?? [],
+    readings: result.report?.readings ?? null,
   };
 }
 
 /** Parse the command line, refusing any force or hash argument. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const [command, ...rest] = argv;
   const options = {};
@@ -81,6 +84,7 @@ function parseArguments(argv) {
     if (arg.startsWith('--spec=')) options.spec = arg.slice('--spec='.length);
     else if (arg.startsWith('--allocate-decisions=')) options.allocateDecisions = arg.slice('--allocate-decisions='.length);
     else if (arg.startsWith('--tree-decisions=')) options.treeDecisions = arg.slice('--tree-decisions='.length);
+    else if (arg.startsWith('--annotations=')) options.annotations = arg.slice('--annotations='.length);
     else if (arg.startsWith('--reason=')) options.reason = arg.slice('--reason='.length);
     else if (arg.startsWith('--transaction=')) options.transaction = arg.slice('--transaction='.length);
     else if (arg.startsWith('--')) {
@@ -108,7 +112,7 @@ function transactionIdOf(root, options) {
 }
 
 /** Print the identity and next command of one transaction. */
-// [::TICKET::] PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280|PX-287) --for-spec --no-implementation-order`.
 function printTransaction(entry, status) {
   process.stdout.write(`id: ${entry.id}\n`);
   process.stdout.write(`state: ${entry.state}\n`);
@@ -117,11 +121,12 @@ function printTransaction(entry, status) {
   process.stdout.write(`candidate-spec: ${display(entry.candidateSpec)}\n`);
   process.stdout.write(`candidate-allocate-decisions: ${display(entry.candidateAllocateDecisions)}\n`);
   process.stdout.write(`candidate-tree-decisions: ${display(entry.candidateTreeDecisions)}\n`);
+  process.stdout.write(`candidate-annotations: ${display(entry.candidateAnnotations)}\n`);
   process.stdout.write(`next: ${status.next}\n`);
 }
 
 /** Print the unverified chain links and detector findings. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
 function printUnverified(receipt) {
   for (const link of receipt?.chain?.links ?? []) {
     if (!link.ok) process.stdout.write(`link: ${link.link} ${link.code} expected=${display(link.expected)} actual=${display(link.actual)}\n`);
@@ -129,16 +134,40 @@ function printUnverified(receipt) {
   for (const finding of receipt?.detector?.findings ?? []) {
     process.stdout.write(`finding: ${finding.checkId} ${display(finding.subject)} — ${display(finding.fix)}\n`);
   }
+  if (receipt?.debt?.increase?.increased) {
+    process.stdout.write('code: DEBT_INCREASED\n');
+    for (const identity of receipt.debt.increase.newFindings ?? []) {
+      process.stdout.write(`new-finding: ${identity.replace('\u0000', ' ')}\n`);
+    }
+    for (const checkId of receipt.debt.increase.newBlocked ?? []) {
+      process.stdout.write(`new-blocked: ${checkId}\n`);
+    }
+    for (const subject of receipt.debt.increase.newReadingSubjects ?? []) {
+      process.stdout.write(`new-reading: ${subject}\n`);
+    }
+    if (receipt.debt.increase.readingCountDelta > 0) {
+      process.stdout.write(`reading-count-delta: ${receipt.debt.increase.readingCountDelta}\n`);
+    }
+    if (receipt.debt.increase.readingWithheldDelta > 0) {
+      process.stdout.write(`reading-withheld-delta: ${receipt.debt.increase.readingWithheldDelta}\n`);
+    }
+    if (receipt.debt.increase.readingsRemoved) {
+      process.stdout.write('readings-removed: true\n');
+    }
+    if (receipt.debt.increase.readingsUnmeasured) {
+      process.stdout.write('readings-unmeasured: true\n');
+    }
+  }
   process.stdout.write(`next: ${NEXT_DERIVE}\n`);
 }
 
 /** Run one command and print its outcome. */
-// [::TICKET::] PX-278, PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287) --for-spec --no-implementation-order`.
 function run(argv) {
   const root = cwd();
   const { command, options } = parseArguments(argv);
   if (command === 'open') {
-    if (options.reason === undefined || (options.spec === undefined && options.allocateDecisions === undefined && options.treeDecisions === undefined)) {
+    if (options.reason === undefined || (options.spec === undefined && options.allocateDecisions === undefined && options.treeDecisions === undefined && options.annotations === undefined)) {
       throw new RegenerationError('open needs --reason and at least one candidate', {
         code: 'MISSING_ARGUMENT',
         repair: USAGE,
@@ -149,6 +178,7 @@ function run(argv) {
       candidateSpec: options.spec,
       candidateAllocateDecisions: options.allocateDecisions,
       candidateTreeDecisions: options.treeDecisions,
+      candidateAnnotations: options.annotations,
       reason: options.reason,
     });
     process.stdout.write(`opened ${opened.transactionId}\n`);

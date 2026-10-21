@@ -1,3 +1,4 @@
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
  * The authored surface and the producer that re-derive a finding's verdict.
  *
@@ -8,6 +9,7 @@
  * `UNROUTED_FINDING` rather than rendering a blank repair line.
  */
 import { SmoothSequencesError } from './errors.mjs';
+import { SURFACES } from './surfaces.mjs';
 
 export const SURFACE = Object.freeze({
   SPEC: 'spec',
@@ -22,9 +24,44 @@ export const REGENERATION_COMMAND = 'node .claude/scripts/regeneration/run.mjs o
 export const REGENERATION_ALLOCATE_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=<reason>';
 export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
 export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
+export const MIGRATE_V3_ANNOTATIONS_COMMAND = 'node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<file>';
+
+/** The producer that restores one blocked evidence surface. */
+const BLOCKED_PRODUCER_BY_SURFACE = Object.freeze({
+  [SURFACES.OPERATIONS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.SEQUENCES]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.STEPS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.OPERATION_TRANSITIONS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.REGISTRY_CONTRIBUTION]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.BOUNDARY_EFFECTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.TYPED_STEP_CONTRACTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.AUTHORED_CONTRACTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.STEP_CROSSINGS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.BOUNDARY_GROUNDS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.GROUNDED_OBJECTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.CONTRACT_REGISTRY]: REGENERATION_ALLOCATE_COMMAND,
+  [SURFACES.PACKAGE_VIEWS]: SEQUENCES_SLICE_COMMAND,
+  [SURFACES.OBLIGATION_UNITS]: SEQUENCES_SLICE_COMMAND,
+  [SURFACES.TERMINAL_STATUSES]: REGENERATION_COMMAND,
+  [SURFACES.REQUIRED_INTERFACES]: REGENERATION_COMMAND,
+});
+
+/** The producer a blocked surface names, or a refusal that cannot render a blank line. */
+// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+export function producerForBlockedSurface(surface) {
+  const producer = BLOCKED_PRODUCER_BY_SURFACE[surface];
+  if (producer === undefined) {
+    throw new SmoothSequencesError(`no producer for blocked surface ${surface}`, {
+      code: 'UNROUTED_BLOCKED_SURFACE',
+      repair: 'Add the surface to BLOCKED_PRODUCER_BY_SURFACE with the command that restores it.',
+    });
+  }
+  return producer;
+}
 
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 const SPEC_CHECK_IDS = Object.freeze([
+  'S.evidence-withdrawn',
   'S1.duplicate-id',
   'S1.not-a-sequence-ground-missing',
   'S1.sequence-without-step',
@@ -45,6 +82,7 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S5.crossing-side-missing',
   'S5.error-set-mismatch',
   'S5.precondition-not-implied',
+  'S5.authored-source-missing',
   'S5.projection-only',
   'S6.boundary-effect-drift',
   'S6.cycle',
@@ -81,8 +119,8 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
 ]));
 
 /** A path with the row a reader opens, or the bare path when no row is known. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-function withLocator(filePath, locator) {
+// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+function appendLocator(filePath, locator) {
   return typeof locator === 'string' && locator.trim() !== '' ? `${filePath}#${locator.trim()}` : filePath;
 }
 
@@ -101,11 +139,11 @@ function requirePackage(context) {
 }
 
 /** A regeneration route: the live spec is evidence, never an edit surface. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-function specTarget(context) {
+// [::TICKET::] PX-278, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-285) --for-spec --no-implementation-order`.
+function buildSpecTarget(context) {
   const specPath = context.artifact?.spec?.path;
   const where = typeof specPath === 'string' && specPath.trim() !== ''
-    ? `${withLocator(specPath, context.locator)} (read-only; copy it to a candidate first)`
+    ? `${appendLocator(specPath, context.locator)} (read-only; copy it to a candidate first)`
     : 'candidate spec (the artifact records no spec path)';
   return { where, producer: REGENERATION_COMMAND, repairClass: 'regeneration' };
 }
@@ -122,23 +160,23 @@ export function repairRouteFor(checkId, context = {}) {
   }
   switch (surface) {
     case SURFACE.SPEC:
-      return specTarget(context);
+      return buildSpecTarget(context);
     case SURFACE.ALLOCATE_DECISIONS:
       return {
-        where: withLocator(ALLOCATE_DECISIONS_PATH, context.locator),
+        where: appendLocator(ALLOCATE_DECISIONS_PATH, context.locator),
         producer: REGENERATION_ALLOCATE_COMMAND,
         repairClass: 'regeneration',
       };
     case SURFACE.PACKAGE_RFC:
       return {
-        where: withLocator(`${requirePackage({ ...context, checkId }).path}/RFC.md`, context.locator),
+        where: appendLocator(`${requirePackage({ ...context, checkId }).path}/RFC.md`, context.locator),
         producer: DETECTOR_COMMAND,
         repairClass: 'in-place',
       };
     case SURFACE.PACKAGE_OBLIGATION: {
       const pkg = requirePackage({ ...context, checkId });
       return {
-        where: withLocator(`${pkg.path}/OBLIGATION.json`, context.locator),
+        where: appendLocator(`${pkg.path}/OBLIGATION.json`, context.locator),
         producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
         repairClass: 'in-place',
       };
@@ -146,7 +184,7 @@ export function repairRouteFor(checkId, context = {}) {
     case SURFACE.PACKAGE_VIEW: {
       const pkg = requirePackage({ ...context, checkId });
       return {
-        where: withLocator(`${pkg.path}/SEQUENCES.json`, context.locator),
+        where: appendLocator(`${pkg.path}/SEQUENCES.json`, context.locator),
         producer: `${SEQUENCES_SLICE_COMMAND} ${context.artifactPath ?? '<artifact>'} ${pkg.path}`,
         repairClass: 'in-place',
       };

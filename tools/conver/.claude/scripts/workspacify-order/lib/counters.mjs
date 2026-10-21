@@ -14,7 +14,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { generationOf as educeGenerationOfStatus } from '../../educe-sequences/rail/run-state.mjs';
-import { generationOf as smoothGenerationOf } from '../../smooth-sequences/lib/generation.mjs';
+// [::TICKET::] PX-282, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-285) --for-spec --no-implementation-order`.
+import { readGenerationNumber as readSmoothGenerationNumber } from '../../smooth-sequences/lib/generation.mjs';
 import { readDistributionRecord } from '../../sequences-slice/lib/distribution-record.mjs';
 
 export const EDUSEQUENCES_DIRECTORY = 'educe-sequences';
@@ -69,7 +70,7 @@ export function readRootEduceGeneration(root) {
 export function readRootSmoothGeneration(root) {
   const status = readJsonFile(join(root, SMOOTH_SEQUENCES_DIRECTORY, STATUS_FILE_NAME)).value;
   if (status === null) return null;
-  const generation = smoothGenerationOf(status);
+  const generation = readSmoothGenerationNumber(status);
   return generation > 0 ? generation : null;
 }
 

@@ -16,6 +16,7 @@ import { LEDGER_FILE_NAME, REGENERATION_DIRECTORY } from './ledger.mjs';
 
 export const TREE_DECISIONS_PATH = 'workspacify/tree/DECISIONS.json';
 export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
+export const ANNOTATIONS_FILE_NAME = 'ANNOTATIONS.json';
 
 export const PACKAGE_DESIGN_FILES = Object.freeze([
   'RFC-SEED.md',
@@ -149,6 +150,7 @@ function copyIfDirectory(from, to) {
  * documents are deliberately absent because workspacify-allocate refuses a non-empty
  * planned directory; mergeAuthoredDocuments adds them after allocate publishes.
  */
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function prepareDerivationRoot({ root, candidates, transactionId }) {
   const stagingRoot = stagingRootFor(root, transactionId);
   rmSync(stagingRoot, { recursive: true, force: true });
@@ -157,6 +159,9 @@ export function prepareDerivationRoot({ root, candidates, transactionId }) {
   copyFileSync(candidates.specPath, join(stagingRoot, liveSpecPath(root)));
   copyIfPresent(candidates.treeDecisionsPath, join(stagingRoot, TREE_DECISIONS_PATH));
   copyIfPresent(candidates.allocateDecisionsPath, join(stagingRoot, ALLOCATE_DECISIONS_PATH));
+  if (candidates.annotationsPath) {
+    copyIfPresent(candidates.annotationsPath, join(stagingRoot, ANNOTATIONS_FILE_NAME));
+  }
 
   for (const name of readdirSync(root)) {
     if (name.endsWith('-sequences.json') || name.endsWith('-sequences.md')) {

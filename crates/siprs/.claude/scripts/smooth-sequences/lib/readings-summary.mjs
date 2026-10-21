@@ -30,7 +30,10 @@ export function emptyReadings() {
       yes: 0,
       no: 0,
       unresolvedSubjects: [],
+      unresolvedDetails: [],
+      unresolvedSubjectCount: 0,
       overflow: 0,
+      path: null,
     },
     adversarial: { records: 0, byOutcome: {} },
     uncovered: { records: 0 },
@@ -83,27 +86,33 @@ function countAnswer(target, lens, answer) {
 }
 
 /** The inquest summary, including the capped unresolved Yes subjects. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-286) --for-spec --no-implementation-order`.
 function summarizeInquest(rows, limit) {
   const byLens = {};
   const byAnswer = {};
-  const yesSubjects = new Set();
+  const details = [];
   for (const row of rows) {
     countAnswer(byLens, row?.lens, row?.answer);
     const answer = typeof row?.answer === 'string' && row.answer.length > 0 ? row.answer : 'unanswered';
     byAnswer[answer] = (byAnswer[answer] ?? 0) + 1;
     if (row?.answer === ANSWER_YES && typeof row?.subject === 'string' && row.subject.length > 0) {
-      yesSubjects.add(row.subject);
+      details.push({
+        subject: row.subject,
+        line: typeof row?.line === 'number' ? row.line : null,
+        quote: typeof row?.quote === 'string' ? row.quote : null,
+      });
     }
   }
-  const subjects = [...yesSubjects].sort();
+  const subjects = [...new Set(details.map((entry) => entry.subject))].sort();
   return {
     records: rows.length,
     byLens,
     byAnswer,
     yes: byAnswer[ANSWER_YES] ?? 0,
     no: byAnswer[ANSWER_NO] ?? 0,
+    unresolvedSubjectCount: subjects.length,
     unresolvedSubjects: subjects.slice(0, limit),
+    unresolvedDetails: details.slice(0, limit),
     overflow: Math.max(0, subjects.length - limit),
   };
 }
@@ -138,12 +147,43 @@ export function summarizeReadings(root, { limit = MAX_UNRESOLVED_SUBJECTS } = {}
   if (!hasAnyFile) return emptyReadings();
 
   const status = withheld.length > 0 ? 'partial' : 'available';
+  const inquestSummary = summarizeInquest(inquest.rows, limit);
+  inquestSummary.path = join(directory, INQUEST_FILE);
   return {
     status,
-    inquest: summarizeInquest(inquest.rows, limit),
+    inquest: inquestSummary,
     adversarial: summarizeAdversarial(adversarial.rows),
     uncovered: { records: uncovered.rows.length },
     withheld,
+  };
+}
+
+/**
+ * The full unresolved-reading set for one workspace.
+ *
+ * The report caps its display list; the debt gate must compare every Yes subject,
+ * including those beyond the cap, so it reads the JSONL directly.
+ *
+ * @param {string} root — workspace root
+ * @returns {{ subjects: Set<string>, count: number, withheldCount: number, path: string|null }}
+ */
+// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+export function readUnresolvedReadingSubjects(root) {
+  const directory = join(root, READINGS_DIRECTORY);
+  const file = readJsonLines(directory, INQUEST_FILE);
+  const subjects = new Set();
+  let count = 0;
+  for (const row of file.rows) {
+    if (row?.answer !== ANSWER_YES) continue;
+    count += 1;
+    if (typeof row?.subject === 'string' && row.subject.length > 0) subjects.add(row.subject);
+  }
+  return {
+    subjects,
+    count,
+    withheldCount: file.withheld.length,
+    present: file.status !== 'absent',
+    path: file.status === 'absent' ? null : join(directory, INQUEST_FILE),
   };
 }
 

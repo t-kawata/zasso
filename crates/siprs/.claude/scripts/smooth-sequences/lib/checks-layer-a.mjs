@@ -10,7 +10,7 @@
  * so a reader can repair from the output without opening the report.
  */
 import { readLedgerRows } from '../../sequences-slice/lib/distribution-ledger.mjs';
-import { buildFamilySubChecks, skipWholeFamily } from './check-status.mjs';
+import { buildFamilySubChecks } from './check-status.mjs';
 import { finding } from './index.mjs';
 import {
   repairRouteFor,
@@ -91,7 +91,7 @@ export function collectEnumerationIntegrity(index) {
     });
   }
 
-  return { findings, subChecks: buildFamilySubChecks('enumeration') };
+  return { findings, subChecks: buildFamilySubChecks('enumeration', index) };
 }
 
 /** The findings-only view of the enumeration family, kept for existing callers. */
@@ -120,7 +120,7 @@ export function collectOperationEnvelope(index) {
   if (requiredInterfaces === null) {
     skippedReasons.set('S3.interface-mapping-missing', 'requiredInterfaces is not declared in vocabulary, no declared_interfaces column exists, and no pinned operation column names an interface');
   }
-  return { findings, subChecks: buildFamilySubChecks('envelope', skippedReasons) };
+  return { findings, subChecks: buildFamilySubChecks('envelope', index, skippedReasons) };
 }
 
 /** The findings-only view of the envelope family, kept for existing callers. */
@@ -208,7 +208,7 @@ export function collectBoundaryClauses(index) {
   const findings = [];
   const boundaries = index.treeManifest.dependencies?.boundaries ?? [];
   if (boundaries.length === 0) {
-    return { findings, subChecks: buildFamilySubChecks('boundaries', skipWholeFamily('boundaries', 'no boundary is declared')) };
+    return { findings, subChecks: buildFamilySubChecks('boundaries', index) };
   }
   const skippedReasons = new Map();
   if (!boundaries.some((boundary) => index.contractsByBoundary.has(boundary.id))) {
@@ -233,7 +233,7 @@ export function collectBoundaryClauses(index) {
     checkContractClauses(boundary, contract, findings);
     checkBoundarySides(index, boundary, findings);
   }
-  return { findings, subChecks: buildFamilySubChecks('boundaries', skippedReasons) };
+  return { findings, subChecks: buildFamilySubChecks('boundaries', index, skippedReasons) };
 }
 
 /** The findings-only view of the boundary family, kept for existing callers. */
@@ -324,16 +324,6 @@ function checkBoundarySides(index, boundary, findings) {
   }
 }
 
-/** The contribution surface a v2 artifact does not carry. */
-export function contributionWithheld(index) {
-  if (index.schemaVersion === V3) return [];
-  return [{
-    layer: 'S4',
-    check: 'S4.contribution',
-    reason: 'v2 artifact carries no registry_contribution',
-  }];
-}
-
 /** Whether a not_required declaration explains itself. */
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function hasContributionGround(operation) {
@@ -354,7 +344,7 @@ export function collectContributionCompleteness(index) {
   if (index.schemaVersion !== V3) {
     return {
       findings: [],
-      subChecks: buildFamilySubChecks('contribution', skipWholeFamily('contribution', 'v2 artifact carries no registry_contribution')),
+      subChecks: buildFamilySubChecks('contribution', index),
     };
   }
   const findings = [];
@@ -423,7 +413,25 @@ export function collectContributionCompleteness(index) {
       }
     }
   }
-  return { findings, subChecks: buildFamilySubChecks('contribution') };
+  return { findings, subChecks: buildFamilySubChecks('contribution', index) };
+}
+
+/**
+ * The legacy withheld view of the contribution family.
+ *
+ * The detector itself now reports blocked sub-checks; this wrapper keeps the shared
+ * contribution gate and older callers on the same observable value without restoring a
+ * second source of truth.
+ */
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+export function contributionWithheld(index) {
+  if (index.schemaVersion !== V3) {
+    return [{ layer: 'S4', check: 'S4.contribution', reason: 'v2 artifact carries no registry_contribution' }];
+  }
+  const blocked = buildFamilySubChecks('contribution', index).filter((entry) => entry.status === 'blocked');
+  return blocked.length === 0
+    ? []
+    : [{ layer: 'S4', check: 'S4.contribution', reason: blocked[0].reason }];
 }
 
 /** The findings-only view of the contribution family, kept for existing callers. */
@@ -437,7 +445,7 @@ export function checkContributionCompleteness(index) {
 export function collectArtifactViewConsistency(index) {
   const findings = [];
   if (index.packages.length === 0) {
-    return { findings, subChecks: buildFamilySubChecks('consistency', skipWholeFamily('consistency', 'no package is declared')) };
+    return { findings, subChecks: buildFamilySubChecks('consistency', index) };
   }
   const hasView = index.packages.some((pkg) => pkg.view !== null);
   const skippedReasons = new Map();
@@ -460,7 +468,7 @@ export function collectArtifactViewConsistency(index) {
     checkViewUnits(index, pkg, findings);
     checkRfcBoundaries(index, pkg, findings);
   }
-  return { findings, subChecks: buildFamilySubChecks('consistency', skippedReasons) };
+  return { findings, subChecks: buildFamilySubChecks('consistency', index, skippedReasons) };
 }
 
 /** The findings-only view of the consistency family, kept for existing callers. */
