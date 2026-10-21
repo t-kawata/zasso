@@ -64,6 +64,7 @@ const ENTRIES_FILE = 'ledger-entries.md';
 const CENSUS_SPANS = Object.freeze(['1-23', '24-26', '27-33', '34-35', '36-48', '51-58']);
 
 /** The entries census rewritten as spans, one row per span, in the same file. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanDocument(spans) {
   const rows = spans.map((span, index) => JSON.stringify({ region: `region-${index + 1}`, span }));
@@ -266,15 +267,15 @@ test('PX-266 C003 the ledger identifier census agrees exactly as it did before t
 // C004 — the sequences axis, stated by the presence of the census
 // ---------------------------------------------------------------------------
 
-test('PX-266 C004 the span census states the sequences axis, and an empty census still states it', () => {
+test('PX-288 C011 a span entries census does not state the sequences axis', () => {
   const axes = denominatorOf({ artifact: artifactWith([spanPin()]) });
 
-  assert.equal(axes.sequences.source, 'census');
-  assert.equal(axes.sequences.members, CENSUS_SPANS.length);
-  assert.deepEqual(gapsIn(axes).map((gap) => gap.axis), ['operations', 'boundaries']);
+  assert.equal(axes.sequences.source, 'unstated');
+  assert.equal(axes.sequences.members, 0);
+  assert.deepEqual(gapsIn(axes).map((gap) => gap.axis), ['operations', 'sequences', 'boundaries']);
 
   const empty = denominatorOf({ artifact: artifactWith([spanPin([])]) });
-  assert.equal(empty.sequences.source, 'census', 'the axis is stated by the presence of the census');
+  assert.equal(empty.sequences.source, 'census', 'an empty entries census states that there is no entry');
   assert.equal(empty.sequences.members, 0);
 });
 
@@ -283,7 +284,7 @@ test('PX-266 C004 a run carrying no entries census leaves the sequences axis uns
 
   assert.equal(without.sequences.source, 'unstated');
   assert.deepEqual(gapsIn(without).map((gap) => gap.axis), ['sequences', 'boundaries']);
-  assert.match(gapsIn(without)[0].repair, /supply the census for the entries role/);
+  assert.match(gapsIn(without)[0].repair, /supply a census for the sequences role/);
 });
 
 // ---------------------------------------------------------------------------
@@ -346,9 +347,9 @@ test('PX-266 C004 the coverage measurement reports one unstated denominator rath
   const coverage = measureCoverage({ artifact: artifactWith([BORROWED_OPERATIONS, entries]), allocateManifest: null, views: [] });
   const gapAxes = coverage.denominatorGaps.map((gap) => gap.axis);
 
-  assert.equal(coverage.denominator.sequences.source, 'census');
-  assert.equal(coverage.denominator.sequences.members, CENSUS_SPANS.length);
-  assert.ok(!gapAxes.includes('sequences'), 'the sequences axis is no longer a gap, and it is the one this ticket states');
+  assert.equal(coverage.denominator.sequences.source, 'unstated');
+  assert.equal(coverage.denominator.sequences.members, 0);
+  assert.ok(gapAxes.includes('sequences'), 'a span entries census does not state the sequences axis');
   assert.ok(!gapAxes.includes('operations'), 'the operations axis is stated by its own census, which travels beside this one');
   assert.ok(gapAxes.includes('boundaries'), 'the boundaries axis is still unstated, so the measurement is not vacuous');
 });

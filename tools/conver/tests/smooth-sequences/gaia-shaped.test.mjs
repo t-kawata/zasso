@@ -5,6 +5,7 @@ import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { gaiaShapedWorkspace } from './helpers/gaia-shaped-fixture.mjs';
 
 /** The findings of one check id in a result. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function countOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId).length;
@@ -24,6 +25,9 @@ test('the gaia-shaped fixture is observable in audit mode and red in enforce mod
     assert.equal(countOf(audit, 'S3.transition-target-unknown'), 9);
     assert.ok(countOf(audit, 'S5.projection-only') >= 1);
     assert.ok(countOf(audit, 'S6.boundary-effect-drift') >= 1);
+    assert.ok(countOf(audit, 'S6.object-flow-missing') >= 1);
+    assert.ok(countOf(audit, 'S6.escape-ungrounded') >= 1);
+    assert.ok(countOf(audit, 'S7.operation-distribution-missing') >= 1);
 
     const enforced = runCommand([workspace.root]);
     assert.equal(enforced.exitCode, 1);

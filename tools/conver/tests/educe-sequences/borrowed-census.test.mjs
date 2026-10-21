@@ -53,6 +53,7 @@ const SUPPLIED = suppliedDocumentsOf(RUN_DIRECTORY);
  * A borrowed census is re-derived from the supplied file, so an artifact that carries one
  * cannot be judged without the material it names: the check that would answer is the
  * re-derivation, and it has nothing to read. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function verify(artifact) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied: SUPPLIED } });
@@ -303,6 +304,11 @@ test('C003 phase 10 refuses while an escaped operation was never attacked', () =
   // Every ruling the fixture attacks except the escape's, so the phase has exactly one
   // unattacked ruling to name.
   writeFileSync(join(run.directory, 'readings-adversarial.jsonl'), written(RUN_INPUT.readings.adversarial.filter((record) => record.subject !== 'LedgerStatus')));
+  writeFileSync(join(run.directory, 'readings-uncovered.jsonl'), written([
+    { subject: 'Admit', outcome: 'performed', step: 'admission-1', reader: 'span' },
+    { subject: 'Settle', outcome: 'performed', step: 'settlement-1', reader: 'span' },
+    { subject: 'LedgerStatus', outcome: 'escaped', position: 'suppliedRule', line: 55, quote: 'the ledger status is supplied by the rule', why: 'the specification states no act for it', reader: 'span' },
+  ]));
 
   const through = spawnSync('node', [PHASE, 'through', run.specPath, '10'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
   const reported = `${through.stdout}${through.stderr}`;

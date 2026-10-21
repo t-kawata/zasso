@@ -25,6 +25,7 @@ const NOT_A_SEQUENCE_COUNT = 434;
 const UNDECLARED_STATUS_COUNT = 9;
 
 /** The zero-padded boundary id. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function boundaryId(index) {
   return `boundary-${String(index).padStart(3, '0')}`;
@@ -53,6 +54,9 @@ export function gaiaShapedWorkspace() {
 
   for (const step of artifact.steps) {
     step.contract.crosses = [...crossed];
+    // The audited artifact has no object flow: no step consumes what another produces.
+    step.contract.consumes = [];
+    if (step.contract.authored !== undefined) step.contract.authored.consumes = [];
   }
   // One step has no authored facts, so S5.projection-only has a subject.
   const { authored, ...projection } = artifact.steps[0].contract;

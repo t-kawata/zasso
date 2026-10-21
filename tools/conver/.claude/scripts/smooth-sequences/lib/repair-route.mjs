@@ -69,12 +69,14 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S1.step-unresolved-sequence',
   'S3.finality-missing-for-external',
   'S3.interface-mapping-missing',
+  'S3.interface-value-unknown',
   'S3.status-initial-unknown',
   'S3.transition-out-of-terminal',
   'S3.transition-target-unknown',
   'S4.contribution-ground-missing',
   'S4.contribution-missing',
   'S4.contribution-unowned',
+  'S5.boundary-ground-unverified',
   'S5.boundary-uncovered',
   'S5.consumes-not-produced',
   'S5.crossing-boundary-unknown',
@@ -86,10 +88,15 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S5.projection-only',
   'S6.boundary-effect-drift',
   'S6.cycle',
+  'S6.escape-ungrounded',
+  'S6.graph-empty',
+  'S6.object-flow-missing',
   'S6.order-contradiction',
   'S6.orphan-object',
   'S6.unannotated-repeat',
   'S6.unreachable-operation',
+  'S7.operation-distribution-missing',
+  'S7.sequence-distribution-missing',
 ]);
 
 const ALLOCATE_CHECK_IDS = Object.freeze([
@@ -119,6 +126,7 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
 ]));
 
 /** A path with the row a reader opens, or the bare path when no row is known. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
 function appendLocator(filePath, locator) {
   return typeof locator === 'string' && locator.trim() !== '' ? `${filePath}#${locator.trim()}` : filePath;

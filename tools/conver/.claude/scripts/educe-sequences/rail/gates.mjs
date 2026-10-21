@@ -23,15 +23,19 @@ import { ADJUDICATION_OUTCOMES, proveAdjudicationReadings } from './reading.mjs'
 import {
   DECLARATION_FILE,
   INQUEST_FILE,
+  UNCOVERED_WORKLIST_FILE,
   WORKLIST_FILE,
   inquestPairs,
   inquestSubjects,
   isExempt,
   readDeclarationFile,
   readInquestFile,
+  previousInquestRecordsIn,
   readReadingsFile,
   readingsFileName,
   signedCount,
+  validateUncoveredRecord,
+  verifyResolution,
 } from './readings.mjs';
 import { generationOf } from './run-state.mjs';
 import { suppliedDocumentsOf, pinnableSuppliedFiles } from './supplied.mjs';
@@ -144,7 +148,101 @@ function entriesWithoutOutcome(artifact) {
  * data rather than prose so the driver can refuse a phase that was entered out of order.
  */
 // [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-247|PX-288) --for-spec --no-implementation-order`.
+/**
+ * The uncovered worklist as bare operation ids.
+ *
+ * Phase 7 writes one line per borrowed operation as `<id> account-for`; the gate only needs
+ * the id, and treating the instruction word as part of the id would ask about nothing the
+ * artifact names.
+ */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function uncoveredMembersIn(directory) {
+  const path = join(directory, UNCOVERED_WORKLIST_FILE);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/)[0])
+    .filter((member) => member.length > 0);
+}
+
+/**
+ * Phase 8's second question: every operation the census names is performed or escaped.
+ *
+ * The span brief says what a reader read; this file says what happened to the operations
+ * the span did not perform. A record is accepted only when its own evidence resolves: a
+ * performed record against the artifact step, an escaped record against the artifact
+ * position. Duplicate and absent records are refused because neither can be counted.
+ */
+export function gateUncovered({ worklist = [], span = [], artifact = {}, records = [] }) {
+  const members = worklist.map((line) => String(line).trim().split(/\s+/)[0]).filter((member) => member.length > 0);
+  if (members.length === 0) return prove('the uncovered worklist is empty, so there is no escape to account for', { vacuous: true });
+  const bySubject = new Map();
+  for (const record of records) {
+    const subject = String(record?.subject ?? '');
+    if (!bySubject.has(subject)) bySubject.set(subject, []);
+    bySubject.get(subject).push(record);
+  }
+  for (const member of members) {
+    const entries = bySubject.get(member) ?? [];
+    if (entries.length === 0) return refuse(`no uncovered record for ${member}`);
+    if (entries.length > 1) return refuse(`duplicate uncovered record for ${member}`);
+    const record = entries[0];
+    const problems = validateUncoveredRecord(record);
+    if (problems.length > 0) return refuse(`uncovered record for ${member} is not in the declared shape: ${problems.join('; ')}`);
+    if (record.outcome === 'performed') {
+      const spanHit = span.some((reading) => reading?.subject === record.step
+        || (Array.isArray(reading?.steps) && reading.steps.some((step) => step.id === record.step && step.operation === member)));
+      if (!spanHit) return refuse(`performed ${member} names step ${record.step}, which no span reading carries`);
+      const step = (artifact.steps ?? []).find((entry) => entry.id === record.step);
+      // At phase 8 the artifact has not been integrated yet, so the span reading is the
+      // evidence. When an artifact is offered, its step must agree with the operation.
+      if (step !== undefined && step.operation !== member) {
+        return refuse(`performed ${member} names step ${record.step}, which performs ${step.operation}`);
+      }
+    }
+    if (record.outcome === 'escaped') {
+      const operation = (artifact.operations ?? []).find((entry) => entry.id === member);
+      // The artifact may not exist yet at phase 8. When it does, its position must agree.
+      if (operation !== undefined && operation.position !== record.position) {
+        return refuse(`escaped ${member} cites position ${record.position}, but the artifact records ${operation.position}`);
+      }
+    }
+  }
+  return prove(`${members.length} uncovered operation(s) accounted for`);
+}
+
+/**
+ * Phase 13's questions over a previous generation: a Yes that became a No owes evidence,
+ * and an operation whose grounding says the specification states no act cannot answer No
+ * under the omission lens without an exemption.
+ */
+export function gateInquestResolutions({ previous = [], current = [], artifact = {} }) {
+  const byPair = new Map(current.map((record) => [`${record?.subject}\u0000${record?.lens}`, record]));
+  for (const prior of previous) {
+    if (prior?.answer !== 'Yes') continue;
+    const record = byPair.get(`${prior.subject}\u0000${prior.lens}`);
+    if (record === undefined || record.answer !== 'No') continue;
+    try {
+      verifyResolution(record);
+    } catch (error) {
+      return refuse(error.message);
+    }
+  }
+  const operations = new Map((artifact.operations ?? []).map((operation) => [operation.id, operation]));
+  for (const record of current) {
+    // The contradiction is asked of a re-answered subject. A first-generation No is the
+    // reader's answer to the question; a Yes that became No and was resolved still has to
+    // agree with the artifact's grounding.
+    if (record?.lens !== 'omission' || record.answer !== 'No' || record.previous !== 'Yes') continue;
+    const classification = operations.get(record.subject)?.grounding?.classification;
+    if (classification !== 'no_act_stated_by_the_specification' && classification !== 'designer_supplied') continue;
+    if (record.exemption !== undefined) continue;
+    return refuse(`${record.subject} is grounded as ${classification} and cannot answer No under omission without an exemption`);
+  }
+  return prove('every previous Yes has a resolution and no grounded no-act operation answers No under omission');
+}
+
 export const PHASES = Object.freeze([
 // [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
   {
@@ -252,9 +350,27 @@ export const PHASES = Object.freeze([
       const readings = readBrief(ctx.directory, 'span');
       if (!readings.ok) return refuse(readings.problems.join('; '));
       const unsigned = readings.readings.length - signedCount(readings.readings);
-      return unsigned > 0
-        ? refuse(`${unsigned} claim(s) carry no signature, and a claim with no signature is not a reading`)
-        : prove(`${readings.readings.length} signed reading(s)`);
+      if (unsigned > 0) {
+        return refuse(`${unsigned} claim(s) carry no signature, and a claim with no signature is not a reading`);
+      }
+      const uncoveredPath = join(ctx.directory, readingsFileName('uncovered'));
+      if (!existsSync(uncoveredPath)) {
+        const members = uncoveredMembersIn(ctx.directory);
+        return members.length === 0
+          ? prove(`${readings.readings.length} signed reading(s); the uncovered worklist is empty`)
+          : refuse(`no uncovered reading was written for ${members.length} worklist member(s)`);
+      }
+      const uncovered = readReadingsFile(uncoveredPath);
+      if (!uncovered.ok) return refuse(uncovered.problems.join('; '));
+      const artifact = readArtifact(ctx.artifactPath) ?? { operations: [], steps: [] };
+      const gated = gateUncovered({
+        worklist: uncoveredMembersIn(ctx.directory),
+        span: readings.readings,
+        artifact,
+        records: uncovered.readings,
+      });
+      if (!gated.ok) return gated;
+      return prove(`${readings.readings.length} signed reading(s); ${gated.reason}`);
     },
   },
   {
@@ -366,9 +482,16 @@ export const PHASES = Object.freeze([
       const exemptions = declaration.declaration.exemptions;
       const unanswered = pairs.find((pair) => !answered.readings.some((record) => record.subject === pair.subject && record.lens === pair.lens)
         && !isExempt(exemptions, pair));
-      return unanswered === undefined
-        ? prove(`${pairs.length} (subject, lens) pair(s) answered`)
-        : refuse(`no answer for ${unanswered.subject} under the ${unanswered.lens} lens, and no exemption covers it`);
+      if (unanswered !== undefined) {
+        return refuse(`no answer for ${unanswered.subject} under the ${unanswered.lens} lens, and no exemption covers it`);
+      }
+      const gated = gateInquestResolutions({
+        previous: previousInquestRecordsIn(ctx.directory),
+        current: answered.readings,
+        artifact: artifact ?? { operations: [] },
+      });
+      if (!gated.ok) return gated;
+      return prove(`${pairs.length} (subject, lens) pair(s) answered; ${gated.reason}`);
     },
   },
   {

@@ -271,6 +271,17 @@ function normalizeBoundaryEffect(effect) {
   return { boundary: effect.boundary, direction: effect.direction };
 }
 
+/** One flow ground per sequence, accepting the legacy bare id and the authored object. */
+function mergeFlowGrounds(existing = [], annotated = []) {
+  const bySequence = new Map();
+  for (const entry of [...existing, ...annotated]) {
+    const sequence = typeof entry === 'string' ? entry : entry?.sequence;
+    if (typeof sequence !== 'string' || sequence.length === 0) continue;
+    bySequence.set(sequence, typeof entry === 'string' ? { sequence } : entry);
+  }
+  return [...bySequence.values()];
+}
+
 /** The grounded object rows the v2 artifact declares. */
 function groundedObjectsOf(artifact) {
   const grounded = new Map();
@@ -296,6 +307,18 @@ export function canonicalJson(value) {
 }
 
 /** The digest of an annotations document. */
+/**
+ * Whether an authored contract says anything the projection did not already say.
+ *
+ * Equality is not a defect by itself — an explicit annotation that agrees with the
+ * registry is still an authored act. The distinction this function draws is used by the
+ * migration to record what it copied: a contract with no annotation is a projection, and
+ * naming it authored would let meshing compare the registry with itself.
+ */
+export function classifyContractOrigin(authoredContract, derivedContract) {
+  return canonicalJson(authoredContract) === canonicalJson(derivedContract) ? 'synthesized' : 'authored';
+}
+
 export function digestOfAnnotations(annotations) {
   return createHash('sha256').update(canonicalJson(annotations)).digest('hex');
 }
@@ -311,7 +334,9 @@ function normalizeQuote(text) {
 function hasAnnotations(annotations) {
   return Object.keys(annotations?.contracts ?? {}).length > 0
     || Object.keys(annotations?.operations ?? {}).length > 0
-    || (annotations?.boundary_grounds ?? []).length > 0;
+    || (annotations?.boundary_grounds ?? []).length > 0
+    || (annotations?.sequence_flow_grounds ?? []).length > 0
+    || (annotations?.grounded_objects ?? []).length > 0;
 }
 
 /** Refuse an authored assertion that does not cite its step line and quote. */
@@ -374,10 +399,16 @@ export function normalizeAuthoredContract(contract, step) {
 }
 
 /** Every step id, or the subset that is authored. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
 function authoredStepIdsOf(steps) {
   return steps
-    .filter((step) => FACT_LIST_FIELDS.some((field) => Array.isArray(step.contract?.authored?.[field]) && step.contract.authored[field].length > 0))
+    .filter((step) => {
+      const origin = step.contract?.contract_origin;
+      if (origin === 'synthesized') return false;
+      if (origin === 'authored') return true;
+      // A legacy v3 row predates contract_origin; its authored facts are the only signal.
+      return FACT_LIST_FIELDS.some((field) => Array.isArray(step.contract?.authored?.[field]) && step.contract.authored[field].length > 0);
+    })
     .map((step) => step.id);
 }
 
@@ -392,7 +423,7 @@ function partitionIds(allIds, authoredIds) {
 }
 
 /** The authorship map a migration records. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
 function buildAuthorship(input) {
   const {
     steps, typedStepIds, activeOperationIds, typedOperations, originalOperations,
@@ -411,7 +442,7 @@ function buildAuthorship(input) {
   });
   const authorship = {
     [SURFACES.TYPED_STEP_CONTRACTS]: partitionIds(typedStepIds, typedAuthored),
-    [SURFACES.AUTHORED_CONTRACTS]: { authored: authoredStepIds, synthesized: [] },
+    [SURFACES.AUTHORED_CONTRACTS]: partitionIds(typedStepIds, authoredStepIds),
     [SURFACES.STEP_CROSSINGS]: partitionIds(typedStepIds, typedAuthored),
     [SURFACES.OPERATION_TRANSITIONS]: partitionIds(activeOperationIds, authoredTransitionIds),
     [SURFACES.REGISTRY_CONTRIBUTION]: partitionIds(activeOperationIds, annotatedContributionIds),
@@ -431,7 +462,7 @@ function synthesizedSurfacesOf(authorship) {
 }
 
 /** Build the v3 artifact from a v2 artifact and an annotations document. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
 function migrateV2ToV3(input) {
   const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
   const boundaries = treeManifest.dependencies?.boundaries ?? [];
@@ -458,7 +489,9 @@ function migrateV2ToV3(input) {
       ...step,
       ...(annotation === undefined ? {} : { annotation }),
       ...(contractProse === null ? {} : { contract_prose: contractProse }),
-      contract: authored === undefined ? contract : { ...contract, authored: { ...contract } },
+      contract: authored === undefined
+        ? { ...contract, contract_origin: 'synthesized' }
+        : { ...contract, authored: { ...contract }, contract_origin: 'authored' },
     };
   });
 
@@ -498,7 +531,11 @@ function migrateV2ToV3(input) {
     assertCitedGround(entry, boundariesById.get(entry.boundary));
     return { boundary: entry.boundary, ground: entry.ground, source: entry.source };
   });
-  const groundedObjects = groundedObjectsOf(artifact);
+  const groundedObjects = [
+    ...groundedObjectsOf(artifact),
+    ...(annotations.grounded_objects ?? []).filter((entry) => typeof entry?.object === 'string' && typeof entry?.ground === 'string'),
+  ];
+  const sequenceFlowGrounds = mergeFlowGrounds(artifact.sequence_flow_grounds, annotations.sequence_flow_grounds);
   const typedStepIds = typedSteps.filter((step) => step.contract !== null && typeof step.contract === 'object').map((step) => step.id);
   const activeOperationIds = typedOperations.filter((operation) => operation.disposition === ACTIVE_DISPOSITION).map((operation) => operation.id);
   const annotatedStepIds = Object.keys(contractAnnotations).filter((id) => typedStepIds.includes(id));
@@ -526,6 +563,7 @@ function migrateV2ToV3(input) {
     operations: typedOperations,
     groundedObjects,
     ...(boundaryGrounds.length === 0 ? {} : { boundary_grounds: boundaryGrounds }),
+    ...(sequenceFlowGrounds.length === 0 ? {} : { sequence_flow_grounds: sequenceFlowGrounds }),
     migration: {
       from_schema_version: SCHEMA_V2,
       to_schema_version: SCHEMA_V3,
@@ -548,7 +586,7 @@ function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
 }
 
 /** Merge a new annotations document into an existing v3 artifact. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
 function mergeAnnotationsIntoV3(input) {
   const { artifact, treeManifest, annotations = {} } = input;
   const next = JSON.parse(JSON.stringify(artifact));
@@ -570,7 +608,7 @@ function mergeAnnotationsIntoV3(input) {
       });
     }
     const authored = normalizeAuthoredContract(contract, step);
-    step.contract = { ...authored, authored: { ...authored } };
+    step.contract = { ...authored, authored: { ...authored }, contract_origin: 'authored' };
   }
 
   for (const [operationId, annotation] of Object.entries(operationAnnotations)) {
@@ -608,6 +646,15 @@ function mergeAnnotationsIntoV3(input) {
   }
   if (mergedGrounds.size > 0) next.boundary_grounds = [...mergedGrounds.values()];
 
+  const mergedGroundedObjects = new Map((next.groundedObjects ?? []).map((entry) => [entry.object, entry]));
+  for (const entry of annotations.grounded_objects ?? []) {
+    if (typeof entry?.object === 'string' && typeof entry?.ground === 'string') mergedGroundedObjects.set(entry.object, entry);
+  }
+  if (mergedGroundedObjects.size > 0) next.groundedObjects = [...mergedGroundedObjects.values()];
+
+  const mergedFlowGrounds = mergeFlowGrounds(next.sequence_flow_grounds, annotations.sequence_flow_grounds);
+  if (mergedFlowGrounds.length > 0) next.sequence_flow_grounds = mergedFlowGrounds;
+
   const typedStepIds = (next.steps ?? []).filter((step) => step.contract !== null && typeof step.contract === 'object').map((step) => step.id);
   const authoredStepIds = authoredStepIdsOf(next.steps ?? []);
   const typedAuthored = typedStepIds.filter((id) => authoredStepIds.includes(id));
@@ -623,7 +670,7 @@ function mergeAnnotationsIntoV3(input) {
     || previousAuthoredIds(previousAuthorship, previousSynthesized, SURFACES.OPERATION_TRANSITIONS, activeOperationIds).includes(id));
   const authorship = {
     [SURFACES.TYPED_STEP_CONTRACTS]: partitionIds(typedStepIds, typedAuthored),
-    [SURFACES.AUTHORED_CONTRACTS]: { authored: authoredStepIds, synthesized: [] },
+    [SURFACES.AUTHORED_CONTRACTS]: partitionIds(typedStepIds, authoredStepIds),
     [SURFACES.STEP_CROSSINGS]: partitionIds(typedStepIds, typedAuthored),
     [SURFACES.OPERATION_TRANSITIONS]: partitionIds(activeOperationIds, authoredTransitionIds),
     [SURFACES.REGISTRY_CONTRIBUTION]: partitionIds(activeOperationIds, authoredContributionIds),

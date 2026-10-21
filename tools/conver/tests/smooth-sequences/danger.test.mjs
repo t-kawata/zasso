@@ -7,6 +7,7 @@ import { checkDangers } from '../../.claude/scripts/smooth-sequences/lib/checks-
 import { materializeSmoothWorkspace, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function indexOf(artifact) {
   const workspace = materializeSmoothWorkspace({ artifact });
@@ -54,7 +55,7 @@ test('S6 detects an unannotated repeated operation in one sequence', () => {
 test('S6 does not flag a result object the operation declares as a deliberate output', () => {
   const artifact = minimalV3Artifact();
   artifact.operations[0].result_object_classes = ['Order'];
-  artifact.steps[0].contract.produces.push('object:Order');
+  artifact.steps.at(-1).contract.produces.push('object:Order');
   const { workspace, index } = indexOf(artifact);
   try {
     const findings = checkDangers(index);

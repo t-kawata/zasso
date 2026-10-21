@@ -47,6 +47,7 @@ const findings = [
 ];
 
 /** A report over the default findings. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function reportOf(overrides = {}) {
   return buildReport({
@@ -80,7 +81,12 @@ test('the JSON report is byte-identical, sorted and at schemaVersion 4', () => {
   assert.deepEqual(parsed.provenance.schemaHistory, []);
   assert.equal(parsed.provenance.downgrade, null);
   assert.equal(parsed.readings.status, 'not-available');
-  assert.deepEqual(parsed.denominator, { operations: null, sequences: null, boundaries: null, surfaces: null });
+  assert.deepEqual(parsed.denominator, {
+    operations: { all: null, active: null },
+    sequences: { realized: null, entryRegions: null, source: 'unstated', members: null },
+    boundaries: null,
+    surfaces: { requiredInterfaces: null, demandColumns: null },
+  });
   for (const finding of parsed.findings) {
     assert.deepEqual(
       Object.keys(finding).sort(),

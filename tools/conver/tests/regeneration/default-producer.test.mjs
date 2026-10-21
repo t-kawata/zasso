@@ -1,7 +1,7 @@
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -29,6 +29,17 @@ import {
   writeCandidateSpec,
   writeCandidateTreeDecisions,
 } from './helpers/real-workspace-fixture.mjs';
+
+/** Seed the live debt baseline from the staged artifact, as a real repair would. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function seedLiveBaseline(workspace, opened) {
+  runCommand([opened.stagingRoot], { stdout: () => {}, stderr: () => {} });
+  mkdirSync(join(workspace.root, 'smooth-sequences'), { recursive: true });
+  copyFileSync(
+    join(opened.stagingRoot, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'),
+    join(workspace.root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'),
+  );
+}
 
 // @verifies C001
 test('open stages the candidate without copying a package document into the derivation root', () => {
@@ -175,6 +186,7 @@ test('the CLI commit publishes a verified generation while its own detector runs
       runGrounds: fixtureGroundsOk,
       runDetector: fixtureDetectorOk,
     });
+    seedLiveBaseline(workspace, opened);
 
     const result = spawnSync(
       process.execPath,
@@ -267,6 +279,7 @@ test('the CLI continue commits a verified transaction with exit 0', () => {
       runGrounds: fixtureGroundsOk,
       runDetector: fixtureDetectorOk,
     });
+    seedLiveBaseline(workspace, opened);
 
     const result = spawnSync(
       process.execPath,

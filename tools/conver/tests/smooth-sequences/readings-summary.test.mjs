@@ -4,9 +4,11 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { summarizeReadings } from '../../.claude/scripts/smooth-sequences/lib/readings-summary.mjs';
+import { classifyVerdict } from '../../.claude/scripts/smooth-sequences/lib/verdict.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
 /** One inquest row. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function inquest(subject, lens, answer, line = 1) {
   return { subject, lens, answer, line, quote: 'quote' };
@@ -90,6 +92,31 @@ test('an unreadable readings file is withheld rather than silently skipped', () 
   } finally {
     workspace.remove();
   }
+});
+
+test('an uncovered record without a performed or escaped outcome is unresolved', () => {
+  const workspace = materializeSmoothWorkspace({
+    readings: {
+      uncovered: [
+        { subject: 'op-1', outcome: 'escaped', position: 'excluded', line: 10, quote: 'q', why: 'w', reader: 'r' },
+        { subject: 'op-2', outcome: 'unknown', reader: 'r' },
+      ],
+    },
+  });
+  try {
+    const summary = summarizeReadings(workspace.root);
+    assert.equal(summary.uncovered.records, 2);
+    assert.equal(summary.uncovered.unresolved, 1);
+    assert.equal(summary.uncovered.byOutcome.escaped, 1);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('unresolved uncovered records drive the verdict to unproven', () => {
+  const decision = classifyVerdict({ findings: [], blocked: [], unresolvedReadings: 1, downgrade: null });
+  assert.equal(decision.verdict, 'unproven');
+  assert.equal(decision.exitCode, 4);
 });
 
 test('adversarial outcomes and uncovered records are counted', () => {

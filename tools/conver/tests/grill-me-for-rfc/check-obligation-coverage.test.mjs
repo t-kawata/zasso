@@ -13,6 +13,7 @@ const GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-ob
 
 /** A minimal workspace whose single operation one package owns, so the verdict starts at holds. */
 // [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function workspaceWithOneOwnedOperation(overrides = {}) {
   // Destructured in the body rather than in the signature: the fixture has grown one knob per
@@ -319,7 +320,7 @@ test('C002 every demand assigned with no census borrowed is not established, and
     assert.doesNotMatch(result.stdout, /unassigned operations/, 'nothing is unassigned');
     assert.match(result.stdout, /^unstated denominator: 2$/m);
     assert.match(result.stdout, /^  operations: no census is borrowed for the operations role, so the artifact is its own denominator\. repair: /m);
-    assert.match(result.stdout, /^  sequences: no census is borrowed for the entries role, so the artifact is its own denominator\. repair: /m);
+    assert.match(result.stdout, /^  sequences: no census names the realized sequences, so the artifact is its own denominator\. repair: /m);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

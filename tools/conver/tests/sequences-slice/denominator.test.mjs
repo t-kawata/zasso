@@ -24,14 +24,14 @@ function artifactWithoutCensus() {
 }
 
 /** The same artifact with both roles borrowed, in the shape the rail's pin carries. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
 function artifactWithCensus() {
   return {
     ...artifactWithoutCensus(),
     pins: {
       sourceEnumerations: [
         { role: 'operations', name: 'census-operations', members: ['R-0001', 'R-0002'] },
-        { role: 'entries', name: 'census-entries', members: ['S-0001'] },
+        { role: 'sequences', name: 'census-sequences', members: ['S-0001'] },
       ],
     },
   };

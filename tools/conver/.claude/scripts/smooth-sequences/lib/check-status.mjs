@@ -43,8 +43,9 @@ function collectTypedSteps(index) {
 }
 
 /** Whether a step carries typed authored facts or an authored prose contract. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-288) --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
+  if (step?.contract?.contract_origin === 'synthesized') return false;
   const authored = step?.contract?.authored;
   if (authored !== null && typeof authored === 'object') {
     const hasTypedFact = AUTHORED_FACT_FIELDS.some((field) => Array.isArray(authored[field]) && authored[field].length > 0);
@@ -73,6 +74,30 @@ function countCrossingBoundaries(index) {
     for (const boundary of step.contract.crosses ?? []) boundaries.add(boundary);
   }
   return boundaries.size;
+}
+
+/** The realized sequences with at least two steps. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function countMultiStepSequences(index) {
+  let count = 0;
+  for (const [sequenceId, steps] of index.stepsBySequence ?? new Map()) {
+    const sequence = index.sequencesById?.get(sequenceId);
+    if (sequence?.outcome === 'notASequence') continue;
+    if (steps.length >= 2) count += 1;
+  }
+  return count;
+}
+
+/** The realized sequences. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function countRealizedSequences(index) {
+  return (index.artifact?.sequences ?? []).filter((sequence) => sequence?.outcome !== 'notASequence').length;
+}
+
+/** The boundary grounds the artifact records. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function countBoundaryGrounds(index) {
+  return (index.artifact?.boundary_grounds ?? []).length;
 }
 
 /** Every check id, in the order the report lists its family. */
@@ -123,6 +148,11 @@ export const CHECK_REGISTRY = Object.freeze([
     denominator: countActiveOperations,
   }),
   check('S3.interface-mapping-missing', 'envelope', {
+    requires: [SURFACES.OPERATIONS, SURFACES.REQUIRED_INTERFACES],
+    claims: 'spec',
+    denominator: countActiveOperations,
+  }),
+  check('S3.interface-value-unknown', 'envelope', {
     requires: [SURFACES.OPERATIONS, SURFACES.REQUIRED_INTERFACES],
     claims: 'spec',
     denominator: countActiveOperations,
@@ -192,6 +222,16 @@ export const CHECK_REGISTRY = Object.freeze([
     claims: 'spec',
     denominator: (index) => countRows(index.packages),
   }),
+  check('S7.operation-distribution-missing', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.OPERATIONS],
+    claims: 'spec',
+    denominator: countActiveOperations,
+  }),
+  check('S7.sequence-distribution-missing', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.SEQUENCES],
+    claims: 'spec',
+    denominator: countRealizedSequences,
+  }),
   check('S5.crossing-boundary-unknown', 'meshing', {
     requires: [SURFACES.STEP_CROSSINGS],
     claims: 'spec',
@@ -227,6 +267,11 @@ export const CHECK_REGISTRY = Object.freeze([
     claims: 'spec',
     denominator: (index) => countRows(index.treeManifest?.dependencies?.boundaries),
   }),
+  check('S5.boundary-ground-unverified', 'meshing', {
+    requires: [SURFACES.BOUNDARY_GROUNDS, SURFACES.CONTRACT_REGISTRY],
+    claims: 'spec',
+    denominator: (index) => countRows(index.treeManifest?.dependencies?.boundaries),
+  }),
   check('S5.projection-only', 'meshing', {
     requires: [SURFACES.TYPED_STEP_CONTRACTS],
     claims: 'spec',
@@ -246,6 +291,21 @@ export const CHECK_REGISTRY = Object.freeze([
     requires: [SURFACES.OPERATIONS],
     claims: 'spec',
     denominator: countActiveOperations,
+  }),
+  check('S6.escape-ungrounded', 'danger', {
+    requires: [SURFACES.OPERATIONS],
+    claims: 'spec',
+    denominator: countActiveOperations,
+  }),
+  check('S6.object-flow-missing', 'danger', {
+    requires: [SURFACES.TYPED_STEP_CONTRACTS, SURFACES.SEQUENCES],
+    claims: 'spec',
+    denominator: countMultiStepSequences,
+  }),
+  check('S6.graph-empty', 'danger', {
+    requires: [SURFACES.TYPED_STEP_CONTRACTS],
+    claims: 'spec',
+    denominator: (index) => collectTypedSteps(index).length,
   }),
   check('S6.orphan-object', 'danger', {
     requires: [SURFACES.TYPED_STEP_CONTRACTS, SURFACES.GROUNDED_OBJECTS],

@@ -77,16 +77,55 @@ function indexRows(rows, label, duplicates, routeContext) {
 
 /** Build the operation-id to owning-package map from every view's owned units. */
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function operationOwners(packages) {
   const owners = new Map();
+  const add = (operationId, packageId) => {
+    if (typeof operationId !== 'string' || operationId.length === 0) return;
+    if (!owners.has(operationId)) owners.set(operationId, new Set());
+    owners.get(operationId).add(packageId);
+  };
   for (const pkg of packages) {
     for (const unit of pkg.view?.ownedOperationUnits ?? []) {
-      if (!owners.has(unit.operationId)) owners.set(unit.operationId, new Set());
-      owners.get(unit.operationId).add(pkg.id);
-      for (const ownerPackageId of unit.ownerPackageIds ?? []) owners.get(unit.operationId).add(ownerPackageId);
+      add(unit.operationId, pkg.id);
+      for (const ownerPackageId of unit.ownerPackageIds ?? []) add(unit.operationId, ownerPackageId);
+    }
+    // An obligation unit that assigns an operation is a placement too. Without this a
+    // package that carries only the obligation would read as no owner at all.
+    for (const unit of pkg.view?.obligationUnits ?? []) {
+      if (unit.kind === 'operation' || String(unit.unitId ?? '').startsWith('op-')) add(unit.subject, pkg.id);
     }
   }
   return owners;
+}
+
+/** Build the sequence-id to owning-package map from every view's sequence units. */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+function buildSequenceOwners(packages) {
+  const owners = new Map();
+  const add = (sequenceId, packageId) => {
+    if (typeof sequenceId !== 'string' || sequenceId.length === 0) return;
+    if (!owners.has(sequenceId)) owners.set(sequenceId, new Set());
+    owners.get(sequenceId).add(packageId);
+  };
+  for (const pkg of packages) {
+    const view = pkg.view;
+    if (view === null) continue;
+    for (const unit of view.ownedSequenceUnits ?? []) add(unit.sequenceId, pkg.id);
+    for (const unit of view.crossBoundarySequenceUnits ?? []) {
+      add(unit.sequenceId, pkg.id);
+      for (const ownerPackageId of unit.ownerPackageIds ?? []) add(unit.sequenceId, ownerPackageId);
+    }
+    for (const unit of view.obligationUnits ?? []) {
+      if (unit.kind === 'sequence' || String(unit.unitId ?? '').startsWith('seq-')) add(unit.subject, pkg.id);
+    }
+  }
+  return owners;
+}
+
+/** The packages that own one sequence, or an empty set when it is unowned. */
+export function sequenceOwners(index) {
+  return index.sequenceOwners ?? new Map();
 }
 
 /**
@@ -115,6 +154,7 @@ export function indexArtifact(loaded) {
     ...buildBoundaryMaps(loaded),
     ...buildPackageMaps(loaded.packages),
     operationOwners: operationOwners(loaded.packages),
+    sequenceOwners: buildSequenceOwners(loaded.packages),
     duplicates,
   });
 }

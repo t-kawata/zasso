@@ -80,6 +80,7 @@ const CHECKER_DECLARATION = Object.freeze({
  * The declaration is the fixture's, because phase 4 also refuses an enumeration that occurs
  * nowhere — so a scratch declaration would fail the gate for a reason this file is not about.
  */
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-declaration-'));
@@ -361,7 +362,7 @@ test('PX-265 C005 a material declaration borrows no role, so both axes stay unst
   const gaps = gapsIn(axes);
   assert.deepEqual(gaps.map((gap) => gap.axis), ['operations', 'sequences', 'boundaries']);
   assert.match(gaps[0].repair, /supply the census for the operations role/);
-  assert.match(gaps[1].repair, /supply the census for the entries role/);
+  assert.match(gaps[1].repair, /supply a census for the sequences role/);
 });
 
 test('PX-265 C005 the recorded declaration states no axis, and a census pin still does', () => {
