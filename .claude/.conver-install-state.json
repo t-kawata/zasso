@@ -567,7 +567,7 @@
     "scripts/shared-obligations/judgment.mjs": "c9a64880aecad2631d2b89e96a7b0dc323f15b51f9893cb3fa8d238388cd1ebc",
     "scripts/shared-obligations/predicates.mjs": "1afb658112225fede50c6bde7fd6dafc8a37424c4d8ec0cf7b356cbd0308ad33",
     "scripts/shared-obligations/reader.mjs": "a2c614774ced41dc5be3fede7500892fc4f3ec3030ec995263189b983fb6691c",
-    "scripts/shared-obligations/registry.mjs": "36a4ee8680488bd90ad32c90145a9231e4eaf7f09f1f4f83eb0053e6d35011c0",
+    "scripts/shared-obligations/registry.mjs": "a538e84924c613f4be8acd77bc8d6ae6bd01cde061a9bce0c3bdea4a9d225c08",
     "scripts/shared-obligations/rejudge.mjs": "0dfa82bdc48620383022d274ff6baac707851d4bf6445fd5b2c24036840657df",
     "scripts/shared-obligations/risk-fields.mjs": "f4e5d4f64c3934bed0e176df59428bb40067727a4cac2be2d1b0e7e619ad1c98",
     "scripts/shared-obligations/sensitivity.mjs": "c5b233f34c7fdfb0e2eff33986e87aa3b004cbb6cb17df7c44b6c18de64c14ea",

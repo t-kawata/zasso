@@ -46141,6 +46141,220 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-22"
+        },
+        {
+          "id": 304,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Align the operation-census owner clause with the placement definition used by the package views",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-304.md",
+          "background": "### Goal\nMake CENSUS:CONSISTENCY:operations report only real placement defects, so the operation census can close without hiding a disagreement.\n\n### Purpose\nThe owner clause currently reads ownedOperationUnits as proof that a package performs an operation, and requires every excluded operation to have no owner. Neither reading matches the records: sequences-slice derives ownedOperationUnits from result_object_classes (object ownership), and smooth-sequences already defines placement as ownedOperationUnits plus operation-kind obligationUnits. The clause therefore reports 81 mismatches on the gaia generation-80 workspace that are not disagreements about work.\n\n### Motivation\nMeasured on the gaia workspace (2026-10-22): 12 active operations are placed only through obligationUnits; 69 excluded operations are owned through their result classes (35 are @object: rows); the current clause reports all 81. The same workspace reports zero findings from S7, which uses the full placement definition. The census obligation must use the same definition or it cannot converge.\n\n### Constraints\n- Do not edit the gaia workspace, its artifact, its readings, its census or its certificate.\n- Do not change the disposition, column, presence or allocation clauses.\n- TDD Red-Green-Refactor is mandatory; run the impact set with node --test, not the full suite.\n- Keep the mismatch field name owner for report compatibility; document that it means placement.\n- Supersede, do not silently weaken, the PX-303 test-plan item that reports a view owning an artifact-excluded operation.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] `.claude/scripts/shared-obligations/registry.mjs`, function `compareOperationCensus`.\n  - [Action] Modify the owner-placement block at lines 355-377.\n  - [What specifically changes] Build one placement map from `packages[].view.ownedOperationUnits` and from `packages[].view.obligationUnits` entries whose `kind === 'operation'` or whose `unitId` begins with `op-`, keyed by `subject`. Report a mismatch only when `disposition === ACTIVE_DISPOSITION` and placement is empty. Remove the `disposition === 'excluded' && owners.length > 0` branch.\n  - [Before -> After] Before: an excluded operation owned by a view is a mismatch, and an active operation placed only by an obligation unit is a mismatch. After: object ownership of an excluded operation is not a mismatch, and an obligation-unit placement counts as placement for an active operation.\n  - [API contract change] `compareOperationCensus` signature is unchanged; the `field: 'owner'` vocabulary is retained, with its meaning documented as placement.\n  - [Data schema change] None.\n  - [Config/env change] None.\n  - [Dependency added/removed] None.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Census row corrections] Owned by PX-305; this ticket changes the rule, not the data.\n  - [Artifact, readings, views, certificate] Chain inputs; never edited here.\n  - [Rollout to gaia] Executed as the documented install command after the ticket is green; no separate ticket.\n  - [Excluded operations that carry an obligation assignment] Deliberately not reported: an assignment is a design duty on a concept, not a claim that the protocol performs the act. The decision is recorded here instead of encoded as a new blocking clause.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] The consistency obligation in the certificate, and every workspace that runs /smooth-sequences.\n  - [Nature of impact] The reported mismatch count falls; the certificate can close this obligation when the remaining data disagreements are corrected.\n  - [Corresponding change needed] Yes: PX-305 corrects the 43 remaining census rows; the manual /educe-sequences and /smooth-sequences runs validate the end-to-end result."
+          ],
+          "default_files": [
+            ".claude/scripts/shared-obligations/registry.mjs",
+            "tests/shared-obligations/operation-census-consistency.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - The gaia read-only measurement reports owner 0 and total 43; the impact-set tests pass.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - An active operation with no owned and no obligation placement is reported with its operation id and both values.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - An excluded operation with object ownership is not reported; a sequence-kind obligation unit never places an operation."
+          ],
+          "notes": "- [Implementation steps] 1) Write the new Red tests. 2) Confirm they fail for the absence of placement logic. 3) Extract a placement collector and switch the clause. 4) Re-run the impact set. 5) Install into gaia and run the read-only measurement.\n- [Risks] Dropping the excluded clause stops reporting excluded operations that also carry an obligation assignment (30 on gaia). The decision is deliberate and recorded: assignment is a concept-level duty, not evidence that the protocol performs the act.\n- [Caveats] The field name `owner` is retained although the value is placement; the JSDoc must state this so the next reader does not reintroduce object ownership as work ownership.\n- [Open items] None for this ticket. The 43 data rows are PX-305.\n- [Future improvements] If excluded-with-assignment must become visible, add it as a non-blocking semantic finding rather than restoring the removed clause.\nImplementation summary:\n- Changed files: .claude/scripts/shared-obligations/registry.mjs, tests/shared-obligations/operation-census-consistency.test.mjs\n- Key changes: added isOperationObligationUnit and collectOperationPlacements; active placement spans ownedOperationUnits and operation-kind obligationUnits; the excluded-implies-no-owner clause was removed; the JSDoc now defines placement.\n- Test results: 16/16 in the census file, 161/161 in tests/shared-obligations, 24/24 in the targeted smooth-sequences set.\n- Gaia measurement after install: total 43 (disposition 27, allowed_status_transitions 10, result_object_classes 6), owner 0.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: verb-phrase functions, no generic variables, no debug output, no magic numbers beyond the named unit prefix.\n- Dependencies: the placement definition now matches smooth-sequences/lib/index.mjs; the census obligation closes on the corrected data.\n- Annotation: registry.mjs and the test file carry PX-304 provenance; zero ambiguous markers.\n- Issues found and fixes applied: none.",
+          "invariants": "- [Normal condition] Every active operation with at least one placement (ownedOperationUnits or an operation-kind obligationUnits entry) produces no owner mismatch.\n- [Error invariant] A non-operation obligation unit (kind sequence, or unitId beginning with seq-) never places an operation.\n- [Internal state invariant] The placement map is a pure union of the two channels; the disposition, column, presence and allocation clauses stay unchanged.\n- [Boundary invariant] An empty census and an empty artifact produce zero mismatches and a closed consistency obligation.",
+          "testUnit": [
+            "UT: [Normal] C001 an active operation placed only by an operation-kind obligationUnits entry yields no owner mismatch.",
+            "UT: [Normal] C002 an excluded operation listed in a package view ownedOperationUnits yields no owner mismatch; object ownership is not work ownership.",
+            "UT: [Normal] C003 an active operation with neither owned nor obligation placement yields one owner mismatch naming the operation.",
+            "UT: [Error] C004 a sequence-kind obligation unit, or an entry whose unitId begins with seq-, does not place an operation.",
+            "UT: [Invariant] the placement map is the union of ownedOperationUnits and operation-kind obligationUnits; removing either channel changes the result.",
+            "UT: [Boundary] an empty census and an empty artifact produce zero mismatches and the consistency obligation closes.",
+            "UT: [Regression] the disposition, column and presence comparisons keep their existing behavior and codes."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] compareOperationCensus feeds resolveConsistencyObligations and buildCertificate.\n  - An active operation placed only by an obligation unit closes the obligation; an active operation with no placement opens it with OPERATION_CENSUS_MISMATCH.",
+            "IT: [Verification] Run the read-only gaia measurement against the current artifact, census and 29 package views.\n  - The owner field returns zero mismatches; the total is exactly 43 (27 disposition, 10 allowed_status_transitions, 6 result_object_classes).",
+            "IT: [Prerequisites] `node install.js -t ~/shyme/gaia/.claude` has copied the changed module; the gaia artifact and census are untouched.\n  - The measurement imports loadWorkspace, readPinnedCensus and compareOperationCensus from the installed tree.",
+            "IT: [Related tickets] PX-303 defines the obligation and the superseded test-plan item; PX-305 corrects the remaining 43 rows; PX-298 settled the 27 excluded dispositions."
+          ],
+          "testExceptions": [
+            "The end-to-end pass on gaia is not testable inside conver's unit suite because it requires the gaia workspace, PX-305 and the manual /educe-sequences and /smooth-sequences runs; this is an execution dependency and not a design defect. Alternative verification: the read-only integration measurement above plus the recorded manual run in PX-305."
+          ],
+          "instrumentation": "- [Logging] No new log lines; the obligation subject already reports the mismatch count and the first operation ids.\n- [Metrics] The certificate reports the consistency obligation state and subject; the integration measurement prints the count by field.\n- [Error tracking] OPERATION_CENSUS_MISMATCH remains the single code for an open obligation.\n- [Health check] The read-only gaia measurement is the health check: owner 0 and total 43 after this ticket; total 0 after PX-305 and the manual regeneration.\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: 16/16 census, 161/161 shared-obligations, 24/24 targeted smooth-sequences\nGaia final measurement: total 0 across 257 census rows and 29 packages",
+          "investigation": "- `registry.mjs:355-377` builds `owners` from `ownedOperationUnits` only and applies two clauses: active wants at least one owner, excluded wants none.\n- `smooth-sequences/lib/index.mjs:82-99` defines `operationOwners` as ownedOperationUnits plus operation-kind obligationUnits; S7 uses it.\n- `sequences-slice/lib/view.mjs:57-69` derives ownedOperationUnits from `result_object_classes` via the inventory; disposition is not consulted.\n- Gaia measurement (2026-10-22, generation 80): 12 active operations are unowned by ownedOperationUnits and all 12 carry an obligation unit (pkg-0002, pkg-0003, pkg-0004, pkg-0007, pkg-0013, pkg-0014); 69 excluded operations are object-owned, of which 35 are @object: rows; 30 excluded operations also carry an obligation assignment and are not currently reported.\n- `specs/PX-303.md:330` specifies the superseded test-plan item: a view owning an artifact-excluded operation is reported. The new ticket records why object ownership is not work ownership.\n- Impact set: only `tests/shared-obligations/operation-census-consistency.test.mjs` references the obligation, compareOperationCensus or OPERATION_CENSUS_MISMATCH.",
+          "boyScoutPlan": "- Extract the placement collection into a named function `collectOperationPlacements(packages)`; one responsibility, pure, no mutation.\n- Rename the local `owners` map to `placements` and document in JSDoc that placement is a union of object ownership and obligation assignment.\n- Name the operation-kind predicate `isOperationObligationUnit(unit)`; do not inline the prefix test.\n- Keep `compareOperationCensus` comparing and `resolveConsistencyObligations` deciding; no error swallowing, no hardcoded package ids.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-303 C107 (placement reading corrected)",
+              "precondition": "an active operation appears in no ownedOperationUnits but in one operation-kind obligationUnits entry",
+              "postcondition": "compareOperationCensus reports no owner mismatch for that operation",
+              "invariant": "the placement map unions ownedOperationUnits and operation-kind obligationUnits"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "PX-303 C107 (excluded clause superseded)",
+              "precondition": "an excluded operation appears in a package view ownedOperationUnits",
+              "postcondition": "compareOperationCensus reports no owner mismatch for that operation",
+              "invariant": "object ownership is not work ownership"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "PX-303 C104 disposition comparison preserved",
+              "precondition": "an active operation appears in neither placement channel",
+              "postcondition": "compareOperationCensus reports one owner mismatch naming the operation",
+              "invariant": "the mismatch set is empty when every active operation has placement"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "smooth-sequences/lib/index.mjs operationOwners definition",
+              "precondition": "an obligation unit with kind sequence or unitId prefix seq- names an operation id",
+              "postcondition": "it does not count as placement",
+              "invariant": "only operation-kind units place operations"
+            }
+          ],
+          "created_at": "2026-10-22",
+          "updated_at": "2026-10-22",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 — an active operation placed only by an operation-kind obligation unit is not reported\n```js\ntest('C001 an active operation placed only by an obligation unit is not reported', () => {\n  const { mismatches } = compareOperationCensus({\n    censusRows: [censusRow({ disposition: 'active' })],\n    artifact: { operations: [artifactOperation({ disposition: 'active' })] },\n    packages: [{\n      id: 'pkg-1',\n      view: {\n        ownedOperationUnits: [],\n        obligationUnits: [{ unitId: 'op-OpA', relation: 'assigns', subject: 'OpA', kind: 'operation', ground: 'line 1 states the act' }],\n      },\n    }],\n  });\n  assert.equal(mismatches.some((entry) => entry.field === 'owner'), false);\n});\n```",
+            "UT: [Normal] C002 — an excluded operation owned through its result classes is not reported\n```js\ntest('C002 an excluded operation owned through result classes is not reported', () => {\n  const { mismatches } = compareOperationCensus({\n    censusRows: [censusRow({ disposition: 'excluded' })],\n    artifact: { operations: [artifactOperation({ disposition: 'excluded' })] },\n    packages: [{ id: 'pkg-1', view: { ownedOperationUnits: [{ operationId: 'OpA' }] } }],\n  });\n  assert.equal(mismatches.some((entry) => entry.field === 'owner'), false);\n});\n```",
+            "UT: [Normal] C003 — an active operation with neither channel is reported with its id (regression guard: green before and after)\n```js\ntest('C003 an active operation with no placement is reported', () => {\n  const { mismatches } = compareOperationCensus({\n    censusRows: [censusRow({ disposition: 'active' })],\n    artifact: { operations: [artifactOperation({ disposition: 'active' })] },\n    packages: [{ id: 'pkg-1', view: { ownedOperationUnits: [], obligationUnits: [] } }],\n  });\n  const owner = mismatches.filter((entry) => entry.field === 'owner');\n  assert.equal(owner.length, 1);\n  assert.equal(owner[0].operationId, 'OpA');\n});\n```",
+            "UT: [Error] C004 — a sequence-kind obligation unit does not place, while an operation-kind unit does (the second assertion is the red one)\n```js\ntest('C004 a sequence-kind obligation unit does not place an operation', () => {\n  const packagesFor = (unit) => [{ id: 'pkg-1', view: { obligationUnits: [unit] } }];\n  const inputs = {\n    censusRows: [censusRow({ disposition: 'active' })],\n    artifact: { operations: [artifactOperation({ disposition: 'active' })] },\n  };\n  const sequenceKind = compareOperationCensus({\n    ...inputs,\n    packages: packagesFor({ unitId: 'seq-OpA', kind: 'sequence', subject: 'OpA' }),\n  });\n  assert.equal(sequenceKind.mismatches.some((entry) => entry.field === 'owner'), true);\n  const operationKind = compareOperationCensus({\n    ...inputs,\n    packages: packagesFor({ unitId: 'op-OpA', kind: 'operation', subject: 'OpA' }),\n  });\n  assert.equal(operationKind.mismatches.some((entry) => entry.field === 'owner'), false);\n});\n```",
+            "UT: [Invariant] — the placement map is the union of both channels; removing either channel changes the result\n```js\ntest('the placement map unions owned units and operation-kind obligation units', () => {\n  const packages = [\n    { id: 'pkg-owned', view: { ownedOperationUnits: [{ operationId: 'OpA' }] } },\n    { id: 'pkg-obliged', view: { obligationUnits: [{ unitId: 'op-OpB', kind: 'operation', subject: 'OpB' }] } },\n  ];\n  const artifact = { operations: [\n    artifactOperation({ id: 'OpA', kind: 'OpA', disposition: 'active' }),\n    artifactOperation({ id: 'OpB', kind: 'OpB', disposition: 'active' }),\n  ] };\n  const censusRows = [censusRow({ kind: 'OpA' }), censusRow({ kind: 'OpB' })];\n  const both = compareOperationCensus({ censusRows, artifact, packages });\n  assert.equal(both.mismatches.some((entry) => entry.field === 'owner'), false);\n  const ownedOnly = compareOperationCensus({ censusRows, artifact, packages: [packages[0]] });\n  assert.equal(ownedOnly.mismatches.some((entry) => entry.field === 'owner' && entry.operationId === 'OpB'), true);\n});\n```",
+            "UT: [Boundary] — an empty census and an empty artifact close the obligation (regression guard)\n```js\ntest('C106 an empty census and an empty artifact close the obligation', () => {\n  const closed = resolveConsistencyObligations([consistencyObligation()], {\n    operationCensus: { ok: true, rows: [] },\n    artifact: { operations: [] },\n    packages: [],\n    allocateManifest: {},\n  });\n  assert.equal(closed[0].state, 'closed');\n});\n```"
+          ],
+          "startedAt": "2026-10-22",
+          "changes": [
+            {
+              "before": "compareOperationCensus counted only ownedOperationUnits and required excluded operations to have no owner.",
+              "after": "compareOperationCensus counts ownedOperationUnits plus operation-kind obligationUnits, and reports only active operations with no placement.",
+              "description": "Align the owner clause with the placement definition used by smooth-sequences and sequences-slice."
+            },
+            {
+              "before": "The PX-303 test-plan item reported a view owning an artifact-excluded operation.",
+              "after": "C002 asserts object ownership is not placement; C001/C003/C004 cover obligation placement, no placement and the sequence-kind guard.",
+              "description": "Supersede the old owner contract with the placement contract."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-22"
+        },
+        {
+          "id": 305,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Reconcile the supplied operation census with the specification for the 43 drifted rows",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-305.md",
+          "background": "### Goal\nCorrect the 43 drifted rows in the supplied operation census so the pinned census and the derived artifact agree on disposition, transitions and result classes, with per-row specification evidence.\n\n### Purpose\nPX-303's consistency obligation exposed the disagreement and PX-304 corrected the owner clause; the remaining 43 are data. The census is supplied material: educe reads it, verifies its sha256 against the artifact pin, and never rewrites it. The correction therefore has to be made deliberately, row by row, or not at all.\n\n### Motivation\nMeasured on the gaia generation-80 workspace (2026-10-22): 27 census rows say active while the artifact excludes them after the PX-298 no-act ruling; 10 transition maps omit the terminal recovered key that the artifact carries; 6 result_object_classes arrays are empty where the artifact names a class. Without this correction the consistency obligation stays open even after the rule is right.\n\n### Constraints\n- Edit only `~/shyme/gaia/educe-sequences/supplied/operations-census.md` in the gaia workspace.\n- Never edit the artifact, the specification, the readings, the package views, the manifests or the certificate.\n- Do not copy artifact values without re-reading the specification; when the specification supports the census instead, stop and report the row.\n- Keep every other row byte-identical; the fenced jsonl block must still parse.\n- The artifact pin keeps the old sha256 until the manual /educe-sequences re-pin; a refusal from readPinnedCensus is expected before that step.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] `~/shyme/gaia/educe-sequences/supplied/operations-census.md`, fenced jsonl block only.\n  - [Action] Modify 43 rows across three compared fields.\n  - [What specifically changes] 27 `disposition` values `active` -> `excluded`; 10 `allowed_status_transitions` maps gain `\"recovered\": []`; 6 `result_object_classes` arrays gain the specification-stated classes.\n  - [Before -> After] Before: census and artifact disagree on 27 dispositions, 10 transition maps and 6 result-class arrays. After: both sides agree on all 43, and the direct comparator returns zero mismatches.\n  - [Evidence] Every changed row's `evidence` carries the re-read line, a quote found on that line, and a note. `spec_lines` and `grounding` are updated when the old evidence no longer describes the change.\n  - [API contract change] None; the census shape is unchanged.\n  - [Data schema change] None; the same 20 columns and the same row key `kind`.\n  - [Config/env change] None.\n  - [Dependency added/removed] None.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Artifact and readings regeneration] Executed by the manual /educe-sequences re-pin; this ticket stops at the corrected supplied file.\n  - [The 3 result classes that the specification never states] `GenesisCertificate` and `ReciprocalCertificate` appear 0 times and `CitationCertificate` appears 4 times; their disposition is a separate semantic question and does not block the 43.\n  - [The 9 active operations with empty result_object_classes] Their placement is through obligationUnits; they are not part of the 43.\n  - [The 30 excluded operations that carry an obligation assignment] Not reported by PX-304's rule by design.\n  - [Any rule or checker change] Owned by PX-304.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] The artifact's `pins.sourceEnumerations` sha256 for operations; the consistency obligation; the manual regeneration transaction.\n  - [Nature of impact] The census digest changes, so educe must re-pin and the readings are re-stamped; the artifact's compared fields should not move.\n  - [Corresponding change needed] Yes: the manual /educe-sequences run updates the pin, and /smooth-sequences then closes the obligation."
+          ],
+          "default_files": [
+            "~/shyme/gaia/educe-sequences/supplied/operations-census.md"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - The direct comparator over the corrected census and the current artifact reports zero mismatches for the 43 rows.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - If the specification supports the census value for a row, the ticket stops and reports the row and the spec line instead of changing it.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - Unrelated rows are byte-identical, the jsonl block parses, and every row key remains unique."
+          ],
+          "notes": "- [Implementation steps] 1) Re-read the specification for the 27 no-act rows and confirm the PX-298 branch for each. 2) Confirm the OperationStatus set contains the terminal recovered state and add it to the 10 maps. 3) Confirm each of the 6 result classes on the cited line and fill the array. 4) Record the line and quote in each row's evidence. 5) Run the direct comparator; 6) hand the corrected file to the manual /educe-sequences re-pin.\n- [Risks] The artifact may be the wrong side for a row; the ticket stops and reports that row rather than bending the census. Re-derivation may move a compared field; the post-educe comparator reports it.\n- [Caveats] The pin digest intentionally mismatches until the manual re-pin; do not edit the artifact to silence it.\n- [Open items] None for the 43 rows.\n- [Future improvements] Add a producer-side census extraction so the supplied file is regenerated with the artifact rather than reconciled by hand.\nImplementation summary:\n- Changed file: ~/shyme/gaia/educe-sequences/supplied/operations-census.md (outside this repository).\n- Scope: exactly 41 block lines changed (43 mismatches across 41 operations); text outside the fenced block is byte-identical; the block still has 257 unique keys.\n- Red: the direct comparator reported 43 compared mismatches across 41 operations; all six verification tests failed.\n- Green: the six verification tests pass; the direct comparator reports rows 257, compared 0, byField {}.\n- Digest: 353ed4c499652ca84597df2ac7387c29387458ecccabc4298d823cd2d6a3f833 -> 5a871af0b215f54df8902945dd2cab89e6bdd626a665008d99d1bdce0b9c9268.\n- readPinnedCensus now refuses the old pin digest until the manual /educe-sequences re-pin; this is expected and was not worked around.\n- Step 5a annotation was not run for conver: this ticket changes no file inside the repository, and the uncommitted diff belongs to PX-304. Running the annotator would have attributed PX-304's files to PX-305.\nReview report:\n- Static quality check: passed (0 issues).\n- Verification: the Red baseline was 43 mismatches across 41 operations; the corrected census reports 0 compared mismatches.\n- Structure: only the 41 mismatching rows changed; the fenced block still parses and every key is unique.\n- Evidence: every changed row carries a quote that occurs on its cited line; transition rows also carry the OperationStatus quote at 14097.\n- Pin: the artifact still records the old sha256; readPinnedCensus refuses until the manual /educe-sequences re-pin. This is expected and was not worked around.\n- Annotation: this ticket changed no source file inside this repository; PX-305 provenance is recorded here and in the spec.\n- Residual: the executable verification harness lived in /tmp; the predicates are persisted in planTestCode and the spec for reconstruction.\n- Issues found and fixes applied: none.",
+          "invariants": "- [Normal condition] After the corrections, compareOperationCensus reports zero mismatches for the 43 rows against the current artifact.\n- [Error invariant] A changed row without a cited specification line and a quote on that line is not committed.\n- [Internal state invariant] Only the 43 rows' compared fields and their evidence change; every other byte of the census file stays identical.\n- [Boundary invariant] The fenced jsonl block still parses and every row key remains unique.",
+          "testUnit": [
+            "UT: [Normal] C001 each of the 27 census rows whose disposition is active while the artifact is excluded and whose cited specification line orders no act becomes excluded, with the line and a quote recorded in evidence.",
+            "UT: [Normal] C002 each of the 10 allowed_status_transitions maps gains the terminal recovered key with an empty successor list, and every other key and value is unchanged.",
+            "UT: [Normal] C003 each of the 6 result_object_classes arrays lists the specification-stated classes: BeneficiaryRule, PayoutClaimRequest, SoulTransferAgreement, TimeHandshakeResponse, AssetRecord and StorageAvailabilityProof.",
+            "UT: [Error] C004 a changed row whose evidence carries no line or no quote fails the evidence check and is not committed.",
+            "UT: [Boundary] the fenced jsonl block parses, every row key is unique, and the number of rows stays 257.",
+            "UT: [Invariant] the direct comparison of the corrected census against the current artifact reports zero mismatches, and every unrelated row's compared columns are byte-identical.",
+            "UT: [Regression] the direct comparison still reports the 27, 10 and 6 groups as their correct field names before the corrections are applied."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] readPinnedCensus + compareOperationCensus against the current gaia artifact and the 29 package views.\n  - After the correction and before the re-pin, the comparator returns zero mismatches when given the corrected rows directly; readPinnedCensus intentionally refuses the old pin digest.",
+            "IT: [Verification] After the manual /educe-sequences re-pin, readPinnedCensus accepts the new sha256 and /smooth-sequences reports no CENSUS:CONSISTENCY:operations mismatch.\n  - The artifact's 43 compared fields do not move during re-derivation; if one moves, it is reported as a new disagreement.",
+            "IT: [Prerequisites] PX-304 is installed; the gaia workspace, artifact and package views are unchanged by this ticket; the corrected file is passed to educe as supplied material.\n  - The comparison uses the same loadWorkspace, readPinnedCensus and compareOperationCensus used by /smooth-sequences.",
+            "IT: [Related tickets] PX-303 defines the obligation; PX-304 corrects the owner clause; PX-298 settled the 27 no-act dispositions."
+          ],
+          "testExceptions": [
+            "The final end-to-end pass is not testable inside this ticket because it requires the manual /educe-sequences and /smooth-sequences runs after the re-pin; this is an execution dependency and not a design defect. Alternative verification: the direct comparator over the corrected rows, plus the recorded manual run that reads the new pin."
+          ],
+          "instrumentation": "- [Logging] No runtime logging; the census is a data file.\n- [Metrics] The verification script prints the mismatch count by field before and after the correction.\n- [Error tracking] A row the specification contradicts is reported by operation id and field instead of being changed.\n- [Health check] The direct comparator is the health check: zero mismatches across the 43 rows, with 257 rows and unique keys.\nStatic quality check: passed (0 issues)\nTranslatability: not applicable to the data file; the verification harness uses named constants and no debug output\nTests: 6/6 verification, direct comparator 0 across 257 rows\nStructure: 41 changed block lines, text outside the fence byte-identical, 257 unique keys",
+          "investigation": "- Census file: `~/shyme/gaia/educe-sequences/supplied/operations-census.md`; 257 rows in one fenced jsonl block keyed by `kind`; every row carries `evidence` with `spec_lines`, `note` and `grounding`.\n- The pin `pins.sourceEnumerations[role=operations]` records the file and sha256 `353ed4c499652ca84597df2ac7387c29387458ecccabc4298d823cd2d6a3f833`; `readPinnedCensus` refuses a digest mismatch.\n- 27 disposition rows: AcceptRecoveryEligibilityCredential, ConfigureHeatStabilizer, CreatePressReleasePackage, CreateStorageContract, GrantAssetRights, InitiateStorageRepair, IssueCommercialBankOperatorCredential, IssuePayoutDeadlineExtension, PublishBankProviderAdvertisement, RecordAssetPublicationEvidence, RecordDiscoveryServiceObservation, RecordHeatInterventionDecision, SubmitCivicPrecommit, SubmitCivicPrevote, SubmitSoulTransferDispute, SubmitStorageAvailabilityProof, TransitionTemporalHealthState, SubmitNormalSuccessionIntent, CreatePressRoom, IssueStorageAuditChallenge, PublishAssetCommercialRightsPolicy, PublishAssetDiscoveryRecord, PublishPublicAccessConditionPolicy, PublishEncryptedFileManifest, RecordPublicationDemandObservation, PublishTimeWitnessPolicy, RefundMaturityBond.\n- 10 transition rows: AcceptRecoveryEligibilityCredential, ExecutePayoutRecovery, FetchRecoveryMaterial, ProcessDispute, ProcessPaymentCallback, ProcessRefund, SubmitForumRootTransferDispute, SubmitRecoveryProof, SubmitSoulTransferDispute, SubmitTransferDispute. In every map the only artifact-only key is `recovered`, and its value is `[]`.\n- 6 result-class rows: ChangePayoutBeneficiary -> BeneficiaryRule; ClaimPayout -> PayoutClaimRequest; CreateNewTransfer -> SoulTransferAgreement; RespondToTimeChallenge -> TimeHandshakeResponse; UpdateAsset -> AssetRecord; RespondStorageChallenge -> StorageAvailabilityProof.\n- The current comparator output is exactly 27 + 10 + 6 = 43 after PX-304; the full mismatch total before PX-304 was 124 including 81 owner.\n- PX-298's branch decision records that the 27 operations are consistently excluded with a no-act object or rule line; that is the evidence direction for the disposition correction.",
+          "boyScoutPlan": "- Keep the verification script pure and named by what it measures; no hardcoded workspace path, read the root from the argument.\n- Name the three correction groups as constants; do not inline the 27, 10 and 6 counts.\n- Preserve the row order and the existing evidence shape; the change is the smallest per-row edit, not a rewrite of the file.\n- Never swallow a parse or evidence failure: report the row id, field and expected/actual values.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-303 disposition comparison; PX-298 branch decision",
+              "precondition": "a census row says active while the artifact excludes it and the cited specification line orders no act",
+              "postcondition": "the row says excluded and its evidence cites the line and a quote found on that line",
+              "invariant": "no row changes without a cited line"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "PX-303 allowed_status_transitions column",
+              "precondition": "the specification's operation status set includes a terminal recovered state absent from the census transition map",
+              "postcondition": "the census map carries recovered with an empty successor list",
+              "invariant": "the map's other keys and values are unchanged"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "PX-303 result_object_classes column",
+              "precondition": "the artifact names result classes for an operation and the specification states them on the cited lines",
+              "postcondition": "the census result_object_classes array lists the same classes",
+              "invariant": "census and artifact agree on result_object_classes"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "Supreme law: no blind copying of the artifact into the authority",
+              "precondition": "a row is changed",
+              "postcondition": "the row's evidence carries a line and a quote found on that line",
+              "invariant": "every changed row has specification-grounded evidence"
+            }
+          ],
+          "created_at": "2026-10-22",
+          "updated_at": "2026-10-22",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Regression/Red] — the direct comparator reports exactly 43 compared disagreements before the correction\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nimport { compareOperationCensus } from './.claude/scripts/shared-obligations/registry.mjs';\n\nconst ROOT = process.env.GAIA_ROOT ?? '/Users/kawata/shyme/gaia';\nconst CENSUS = join(ROOT, 'educe-sequences/supplied/operations-census.md');\nconst ARTIFACT = join(ROOT, 'GaiaSekkeiShiyousho_v32-sequences.json');\nconst COMPARED_FIELDS = ['disposition', 'allowed_status_transitions', 'result_object_classes'];\n\nfunction parseCensusRows(text) {\n  const block = /```jsonl\\s*\\n([\\s\\S]*?)```/.exec(text);\n  assert.ok(block, 'the census carries a fenced jsonl block');\n  return block[1].split('\\n').map((line) => line.trim()).filter(Boolean).map((line) => JSON.parse(line));\n}\n\ntest('the compared census disagreements are exactly the 43 mismatches', () => {\n  const rows = parseCensusRows(readFileSync(CENSUS, 'utf8'));\n  const artifact = JSON.parse(readFileSync(ARTIFACT, 'utf8'));\n  const { mismatches } = compareOperationCensus({ censusRows: rows, artifact, packages: [], allocateManifest: null });\n  const compared = mismatches.filter((mismatch) => COMPARED_FIELDS.includes(mismatch.field));\n  assert.equal(compared.length, 43);\n});\n```",
+            "UT: [Normal] C001 — the 27 disposition rows are excluded and cite their line\n```js\ntest('C001 the 27 disposition rows say excluded', () => {\n  const byKind = new Map(rows.map((row) => [row.kind, row]));\n  for (const kind of DISPOSITION_ROWS) {\n    assert.equal(byKind.get(kind).disposition, 'excluded', `${kind} disposition`);\n  }\n  assert.equal(DISPOSITION_ROWS.length, 27);\n});\n```",
+            "UT: [Normal] C002 — the 10 transition maps carry recovered: [] and keep their other keys\n```js\ntest('C002 the 10 transition maps carry the terminal recovered state', () => {\n  const byKind = new Map(rows.map((row) => [row.kind, row]));\n  for (const kind of TRANSITION_ROWS) {\n    const map = byKind.get(kind).allowed_status_transitions;\n    assert.deepEqual(map.recovered, []);\n    assert.deepEqual(Object.keys(map).filter((key) => key !== 'recovered'), Object.keys(beforeByKind.get(kind).allowed_status_transitions));\n  }\n  assert.equal(TRANSITION_ROWS.length, 10);\n});\n```",
+            "UT: [Normal] C003 — the 6 result_object_classes arrays list the specification-stated classes\n```js\ntest('C003 the 6 result-object rows list the stated classes', () => {\n  const byKind = new Map(rows.map((row) => [row.kind, row]));\n  const expected = {\n    ChangePayoutBeneficiary: ['BeneficiaryRule'],\n    ClaimPayout: ['PayoutClaimRequest'],\n    CreateNewTransfer: ['SoulTransferAgreement'],\n    RespondToTimeChallenge: ['TimeHandshakeResponse'],\n    UpdateAsset: ['AssetRecord'],\n    RespondStorageChallenge: ['StorageAvailabilityProof'],\n  };\n  for (const [kind, classes] of Object.entries(expected)) {\n    assert.deepEqual(byKind.get(kind).result_object_classes, classes, kind);\n  }\n  assert.equal(Object.keys(expected).length, 6);\n});\n```",
+            "UT: [Error] C004 — every changed row carries a quote that occurs on its cited quote_line\n```js\ntest('C004 every changed row has a quote on its cited line', () => {\n  const specLines = readFileSync(join(ROOT, 'GaiaSekkeiShiyousho_v32.md'), 'utf8').split('\\n');\n  for (const row of changedRows) {\n    const quote = row.evidence?.quote;\n    const line = row.evidence?.quote_line;\n    assert.equal(typeof quote, 'string', `${row.kind} quote`);\n    assert.ok(Number.isInteger(line) && line > 0, `${row.kind} quote_line`);\n    assert.ok(specLines[line - 1].includes(quote), `${row.kind}: quote not found on line ${line}`);\n  }\n});\n```",
+            "UT: [Boundary] — 257 rows, unique keys, and only the 41 rows carrying the 43 mismatches change\n```js\ntest('the census keeps 257 unique keys and only the 41 mismatching rows change', () => {\n  assert.equal(rows.length, 257);\n  assert.equal(new Set(rows.map((row) => row.kind)).size, 257);\n  const touched = rows.filter((row) => JSON.stringify(row) !== JSON.stringify(beforeByKind.get(row.kind)));\n  assert.deepEqual(touched.map((row) => row.kind).sort(), CHANGED_ROWS.slice().sort());\n  assert.equal(CHANGED_ROWS.length, 41);\n});\n```",
+            "UT: [Invariant] — the direct comparison returns zero compared mismatches after the correction\n```js\ntest('the corrected census agrees with the artifact', () => {\n  const artifact = JSON.parse(readFileSync(ARTIFACT, 'utf8'));\n  const { mismatches } = compareOperationCensus({ censusRows: rows, artifact, packages: [], allocateManifest: null });\n  const compared = mismatches.filter((mismatch) => COMPARED_FIELDS.includes(mismatch.field));\n  assert.equal(compared.length, 0);\n});\n```"
+          ],
+          "startedAt": "2026-10-22",
+          "changes": [
+            {
+              "before": "27 census rows said active while the artifact excludes them.",
+              "after": "All 27 rows say excluded and cite the specification line that states no act.",
+              "description": "Apply the PX-298 no-act branch to the supplied census."
+            },
+            {
+              "before": "10 census transition maps omitted the terminal recovered state.",
+              "after": "All 10 maps carry recovered: [] and keep their other keys and values.",
+              "description": "Ground the terminal state in OperationStatus at line 14097."
+            },
+            {
+              "before": "6 census result_object_classes arrays were empty.",
+              "after": "The arrays list BeneficiaryRule, PayoutClaimRequest, SoulTransferAgreement, TimeHandshakeResponse, AssetRecord and StorageAvailabilityProof.",
+              "description": "Ground each class on the operation's cited specification line."
+            },
+            {
+              "before": "Census evidence carried a note and a grounding line but no quote.",
+              "after": "Every changed row carries evidence.quote and evidence.quote_line; transition rows also carry transition_quote and transition_quote_line.",
+              "description": "Make each change independently checkable against the specification."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-22"
         }
       ]
     },
