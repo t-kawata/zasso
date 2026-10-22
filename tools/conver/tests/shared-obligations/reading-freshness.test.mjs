@@ -84,3 +84,69 @@ test('C011 a fresh reading whose quote is on the line closes', () => {
   });
   assert.equal(resolved[0].state, 'closed');
 });
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+const generationObligation = {
+  id: 'READ:INQUEST:s:omission',
+  subject: 's:omission',
+  class: 'semantic',
+  state: 'open',
+  kind: 'reading',
+};
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+const generationRow = {
+  subject: 's',
+  lens: 'omission',
+  answer: 'No',
+  path: 'spec.md',
+  line: 2,
+  quote: 'the clause',
+  artifactDigest: 'a',
+  readerGeneration: 47,
+  readAt: '2026-10-23T01:00:00.000Z',
+};
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('C004 a reading from an older generation is not held', () => {
+  const [resolved] = resolveReadingsObligations([generationObligation], {
+    readings: { inquest: [{ ...generationRow, readerGeneration: 46 }] },
+    artifactDigest: 'a',
+    linesByPath: { 'spec.md': ['', 'the clause'] },
+    inheritedPolicy: 'block',
+    generation: 47,
+    generationStartedAt: '2026-10-23T00:00:00.000Z',
+  });
+  assert.equal(resolved.state, 'open');
+  assert.equal(resolved.reason, 'READER_GENERATION_STALE');
+});
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('C004 a reading older than the generation start is not held', () => {
+  const [resolved] = resolveReadingsObligations([generationObligation], {
+    readings: { inquest: [{ ...generationRow, readAt: '2026-10-01T00:00:00.000Z' }] },
+    artifactDigest: 'a',
+    linesByPath: { 'spec.md': ['', 'the clause'] },
+    inheritedPolicy: 'block',
+    generation: 47,
+    generationStartedAt: '2026-10-23T00:00:00.000Z',
+  });
+  assert.equal(resolved.state, 'open');
+  assert.equal(resolved.reason, 'READING_NOT_REREAD');
+});
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('C004 a current-generation reading after the generation start is held', () => {
+  const [resolved] = resolveReadingsObligations([generationObligation], {
+    readings: { inquest: [generationRow] },
+    artifactDigest: 'a',
+    linesByPath: { 'spec.md': ['', 'the clause'] },
+    inheritedPolicy: 'block',
+    generation: 47,
+    generationStartedAt: '2026-10-23T00:00:00.000Z',
+  });
+  assert.equal(resolved.state, 'closed');
+});

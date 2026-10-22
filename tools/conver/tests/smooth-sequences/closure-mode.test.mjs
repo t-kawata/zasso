@@ -127,3 +127,18 @@ test('the production tree carries no remediation generator', () => {
   const runner = readFileSync('.claude/scripts/smooth-sequences/run.mjs', 'utf8');
   assert.doesNotMatch(runner, /REMEDIATION-OBLIGATIONS/);
 });
+
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('--strict-freshness is a flag and the certificate carries generation counters', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const output = capture();
+    const result = runCommand([workspace.root, '--strict-freshness'], output.io);
+    assert.notEqual(result.exitCode, 2);
+    assert.equal(typeof result.report.certificate.assurance.staleReaderGenerationCount, 'number');
+    assert.equal(typeof result.report.certificate.assurance.generationMismatchCount, 'number');
+    assert.equal(typeof result.report.certificate.assurance.rereadCount, 'number');
+  } finally {
+    workspace.remove();
+  }
+});

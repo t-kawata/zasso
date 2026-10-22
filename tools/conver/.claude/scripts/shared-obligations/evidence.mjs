@@ -31,7 +31,7 @@ export function sha256File(path) {
 
 /** A stable JSON encoding with sorted object keys. */
 // [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map((entry) => canonicalJson(entry)).join(',')}]`;
@@ -186,6 +186,7 @@ export function writeEvidenceManifest(root, manifest = {}) {
       records: entry.records ?? null,
     })),
     receipts,
+    writeReceipts: Array.isArray(manifest.writeReceipts) ? manifest.writeReceipts : [],
   };
   return writeManifestAt(join(root, 'educe-sequences'), body);
 }
@@ -232,4 +233,71 @@ export function readEvidenceManifest(root) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function receiptDigest(receipt) {
   return contextDigest({ phase: receipt?.phase ?? null, inputs: receipt?.inputs ?? {}, outputs: receipt?.outputs ?? {} });
+}
+
+/** The writer every evidence file must name in its receipt. */
+export const WRITE_RECEIPT_WRITER = 'shared-obligations/evidence-writer.mjs';
+
+/**
+ * Record the digest of one evidence file the writer just produced.
+ *
+ * The receipt binds the bytes on disk to the generation that wrote them. A file
+ * without a receipt is a file the gate did not see written, which is the shape a
+ * generator leaves behind.
+ *
+ * @param {string} root — the workspace root
+ * @param {{kind: string, path: string, generation: number, writer?: string, now?: Date}} request
+ * @returns {object} the receipt written into the manifest
+ */
+export function writeReceiptFor(root, request) {
+  const {
+    kind, path, generation, writer = WRITE_RECEIPT_WRITER, now = new Date(),
+  } = request;
+  const digest = sha256File(join(root, path));
+  if (digest === null) throw new Error(`the evidence file ${path} does not exist`);
+  const directory = join(root, 'educe-sequences');
+  const manifest = readManifestAt(directory) ?? {
+    schemaVersion: EVIDENCE_MANIFEST_SCHEMA_VERSION,
+    spec: null,
+    artifact: null,
+    generation: null,
+    files: [],
+    receipts: [],
+    writeReceipts: [],
+  };
+  const writeReceipts = (Array.isArray(manifest.writeReceipts) ? manifest.writeReceipts : [])
+    .filter((entry) => entry?.path !== path);
+  const receipt = { kind, path, sha256: digest, generation, writer, writtenAt: now.toISOString() };
+  writeReceipts.push(receipt);
+  writeReceipts.sort((left, right) => String(left.path).localeCompare(String(right.path)));
+  writeManifestAt(directory, { ...manifest, writeReceipts });
+  return receipt;
+}
+
+/**
+ * Validate every expected evidence file against its write receipt.
+ *
+ * @param {object} manifest — the evidence manifest
+ * @param {{root: string, paths?: string[], generation?: number|null}} request
+ * @returns {{valid: boolean, stale: Array<{phase: null, path: string, code: string, mismatches: string[]}>}}
+ */
+export function validateWriteReceipts(manifest, { root, paths = [], generation = null } = {}) {
+  const receipts = Array.isArray(manifest?.writeReceipts) ? manifest.writeReceipts : [];
+  const stale = [];
+  for (const path of paths) {
+    const receipt = receipts.find((entry) => entry?.path === path);
+    if (receipt === undefined) {
+      stale.push({ phase: null, path, code: 'MISSING_WRITE_RECEIPT', mismatches: [] });
+      continue;
+    }
+    const digest = sha256File(join(root, path));
+    if (digest === null || receipt.sha256 !== digest) {
+      stale.push({ phase: null, path, code: 'EVIDENCE_DIGEST_MISMATCH', mismatches: [path] });
+      continue;
+    }
+    if (generation !== null && receipt.generation !== generation) {
+      stale.push({ phase: null, path, code: 'STALE_WRITE_RECEIPT', mismatches: [] });
+    }
+  }
+  return { valid: stale.length === 0, stale };
 }

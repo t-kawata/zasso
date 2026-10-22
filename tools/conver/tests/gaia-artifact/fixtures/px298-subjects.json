@@ -1,0 +1,36 @@
+{
+  "positionDisposition": [
+    "RefundMaturityBond",
+    "GrantAssetRights",
+    "RecordDiscoveryServiceObservation",
+    "CreatePressRoom",
+    "CreatePressReleasePackage",
+    "ConfigureHeatStabilizer",
+    "TransitionTemporalHealthState",
+    "SubmitNormalSuccessionIntent",
+    "AcceptRecoveryEligibilityCredential",
+    "SubmitSoulTransferDispute",
+    "IssuePayoutDeadlineExtension",
+    "PublishBankProviderAdvertisement",
+    "IssueCommercialBankOperatorCredential",
+    "CreateStorageContract",
+    "SubmitStorageAvailabilityProof",
+    "InitiateStorageRepair",
+    "RecordHeatInterventionDecision",
+    "IssueStorageAuditChallenge",
+    "PublishAssetCommercialRightsPolicy",
+    "PublishAssetDiscoveryRecord",
+    "PublishPublicAccessConditionPolicy",
+    "PublishEncryptedFileManifest",
+    "RecordAssetPublicationEvidence",
+    "RecordPublicationDemandObservation",
+    "PublishTimeWitnessPolicy",
+    "SubmitCivicPrecommit",
+    "SubmitCivicPrevote"
+  ],
+  "escapeAct": [
+    "RecordDiscoveryServiceObservation",
+    "SubmitSoulTransferDispute",
+    "SubmitStorageAvailabilityProof"
+  ]
+}

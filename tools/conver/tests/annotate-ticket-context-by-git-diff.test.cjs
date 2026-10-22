@@ -574,8 +574,8 @@ describe("processFile idempotence [PX-208]", () => {
     const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([99]) });
 
     assert.match(action, /already-annotated/);
-    assert.strictEqual(sha256(file), before);
     assert.strictEqual(fs.readFileSync(file, "utf8").includes("[::AMBIGUOUS::]"), false, "no fresh ambiguous marker");
+    assert.strictEqual(sha256(file), before);
   });
 
   it("C001 invariant: three consecutive runs leave the digest and the count unchanged", () => {

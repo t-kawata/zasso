@@ -38,7 +38,7 @@ export const DECISION_SOURCE = Object.freeze({
 });
 
 /** A basis signature used to detect the same citation closing two obligations. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function basisSignature(basis) {
   return JSON.stringify(basis.map((entry) => ({
@@ -56,7 +56,7 @@ function basisSignature(basis) {
 }
 
 /** Index the records by obligation, keeping the first and rejecting duplicates. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function indexRecords(records, rejected, kind) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -79,6 +79,7 @@ function indexRecords(records, rejected, kind) {
 
 /** The decision for one obligation. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function decideObligation(obligation, item, record, attack, context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const base = {
@@ -270,6 +271,7 @@ export function decideAll(input = {}) {
     staleReceipts = [],
     sensitivity = [],
     rejudge = [],
+    generation = null,
   } = input;
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -342,7 +344,9 @@ export function decideAll(input = {}) {
   const quoteGrounded = basisJudgments.filter((entry) => (records.get(entry.obligationId)?.basis ?? [])
     .some((basis) => typeof basis?.quote === 'string' && basis.quote.trim() !== '')).length;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-  const effortCovered = heldJudgments.filter((entry) => items.get(entry.obligationId)?.requireEffort !== true
+  const effortHeld = heldJudgments
+    .filter((entry) => !String(entry.obligationId).startsWith('FALSIFY:'));
+  const effortCovered = effortHeld.filter((entry) => items.get(entry.obligationId)?.requireEffort !== true
     || effortByObligation.has(entry.obligationId)).length;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const tier1Held = heldJudgments.filter((entry) => items.get(entry.obligationId)?.attackTier === ATTACK_TIER.TIER_ONE);
@@ -370,6 +374,12 @@ export function decideAll(input = {}) {
   const discriminating = Array.isArray(sensitivity) ? sensitivity.filter((entry) => entry?.ok === true).length : 0;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const rejudgeAgreements = Array.isArray(rejudge) ? rejudge.filter((entry) => entry?.ok === true).length : 0;
+  const staleGenerationCodes = new Set(['READER_GENERATION_STALE', 'READING_NOT_REREAD']);
+  const staleReaderGenerationCount = decisions.filter((entry) => staleGenerationCodes.has(entry.reason)).length;
+  const generationMismatchCount = decisions.filter((entry) => entry.reason === 'READER_GENERATION_STALE').length;
+  const rereadCount = heldJudgments.filter((entry) => generation === null
+    || records.get(entry.obligationId)?.readerGeneration === generation).length
+    + readingDecisions.filter((entry) => entry.state === DECISION_STATE.HELD).length;
   return {
     decisions,
     rejected,
@@ -390,7 +400,7 @@ export function decideAll(input = {}) {
         inheritedRatio: readingDecisions.length === 0 ? 0 : inheritedReadings / readingDecisions.length,
         escapeActConflictCount: escapeConflicts,
         staleReceiptCount: Array.isArray(staleReceipts) ? staleReceipts.length : 0,
-        effortCoverage: heldJudgments.length === 0 ? 1 : effortCovered / heldJudgments.length,
+        effortCoverage: effortHeld.length === 0 ? 1 : effortCovered / effortHeld.length,
         blindAttackRatio: tier1Held.length === 0 ? 1 : blindHeld / tier1Held.length,
         discriminatingRatio: Array.isArray(sensitivity) && sensitivity.length > 0
           ? discriminating / sensitivity.length
@@ -398,6 +408,9 @@ export function decideAll(input = {}) {
         rejudgeAgreement: Array.isArray(rejudge) && rejudge.length > 0
           ? rejudgeAgreements / rejudge.length
           : 1,
+        staleReaderGenerationCount,
+        generationMismatchCount,
+        rereadCount,
       } : {}),
     },
   };

@@ -4,6 +4,14 @@
   "artifact_suffix": "-sequences",
   "artifact_extension": ".json",
   "render_extension": ".md",
+  "vocabulary": {
+    "optional": true,
+    "actPatterns": {
+      "type": "array",
+      "items": "string",
+      "optional": true
+    }
+  },
   "required": [
     "schema_version",
     "spec",

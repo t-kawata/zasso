@@ -184,3 +184,123 @@ test('a stale receipt reaches the certificate as an open obligation', () => {
   assert.equal(certificate.status, 'incomplete');
   assert.equal(certificate.open.some((entry) => entry.code === 'STALE_RECEIPT'), true);
 });
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+const GENERATION_STARTED_AT = '2026-10-23T00:00:00.000Z';
+
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+function generationItem() {
+  return buildWorklist([obligation], { [obligation.id]: context }, {
+    artifactDigest: ARTIFACT_DIGEST,
+    reader: 'reader-1',
+    attackReader: 'reader-1/attack',
+    requireRecordId: false,
+    requireEffort: true,
+    generation: 47,
+    generationStartedAt: GENERATION_STARTED_AT,
+  })[0];
+}
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+function generationRecord(worklistItem, overrides = {}) {
+  return {
+    ...record(worklistItem),
+    readerGeneration: 47,
+    readAt: '2026-10-23T01:00:00.000Z',
+    ...overrides,
+  };
+}
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('a judgment from an older generation stays open', () => {
+  const worklistItem = generationItem();
+  const result = decideAll({
+    obligations: [obligation],
+    worklist: [worklistItem],
+    judgments: [generationRecord(worklistItem, { readerGeneration: 46 })],
+    effort: [effort],
+    artifactDigest: ARTIFACT_DIGEST,
+    artifact,
+  });
+  assert.equal(result.decisions[0].state, 'open');
+  assert.equal(result.decisions[0].reason, 'READER_GENERATION_STALE');
+});
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('a judgment older than the generation start stays open', () => {
+  const worklistItem = generationItem();
+  const result = decideAll({
+    obligations: [obligation],
+    worklist: [worklistItem],
+    judgments: [generationRecord(worklistItem, { readAt: '2026-10-01T00:00:00.000Z' })],
+    effort: [effort],
+    artifactDigest: ARTIFACT_DIGEST,
+    artifact,
+  });
+  assert.equal(result.decisions[0].state, 'open');
+  assert.equal(result.decisions[0].reason, 'READING_NOT_REREAD');
+});
+
+// @verifies C004
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+test('a current-generation judgment after the generation start is held', () => {
+  const worklistItem = generationItem();
+  const result = decideAll({
+    obligations: [obligation],
+    worklist: [worklistItem],
+    judgments: [generationRecord(worklistItem)],
+    effort: [effort],
+    artifactDigest: ARTIFACT_DIGEST,
+    artifact,
+  });
+  assert.equal(result.decisions[0].state, 'held');
+});
+
+// @verifies C004
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+test('a held FALSIFY attack does not owe an effort trace', () => {
+  const falsify = {
+    id: 'FALSIFY:OpA',
+    class: 'semantic',
+    state: 'open',
+    kind: 'judgment',
+    subject: 'OpA',
+    claim: 'the operation is ordered and covered',
+  };
+  const worklistItem = buildWorklist([falsify], {
+    'FALSIFY:OpA': { obligationId: 'FALSIFY:OpA', subject: 'OpA', anchorSet: {} },
+  }, {
+    artifactDigest: ARTIFACT_DIGEST,
+    reader: 'reader-1',
+    attackReader: 'reader-1/attack',
+    requireRecordId: false,
+    requireEffort: true,
+  })[0];
+  const attack = {
+    obligationId: 'FALSIFY:OpA',
+    contextDigest: worklistItem.contextDigest,
+    worklistDigest: worklistItem.worklistDigest,
+    outcome: 'held',
+    blind: true,
+    reader: 'reader-1/attack',
+    searched: { source: 'spec', path: 'spec.md', from: 1, to: 1, quote: 'the clause' },
+    attack: 'searched the OpA row and the cited line the clause for a step; none was found.',
+    counterexampleAttempt: {
+      candidate: 'a step that performs OpA on the cited line',
+      source: { path: 'spec.md', line: 1, quote: 'the clause' },
+      whyItFails: 'the cited line states no step',
+    },
+  };
+  const result = decideAll({
+    obligations: [falsify],
+    worklist: [worklistItem],
+    attacks: [attack],
+    artifactDigest: ARTIFACT_DIGEST,
+  });
+  assert.equal(result.decisions[0].state, 'held');
+  assert.equal(result.metrics.effortCoverage, 1);
+});

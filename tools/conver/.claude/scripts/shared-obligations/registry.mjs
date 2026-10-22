@@ -47,21 +47,21 @@ export class RegistryError extends Error {
 }
 
 /** A non-empty string, or the fallback. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function text(value, fallback = '') {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : fallback;
 }
 
 /** The ids of artifact rows. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function idsOf(rows) {
   return (Array.isArray(rows) ? rows : []).map((row) => row?.id).filter((id) => typeof id === 'string');
 }
 
 /** The (subject, lens) pairs the declaration exempts. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function exemptPairs(declaration) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -93,7 +93,7 @@ export function obligation(spec) {
 }
 
 /** A mechanical check obligation. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function checkObligation(subCheck) {
   return obligation({
@@ -108,7 +108,7 @@ function checkObligation(subCheck) {
 }
 
 /** A census bijection obligation. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function censusObligation(kind, missing, extra) {
   return obligation({
@@ -124,7 +124,7 @@ function censusObligation(kind, missing, extra) {
 }
 
 /** A reading obligation closed mechanically by a step, or semantically by a reading. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function uncoveredObligation(operationId, performed) {
   return obligation({
@@ -141,7 +141,7 @@ function uncoveredObligation(operationId, performed) {
 }
 
 /** One inquest obligation unless the declaration exempts the pair. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function inquestObligation(subject, lens) {
   return obligation({
@@ -156,7 +156,7 @@ function inquestObligation(subject, lens) {
 }
 
 /** A boundary semantic obligation. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function boundaryObligation(boundaryId, kind, subject = boundaryId) {
   return obligation({
@@ -168,6 +168,23 @@ function boundaryObligation(boundaryId, kind, subject = boundaryId) {
     predicate: `judgment:${kind.toLowerCase()}`,
     producer: 'smooth-sequences/judgment-worklist',
   });
+}
+
+/**
+ * How a contract accounts for one clause kind.
+ *
+ * An absent key is a missing clause, not a non-applicable one. A contract that
+ * genuinely has no ERRORS clause says so under `notApplicable`; an empty object
+ * no longer closes the obligation.
+ */
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+function clauseDisposition(contract, kind) {
+  const clauses = contract?.clauses;
+  if (clauses === null || typeof clauses !== 'object') return 'missing';
+  if (resolveClauseValues(contract, kind) !== null) return 'resolved';
+  const declared = clauses.notApplicable;
+  if (Array.isArray(declared) && declared.includes(kind)) return 'not_applicable';
+  return 'missing';
 }
 
 /** A distribution fidelity obligation. */
@@ -201,7 +218,7 @@ function riskObligation(subject, riskClass) {
 }
 
 /** A falsification obligation for a Tier 1 subject. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function falsifyObligation(subject) {
   return obligation({
@@ -358,10 +375,8 @@ export function deriveObligations(inputs = {}) {
         const entry = boundaryObligation(boundaryId, 'ENTAILMENT', `${boundaryId}/${step.id}`);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
         const contract = contracts.find((row) => row?.boundary_id === boundaryId);
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-        const carriesClauses = contract?.clauses !== null && typeof contract?.clauses === 'object';
-        add(carriesClauses && resolveClauseValues(contract, 'ENTAILMENT') === null
-          ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'EMPTY_CLAUSE' }
+        add(clauseDisposition(contract, 'ENTAILMENT') === 'not_applicable'
+          ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'DECLARED_NOT_APPLICABLE' }
           : entry);
       }
     }
@@ -369,13 +384,11 @@ export function deriveObligations(inputs = {}) {
   for (const boundary of boundaries) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const contract = contracts.find((row) => row?.boundary_id === boundary.id);
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const carriesClauses = contract?.clauses !== null && typeof contract?.clauses === 'object';
     for (const kind of ['TRANSLATION', 'INVARIANT', 'ERRORS', 'TESTS']) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const entry = boundaryObligation(boundary.id, kind);
-      add(carriesClauses && resolveClauseValues(contract, kind) === null
-        ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'EMPTY_CLAUSE' }
+      add(clauseDisposition(contract, kind) === 'not_applicable'
+        ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'DECLARED_NOT_APPLICABLE' }
         : entry);
     }
   }
@@ -410,7 +423,7 @@ export function deriveObligations(inputs = {}) {
 }
 
 /** Whether a pinned column carries no value at all. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function isEmptyValue(value) {
   return value === undefined
@@ -420,7 +433,7 @@ function isEmptyValue(value) {
 }
 
 /** One property obligation for an empty column with a column-specific grounding. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function groundedPropertyObligation(operationId, column, ground) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -443,7 +456,7 @@ function groundedPropertyObligation(operationId, column, ground) {
 }
 
 /** One property obligation for an empty column with no column-specific grounding. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function openPropertyObligation(operationId, column) {
   return obligation({

@@ -27,7 +27,8 @@ import { join, resolve } from 'node:path';
 import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
 import { buildCertificate, writeCertificate } from '../shared-obligations/certificate.mjs';
 import { decideAll } from '../shared-obligations/decide.mjs';
-import { readEvidenceManifest, sha256File, validateManifestReceipts } from '../shared-obligations/evidence.mjs';
+import { readEvidenceManifest, sha256File, validateManifestReceipts, validateWriteReceipts } from '../shared-obligations/evidence.mjs';
+import { EVIDENCE_FILE_BY_KIND } from '../shared-obligations/evidence-writer.mjs';
 import { buildWorklist } from '../shared-obligations/judgment.mjs';
 import { resolveCensusObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
 import { attackReaderForGeneration, readerForGeneration } from '../shared-obligations/reader.mjs';
@@ -68,6 +69,8 @@ const ADVISORY_READINGS_FLAG = '--advisory-readings';
 const LEGACY_FLAG = '--legacy';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const REQUIRE_EFFORT_FLAG = '--require-effort';
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+const STRICT_FRESHNESS_FLAG = '--strict-freshness';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const SCOPE_PREFIX = '--scope=';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -77,6 +80,7 @@ const SCHEMA_V3 = 3;
 
 /** The argument parser: one optional root, the audit flag, the readings policy, legacy and scope. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const audit = argv.includes(AUDIT_FLAG);
@@ -86,6 +90,7 @@ function parseArguments(argv) {
   const legacy = argv.includes(LEGACY_FLAG);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const requireEffort = argv.includes(REQUIRE_EFFORT_FLAG);
+  const strictFreshness = argv.includes(STRICT_FRESHNESS_FLAG);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const scopeArgument = argv.find((argument) => argument.startsWith(SCOPE_PREFIX));
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -95,13 +100,19 @@ function parseArguments(argv) {
     && argument !== ADVISORY_READINGS_FLAG
     && argument !== LEGACY_FLAG
     && argument !== REQUIRE_EFFORT_FLAG
+    && argument !== STRICT_FRESHNESS_FLAG
     && !argument.startsWith(SCOPE_PREFIX));
-  if (paths.length > 1) return { misuse: true, audit, advisoryReadings, legacy, requireEffort, scope, root: null };
-  return { misuse: false, audit, advisoryReadings, legacy, requireEffort, scope, root: startDirectoryFor(paths[0]) };
+  if (paths.length > 1) {
+    return { misuse: true, audit, advisoryReadings, legacy, requireEffort, strictFreshness, scope, root: null };
+  }
+  return {
+    misuse: false, audit, advisoryReadings, legacy, requireEffort, strictFreshness,
+    scope, root: startDirectoryFor(paths[0]),
+  };
 }
 
 /** The members a borrowed census lists for one role, or null when it lists none. */
-// [::TICKET::] PX-283, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-285, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countCensusMembers(artifact, role) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -113,7 +124,7 @@ function countCensusMembers(artifact, role) {
 }
 
 /** One JSON file under the root, or null when it is absent or unreadable. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function readJsonIfPresent(path) {
   if (!existsSync(path)) return null;
@@ -126,6 +137,7 @@ function readJsonIfPresent(path) {
 
 /** JSONL rows under the root, or an empty list when the file is absent or unreadable. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function readJsonLinesIfPresent(path) {
   if (!existsSync(path)) return [];
   try {
@@ -140,6 +152,7 @@ function readJsonLinesIfPresent(path) {
 
 /** The package RFCs, keyed by package id, for RFC basis resolution. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function readRfcByPackage(loaded) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const result = {};
@@ -152,6 +165,7 @@ function readRfcByPackage(loaded) {
 
 /** The current digests a phase receipt is checked against. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function currentReceiptDigests(root, loaded, evidenceManifest) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const digests = {};
@@ -175,7 +189,7 @@ function currentReceiptDigests(root, loaded, evidenceManifest) {
 }
 
 /** The census and declaration the obligation registry compares the artifact against. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function censusFor(root, artifact) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -200,7 +214,7 @@ function censusFor(root, artifact) {
 }
 
 /** The denominator each demand axis is measured against, as far as the workspace states it. */
-// [::TICKET::] PX-283, PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-285, PX-288, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285|PX-288|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function summarizeDenominator(loaded) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -237,7 +251,7 @@ function summarizeDenominator(loaded) {
  * may survive while the workspace moved. Hashing the input set makes that difference
  * visible, and snapshotDesignFiles is the pipeline's existing definition of the set.
  */
-// [::TICKET::] PX-281, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-281|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281, PX-285, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-281|PX-285|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function computeInputDigest(root) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -263,7 +277,7 @@ function renderGenerationLine(result) {
  * Older status files predate `schemaHistory`. The archived report still records that the
  * artifact was v3, and that record is the evidence a downgrade must be judged against.
  */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function mergeSchemaHistory(history, provenance) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -302,7 +316,7 @@ function detectDowngrade({ status, baseline, artifact }) {
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 
 /** Resolve an interrupted commit, refuse an open transaction, and verify the chain. */
-// [::TICKET::] PX-278, PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function regenerationGate(root, stderr, { allowTransaction } = {}) {
   // A commit verifies its own live write while the ledger still says committing.
@@ -350,14 +364,14 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
 }
 
 /** The boundary an obligation names, before any step suffix. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function boundaryIdOf(subject) {
   return String(subject ?? '').split('/')[0];
 }
 
 /** The anchors a judgment basis may cite for one obligation. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function anchorSetFor(obligation) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -382,7 +396,7 @@ function anchorSetFor(obligation) {
 }
 
 /** The evidence context one worklist item carries. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function contextForObligation(obligation) {
   return {
@@ -394,7 +408,7 @@ function contextForObligation(obligation) {
 }
 
 /** The specification lines a basis quote is checked against. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function readSpecLines(root, artifact) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -443,7 +457,7 @@ export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const index = {
       ...indexArtifact(loaded),
-      linesByPath: parsed.requireEffort ? readSpecLines(root, loaded.artifact) : undefined,
+      linesByPath: (parsed.requireEffort || parsed.strictFreshness) ? readSpecLines(root, loaded.artifact) : undefined,
     };
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const evaluation = evaluateCheckRegistry(index);
@@ -506,13 +520,25 @@ export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const specLines = readSpecLines(root, loaded.artifact);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const strictEvidence = parsed.requireEffort === true;
+      const strictEvidence = parsed.requireEffort === true || parsed.strictFreshness === true;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const rfcByPackage = strictEvidence ? readRfcByPackage(loaded) : undefined;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const receiptDebt = strictEvidence && evidenceManifest !== null
+      const educeStatus = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
+      const generation = educeStatus?.generation ?? null;
+      const generationStartedAt = educeStatus?.generationStartedAt ?? null;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+      const phaseReceiptDebt = strictEvidence && evidenceManifest !== null
         ? validateManifestReceipts(evidenceManifest, currentReceiptDigests(root, loaded, evidenceManifest)).stale
         : [];
+      const writeReceiptDebt = strictEvidence && evidenceManifest !== null
+        ? validateWriteReceipts(evidenceManifest, {
+          root,
+          paths: Object.values(EVIDENCE_FILE_BY_KIND),
+          generation,
+        }).stale
+        : [];
+      const receiptDebt = [...phaseReceiptDebt, ...writeReceiptDebt];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const effortRecords = strictEvidence
         ? readJsonLinesIfPresent(join(root, 'educe-sequences', 'readings-effort.jsonl'))
@@ -520,14 +546,17 @@ export function runCommand(argv, io = {}) {
       registry = resolveReadingsObligations(registry, {
         readings: rawReadings,
         artifactDigest,
-        ...(strictEvidence ? { linesByPath: specLines, inheritedPolicy: 'block' } : {}),
+        ...(strictEvidence ? {
+          linesByPath: specLines,
+          inheritedPolicy: 'block',
+          generation,
+          generationStartedAt,
+        } : {}),
       });
       readings = {
         ...summarizeReadings(root, { registry }),
         policy: parsed.advisoryReadings ? 'advisory' : 'blocking',
       };
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const educeStatus = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const reader = readerForGeneration({ generation: educeStatus?.generation });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -544,6 +573,8 @@ export function runCommand(argv, io = {}) {
         attackReader,
         requireRecordId: true,
         requireEffort: strictEvidence,
+        generation,
+        generationStartedAt,
       });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const decisionSet = decideAll({
@@ -555,6 +586,7 @@ export function runCommand(argv, io = {}) {
         artifactDigest,
         linesByPath: specLines,
         staleReceipts: receiptDebt,
+        generation,
         ...(strictEvidence ? {
           artifact: loaded.artifact,
           contractRegistry: loaded.allocateManifest.contract_registry ?? [],
@@ -662,7 +694,7 @@ export function runCommand(argv, io = {}) {
       writeWorklist(root, worklist, {
         generation: generation?.generation ?? null,
         worklistDigest: worklist[0]?.worklistDigest ?? null,
-        legacy: parsed.requireEffort !== true,
+        legacy: !(parsed.requireEffort === true || parsed.strictFreshness === true),
       });
     }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

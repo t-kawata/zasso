@@ -41,14 +41,14 @@ export const ATTACK_TIER = Object.freeze({ TIER_ONE: 'tier1', STANDARD: 'standar
 export const ARTIFACT_BASIS_SOURCES = Object.freeze(['contract_registry', 'artifact', 'view', 'ledger']);
 
 /** A non-empty string. */
-// [::TICKET::] PX-289, PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function text(value) {
   return typeof value === 'string' && value.trim() !== '';
 }
 
 /** A non-empty string with its internal whitespace collapsed for quote comparison. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function normalize(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -59,7 +59,7 @@ function normalize(value) {
 const DEFAULT_FALSIFIER = 'Name a concrete line, fact or conflict that makes this verdict false.';
 
 /** The tier an obligation is attacked at when the registry does not state one. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function defaultAttackTier(entry) {
   if (typeof entry?.id !== 'string') return ATTACK_TIER.STANDARD;
@@ -88,6 +88,8 @@ export function buildWorklist(obligations = [], contextByObligation = {}, option
   const requireRecordId = options.requireRecordId === true;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const requireEffort = options.requireEffort === true;
+  const generation = options.generation ?? null;
+  const generationStartedAt = options.generationStartedAt ?? null;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const prepared = obligations
     .filter((entry) => entry?.class === 'semantic' && entry?.state === 'open')
@@ -115,6 +117,8 @@ export function buildWorklist(obligations = [], contextByObligation = {}, option
         attackReader,
         requireRecordId,
         requireEffort,
+        generation,
+        generationStartedAt,
         basisQuotes: Array.isArray(context.basisQuotes) ? context.basisQuotes : [],
         schemaVersion: RECORD_SCHEMA_VERSION,
         falsifier: entry.falsifier ?? DEFAULT_FALSIFIER,
@@ -162,7 +166,7 @@ function artifactBasisMatches(entry, anchorSet) {
 }
 
 /** The spec line a basis cites, or a coded problem. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validateSpecBasis(entry, anchorSet, linesByPath) {
   if (!Number.isInteger(entry.line) || entry.line <= 0 || !text(entry.quote)) {
@@ -189,6 +193,7 @@ function validateSpecBasis(entry, anchorSet, linesByPath) {
 
 /** The values a field can carry, flattened for quote comparison. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function fieldText(value) {
   if (typeof value === 'string') return value;
   if (value === null || value === undefined) return '';
@@ -493,6 +498,13 @@ export function validateJudgmentRecord(record, item, options = {}) {
   if (item?.artifactDigest !== undefined && item.artifactDigest !== null && record.artifactDigest !== item.artifactDigest) {
     return fail('STALE_EVIDENCE', 'artifactDigest does not match the current artifact');
   }
+  if (item?.generation !== undefined && item.generation !== null && record.readerGeneration !== item.generation) {
+    return fail('READER_GENERATION_STALE', `the record was written in generation ${record.readerGeneration}, not ${item.generation}`);
+  }
+  if (typeof item?.generationStartedAt === 'string'
+    && (typeof record.readAt !== 'string' || record.readAt < item.generationStartedAt)) {
+    return fail('READING_NOT_REREAD', 'the record predates the current generation start');
+  }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const vocabulary = Array.isArray(item?.answerVocabulary) ? item.answerVocabulary : ANSWER_VOCABULARY;
   if (!text(record.verdict) || !vocabulary.includes(record.verdict)) {
@@ -515,7 +527,7 @@ export function validateJudgmentRecord(record, item, options = {}) {
 }
 
 /** Whether an attack states what it searched. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validSearched(searched) {
   if (searched === null || typeof searched !== 'object' || Array.isArray(searched)) return false;
@@ -599,7 +611,7 @@ export function validateAttackRecord(attack, record, item, options = {}) {
 }
 
 /** A counterexample with a source and a quote or an artifact row. */
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validBasisEntryLike(entry) {
   if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return false;

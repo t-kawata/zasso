@@ -151,7 +151,7 @@ export function resolveCensusObligations(obligations = [], context = {}) {
 }
 
 /** A non-empty string. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function text(value) {
   return typeof value === 'string' && value.trim() !== '';
@@ -159,12 +159,13 @@ function text(value) {
 
 /** A whitespace-normalized string for quote comparison. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function normalize(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Whether a row cites a line and a quote. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validCitation(record) {
   return Number.isInteger(record?.line) && record.line > 0 && text(record?.quote);
@@ -195,7 +196,7 @@ export function validateReadingCitation(record, linesByPath) {
 }
 
 /** Whether a Yes carries a resolution performed against the current artifact. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validFindingResolution(row, artifactDigest) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -207,7 +208,7 @@ function validFindingResolution(row, artifactDigest) {
 }
 
 /** Whether one ruling attack has the shape the ruling question asks for. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validRulingAttack(attack) {
   if (!['held', 'broken', 'unresolved'].includes(attack?.outcome)) return false;
@@ -218,12 +219,30 @@ function validRulingAttack(attack) {
 }
 
 /** The evidence freshness verdict for one row. */
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function freshnessOf(row, artifactDigest) {
   if (artifactDigest === null) return { ok: true, reason: null };
   if (row?.artifactDigest === undefined) return { ok: false, reason: 'LEGACY_RECORD' };
   if (row.artifactDigest !== artifactDigest) return { ok: false, reason: 'STALE_EVIDENCE' };
+  return { ok: true, reason: null };
+}
+
+/**
+ * Whether a reading was produced by the current generation.
+ *
+ * The artifact digest says the record answers the current bytes. This says the
+ * reader answered the current generation, which is what a re-read means.
+ */
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+function generationFreshness(row, generation, generationStartedAt) {
+  if (generation !== null && row?.readerGeneration !== generation) {
+    return { ok: false, reason: 'READER_GENERATION_STALE' };
+  }
+  if (typeof generationStartedAt === 'string'
+    && (typeof row?.readAt !== 'string' || row.readAt < generationStartedAt)) {
+    return { ok: false, reason: 'READING_NOT_REREAD' };
+  }
   return { ok: true, reason: null };
 }
 
@@ -236,9 +255,11 @@ function freshnessOf(row, artifactDigest) {
  */
 // [::TICKET::] PX-289, PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-292) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export function resolveReadingsObligations(obligations = [], {
-  readings = {}, artifactDigest = null, linesByPath = null, inheritedPolicy = 'block',
-} = {}) {
+export function resolveReadingsObligations(obligations = [], options = {}) {
+  const {
+    readings = {}, artifactDigest = null, linesByPath = null, inheritedPolicy = 'block',
+    generation = null, generationStartedAt = null,
+  } = options;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const uncovered = new Map((Array.isArray(readings.uncovered) ? readings.uncovered : [])
     .map((row) => [row?.subject, row]));
@@ -265,9 +286,11 @@ export function resolveReadingsObligations(obligations = [], {
       }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const freshness = freshnessOf(row, artifactDigest);
-      return freshness.ok
+      if (!freshness.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+      const generationCheck = generationFreshness(row, generation, generationStartedAt);
+      return generationCheck.ok
         ? { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null }
-        : { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+        : { ...entry, state: OBLIGATION_STATE.OPEN, reason: generationCheck.reason };
     }
     if (entry.id.startsWith('READ:INQUEST:')) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -282,6 +305,8 @@ export function resolveReadingsObligations(obligations = [], {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const freshness = freshnessOf(row, artifactDigest);
       if (!freshness.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+      const generationCheck = generationFreshness(row, generation, generationStartedAt);
+      if (!generationCheck.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: generationCheck.reason };
       if (row.inheritedFrom !== undefined && inheritedPolicy !== 'accept') {
         return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'INHERITED_READING' };
       }
@@ -316,6 +341,8 @@ export function resolveReadingsObligations(obligations = [], {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const freshness = freshnessOf(ruling, artifactDigest);
       if (!freshness.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: freshness.reason };
+      const generationCheck = generationFreshness(ruling, generation, generationStartedAt);
+      if (!generationCheck.ok) return { ...entry, state: OBLIGATION_STATE.OPEN, reason: generationCheck.reason };
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const obligationId = `READ:ADVERSARIAL:${entry.subject}`;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

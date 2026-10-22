@@ -31,6 +31,9 @@ export const V3_ASSURANCE_KEYS = Object.freeze([
   'blindAttackRatio',
   'discriminatingRatio',
   'rejudgeAgreement',
+  'staleReaderGenerationCount',
+  'generationMismatchCount',
+  'rereadCount',
 ]);
 
 /** The residue every certificate states rather than hides. */
@@ -52,6 +55,7 @@ export function isV3Assurance(assurance) {
 
 /** The assurance shape used when the caller supplies none. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function normalizeAssurance(assurance) {
   if (isV3Assurance(assurance)) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -88,6 +92,7 @@ export function missingAssuranceCounters(assurance) {
 
 /** Whether every assurance counter is clean. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function assuranceIsClean(assurance, v3 = false) {
   if (v3) {
     return missingAssuranceCounters(assurance).length === 0
@@ -100,7 +105,9 @@ function assuranceIsClean(assurance, v3 = false) {
       && assurance.effortCoverage === 1
       && assurance.blindAttackRatio === 1
       && assurance.discriminatingRatio === 1
-      && assurance.rejudgeAgreement === 1;
+      && assurance.rejudgeAgreement === 1
+      && assurance.staleReaderGenerationCount === 0
+      && assurance.generationMismatchCount === 0;
   }
   return assurance.anchoredRatio >= 1
     && assurance.genericBasis === 0
@@ -208,7 +215,7 @@ export function buildCertificate(options = {}) {
   }
   for (const debt of Array.isArray(receiptDebt) ? receiptDebt : []) {
     open.push({
-      id: `RECEIPT:${debt?.phase ?? 'unknown'}`,
+      id: `RECEIPT:${debt?.path ?? debt?.phase ?? 'unknown'}`,
       code: debt?.code ?? 'STALE_RECEIPT',
       reason: debt?.code ?? 'STALE_RECEIPT',
       subject: Array.isArray(debt?.mismatches) ? debt.mismatches.join(', ') : null,

@@ -27,7 +27,10 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 The rail accepts `schema_version` 2 and 3. Generation 3 adds the typed step contract
 (`pre`, `post`, `invariants`, `consumes`, `produces`, `errors`, `crosses`) and
 `operations[].registry_contribution`; generation 2 remains valid and is read by
-`/smooth-sequences` with Layer B withheld. The 31 declared rail checks are unchanged:
+`/smooth-sequences` with Layer B withheld. An artifact may also declare
+`vocabulary.actPatterns` (an array of non-empty strings) when its specification is
+not written in Japanese; `/smooth-sequences` uses those verbs to decide whether a
+cited line orders an act. The 31 declared rail checks are unchanged:
 the v3 checks live in the `smooth-sequences` check family, so the rail's `31/31` gate
 still means the same thing.
 
