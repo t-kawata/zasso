@@ -14,7 +14,7 @@ import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { deriveExpectedAllocation, lookupInventoryItem } from './allocation-model.mjs';
 import { contractIdForBoundary } from './contract-model.mjs';
 import { ALLOCATE_MODES, resolveAllocateMode } from './reverse-mode.mjs';
-import { CORE_CONTRACT_CLAUSES } from '../../workspacify-tree/lib/contract-clauses.mjs';
+import { CORE_CONTRACT_CLAUSES, isRegisteredConnectionKind } from '../../workspacify-tree/lib/contract-clauses.mjs';
 
 /** Default excerpt window expressed in specification lines. */
 export const DEFAULT_EXCERPT_WINDOW_LINES = 3;
@@ -227,6 +227,19 @@ function buildExcerpt(input) {
  *
  * @param {{ boundary: object, packageId: string, catalog: { packageById: Map<string, object>, manifest: object }, excerpt: { sourceText: string, windowLines: number } }} input
  */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function requireConnectionKind(boundary) {
+  const connectionKind = boundary?.connection_kind;
+  if (!isRegisteredConnectionKind(connectionKind)) {
+    throw new WorkSpacifyTreeError(
+      `boundary ${boundary?.id ?? '(unknown)'} carries no registered connection_kind ${JSON.stringify(connectionKind)}; stage 1 must state the connection kind before stage 2 builds its contract`,
+      { gateId: 'G3' },
+    );
+  }
+  return connectionKind;
+}
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function buildContractContext({ boundary, packageId, catalog, excerpt }) {
   const { packageById, manifest } = catalog;
   const { sourceText, windowLines } = excerpt;
@@ -238,7 +251,7 @@ function buildContractContext({ boundary, packageId, catalog, excerpt }) {
     boundary_id: boundary.id,
     contract_id: contractIdForBoundary(boundary.id),
     direction: isConsumer ? 'consumer_to_provider' : 'provider_to_consumer',
-    connection_kind: boundary.connection_kind ?? 'value_only',
+    connection_kind: requireConnectionKind(boundary),
     reason_code: boundary.dependency_reason_code ?? null,
     counterpart_package: {
       id: counterpart?.id ?? counterpartId,

@@ -34,7 +34,31 @@
     "requirements": { "type": "object" },
     "workspace": { "type": "object" },
     "adapters": { "type": "object" },
-    "dependencies": { "type": "object" },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "boundaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "consumer_package",
+              "provider_package",
+              "connection_kind",
+              "stage2_contract_scope"
+            ],
+            "properties": {
+              "id": { "type": "string", "pattern": "^boundary-\\d{3}$" },
+              "consumer_package": { "type": "string", "pattern": "\\S+" },
+              "provider_package": { "type": "string", "pattern": "\\S+" },
+              "connection_kind": { "type": "string", "pattern": "\\S+" },
+              "stage2_contract_scope": { "type": "array", "items": { "type": "string" }, "minItems": 5 }
+            }
+          }
+        }
+      }
+    },
     "conformance": { "type": "object" },
     "stage2_handoff": { "type": "object" },
     "gates": { "type": "object" },

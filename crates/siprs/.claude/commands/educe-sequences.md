@@ -27,7 +27,10 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 The rail accepts `schema_version` 2 and 3. Generation 3 adds the typed step contract
 (`pre`, `post`, `invariants`, `consumes`, `produces`, `errors`, `crosses`) and
 `operations[].registry_contribution`; generation 2 remains valid and is read by
-`/smooth-sequences` with Layer B withheld. The 31 declared rail checks are unchanged:
+`/smooth-sequences` with Layer B withheld. An artifact may also declare
+`vocabulary.actPatterns` (an array of non-empty strings) when its specification is
+not written in Japanese; `/smooth-sequences` uses those verbs to decide whether a
+cited line orders an act. The 31 declared rail checks are unchanged:
 the v3 checks live in the `smooth-sequences` check family, so the rail's `31/31` gate
 still means the same thing.
 
@@ -99,6 +102,8 @@ Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operati
 ## Consumer contract
 
 **ARTIFACT COLUMNS.** Per-operation rows carry one column per interface the project declares; the rail emits the field list it emitted, and never a silent omission. A project declaring three interfaces gets three columns; a project declaring none gets none. Column ids are the project's; the rail never spells one.
+
+**COLUMN GROUNDING.** An active operation whose pinned column is empty must carry `grounding.properties[<column>]` with a non-empty `classification`, a `quote`, and either an integer `line` or a `citation`. When a `line` is stated, the quote must occur on that line after whitespace is normalised; a `citation` names a coordinate outside the specification and is checked for presence only. Step 9 refuses before replacing the artifact, leaving the previous generation byte-identical, and the same predicate is a declared check in Step 14 (`every-pinned-column-is-present-or-grounded`). An operation the rail does not perform (`excluded`, `suppliedRule`) owes no column value.
 
 **CONSUMER CONTRACT.** The rail emits, never assigns. Package attribution, obligation and who-owes-it are the slice's. Do not add a package field here.
 
@@ -185,7 +190,10 @@ Find every closed vocabulary, its members, lines those members occupy. Record `e
 Invocation supplied material carrying a census (registry of operations an interface must implement, or regions that must be adjudicated) → record `sourceEnumerations[].{name,source,selector,role}`:
 - `source` = supplied file;
 - `selector` = generic shape reading it: `jsonFieldRows` (with a field every row of a fenced block carries) | `tableColumn` (with a header every row of a table stands beneath) | `markedLines` (with a prefix every member line begins with);
-- `role` = what it answers for: `operations` | `entries`; a pin with no role answers for nothing and is permitted;
+- `role` = what it answers for: `operations` | `entries` | `sequences`; a pin with no role answers for nothing and is permitted;
+  `sequences` states the realized-sequence axis the grill's obligation-coverage gate measures. Supply it from a table of the
+  realized sequence ids (`tableColumn` on the id column) whenever the artifact realizes sequences; without it that axis stays
+  unstated and the gate refuses by name;
 - `specSpans` (with the field every row of a fenced block carries, its value a span of the specification: `34-35` for a region of two lines, `34` for one) = the shape for an
   **entries** census. The other three read names the document itself states, which is why a census of the entries a reading produces cannot be written in them: those are named
   inside the run. This shape reads the specification's own line numbers instead, so it is authored from the document rather than from the run, and it is the only role it answers
@@ -339,6 +347,8 @@ Brief names every declared subject (each section, each entry) under each of four
 - **Attack (PX-289)**: when the run directory carries `EVIDENCE-MANIFEST.json`, every active operation and every realized sequence is a Tier 1 subject; a `No` under either high-consequence lens closes only with a held attack in `readings-attack.jsonl`. An unheld subject is refused by name. Legacy runs without a manifest keep the old gate until they migrate.
 - **Finding (PX-292)**: a `Yes` is a finding. It stays open until the record carries a `resolution` whose `kind` is `spec-change` or `artifact-change`, whose `artifactDigest` equals the current artifact, and whose `evidence` cites a line and quote; or until the pair is exempt in the declaration. A `Yes` is never counted as clean.
 - **Freshness (PX-292)**: every inquest record carries `artifactDigest`. A record without it is `LEGACY_RECORD`; a record with a different digest is `STALE_EVIDENCE`. Neither closes the obligation.
+- **Effort and inheritance (PX-295)**: under `--require-effort`, a `No` carries the E1 effort trace — at least two distinct searched rows, every other verdict in the lens vocabulary, a concrete counterexample attempt and a discriminator. An answer copied from an earlier generation carries `inheritedFrom` and is not `held` unless the policy explicitly accepts inheritance. A quote that does not occur on the cited line is `READING_QUOTE_NOT_FOUND`.
+- **Blind adversarial attack (PX-295)**: under `--require-effort`, the Phase 10 attack is written by a separate reader from the worklist item only; it carries `blind: true`, a literal `searched` quote and a source that does not share the ruling's basis.
 
 Refused while: pair carries no answer and no exemption; answer carries no signature; quote not carried by named line. FAIL: back to Step 12; max 3 loops.
 

@@ -53,6 +53,9 @@ const EXIT_FAILURE = 1;
 // [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
 const COMMENT_TOKEN_BY_EXTENSION = Object.freeze({ ".py": "#", ".rb": "#" });
 const DEFAULT_COMMENT_TOKEN = "//";
+// A marker is a comment line, not a string literal that happens to contain the
+// word: the annotator's own tests assert the literal and must not read as one.
+const AMBIGUOUS_MARKER_PATTERN = /^\s*(?:\/\/|#)\s*\[::AMBIGUOUS::\]/;
 
 /**
  * Every comment form the reader accepts.
@@ -210,7 +213,7 @@ function carriesMarkerFor(lines, ticketKey) {
   if (!Array.isArray(lines) || !ticketKey) return false;
   if (hasExistingAnnotation(lines, ticketKey)) return true;
   return lines.some(
-    (line) => typeof line === "string" && line.includes("[::AMBIGUOUS::]") && line.includes(ticketKey)
+    (line) => typeof line === "string" && AMBIGUOUS_MARKER_PATTERN.test(line) && line.includes(ticketKey),
   );
 }
 
@@ -608,8 +611,7 @@ function verifyAnnotations(cwd, ticketKey, opts) {
 
       if (expectedDefs.size === 0) {
         // No definitions expected — check for AMBIGUOUS marker
-        const hasAmbiguous = lines.some((l) => l.includes("[::AMBIGUOUS::]"));
-        if (hasAmbiguous) {
+        if (lines.some((line) => AMBIGUOUS_MARKER_PATTERN.test(line))) {
           ambiguous.push(file);
         }
         continue;

@@ -4,6 +4,14 @@
   "artifact_suffix": "-sequences",
   "artifact_extension": ".json",
   "render_extension": ".md",
+  "vocabulary": {
+    "optional": true,
+    "actPatterns": {
+      "type": "array",
+      "items": "string",
+      "optional": true
+    }
+  },
   "required": [
     "schema_version",
     "spec",
@@ -56,7 +64,18 @@
   "operations": {
     "v3Required": ["registry_contribution"],
     "registryContribution": { "values": ["required", "not_required"], "groundRequiredFor": ["not_required"] },
-    "boundaryEffects": { "required": ["boundary", "direction"] }
+    "boundaryEffects": { "required": ["boundary", "direction"] },
+    "grounding": {
+      "properties": {
+        "required": ["classification", "quote"],
+        "properties": {
+          "classification": { "type": "string" },
+          "line": { "type": "integer" },
+          "citation": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    }
   },
   "verify": { "required": ["command", "expected_exit"] }
 }

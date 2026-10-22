@@ -268,6 +268,105 @@ const everyRequiredColumnIsMeasured = coverEvery(
   },
 );
 
+/** The disposition an operation carries when the protocol performs it. */
+const ACTIVE_OPERATION_DISPOSITION = 'active';
+
+/** Whitespace collapsed, so a quote broken across a line break is still comparable. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function collapseWhitespace(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Whether a pinned column carries no value at all. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function isEmptyPinnedValue(value) {
+  return value === undefined
+    || value === null
+    || value === ''
+    || (Array.isArray(value) && value.length === 0);
+}
+
+/** Why one column grounding does not answer for its empty column, or null when it does. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function groundingProblem(ground, specLines) {
+  if (ground === undefined || ground === null || typeof ground !== 'object') {
+    return 'the column is empty and carries no column grounding';
+  }
+  if (collapseWhitespace(ground.classification) === '') {
+    return 'the column grounding names no classification';
+  }
+  const hasLine = Number.isInteger(ground.line);
+  const hasCitation = collapseWhitespace(ground.citation) !== '';
+  if (!hasLine && !hasCitation) {
+    return 'the column grounding cites no line and no citation';
+  }
+  if (collapseWhitespace(ground.quote) === '') {
+    return 'the column grounding carries no quote';
+  }
+  // A citation without a line names a coordinate this rail does not hold, so the
+  // quote can only be checked for existence. A line is checked against the text.
+  if (!hasLine) return null;
+  const line = specLines?.[ground.line - 1];
+  if (typeof line !== 'string') {
+    return `the column grounding cites line ${ground.line} outside the specification`;
+  }
+  if (!collapseWhitespace(line).includes(collapseWhitespace(ground.quote))) {
+    return `the column grounding quote does not occur on line ${ground.line}`;
+  }
+  return null;
+}
+
+/**
+ * Every active operation's pinned column is present or grounded per column.
+ *
+ * The rail checked the column declarations and never an operation value, so an
+ * empty pinned column reached the artifact unread. An operation-wide grounding
+ * does not answer for a column: the classifier and the citation must name this
+ * column, because that is the row the property obligation will later read.
+ *
+ * @param {object} artifact - the composed artifact
+ * @param {string[]} specLines - the specification lines a grounding line cites into
+ * @returns {Array<{subject: string, reason: string}>} one problem per empty column
+ */
+export function pinnedColumnGroundingProblems(artifact, specLines = []) {
+  const columns = (artifact?.pins?.columns ?? [])
+    .map((column) => column?.name)
+    .filter((name) => typeof name === 'string');
+  const problems = [];
+  for (const operation of artifact?.operations ?? []) {
+    if (operation?.disposition !== ACTIVE_OPERATION_DISPOSITION) continue;
+    for (const column of new Set(columns)) {
+      if (!isEmptyPinnedValue(operation[column])) continue;
+      const problem = groundingProblem(operation?.grounding?.properties?.[column], specLines);
+      if (problem !== null) problems.push({ subject: `${operation.id}:${column}`, reason: problem });
+    }
+  }
+  return problems;
+}
+
+/** The active operation and pinned column pairs the check reads. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function activePinnedColumns(artifact) {
+  const columns = (artifact?.pins?.columns ?? [])
+    .map((column) => column?.name)
+    .filter((name) => typeof name === 'string');
+  return (artifact?.operations ?? [])
+    .filter((operation) => operation?.disposition === ACTIVE_OPERATION_DISPOSITION)
+    .flatMap((operation) => [...new Set(columns)].map((column) => ({ operation, column })));
+}
+
+const everyPinnedColumnIsPresentOrGrounded = checkOf(
+  {
+    id: 'every-pinned-column-is-present-or-grounded',
+    defect: 'an active operation rode into the artifact with an empty pinned column and no column-specific grounding, so the property the column exists to state was never measured',
+    refuses: 'an active operation whose pinned column is empty and carries no classification, line-or-citation and on-line quote',
+    scope: 'every artifact, over its active operations and pinned columns',
+  },
+  (context) => pinnedColumnGroundingProblems(context.artifact, context.specLines)
+    .map((problem) => verdict('every-pinned-column-is-present-or-grounded', problem.subject, problem.reason)),
+  { examined: (context) => activePinnedColumns(context.artifact) },
+);
+
 /**
  * Every sequence that claims to be a sequence can be drawn from the artifact.
  *
@@ -831,6 +930,7 @@ export const CHECKS = Object.freeze([
   everyOperationRecordCarriesTheConsumerFields,
   everyDeclaredColumnHasADecider,
   everyRequiredColumnIsMeasured,
+  everyPinnedColumnIsPresentOrGrounded,
   everySequenceIsDrawable,
   everyStepBelongsToADrawnSequence,
   stepCarriesFourFields,

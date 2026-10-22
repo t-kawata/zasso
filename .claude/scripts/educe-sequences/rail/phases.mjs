@@ -17,7 +17,7 @@ import { appendReceipt, readEvidenceManifest, sha256File, updateManifestArtifact
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
 import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
-import { escapedOperationsOf } from './engine.mjs';
+import { escapedOperationsOf, pinnedColumnGroundingProblems } from './engine.mjs';
 import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
@@ -103,7 +103,7 @@ export const PHASE_EXPECTS = Object.freeze({
 export const PHASE_GUIDANCE = Object.freeze({
   2: 'Find the sentence that says when a procedure counts, quote it verbatim, and record the line and its limbs.',
   3: 'Find the sentence that states the fields an entry carries, and record the line and the fields.',
-  4: 'Find every closed vocabulary, its members, and the lines those members occupy. Every supplied file a census could be read out of must be named by a `sourceEnumerations[]` pin — the file, the shape, the parameter and the role it answers for (`operations` or `entries`) — because the phase refuses by name when a supplied file is unpinned, and an unread census leaves its axis measured against the artifact itself. A pin reads one document in one shape: `jsonFieldRows` takes a field every row of a fenced block carries, `tableColumn` takes a header every row of a table stands beneath, `markedLines` takes a prefix every member line begins with. A document that mixes vocabularies is split so each block holds one, because a row a shape cannot read is refused by name rather than skipped, and skipping is how a denominator shrinks in silence. A supplied file that carries no census — a script, a document of prose, a record of what was read — is named by an entry of the second kind: no `selector`, and a `ground` saying what the file is. Such an entry answers for nothing, contributes no member and borrows no role, so it neither states an axis nor stands in for one, and the refusal keeps its force for a file named by neither kind.',
+  4: 'Find every closed vocabulary, its members, and the lines those members occupy. Every supplied file a census could be read out of must be named by a `sourceEnumerations[]` pin — the file, the shape, the parameter and the role it answers for (`operations`, `entries` or `sequences`) — because the phase refuses by name when a supplied file is unpinned, and an unread census leaves its axis measured against the artifact itself. A `sequences` census states the realized-sequence axis the grill denominator measures; without it that axis stays unstated and the grill gate refuses by name. A pin reads one document in one shape: `jsonFieldRows` takes a field every row of a fenced block carries, `tableColumn` takes a header every row of a table stands beneath, `markedLines` takes a prefix every member line begins with. A document that mixes vocabularies is split so each block holds one, because a row a shape cannot read is refused by name rather than skipped, and skipping is how a denominator shrinks in silence. A supplied file that carries no census — a script, a document of prose, a record of what was read — is named by an entry of the second kind: no `selector`, and a `ground` saying what the file is. Such an entry answers for nothing, contributes no member and borrows no role, so it neither states an axis nor stands in for one, and the refusal keeps its force for a file named by neither kind.',
   5: 'Partition the specification into sections that cover every line exactly once, and name an entry for every line, so no line is left to nobody.',
   8: 'For each worklist entry, read its span and answer whether the named operation is performed there; for each operation the census names and no step performs, either place it or name the escape that covers it. A record read here also carries the columns the declaration lists, and a column the declaration requires measured carries its evidence.',
   10: 'Attack each ruling: name the one claim whose failure would take it down.',
@@ -194,6 +194,7 @@ const ACTIONS = Object.freeze({
   },
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
   9: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -220,6 +221,13 @@ const ACTIONS = Object.freeze({
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
       previousArtifact: previous,
     });
+    // A pinned column is an interface the project declared. An active operation that
+    // carries it empty must say why in the row itself; refusing here, before
+    // applyReadings writes, is what leaves the previous artifact byte-identical.
+    const pinnedProblems = pinnedColumnGroundingProblems(artifact, ctx.spec.lines);
+    if (pinnedProblems.length > 0) {
+      return { ok: false, problems: pinnedProblems.map((problem) => `${problem.subject}: ${problem.reason}`) };
+    }
     // A merge is an improvement and is permitted; a merge that loses a name is not, so the
     // names are compared before anything is written. The adjudications are proven here, beside
     // the span readings, because this is where the artifact is composed: a row whose word the

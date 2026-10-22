@@ -23,7 +23,12 @@ export const MANIFEST_DIRECTORY = 'educe-sequences';
 export const ARCHIVE_FILES = Object.freeze([
   'educe-sequences/readings-judgment.jsonl',
   'educe-sequences/readings-attack.jsonl',
+  'educe-sequences/readings-effort.jsonl',
   'educe-sequences/readings-uncovered.jsonl',
+  'educe-sequences/readings-span.jsonl',
+  'educe-sequences/readings-adjudicate.jsonl',
+  'educe-sequences/readings-adversarial.jsonl',
+  'educe-sequences/readings-reroute.jsonl',
   INQUEST_FILE,
   'educe-sequences/EVIDENCE-MANIFEST.json',
   'smooth-sequences/REMEDIATION-OBLIGATIONS.json',

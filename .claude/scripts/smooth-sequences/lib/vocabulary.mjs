@@ -52,16 +52,19 @@ function readDeclaredNames(value, fieldName, artifactPath) {
 }
 
 /** The two declared lists, each null when the field is absent or null. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-276|PX-297) --for-spec --no-implementation-order`.
 function readDeclaredVocabulary(artifact, artifactPath) {
   const declared = artifact?.[VOCABULARY_FIELD];
-  if (declared === undefined || declared === null) return { terminalStatuses: null, requiredInterfaces: null };
+  if (declared === undefined || declared === null) {
+    return { terminalStatuses: null, requiredInterfaces: null, actPatterns: null };
+  }
   if (typeof declared !== 'object' || Array.isArray(declared)) {
     throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD} must be an object`);
   }
   return {
     terminalStatuses: readDeclaredNames(declared.terminalStatuses, 'terminalStatuses', artifactPath),
     requiredInterfaces: readDeclaredNames(declared.requiredInterfaces, 'requiredInterfaces', artifactPath),
+    actPatterns: readDeclaredNames(declared.actPatterns, 'actPatterns', artifactPath),
   };
 }
 
@@ -165,7 +168,7 @@ export function normalizeInterfaceValue(value) {
  *
  * @param {{ artifact: object, artifactPath: string, allocateManifest: object }} input
  * @returns {{ terminalStatuses: string[]|null, requiredInterfaces: string[]|null,
- *   withheld: Array<{layer: string, check: string, reason: string}> }}
+ *   actPatterns: string[]|null, withheld: Array<{layer: string, check: string, reason: string}> }}
  */
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
@@ -191,6 +194,7 @@ export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
   return Object.freeze({
     terminalStatuses,
     requiredInterfaces,
+    actPatterns: declared.actPatterns,
     interfaceVocabulary,
     withheld: Object.freeze(withheld),
   });
