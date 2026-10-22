@@ -1,3 +1,4 @@
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 /**
  * Layer S6: the danger checks that ask whether the sequence can run at all.
  *
@@ -10,12 +11,22 @@ import { finding } from './index.mjs';
 import { buildFamilySubChecks } from './check-status.mjs';
 import { SURFACES, surfaceAvailabilityOf } from './surfaces.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
+import { validateEscape, validatePositionDisposition } from '../../shared-obligations/judgment.mjs';
 
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const ESCAPES = new Set(['suppliedRule', 'excluded']);
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const REPEAT_ANNOTATIONS = new Set(['loop', 'retry', 'exception']);
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+const ACT_ORDERING_PATTERNS = Object.freeze([
+  '導入する', '追記する', '起動し', '確かめる', '記録する', '作成する', '発行する',
+  '実行する', '送信する', '更新する', '削除する', '登録する', '提出する', '公開する',
+  '支払う', '移転する', '承認する', '拒否する', '検証する', '付与する',
+]);
 
 /** One finding with its route already resolved. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function addFinding(findings, checkId, subject, entry) {
   findings.push(finding(checkId, entry.className, subject, {
     ...entry.route,
@@ -26,7 +37,9 @@ function addFinding(findings, checkId, subject, entry) {
 
 /** The operation graph edges implied by consumed and produced facts. */
 // [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function buildOperationEdges(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const producers = new Map();
   for (const step of index.artifact.steps ?? []) {
     for (const produced of step.contract?.produces ?? []) {
@@ -34,6 +47,7 @@ function buildOperationEdges(index) {
       producers.get(produced).push(step);
     }
   }
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const edges = new Map();
   for (const step of index.artifact.steps ?? []) {
     for (const consumed of step.contract?.consumes ?? []) {
@@ -47,14 +61,21 @@ function buildOperationEdges(index) {
 }
 
 /** Every cycle in a directed graph, as a list of operation paths. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function findCycles(edges) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const cycles = [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const visiting = new Set();
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const visited = new Set();
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const path = [];
 
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const visit = (node) => {
     if (visiting.has(node)) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const start = path.indexOf(node);
       cycles.push([...path.slice(start), node]);
       return;
@@ -74,7 +95,9 @@ export function findCycles(edges) {
 
 /** Operations no step reaches and no escape covers. */
 // [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findUnreachableOperations(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const operation of index.artifact.operations ?? []) {
     if (operation.disposition !== 'active') continue;
@@ -93,8 +116,10 @@ function findUnreachableOperations(index) {
 
 /** Facts produced but never consumed, and facts consumed but never produced. */
 // [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findOrphanFacts(index) {
   if (index.schemaVersion !== 3) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const context = collectFactContext(index);
   return [
     ...findUnconsumedProduced(index, context),
@@ -104,16 +129,23 @@ function findOrphanFacts(index) {
 
 /** The object facts and the exemptions the orphan question must respect. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function collectFactContext(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const grounded = new Set((index.artifact.groundedObjects ?? []).map((entry) => entry.object));
   // The orphan question is about objects, not about boundary clauses: a boundary
   // contract fact is consumed by the edge's own protocol, and treating it as a data
   // object would report every edge as an orphan. Only `object:` facts participate.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const isObjectFact = (fact) => typeof fact === 'string' && fact.startsWith('object:');
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const produced = new Set();
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const consumed = new Set();
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const terminalOutputs = new Set();
   for (const steps of index.stepsBySequence.values()) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const last = steps.reduce((latest, step) => (step.line > latest.line ? step : latest), steps[0]);
     for (const fact of last.contract?.produces ?? []) {
       if (isObjectFact(fact)) terminalOutputs.add(fact);
@@ -138,7 +170,9 @@ function collectFactContext(index) {
 
 /** Produced object facts nothing consumes, unless a ground or a declared output explains them. */
 // [::TICKET::] PX-277, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findUnconsumedProduced(index, context) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const fact of context.produced) {
     // A declared result object is not a blanket exemption: the danger is an object that
@@ -157,7 +191,9 @@ function findUnconsumedProduced(index, context) {
 
 /** Consumed object facts nothing produces, unless a ground explains them. */
 // [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findUnproducedConsumed(index, context) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const fact of context.consumed) {
     if (context.produced.has(fact) || context.isGrounded(fact)) continue;
@@ -173,9 +209,12 @@ function findUnproducedConsumed(index, context) {
 
 /** Repeated operations without a loop, retry or exception annotation. */
 // [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findUnannotatedRepeats(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const byOperation = new Map();
     for (const [position, step] of steps.entries()) {
       if (!byOperation.has(step.operation)) byOperation.set(step.operation, []);
@@ -189,8 +228,11 @@ function findUnannotatedRepeats(index) {
       // clauses is one act read as seven rows, and requiring a loop annotation there
       // would be a false finding. A repeat separated by another operation, or one
       // that steps backwards, is a branch or a retry and must say which.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const positions = repeated.map((entry) => entry.position);
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const contiguous = positions.every((position, index) => index === 0 || position === positions[index - 1] + 1);
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const monotonic = repeated.every(({ step }, index) => index === 0 || step.line >= repeated[index - 1].step.line);
       if (contiguous && monotonic) continue;
       addFinding(findings, 'S6.unannotated-repeat', `${sequenceId}/${operationId}`, {
@@ -206,11 +248,14 @@ function findUnannotatedRepeats(index) {
 
 /** A step that consumes a fact a later step produces without an exception annotation. */
 // [::TICKET::] PX-273, PX-274, PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findOrderContradictions(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const [sequenceId, steps] of index.stepsBySequence) {
     for (const step of steps) {
       for (const consumed of step.contract?.consumes ?? []) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
         const later = steps.find((candidate) => candidate.line > step.line && (candidate.contract?.produces ?? []).includes(consumed));
         if (later === undefined) continue;
         if (step.annotation === 'exception' || later.annotation === 'exception') continue;
@@ -228,14 +273,19 @@ function findOrderContradictions(index) {
 
 /** An operation effect that none of its steps crosses and no ground covers. */
 // [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findBoundaryEffectDrift(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   if (!surfaceAvailabilityOf(index, SURFACES.BOUNDARY_EFFECTS).present) return findings;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const grounded = new Set((index.artifact.boundary_grounds ?? [])
     .filter((entry) => typeof entry?.ground === 'string' && entry.ground.trim() !== '')
     .map((entry) => entry.boundary));
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const crossedByOperation = new Map();
   for (const step of index.artifact.steps ?? []) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const crossed = crossedByOperation.get(step.operation) ?? new Set();
     for (const boundary of step.contract?.crosses ?? []) crossed.add(boundary);
     crossedByOperation.set(step.operation, crossed);
@@ -257,6 +307,7 @@ function findBoundaryEffectDrift(index) {
 }
 
 /** The grounding classifications that can excuse an operation with no step. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const ESCAPE_GROUNDINGS = Object.freeze([
   'no_act_stated_by_the_specification',
   'designer_supplied',
@@ -268,10 +319,13 @@ const ESCAPE_GROUNDINGS = Object.freeze([
 
 /** Whether an operation carries a citation for the position it claims. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function hasEscapeGrounding(operation) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const grounding = operation?.grounding;
   if (grounding === null || typeof grounding !== 'object') return false;
   if (!ESCAPE_GROUNDINGS.includes(grounding.classification)) return false;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const citedLine = Number.isInteger(grounding.line) ? grounding.line : grounding.presupposition;
   return (Number.isInteger(citedLine) && citedLine > 0)
     || (typeof grounding.note === 'string' && grounding.note.trim() !== '');
@@ -279,7 +333,9 @@ function hasEscapeGrounding(operation) {
 
 /** The realized sequences with at least two steps, which can carry an internal handoff. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function multiStepSequences(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const realized = new Set((index.artifact.sequences ?? [])
     .filter((sequence) => sequence?.outcome !== 'notASequence')
     .map((sequence) => sequence.id));
@@ -289,9 +345,12 @@ function multiStepSequences(index) {
 
 /** A sequence with no consume and no authored flow ground. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findObjectFlows(index) {
   if (index.schemaVersion !== 3) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const grounds = new Set((index.artifact.sequence_flow_grounds ?? [])
     .map((entry) => (typeof entry === 'string' ? entry : entry?.sequence))
     .filter((entry) => typeof entry === 'string' && entry.length > 0));
@@ -310,11 +369,14 @@ function findObjectFlows(index) {
 
 /** A step set that implies no operation edge at all. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findEmptyGraph(index) {
   if (index.schemaVersion !== 3) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const steps = index.artifact.steps ?? [];
   if (steps.length === 0) return [];
   if (buildOperationEdges(index).size > 0) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const first = steps[0];
   return [finding('S6.graph-empty', 'danger', 'operation-graph', {
     ...routeForStep('S6.graph-empty', index, first),
@@ -325,12 +387,17 @@ function findEmptyGraph(index) {
 
 /** An operation that escapes by position without the ground the escape owes. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findUngroundedEscapes(index) {
   if (index.schemaVersion !== 3) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const operation of index.artifact.operations ?? []) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const steps = index.stepsByOperation.get(operation.id) ?? [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const positional = operation.position === 'excluded' || operation.position === 'suppliedRule';
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const activeRequired = operation.disposition === 'active' && operation.registry_contribution === 'required' && steps.length === 0 && positional;
     if (!positional && !activeRequired) continue;
     if (positional) {
@@ -350,9 +417,80 @@ function findUngroundedEscapes(index) {
   return findings;
 }
 
+/** The quote a grounding carries, from the first property that names one. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+function groundingQuote(operation) {
+  if (typeof operation?.grounding?.quote === 'string' && operation.grounding.quote !== '') {
+    return operation.grounding.quote;
+  }
+  for (const property of Object.values(operation?.grounding?.properties ?? {})) {
+    if (typeof property?.quote === 'string' && property.quote !== '') return property.quote;
+  }
+  return null;
+}
+
+/** An active operation whose position and no-act ground disagree. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+function findPositionDispositionConflicts(index) {
+  if (index.linesByPath === undefined || index.linesByPath === null) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+  const findings = [];
+  for (const operation of index.artifact?.operations ?? []) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    const result = validatePositionDisposition(operation);
+    if (result.ok) continue;
+    addFinding(findings, 'S6.position-disposition-conflict', operation.id, {
+      className: 'contradiction',
+      route: routeForOperation('S6.position-disposition-conflict', index, operation),
+      why: `${operation.id} is active but its position and grounding say it orders no act`,
+      fix: 'change the disposition, perform the operation in a step, or record a designer-supplied ground',
+    });
+  }
+  return findings;
+}
+
+/** An escape whose cited line orders an act. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+function findEscapeActConflicts(index) {
+  if (index.linesByPath === undefined || index.linesByPath === null) return [];
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+  const findings = [];
+  for (const operation of index.artifact?.operations ?? []) {
+    if (!ESCAPES.has(operation.position)) continue;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    const line = operation?.grounding?.line;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    const quote = groundingQuote(operation);
+    if (!Number.isInteger(line) || quote === null) continue;
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    const result = validateEscape({
+      escape: {
+        subject: operation.id,
+        outcome: 'escaped',
+        escapeKind: 'no_act',
+        line,
+        quote,
+        why: operation?.grounding?.note ?? '',
+      },
+      linesByPath: index.linesByPath,
+      actPatterns: ACT_ORDERING_PATTERNS,
+    });
+    if (result.ok) continue;
+    addFinding(findings, 'S6.escape-act-conflict', operation.id, {
+      className: 'danger',
+      route: routeForOperation('S6.escape-act-conflict', index, operation),
+      why: `${operation.id} escapes as no-act but the cited line orders an act`,
+      fix: 'add a step that performs the operation, or cite a line that states an object or rule',
+    });
+  }
+  return findings;
+}
+
 /** Every danger finding for one index. */
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function collectDangers(index) {
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const findings = [];
   for (const cycle of findCycles(buildOperationEdges(index))) {
     addFinding(findings, 'S6.cycle', cycle.join(' -> '), {
@@ -370,10 +508,13 @@ export function collectDangers(index) {
   findings.push(...findObjectFlows(index));
   findings.push(...findEmptyGraph(index));
   findings.push(...findUngroundedEscapes(index));
+  findings.push(...findPositionDispositionConflicts(index));
+  findings.push(...findEscapeActConflicts(index));
   return { findings, subChecks: buildFamilySubChecks('danger', index) };
 }
 
 /** The findings-only view of the danger family, kept for existing callers. */
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function checkDangers(index) {
   return collectDangers(index).findings;
 }
