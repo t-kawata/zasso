@@ -9,7 +9,8 @@
  */
 
 import { performedOperations } from './span.mjs';
-import { resolveClauseValues } from './clause-paths.mjs';
+import { CLAUSE_PATH_BY_KIND, resolveClauseValues } from './clause-paths.mjs';
+import { groupRiskClassesByField } from './risk-fields.mjs';
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const OBLIGATION_CLASS = Object.freeze({
@@ -177,14 +178,32 @@ function boundaryObligation(boundaryId, kind, subject = boundaryId) {
  * genuinely has no ERRORS clause says so under `notApplicable`; an empty object
  * no longer closes the obligation.
  */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297, PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-300) --for-spec --no-implementation-order`.
 function clauseDisposition(contract, kind) {
   const clauses = contract?.clauses;
   if (clauses === null || typeof clauses !== 'object') return 'missing';
   if (resolveClauseValues(contract, kind) !== null) return 'resolved';
   const declared = clauses.notApplicable;
-  if (Array.isArray(declared) && declared.includes(kind)) return 'not_applicable';
+  const normalizedKind = String(kind ?? '').toLowerCase();
+  if (Array.isArray(declared)
+    && declared.some((name) => String(name).toLowerCase() === normalizedKind)) return 'not_applicable';
   return 'missing';
+}
+
+/**
+ * How a boundary accounts for one JUDGE kind.
+ *
+ * A JUDGE kind reads one or two stage-1 clauses. When the boundary declares a
+ * stage-2 scope that does not include them, the question is outside the scope
+ * stage 1 assigned to this boundary and must not be asked. An absent scope is
+ * not evidence of absence: legacy manifests keep their open obligations.
+ */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function judgeDisposition(boundary, contract, kind) {
+  const scope = Array.isArray(boundary?.stage2_contract_scope) ? boundary.stage2_contract_scope : null;
+  const clauses = CLAUSE_PATH_BY_KIND[String(kind ?? '').toUpperCase()] ?? [];
+  if (scope !== null && !clauses.every((clause) => scope.includes(clause))) return 'out_of_scope';
+  return clauseDisposition(contract, kind);
 }
 
 /** A distribution fidelity obligation. */
@@ -203,15 +222,19 @@ function fidelityObligation(packageId, unitId) {
 }
 
 /** A risk disposition obligation. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-300) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-function riskObligation(subject, riskClass) {
+function riskObligation(subject, group) {
+  const [primaryClass, ...alsoApplies] = group.classes;
+  const claim = alsoApplies.length === 0
+    ? `${primaryClass} is mitigated or accepted for ${subject}`
+    : `${group.classes.join(' and ')} are mitigated or accepted for ${subject} through ${group.field}`;
   return obligation({
-    id: `RISK:${subject}:${riskClass}`,
+    id: `RISK:${subject}:${primaryClass}`,
     className: OBLIGATION_CLASS.SEMANTIC,
     kind: 'risk',
-    subject: `${subject}:${riskClass}`,
-    claim: `${riskClass} is mitigated or accepted for ${subject}`,
+    subject: `${subject}:${primaryClass}`,
+    claim,
     predicate: 'judgment:risk',
     producer: 'smooth-sequences/judgment-worklist',
   });
@@ -375,9 +398,13 @@ export function deriveObligations(inputs = {}) {
         const entry = boundaryObligation(boundaryId, 'ENTAILMENT', `${boundaryId}/${step.id}`);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
         const contract = contracts.find((row) => row?.boundary_id === boundaryId);
-        add(clauseDisposition(contract, 'ENTAILMENT') === 'not_applicable'
+        const boundary = boundaries.find((row) => row?.id === boundaryId);
+        const disposition = judgeDisposition(boundary, contract, 'ENTAILMENT');
+        add(disposition === 'not_applicable'
           ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'DECLARED_NOT_APPLICABLE' }
-          : entry);
+          : disposition === 'out_of_scope'
+            ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'OUT_OF_STAGE1_SCOPE' }
+            : entry);
       }
     }
   }
@@ -387,9 +414,12 @@ export function deriveObligations(inputs = {}) {
     for (const kind of ['TRANSLATION', 'INVARIANT', 'ERRORS', 'TESTS']) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const entry = boundaryObligation(boundary.id, kind);
-      add(clauseDisposition(contract, kind) === 'not_applicable'
+      const disposition = judgeDisposition(boundary, contract, kind);
+      add(disposition === 'not_applicable'
         ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'DECLARED_NOT_APPLICABLE' }
-        : entry);
+        : disposition === 'out_of_scope'
+          ? { ...entry, state: OBLIGATION_STATE.NOT_APPLICABLE, reason: 'OUT_OF_STAGE1_SCOPE' }
+          : entry);
     }
   }
 
@@ -410,10 +440,10 @@ export function deriveObligations(inputs = {}) {
   for (const operation of artifact.operations ?? []) {
     if (operation?.disposition !== ACTIVE_DISPOSITION) continue;
     if (operation.mutates_protocol_state === true) {
-      for (const riskClass of RISK_CLASSES_FOR_STATE) add(riskObligation(operation.id, riskClass));
+      for (const group of groupRiskClassesByField(RISK_CLASSES_FOR_STATE)) add(riskObligation(operation.id, group));
     }
     if (typeof operation.external_dependency_class === 'string' && operation.external_dependency_class !== 'none') {
-      for (const riskClass of RISK_CLASSES_FOR_EXTERNAL) add(riskObligation(operation.id, riskClass));
+      for (const group of groupRiskClassesByField(RISK_CLASSES_FOR_EXTERNAL)) add(riskObligation(operation.id, group));
     }
   }
 

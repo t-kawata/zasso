@@ -31,6 +31,7 @@ test('tree-manifest-input: valid JSON loads; broken JSON throws', () => {
   }
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('tree-manifest-input: contract boundary without a normal edge is reported', () => {
   const manifest = buildValidManifest({
     dependencies: {
@@ -39,7 +40,7 @@ test('tree-manifest-input: contract boundary without a normal edge is reported',
       forbidden_edges: [],
       forbidden_layer_rules: [],
       dev_dependency_policy: [],
-      boundaries: [{ id: 'boundary-001', consumer_package: 'pkg-a', provider_package: 'pkg-b', dependency_reason_code: null, stage2_contract_scope: [] }],
+      boundaries: [{ id: 'boundary-001', consumer_package: 'pkg-a', provider_package: 'pkg-b', dependency_reason_code: null, connection_kind: 'value_only', stage2_contract_scope: [] }],
     },
   }).manifest;
   const gate = checkAllocateEntryGate(manifest, process.cwd());

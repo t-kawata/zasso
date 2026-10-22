@@ -25,6 +25,7 @@ function boundary() {
   return buildValidManifest().manifest.dependencies.boundaries[0];
 }
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function edge(overrides = {}) {
   return buildContractEdge({
       boundaryId: 'boundary-001',
@@ -35,7 +36,7 @@ function edge(overrides = {}) {
       },
       relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
       // Overrides land in the group they belong to, so edge({ owners: {} }) still replaces the owners.
-      content: { owners: { semantic: 'pkg-a' }, clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], tests: ['t'] }, sourceRefs: ['s-000001', 's-000001'], ...overrides },
+      content: { owners: { semantic: 'pkg-a' }, clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], errors: ['e'], canonicalization: 'c', tests: ['t'] }, sourceRefs: ['s-000001', 's-000001'], ...overrides },
     });
 }
 

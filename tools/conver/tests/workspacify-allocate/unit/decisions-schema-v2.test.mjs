@@ -19,12 +19,13 @@ function schema() {
   return JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 }
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function contractEdge(overrides = {}) {
   return {
     contract_id: 'contract-boundary-001',
     direction: 'consumer_to_provider',
     connection_kind: 'value_only',
-    clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], canonicalization: 'c', tests: ['t'] },
+    clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], errors: ['e'], canonicalization: 'c', tests: ['t'] },
     owners: { semantic: 'pkg-a', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' },
     source_refs: ['s-000001'],
     ...overrides,

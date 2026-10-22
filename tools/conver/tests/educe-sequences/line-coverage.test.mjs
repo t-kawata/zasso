@@ -200,6 +200,7 @@ test('C003 the check names one verdict per uncovered range and prints no summary
   assert.equal(summary, null);
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 an artifact with no verdict covers every line, and the check count follows the registry', () => {
   const tiled = golden();
   const { verdicts } = checkAll({ specLines: spec.lines, artifact: tiled });
@@ -207,7 +208,7 @@ test('C003 an artifact with no verdict covers every line, and the check count fo
   assert.deepEqual(verdicts, []);
   assert.equal(coveredLines(tiled.sequences).size, spec.lineCount);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
 });
 
 test('C003 the product path refuses a gapped artifact, names the range, and leaves it byte-identical', () => {

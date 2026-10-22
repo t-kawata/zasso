@@ -497,6 +497,7 @@ test('C006 a vacuous audit and an unanswered audit do not print alike', () => {
 // The checks and the block
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('the four inquest checks run inside the block, and a missing audit is not a finding', () => {
   const { spec } = scratchRun();
   const without = checkAll({ specLines: spec.lines, artifact: golden });
@@ -505,7 +506,7 @@ test('the four inquest checks run inside the block, and a missing audit is not a
 
   assert.deepEqual(without.verdicts, [], 'no audit anywhere is not a finding: the product path has nothing to judge');
   assert.equal(without.summary.checksRun, covered.summary.checksRun, 'a check runs whether or not there is an audit to judge');
-  assert.equal(covered.summary.checksRun, 30, 'the declared set grew across PX-246 to PX-268, and every one of them runs with or without an audit');
+  assert.equal(covered.summary.checksRun, 31, 'the declared set grew across PX-246 to PX-268, and every one of them runs with or without an audit');
   assert.equal(empty.summary, null, 'an audit that was opened and answered nothing is a finding');
   assert.equal(new Set(empty.verdicts.map((verdict) => verdict.check)).has('inquest-covers-every-subject-and-lens'), true);
 });

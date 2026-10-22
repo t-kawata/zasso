@@ -8,13 +8,14 @@ import { minimalV2Artifact, minimalV3Artifact } from '../smooth-sequences/helper
 
 // [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // @verifies C009
-test('the educe rail still declares 30 checks and one ad-hoc check', () => {
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('the educe rail still declares 31 checks and one ad-hoc check', () => {
   // The runtime report counts the declared checks plus the ad-hoc check, which is why the
   // baseline prints 31/31 with checksAdhoc=1. Keeping the two counts apart makes a dropped
   // check visible instead of hiding it in the total.
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
-  assert.equal(CHECKS.length, 30);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT + 1, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
+  assert.equal(CHECKS.length, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT + 1, 32);
 });
 
 test('the four grill gates still exist', () => {

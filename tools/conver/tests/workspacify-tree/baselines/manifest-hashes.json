@@ -28,10 +28,10 @@
   ],
   "manifestHashes": {
     "allocate/README.md": "7d10090ff649d7b7d3c5bc2c64637f310c594085e9a0a838d86592b97af0b84e",
-    "allocate/sample-tree/WORKSPACIFY-TREE-MANIFEST.json": "dff70bf56c3860b965adad03279e6ab54856ddc2e54e88928607e986a414fcc1",
+    "allocate/sample-tree/WORKSPACIFY-TREE-MANIFEST.json": "f3304f73a195e365896cb769b3da0d867cd8265c6b6a4a9c66b1ddd1aad8ce6c",
     "allocate/sample-tree/decisions.json": "01101e4fcc133381143aad77941f50560ef3266283cf46c556ddf5fa5929827a",
     "allocate/sample-tree/spec.md": "e46567e253287a3da41f09a9770091b94fe08d4c681ab9feac4a0c27d827d32c",
-    "allocate:sample-tree": "09a78e632c58f25b8443f175bae3fa51b5e3c71b0a37166aebe45d461ea69627",
+    "allocate:sample-tree": "fb025581bc8063b638bacf92fbd4b22988d193de59312d9c1c836a8967f17698",
     "claims-codeblock.md": "4a586845dd5c8e7283554c9ca30061b911dae71f4d2f97e7df1953e1dd04bd4c",
     "collision-model.json": "73ab625917b67c4c6afd85917b46474a6e67e31cde7f84c6a67c3dce524e8c03",
     "cycle-model.json": "ae25d1dd2dbd1923bca6d66ec52a9dededd2e2e699cbbbcf8ea42e241f7e6a68",
@@ -136,6 +136,13 @@
       "headings": [
         "# /drill-rfc-down",
         "## Language Protocol",
+        "## Core Rule",
+        "## The question gate (settle before drafting)",
+        "## The ladder",
+        "## The question block, in order",
+        "## The loop",
+        "## Gates",
+        "## Re-entry (Done is not the end of the conversation)",
         "## Arguments",
         "## Script List",
         "## Workflow",
@@ -153,6 +160,7 @@
         "#### 1-10. Re-grill Decision",
         "#### 1-11. Evolution Verification (Script Verification + AI Expert Judgment)",
         "#### 1-12. Completion Declaration",
+        "#### 1-13. Re-entry after Completion",
         "### Step 2: graphify",
         "### Step 3: boundify",
         "### Step 4: split",
@@ -161,12 +169,13 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "8cda4ade395943b0feca8dc2c81d34ba8f5342f99c60bda8ee1163243ee212ce"
+      "documentDigest": "075b327cf8bab783d95a0342a4bb23d1533f979b9686e42336a23a542e0b9cef"
     },
     "find-omissions": {
       "headings": [
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /find-omissions",
+        "## Language Protocol",
         "## Pre-flight — argument + consolidation prerequisite validation (mandatory)",
         "## Overview",
         "## How the Script Works",
@@ -193,7 +202,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "454acf50b0c18a1c2f2a28c73a3c4e5452bf98e74d0352de750e56ca9f30e0e9"
+      "documentDigest": "3dbd941ac554c27f67158fc250d689582bc1a52dbb904ca2c96ccd82ed033038"
     },
     "graphify-rfc": {
       "headings": [
@@ -232,6 +241,14 @@
         "# /grill-me-for-rfc",
         "## Overview",
         "## Language Protocol",
+        "## ★ Cross-directory resolution (first-class, top priority)",
+        "## Core Rule",
+        "## The question gate (settle before drafting)",
+        "## The ladder",
+        "## The question block, in order",
+        "## The loop",
+        "## Gates",
+        "## Re-entry (Done is not the end of the conversation)",
         "## Usage",
         "## Mechanical Variable Binding from Arguments",
         "### Schema Validation Gate",
@@ -249,15 +266,18 @@
         "### STEP 4: CheckList.md Generation",
         "### STEP 5: RFC Writing",
         "## RFC Hard Constraints (MUST be followed without exception)",
+        "### STEP 5b: Seed divergence ledger",
         "### STEP 6: CheckList Verification and Revision",
         "### STEP 7: Re-grill Decision",
         "### STEP 7a: I/O Boundary Reference Information",
+        "### STEP 7b: Cross-directory defect resolution",
         "### STEP 8: RFC Completion Declaration",
+        "### STEP 8a: Re-entry after DONE",
         "## Reverse mode (G1 to G5)"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "0725af4c3dd2780866e112090f887dde7ce49799874cfa6ced8cd06dda148633"
+      "documentDigest": "779783d33c3d060abaeb242c704bd6e98d02e1d819dfa2a6b48c6ee85a6fd24d"
     },
     "make-ticket": {
       "headings": [
@@ -505,12 +525,13 @@
         "## Step 6: report",
         "## Error recovery",
         "## Prohibitions",
+        "## The AI final approval checklist (before `semantic_review`)",
         "## Definition of success",
         "## Reverse mode (T1 to T6)"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "04896c8cb71c48b49c8513bb2317c9f94457c8da2a2c6396a601f0f95eab545d"
+      "documentDigest": "8db4a1b06d55ad9e09de40c2bcb90ecec00a03d4ab4765138c2bd3cc5f06d9da"
     }
   },
   "forwardSurfaces": [

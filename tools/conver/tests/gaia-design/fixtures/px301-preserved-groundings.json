@@ -1,0 +1,191 @@
+{
+  "RefundMaturityBond": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 1700,
+      "quote": "forumが発行行動に関する金銭的な下限報酬を表示したい場合は、決済層に`MaturityBondPolicy`を置ける。`MaturityBond`はissuer、recipient、forum、community証明書または申請session、amount、currency、expire、未達時の返金または失効規則を束縛する。SがIを除いた根拠で`IndependentEligible`および\\(Q_{-I}\\ge1\\)を満たす確定済みcheckpointが提示された時だけ、bondはIへ支払われる。未達・期限切れ・返金失敗の各場合は、`MaturityBondPolicy`の失効規則と決済層が返すreject codeに従って処理し、bondの二重支払いは発生しない。"
+    }
+  },
+  "GrantAssetRights": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 3242,
+      "quote": "商用権利は、有効な`AssetCommercialRightsPolicy`および有効な`AssetRightsGrant`、またはorigin policyが明示的に許す自己実行的grantによってのみ成立する。"
+    }
+  },
+  "RecordDiscoveryServiceObservation": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9857,
+      "quote": "| `DiscoveryServiceObservation` | 第7章 |"
+    }
+  },
+  "CreatePressRoom": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 4440,
+      "quote": "`PressRoom`は、通常のforum告知より先に、またはより詳細な情報を配布するための**論理的な配布チャネル**である。暗号方式、ContentStore、鍵封筒形式、復号経路を通常アセットと分けない。"
+    }
+  },
+  "CreatePressReleasePackage": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 4529,
+      "quote": "`PressReleasePackage`は、要約版と詳細版を分離し、PressRoom会員への先行配布と一般公開予定を結び付けるメタデータである。要約版も詳細版も、それ自体は通常アセットと同じ`ProtectedContent`である。"
+    }
+  },
+  "ConfigureHeatStabilizer": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 5213,
+      "quote": "The default mode for a new policy version MUST be `observe_only`. A configuration MUST NOT enter `soft_intervention` unless it names an explicit rollout cohort and has an active signed configuration with `global_kill_switch=false`."
+    }
+  },
+  "TransitionTemporalHealthState": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 5967,
+      "quote": "bodyの健康状態は次のいずれかである。"
+    }
+  },
+  "SubmitNormalSuccessionIntent": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 6454,
+      "quote": "NormalSuccessionIntent {"
+    }
+  },
+  "AcceptRecoveryEligibilityCredential": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 6522,
+      "quote": "- 有効なOwner-authorized eKYC issuerが発行した`RecoveryEligibilityCredential`がある（第17章）"
+    }
+  },
+  "SubmitSoulTransferDispute": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9847,
+      "quote": "| `SoulTransferAgreement`、`SoulTransferFreeze`、`SoulTransferFinalization`、`SoulTransferDispute`、`SoulTransferResolution`、`SoulTrustEpochTransition` | 第16章 |"
+    }
+  },
+  "IssuePayoutDeadlineExtension": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 8232,
+      "quote": "PayoutDeadlineExtension {"
+    }
+  },
+  "PublishBankProviderAdvertisement": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9559,
+      "quote": "GaiaBankProviderAdvertisement {"
+    }
+  },
+  "IssueCommercialBankOperatorCredential": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9584,
+      "quote": "次の能力は、Owner-authorized eKYC providerが発行した有効な`CommercialBankOperatorCredential`を持つoperatorだけが提供できる。"
+    }
+  },
+  "CreateStorageContract": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9615,
+      "quote": "有償保存の契約は、次のobjectで表す。"
+    }
+  },
+  "SubmitStorageAvailabilityProof": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9671,
+      "quote": "`StorageAvailabilityProof`は、挑戦時点に指定chunkを返せたことだけを示す。未来の永続保存を保証するものではない。high availability profileは、複数operator、地域、クラウド、AS、法域の多様性条件を指定できなければならない。"
+    }
+  },
+  "InitiateStorageRepair": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 9754,
+      "quote": "- repairは常にadditiveに開始する。suspicion / partition / temporary failureを理由に既存replicaを即時削除しない。"
+    }
+  },
+  "RecordHeatInterventionDecision": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 11234,
+      "quote": "HeatInterventionDecision {"
+    }
+  },
+  "IssueStorageAuditChallenge": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 10807,
+      "quote": "StorageAuditChallenge"
+    }
+  },
+  "PublishAssetCommercialRightsPolicy": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 10492,
+      "quote": "AssetCommercialRightsPolicy"
+    }
+  },
+  "PublishAssetDiscoveryRecord": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 10653,
+      "quote": "AssetDiscoveryRecord"
+    }
+  },
+  "PublishPublicAccessConditionPolicy": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 10679,
+      "quote": "PublicAccessConditionPolicy"
+    }
+  },
+  "PublishEncryptedFileManifest": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 10840,
+      "quote": "EncryptedFileManifestV1"
+    }
+  },
+  "RecordAssetPublicationEvidence": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 11305,
+      "quote": "AssetPublicationEvidence"
+    }
+  },
+  "RecordPublicationDemandObservation": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 11378,
+      "quote": "PublicationDemandObservation"
+    }
+  },
+  "PublishTimeWitnessPolicy": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 11591,
+      "quote": "TimeWitnessPolicy"
+    }
+  },
+  "SubmitCivicPrecommit": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 12357,
+      "quote": "CivicPrecommit"
+    }
+  },
+  "SubmitCivicPrevote": {
+    "required_proof_classes": {
+      "classification": "no_protocol_proof_class_named",
+      "line": 12373,
+      "quote": "`CivicPrevote`及び`CivicPrecommit`の投票対象の表現と決定語彙を次で固定する。投票対象は`epoch_block_ref`が指す単一の`CivicEpochBlock`である。決定語彙は`accept`及び`commit`の2値とし、`CivicPrevote`が`accept`、`CivicPrecommit`が`commit`を表す。`reject`はobject型として表現せず、当該validatorが対応するvoteを発行しないことが`reject`の唯一の表現である。voteの非発行は、それ自体ではquorumを成立させない。"
+    }
+  }
+}

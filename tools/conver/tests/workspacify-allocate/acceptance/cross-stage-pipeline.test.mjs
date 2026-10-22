@@ -54,6 +54,7 @@ function ownsOnly(objectIds) {
   return { objects: objectIds, claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] };
 }
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function stageOneDecisions(objectIds) {
   const [firstId, secondId] = objectIds;
   return {
@@ -69,7 +70,7 @@ function stageOneDecisions(objectIds) {
       }],
     }],
     ownership: [{ objectId: firstId, packageId: 'pkg-a' }, { objectId: secondId, packageId: 'pkg-b' }],
-    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record' }],
+    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record', connectionKind: 'value_only' }],
     boundaries: [{ consumer: 'pkg-b', provider: 'pkg-a', dependencyReasonCode: 'canonical-object' }],
     adapters: {},
     approvals: fixtureApprovals(),

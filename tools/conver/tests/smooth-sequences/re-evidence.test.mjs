@@ -92,3 +92,18 @@ test('resetting the manifest receipts makes a later generation re-open its read 
     space.remove();
   }
 });
+
+// @verifies C001
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+test('the archive covers every evidence file the re-authoring replaces', async () => {
+  const { ARCHIVE_FILES } = await import('../../.claude/scripts/smooth-sequences/lib/re-evidence.mjs');
+  for (const relative of [
+    'educe-sequences/readings-effort.jsonl',
+    'educe-sequences/readings-span.jsonl',
+    'educe-sequences/readings-adjudicate.jsonl',
+    'educe-sequences/readings-adversarial.jsonl',
+    'educe-sequences/readings-reroute.jsonl',
+  ]) {
+    assert.equal(ARCHIVE_FILES.includes(relative), true, relative);
+  }
+});

@@ -123,6 +123,91 @@ test('C003 a contract edge carries the five owner slots, its paths and its sourc
   assert.equal(edge.provider_path, providerPath);
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C003 an edge kind that differs from the boundary kind is rejected by name', () => {
+  const target = { ...boundary(), connection_kind: 'state_transition' };
+  const edge = buildContractEdge({
+    boundaryId: 'boundary-001',
+    sides: { consumer: { packageId: 'pkg-b' }, provider: { packageId: 'pkg-a' } },
+    relation: { connectionKind: 'value_only' },
+    content: { owners: {}, clauses: clauses(), sourceRefs: ['s-000001'] },
+  });
+
+  const verdict = validateContractEdge(edge, target);
+  assert.equal(verdict.ok, false);
+  assert.deepEqual(verdict.kindMismatch, { expected: 'state_transition', actual: 'value_only' });
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C003 an absent declared non-core clause is refused unless notApplicable names it', () => {
+  const target = boundary();
+  const withoutErrors = { ...clauses() };
+  delete withoutErrors.errors;
+  const base = buildContractEdge({
+    boundaryId: 'boundary-001',
+    sides: { consumer: { packageId: 'pkg-b' }, provider: { packageId: 'pkg-a' } },
+    relation: { connectionKind: 'value_only' },
+    content: { owners: {}, clauses: withoutErrors, sourceRefs: ['s-000001'] },
+  });
+
+  const absent = validateContractEdge(base, target);
+  assert.equal(absent.ok, false);
+  assert.deepEqual(absent.absentScopeClauses, ['errors']);
+
+  const excused = validateContractEdge(
+    { ...base, clauses: { ...base.clauses, notApplicable: ['errors'] } },
+    target,
+  );
+  assert.equal(excused.ok, true);
+  assert.deepEqual(excused.absentScopeClauses, []);
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C003 notApplicable is canonical, and an unknown or core clause name is refused', () => {
+  const edge = buildContractEdge({
+    boundaryId: 'boundary-001',
+    sides: { consumer: { packageId: 'pkg-b' }, provider: { packageId: 'pkg-a' } },
+    relation: { connectionKind: 'value_only' },
+    content: {
+      owners: {},
+      clauses: { ...clauses(), notApplicable: ['tests', 'errors', 'tests'] },
+      sourceRefs: ['s-000001'],
+    },
+  });
+
+  assert.deepEqual(edge.clauses.notApplicable, ['errors', 'tests']);
+  assert.throws(() => canonicalizeClauses({ ...clauses(), notApplicable: ['telepathy'] }), /telepathy/);
+  assert.throws(() => canonicalizeClauses({ ...clauses(), notApplicable: ['invariants'] }), /core/);
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C003 an empty declared non-core clause is refused and cannot be excused by notApplicable', () => {
+  const target = boundary();
+  const edge = buildContractEdge({
+    boundaryId: 'boundary-001',
+    sides: { consumer: { packageId: 'pkg-b' }, provider: { packageId: 'pkg-a' } },
+    relation: { connectionKind: 'value_only' },
+    content: { owners: {}, clauses: clauses(), sourceRefs: ['s-000001'] },
+  });
+
+  const empty = validateContractEdge({ ...edge, clauses: { ...edge.clauses, canonicalization: '   ' } }, target);
+  assert.equal(empty.ok, false);
+  assert.deepEqual(empty.emptyScopeClauses, ['canonicalization']);
+
+  const excused = validateContractEdge(
+    { ...edge, clauses: { ...edge.clauses, canonicalization: '   ', notApplicable: ['canonicalization'] } },
+    target,
+  );
+  assert.equal(excused.ok, true);
+
+  const contradiction = validateContractEdge(
+    { ...edge, clauses: { ...edge.clauses, notApplicable: ['canonicalization'] } },
+    target,
+  );
+  assert.equal(contradiction.ok, false);
+  assert.deepEqual(contradiction.conflictingNotApplicable, ['canonicalization']);
+});
+
 test('C003 canonicalizeClauses is deterministic and drops empty optional groups', () => {
   const canonical = canonicalizeClauses({ tests: ['b', 'a'], invariants: ['x'], input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], errors: [] });
   assert.deepEqual(Object.keys(canonical), ['input', 'invariants', 'output', 'postconditions', 'preconditions', 'tests']);

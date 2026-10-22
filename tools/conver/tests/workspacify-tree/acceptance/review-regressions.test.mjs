@@ -27,6 +27,7 @@ const APPROVALS = JSON.parse(readFileSync(join(ROOT, 'tests/workspacify-tree/fix
 const owns = (objects) => ({ objects, claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] });
 
 /** A two-package workspace that publishes cleanly when nothing is mutated. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function decisionsFor(objectIds) {
   return {
     workspace: [
@@ -44,7 +45,9 @@ function decisionsFor(objectIds) {
       }],
     }],
     ownership: [{ objectId: objectIds[0], packageId: 'pkg-a' }, { objectId: objectIds[1], packageId: 'pkg-b' }],
-    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record' }],
+    // PX-300 makes the connection kind mandatory: the boundary stage 2 reads is
+    // derived from it, and an edge without one stops the finalize by name.
+    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', connectionKind: 'value_only', reason: 'beta consumes the alpha record' }],
     boundaries: [{ consumer: 'pkg-b', provider: 'pkg-a', dependencyReasonCode: 'canonical-object' }],
     adapters: { ports: [], databasePolicy: { applicable: false } },
     approvals: APPROVALS,

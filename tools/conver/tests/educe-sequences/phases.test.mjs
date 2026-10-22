@@ -32,6 +32,8 @@ import { loopsFor, phaseState, readingOf, runDirectoryFor } from '../../.claude/
 import { pathToFileURL } from 'node:url';
 
 const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+const GOLDEN_SOURCE = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 const TAGS = Object.values(PHASE_TAGS);
 
@@ -205,6 +207,34 @@ test('phase 9 preserves a v3 artifact that is already present', () => {
   assert.equal(preserved.schema_version, 3);
   assert.deepEqual(preserved.steps[0].contract, typedContract);
   assert.equal(preserved.operations[0].registry_contribution, 'required');
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('phase 9 refuses an ungrounded pinned column before writing the artifact', () => {
+  const { context } = open();
+  const declarationPath = join(context.directory, 'declaration.json');
+  const declaration = JSON.parse(readFileSync(declarationPath, 'utf8'));
+  writeFileSync(declarationPath, JSON.stringify({
+    ...declaration,
+    columns: [{ name: 'required_proof_classes', decidedBy: 'literalInLine' }],
+  }, null, 2));
+
+  const spanPath = join(context.directory, 'readings-span.jsonl');
+  const span = readFileSync(spanPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  span[0].operations = span[0].operations.map((operation) => operation.id === 'Admit'
+    ? { ...operation, disposition: 'active', required_proof_classes: [] }
+    : operation);
+  writeFileSync(spanPath, `${span.map((row) => JSON.stringify(row)).join('\n')}\n`);
+
+  runThrough(context, 8);
+  writeArtifact(context.artifactPath, JSON.parse(readFileSync(GOLDEN_SOURCE, 'utf8')));
+  const before = readFileSync(context.artifactPath);
+
+  const result = runPhase(9, context);
+
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /Admit:required_proof_classes/);
+  assert.deepEqual(readFileSync(context.artifactPath), before, 'the previous artifact stays byte-identical');
 });
 
 test('a phase that has spent its loop limit is halted, naming its count and its last refusal', () => {

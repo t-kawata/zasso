@@ -70,6 +70,7 @@ test('C013 a rebuild refuses an adjudication outside the declared vocabulary, an
   }
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C010 a run with one argument writes the artifact beside the specification', async () => {
   const { specPath, artifactPath } = scratchSpec();
 
@@ -78,7 +79,7 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
   assert.equal(existsSync(artifactPath), true);
-  assert.match(result.out, /checksRun=30 of 30/);
+  assert.match(result.out, /checksRun=31 of 31/);
   assert.match(result.out, /pinsRederived=5 of 5/);
 });
 
@@ -158,6 +159,7 @@ test('C013 a verification whose specification digest no longer matches is refuse
 });
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C013 a verification of an existing artifact needs only the specification path', async () => {
   const { specPath } = scratchSpec();
   await quietly([specPath], RUN_INPUT);
@@ -165,7 +167,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   const result = await quietly([specPath], null);
 
   assert.equal(result.exitCode, EXIT.OK);
-  assert.match(result.out, /checksRun=30 of 30/);
+  assert.match(result.out, /checksRun=31 of 31/);
 });
 
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.

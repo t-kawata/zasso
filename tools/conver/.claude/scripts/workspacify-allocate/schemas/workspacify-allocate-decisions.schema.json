@@ -113,7 +113,7 @@
                 },
                 "clauses": {
                   "type": "object",
-                  "description": "Clause groups keyed by the frozen stage-1 vocabulary; validateContractEdge rejects unknown, out-of-scope, missing and empty clauses.",
+                  "description": "Clause groups keyed by the frozen stage-1 vocabulary; validateContractEdge rejects unknown, out-of-scope, missing and empty clauses. A declared non-core clause may be omitted only when notApplicable names it; the five core clauses can never be excused.",
                   "properties": {
                     "input": {
                       "type": "string"
@@ -159,6 +159,25 @@
                     },
                     "tests": {
                       "type": "array"
+                    },
+                    "notApplicable": {
+                      "type": "array",
+                      "description": "Clause names this boundary genuinely does not have. A core clause cannot appear here.",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "errors",
+                          "state_ownership",
+                          "idempotency",
+                          "atomicity",
+                          "ordering",
+                          "finality",
+                          "canonicalization",
+                          "signature",
+                          "proof_verification",
+                          "tests"
+                        ]
+                      }
                     }
                   }
                 },

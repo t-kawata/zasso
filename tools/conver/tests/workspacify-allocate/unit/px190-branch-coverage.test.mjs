@@ -143,6 +143,7 @@ test('seed-parse: resolveSourceExcerpt out-of-range ref falls back to occurrence
   assert.ok(excerpt.includes('obj-000001'));
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('seed-authoring-packet: partial refs, sparse manifests, and conformance obligations', () => {
   const sourceText = 'line1\npkg-x target here\n';
   // A ref that lacks line_end is skipped in favour of the name-occurrence window.
@@ -186,7 +187,7 @@ test('seed-authoring-packet: partial refs, sparse manifests, and conformance obl
       ],
       forbidden_layer_rules: [],
       dev_dependency_policy: [],
-      boundaries: [{ id: 'b1', consumer_package: 'pkg-x', provider_package: 'pkg-y', dependency_reason_code: 'dep', stage2_contract_scope: [] }],
+      boundaries: [{ id: 'b1', consumer_package: 'pkg-x', provider_package: 'pkg-y', dependency_reason_code: 'dep', connection_kind: 'value_only', stage2_contract_scope: ['input', 'output', 'preconditions', 'postconditions', 'invariants'] }],
     },
     conformance: { test_obligations: [{ package: 'pkg-x', obligation: 'sink' }], ci_rules: [] },
   };

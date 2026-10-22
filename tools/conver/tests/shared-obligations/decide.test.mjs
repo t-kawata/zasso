@@ -252,10 +252,135 @@ test('a semantic obligation closed without a worklist item is not trusted', () =
   assert.equal(result.decisions[0].reason, 'NO_WORKLIST_ITEM');
 });
 
+// C006: an artifact field is the identity of an artifact basis, not the quote span.
+//
+// 148 replay judgments passed the anti-reuse check only because they cited
+// idempotency_scope with a 60-character quote while idempotency cited 120. The
+// field is the fact; the quote is how the reader worded it.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function riskObligation(id) {
+  return { id, class: 'semantic', kind: 'risk', state: 'open', required: true };
+}
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function riskItem(id, anchorSet = {}) {
+  return {
+    id,
+    obligationId: id,
+    kind: 'risk',
+    subject: 'OpA',
+    contextDigest: 'ctx',
+    worklistDigest: 'worklist',
+    artifactDigest: 'artifact-1',
+    schemaVersion: 2,
+    anchorSet,
+    answerVocabulary: ['mitigated', 'accepted'],
+    attackTier: 'standard',
+  };
+}
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function artifactRecord(id, quote) {
+  return {
+    schemaVersion: 2,
+    obligationId: id,
+    contextDigest: 'ctx',
+    worklistDigest: 'worklist',
+    artifactDigest: 'artifact-1',
+    verdict: 'mitigated',
+    basis: [{ source: 'artifact', id: 'OpA', field: 'idempotency_scope', quote }],
+    reader: 'judge/generation-1',
+  };
+}
+
+test('C006 the same artifact field cited with different quote lengths is one basis', () => {
+  const value = `${'a'.repeat(60)}${'b'.repeat(60)}`;
+  const result = decideAll({
+    obligations: [riskObligation('RISK:OpA:idempotency'), riskObligation('RISK:OpA:concurrency')],
+    worklist: [riskItem('RISK:OpA:idempotency'), riskItem('RISK:OpA:concurrency')],
+    judgments: [
+      artifactRecord('RISK:OpA:idempotency', 'a'.repeat(60)),
+      artifactRecord('RISK:OpA:concurrency', value),
+    ],
+    attacks: [],
+    artifactDigest: 'artifact-1',
+    artifact: { operations: [{ id: 'OpA', idempotency_scope: value }] },
+  });
+
+  assert.equal(result.decisions[0].state, 'held');
+  assert.equal(result.decisions[1].state, 'open');
+  assert.equal(result.decisions[1].reason, 'REUSED_BASIS');
+  assert.equal(result.metrics.reusedBasis, 1);
+});
+
+test('C006 two quotes on one specification line remain two distinct claims', () => {
+  const line = 'the clause holds for every admitted record';
+  const specItem = (id) => riskItem(id, { spec: [{ path: 'spec.md', line: 2 }] });
+  const specRecord = (id, quote) => ({
+    schemaVersion: 2,
+    obligationId: id,
+    contextDigest: 'ctx',
+    worklistDigest: 'worklist',
+    artifactDigest: 'artifact-1',
+    verdict: 'mitigated',
+    basis: [{ source: 'spec', path: 'spec.md', line: 2, quote }],
+    reader: 'judge/generation-1',
+  });
+
+  const result = decideAll({
+    obligations: [riskObligation('RISK:OpA:idempotency'), riskObligation('RISK:OpA:concurrency')],
+    worklist: [specItem('RISK:OpA:idempotency'), specItem('RISK:OpA:concurrency')],
+    judgments: [
+      specRecord('RISK:OpA:idempotency', 'the clause holds'),
+      specRecord('RISK:OpA:concurrency', 'for every admitted record'),
+    ],
+    attacks: [],
+    artifactDigest: 'artifact-1',
+    linesByPath: { 'spec.md': ['the section heading', line] },
+  });
+
+  assert.equal(result.decisions[0].state, 'held');
+  assert.equal(result.decisions[1].state, 'held');
+});
+
 // @verifies C001
 // [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an open obligation with no judgment record stays open', () => {
   const result = decide(fixture({ record: null, attack: null, item: { attackTier: 'standard' } }));
   assert.equal(result.decisions[0].state, 'open');
   assert.equal(result.decisions[0].reason, 'NO_JUDGMENT');
+});
+
+// @verifies C004
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+test('two clause quotes under one boundary and field are distinct claims', () => {
+  const boundaryAnchor = { contract: [{ boundaryId: 'bd-1', field: 'entailment' }] };
+  const build = (stepId, quote) => {
+    const parts = fixture({
+      item: { id: `JUDGE:ENTAILMENT:${stepId}`, obligationId: `JUDGE:ENTAILMENT:${stepId}`, subject: stepId, anchorSet: boundaryAnchor },
+      obligation: { id: `JUDGE:ENTAILMENT:${stepId}` },
+      record: {
+        obligationId: `JUDGE:ENTAILMENT:${stepId}`,
+        basis: [{ source: 'contract_registry', boundaryId: 'bd-1', field: 'entailment', quote }],
+      },
+      attack: {
+        obligationId: `JUDGE:ENTAILMENT:${stepId}`,
+        searched: { source: 'contract_registry', boundaryId: 'bd-1', from: 1, to: 1, quote: `${quote} searched` },
+      },
+    });
+    return parts;
+  };
+  const first = build('bd-1/step-a', 'the precondition holds for the caller');
+  const second = build('bd-1/step-b', 'the postcondition holds for the callee');
+  const result = decideAll({
+    obligations: [first.obligation, second.obligation],
+    worklist: [first.item, second.item],
+    judgments: [first.record, second.record],
+    attacks: [first.attack, second.attack],
+    artifactDigest: 'artifact-1',
+  });
+
+  assert.equal(result.decisions[0].state, 'held');
+  assert.equal(result.decisions[1].state, 'held');
+  assert.equal(result.metrics.reusedBasis, 0);
 });

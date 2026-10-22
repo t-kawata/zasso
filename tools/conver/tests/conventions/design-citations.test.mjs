@@ -206,6 +206,7 @@ const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[â€“â
 // [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-265 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-265 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
@@ -223,7 +224,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // when the ruling vocabulary and the check's source grew above it, once when that change's own
   // annotation was written, and once when the review read the same vocabulary out of the two
   // selections that still stated it: 704 -> 724.
-  { asWritten: 'engine.mjs:786', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 786, token: 'export const CHECKS' },
+  { asWritten: 'engine.mjs:885', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 885, token: 'export const CHECKS' },
   // Re-measured for PX-267, which changed the reader's vocabulary above it: 405 -> 414.
   // Re-measured by PX-294, which added the v3 preservation and reader-generation checks to
   // artifact.mjs and readings.mjs: the definitions moved with their files. The gates.mjs and
@@ -240,7 +241,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // Re-measured for PX-265, whose phase-4 guidance grew and then took one annotation line
   // above `PHASE_GUIDANCE`, and re-measured for PX-266, which annotated that same constant
   // again: 276 -> 278.
-  { asWritten: 'phases.mjs:291', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 291, token: 'export function runPhase' },
+  { asWritten: 'phases.mjs:299', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 299, token: 'export function runPhase' },
   { asWritten: 'run-state.mjs:191', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 191, token: 'export function openRun' },
   // Re-measured for PX-267, whose vocabulary change and annotation both added a line above it:
   // 303 -> 309.
@@ -273,7 +274,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // composing, so `runPhase` and `beginRun` both sit below the comparison it now holds.
   // Both re-measured again for PX-265 and once more for PX-266, by the same annotation lines:
   // 426 -> 428.
-  { asWritten: 'phases.mjs:463', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 463, token: 'export function beginRun' },
+  { asWritten: 'phases.mjs:471', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 471, token: 'export function beginRun' },
 ]);
 
 test('the educe-sequences document carries every citation its argument rests on', () => {

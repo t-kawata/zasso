@@ -102,6 +102,7 @@ export function defaultTree() {
  * @param {object} [overrides] - partial manifest sections merged over defaults
  * @returns {{ manifest: object, specText: string, sourceHash: string }}
  */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function buildValidManifest(overrides = {}) {
   const { segments, sourceBytes, sourceHash } = segmentSpecification();
   const packages = defaultPackages();
@@ -111,6 +112,7 @@ export function buildValidManifest(overrides = {}) {
     consumer_package: edge.from,
     provider_package: edge.to,
     dependency_reason_code: edge.reasonCode,
+    connection_kind: 'value_only',
     stage2_contract_scope: buildBoundaryContractScope('value_only'),
   }));
   const inventory = {

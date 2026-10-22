@@ -181,7 +181,8 @@
         "from": "pkg-b",
         "to": "pkg-a",
         "reasonCode": "canonical-object",
-        "reason": "beta consumes the alpha record"
+        "reason": "beta consumes the alpha record",
+        "connectionKind": "value_only"
       }
     ],
     "forbidden_edges": [],
@@ -202,7 +203,8 @@
           "errors",
           "canonicalization",
           "tests"
-        ]
+        ],
+        "connection_kind": "value_only"
       }
     ],
     "dag": {
@@ -289,7 +291,7 @@
   "integrity": {
     "canonicalization": "workspacify-tree-json-v1",
     "manifest_hash_algorithm": "SHA-256",
-    "manifest_hash": "8a633f8eca61f7dd621fe51712c6092f95d8244dfa73eb99814c5efaed93f6de",
+    "manifest_hash": "ecf5c9835e1c7436a775cad11f0a89e9c9351f1dcc844c9234be980c7ffc9422",
     "reload_validation": "PASS",
     "input_hash_verified_at_finalize": true
   }

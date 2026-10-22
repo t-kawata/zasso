@@ -9,6 +9,7 @@
  */
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 
 import { EXIT_CODES } from './lib/errors.mjs';
@@ -70,7 +71,7 @@ import { buildInventoryReport } from './lib/inventory-report.mjs';
 import { runGatePipeline } from './lib/validation.mjs';
 import { loadDecisionInput, assertDecisionSchema } from './lib/decision-input.mjs';
 import { assembleManifest, renderManifestText } from './lib/render.mjs';
-import { buildBoundaryContractScope } from './lib/contract-clauses.mjs';
+import { buildBoundaryContractScope, isRegisteredConnectionKind } from './lib/contract-clauses.mjs';
 import { runDagChecks } from './lib/dag.mjs';
 import { atomicPublish } from './lib/atomic-publish.mjs';
 import { formatSuccess, formatFailure } from './lib/report.mjs';
@@ -1035,6 +1036,39 @@ function buildConformanceSection(packages) {
   return { test_obligations: obligations, ci_rules: [] };
 }
 
+/**
+ * Turn the permitted dependency edges into the boundaries stage 2 reads.
+ *
+ * The boundary carries the edge's connection kind because stage 2 has no other
+ * way to know it: the packet, the contract scope and the allocate contract all
+ * derive from this one record. A kind with no scope row is refused here rather
+ * than silently scoped as core-only, so a new kind stops the graph until its
+ * clauses are registered.
+ *
+ * @param {Array<object>} edges - dependency edges, forbidden ones excluded
+ * @returns {Array<object>} boundaries with connection_kind and stage2_contract_scope
+ */
+export function buildDependencyBoundaries(edges = []) {
+  return (Array.isArray(edges) ? edges : [])
+    .filter((edge) => edge.kind !== 'forbidden')
+    .map((edge, index) => {
+      if (!isRegisteredConnectionKind(edge.connectionKind)) {
+        throw new Error(
+          `the dependency edge ${edge.from}->${edge.to} carries no registered connection kind ${JSON.stringify(edge.connectionKind)}; register it in CLAUSES_BY_CONNECTION_KIND before finalizing`,
+        );
+      }
+      return {
+        id: `boundary-${String(index + 1).padStart(3, '0')}`,
+        consumer_package: edge.from,
+        provider_package: edge.to,
+        dependency_reason_code: edge.reasonCode ?? null,
+        connection_kind: edge.connectionKind,
+        stage2_contract_scope: buildBoundaryContractScope(edge.connectionKind),
+      };
+    });
+}
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function buildDependencyTables(decisions, packages = []) {
   const edges = decisions.dependencies;
   const presentLayers = new Set(packages.map((pkg) => pkg.layer));
@@ -1050,13 +1084,7 @@ function buildDependencyTables(decisions, packages = []) {
   ];
   const normalEdges = edges.filter((edge) => edge.kind !== 'forbidden');
   const forbiddenEdges = edges.filter((edge) => edge.kind === 'forbidden');
-  const boundaries = normalEdges.map((edge, index) => ({
-    id: `boundary-${String(index + 1).padStart(3, '0')}`,
-    consumer_package: edge.from,
-    provider_package: edge.to,
-    dependency_reason_code: edge.reasonCode ?? null,
-    stage2_contract_scope: buildBoundaryContractScope(edge.connectionKind),
-  }));
+  const boundaries = buildDependencyBoundaries(normalEdges);
   return {
     orientation: 'consumer_to_direct_dependency',
     normal_edges: normalEdges,
@@ -1197,4 +1225,7 @@ function printUsage() {
   ].join('\n') + '\n';
 }
 
-main();
+// Allow in-process unit tests to import and drive handlers without running main.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

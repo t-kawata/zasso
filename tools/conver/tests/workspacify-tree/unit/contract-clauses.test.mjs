@@ -1,3 +1,4 @@
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C002
 // The contract-clause vocabulary is the seam stage 2 relies on: it must be a
@@ -9,9 +10,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
+  CLAUSES_BY_CONNECTION_KIND,
+  CONNECTION_KINDS,
   CONTRACT_CLAUSES,
   CORE_CONTRACT_CLAUSES,
   buildBoundaryContractScope,
+  isRegisteredConnectionKind,
+  unregisteredConnectionKinds,
   validateContractScope,
 } from '../../../.claude/scripts/workspacify-tree/lib/contract-clauses.mjs';
 
@@ -68,6 +73,53 @@ test('C002 validateContractScope rejects unknown, duplicate and missing core cla
   assert.deepEqual(valid.unknown, []);
   assert.deepEqual(valid.missingCore, []);
   assert.deepEqual(valid.duplicates, []);
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+const GRAPH_KINDS = Object.freeze([
+  'value_only',
+  'typed_protocol_input',
+  'proof_verification',
+  'state_transition',
+  'external_effect',
+  'composition_obligation',
+  'port_contract',
+  'checkpoint-reference',
+  'adapter-implementation',
+  'conformance',
+]);
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C001 checkpoint-reference, adapter-implementation and conformance add errors and tests', () => {
+  for (const kind of ['checkpoint-reference', 'adapter-implementation', 'conformance']) {
+    assert.deepEqual(
+      buildBoundaryContractScope(kind),
+      ['input', 'output', 'preconditions', 'postconditions', 'invariants', 'errors', 'tests'],
+      `${kind} must scope errors and tests`,
+    );
+  }
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C001 every connection kind the graph emits is an explicit map entry', () => {
+  assert.equal(CONNECTION_KINDS.length, GRAPH_KINDS.length);
+  assert.deepEqual([...CONNECTION_KINDS].sort(), [...GRAPH_KINDS].sort());
+  assert.deepEqual(unregisteredConnectionKinds(GRAPH_KINDS), []);
+  for (const kind of GRAPH_KINDS) {
+    assert.equal(isRegisteredConnectionKind(kind), true, `${kind} must be registered`);
+    assert.ok(Object.hasOwn(CLAUSES_BY_CONNECTION_KIND, kind), `${kind} must be a literal entry`);
+  }
+});
+
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+test('C001 an unregistered kind is reached only through the named fallback and the census names it', () => {
+  assert.deepEqual(
+    buildBoundaryContractScope('new-kind'),
+    ['input', 'output', 'preconditions', 'postconditions', 'invariants'],
+  );
+  assert.deepEqual(unregisteredConnectionKinds(['value_only', 'new-kind', 'new-kind']), ['new-kind']);
+  assert.equal(isRegisteredConnectionKind(undefined), false);
+  assert.equal(isRegisteredConnectionKind(''), false);
 });
 
 test('C002 the tree command builds boundaries from the vocabulary, not from an inline literal', () => {

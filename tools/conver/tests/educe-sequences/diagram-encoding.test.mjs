@@ -269,10 +269,11 @@ test('C003 a step naming no sequence at all is refused rather than counted', () 
   assert.equal(verdictsOf(detached, BELONGS).length, artifact.steps.length);
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 the registry declares the new check once and the stated count is the registry length', () => {
   assert.equal(CHECKS.filter((check) => check.id === BELONGS).length, 1);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
 });
 
 // ---------------------------------------------------------------------------

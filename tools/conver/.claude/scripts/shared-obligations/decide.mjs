@@ -37,12 +37,30 @@ export const DECISION_SOURCE = Object.freeze({
   NONE: 'none',
 });
 
-/** A basis signature used to detect the same citation closing two obligations. */
-// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
+/**
+ * The identity of one basis entry for the anti-reuse check.
+ *
+ * An artifact row and a contract clause are identified by the row and field they
+ * name, not by the quote the reader wrote: two quotes of one field are the same
+ * fact worded twice. A specification basis keeps its quote, because one line can
+ * state several distinct claims and the quote is what separates them.
+ */
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297, PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297|PX-300) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-function basisSignature(basis) {
-  return JSON.stringify(basis.map((entry) => ({
-    source: entry?.source ?? null,
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+function basisIdentity(entry) {
+  const source = entry?.source ?? null;
+  if (source === 'artifact') {
+    return { source, id: entry?.id ?? entry?.operationId ?? null, field: entry?.field ?? null };
+  }
+  if (source === 'contract_registry') {
+    // One boundary and field can carry many clause values, and each value closes a
+    // different subject (one step per crossing). The quote is what distinguishes those
+    // claims; without it every ENTAILMENT judgment on one boundary looks reused.
+    return { source, boundaryId: entry?.boundaryId ?? null, field: entry?.field ?? null, quote: entry?.quote ?? null };
+  }
+  return {
+    source,
     path: entry?.path ?? null,
     line: entry?.line ?? null,
     quote: entry?.quote ?? null,
@@ -52,7 +70,13 @@ function basisSignature(basis) {
     packageId: entry?.packageId ?? null,
     unitId: entry?.unitId ?? null,
     unit: entry?.unit ?? null,
-  })));
+  };
+}
+
+/** A basis signature used to detect the same citation closing two obligations. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+function basisSignature(basis) {
+  return JSON.stringify((Array.isArray(basis) ? basis : []).map(basisIdentity));
 }
 
 /** Index the records by obligation, keeping the first and rejecting duplicates. */

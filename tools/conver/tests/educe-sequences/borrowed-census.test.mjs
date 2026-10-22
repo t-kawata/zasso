@@ -436,7 +436,8 @@ test('the registry the fixture borrows is committed beside the fixture specifica
   assert.equal(typeof SUPPLIED['ledger-registry.md'], 'string');
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('the check count follows the registry it is declared in', () => {
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
 });

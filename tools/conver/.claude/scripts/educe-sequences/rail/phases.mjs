@@ -17,7 +17,7 @@ import { appendReceipt, readEvidenceManifest, sha256File, updateManifestArtifact
 import { buildArtifact } from './artifact.mjs';
 import { coverageOf } from './coverage.mjs';
 import { PHASES, PHASE_TAGS, entryGate, evaluateGate, phaseById, unchangedRepeatReason } from './gates.mjs';
-import { escapedOperationsOf } from './engine.mjs';
+import { escapedOperationsOf, pinnedColumnGroundingProblems } from './engine.mjs';
 import { assetDigestOf, survivingAssets } from './inherit.mjs';
 import { readArtifact, readJsonOrNull } from './load.mjs';
 import { artifactPathFor } from './paths.mjs';
@@ -194,6 +194,7 @@ const ACTIONS = Object.freeze({
   },
 // [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
   9: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -220,6 +221,13 @@ const ACTIONS = Object.freeze({
       suppliedDocuments: suppliedDocumentsOf(ctx.directory),
       previousArtifact: previous,
     });
+    // A pinned column is an interface the project declared. An active operation that
+    // carries it empty must say why in the row itself; refusing here, before
+    // applyReadings writes, is what leaves the previous artifact byte-identical.
+    const pinnedProblems = pinnedColumnGroundingProblems(artifact, ctx.spec.lines);
+    if (pinnedProblems.length > 0) {
+      return { ok: false, problems: pinnedProblems.map((problem) => `${problem.subject}: ${problem.reason}`) };
+    }
     // A merge is an improvement and is permitted; a merge that loses a name is not, so the
     // names are compared before anything is written. The adjudications are proven here, beside
     // the span readings, because this is where the artifact is composed: a row whose word the

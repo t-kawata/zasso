@@ -323,6 +323,7 @@ test('C005 every check that declares a selection reports what it examined, zero 
   assert.equal(examined[CHECK], golden.adjudications.length, 'the count is of the rows the check iterated');
 });
 
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C005 the report prints a zero rather than omitting it', () => {
   const summary = summaryFor(golden);
   const examinedNothing = Object.entries(summary.examinations).filter(([, count]) => count === 0).map(([id]) => id);
@@ -332,7 +333,12 @@ test('C005 the report prints a zero rather than omitting it', () => {
   // exists for: before it, those checks and the ones that examined everything read the same.
   assert.equal(examinedNothing.length > 0, true, 'a fixture where every check has subjects cannot show this');
   assert.notEqual(line, undefined);
-  for (const id of examinedNothing) assert.equal(line.includes(id), true, id);
+  const named = examinedNothing.filter((id) => line.includes(id));
+  const unnamed = examinedNothing.length - named.length;
+  assert.equal(named.length > 0, true, 'the line names at least one zero');
+  // The line caps the names it prints and counts the rest, so a zero is never omitted:
+  // it is either named or included in the trailing "…and N more".
+  assert.equal(unnamed === 0 || line.includes(`…and ${unnamed} more`), true, 'every unnamed zero is counted');
   assert.equal(healthLines({ summary, status: STATUS }).includes(line), true, 'and the measured block prints it');
 });
 test('C005 the names the line prints are capped, and the rest are counted', () => {

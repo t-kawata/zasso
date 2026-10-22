@@ -47,6 +47,7 @@ export function segmentIdForOffset(segments, byteOffset) {
 }
 
 /** The two-package protocol workspace used by the hand-off tests. */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function buildValidTreeManifest(overrides = {}) {
   const { segments, sourceBytes, sourceHash } = segmentSpecification();
   const packages = [
@@ -76,6 +77,7 @@ export function buildValidTreeManifest(overrides = {}) {
     consumer_package: edge.from,
     provider_package: edge.to,
     dependency_reason_code: edge.reasonCode,
+    connection_kind: 'value_only',
     stage2_contract_scope: [...CORE_CONTRACT_CLAUSES],
   }));
   const inventory = {

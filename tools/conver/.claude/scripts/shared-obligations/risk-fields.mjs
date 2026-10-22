@@ -22,3 +22,23 @@ export const RISK_FIELD_BY_CLASS = Object.freeze({
 export function riskFieldForClass(riskClass) {
   return RISK_FIELD_BY_CLASS[riskClass] ?? null;
 }
+
+/**
+ * Group risk classes by the artifact field they read.
+ *
+ * idempotency and replay both read idempotency_scope, so they are one claim over
+ * one field rather than two obligations that could each cite the same value. The
+ * first class in each group keeps the obligation id the worklist already uses.
+ */
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+export function groupRiskClassesByField(riskClasses = []) {
+  const groups = new Map();
+  for (const riskClass of Array.isArray(riskClasses) ? riskClasses : []) {
+    const field = riskFieldForClass(riskClass);
+    if (field === null) continue;
+    const group = groups.get(field) ?? { field, classes: [] };
+    group.classes.push(riskClass);
+    groups.set(field, group);
+  }
+  return [...groups.values()];
+}

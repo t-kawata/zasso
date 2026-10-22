@@ -445,6 +445,7 @@ test('C003 a version-1 predecessor yields mapped deltas and names what it never 
 // ---------------------------------------------------------------------------
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   const spec = readSpecification(GOLDEN_SPEC);
   const artifact = goldenArtifact();
@@ -456,7 +457,7 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.deepEqual(after.verdicts, baseline.verdicts);
   assert.equal(after.summary.checksRun, baseline.summary.checksRun);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 30, 'PX-246 through PX-268 each added checks, and none of them is a growth gate');
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31, 'PX-246 through PX-268 each added checks, and none of them is a growth gate');
 });
 
 // [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
