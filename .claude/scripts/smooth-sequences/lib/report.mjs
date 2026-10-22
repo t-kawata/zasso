@@ -14,6 +14,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { emptyInstrument } from '../../shared-obligations/instrument.mjs';
 import { SmoothSequencesError } from './errors.mjs';
 import { CHECK_FAMILY_COUNT } from './check-status.mjs';
 import { formatProvenanceLine, emptyProvenance } from './provenance.mjs';
@@ -251,7 +252,7 @@ function projectWithheld(blocked) {
  *   checks: { run: number, failed: number, families?: number, blocked?: number,
  *   skipped?: number, subChecks?: Array<object> },
  *   provenance?: object, readings?: object, denominator?: object,
- *   verdict?: string, wouldExit?: number|null }} input
+ *   instrument?: object, verdict?: string, wouldExit?: number|null }} input
  * @returns {object}
  */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
@@ -261,7 +262,7 @@ function projectWithheld(blocked) {
 export function buildReport(input) {
   const {
     workspace, findings, withheld, blocked, waived, downgrade,
-    checks, provenance, readings, denominator, verdict, wouldExit,
+    checks, provenance, readings, denominator, instrument, verdict, wouldExit,
   } = input;
   const sorted = [...findings]
     .map((finding) => ({ ...finding, persisted: finding.persisted ?? false, repairClass: finding.repairClass ?? 'in-place' }))
@@ -288,6 +289,7 @@ export function buildReport(input) {
     checks: normalizeChecks(checks),
     provenance: provenance ?? emptyProvenance(),
     readings: readings ?? emptyReadings(),
+    instrument: instrument ?? emptyInstrument(),
     denominator: denominator ?? emptyDenominator(),
     verdict: verdict ?? defaultVerdict,
     wouldExit: wouldExit ?? null,
@@ -375,9 +377,20 @@ function renderReadingsWithheldLine(readings) {
     : [`readings withheld: ${withheld.map((entry) => entry.check).join(', ')}`];
 }
 
+/** The instrument health as one diagnostic line; it never changes the verdict. */
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+function formatInstrumentLine(instrument = emptyInstrument()) {
+  const inquest = instrument.inquest ?? {};
+  const attacks = instrument.attacks ?? {};
+  const judgments = instrument.judgments ?? {};
+  const effort = instrument.effort ?? {};
+  const flag = instrument.nonDiscriminating ? ' (non-discriminating)' : '';
+  return `instrument: inquest yes=${inquest.yes ?? 0}/${inquest.records ?? 0} attack broken=${attacks.broken ?? 0}/${attacks.records ?? 0} basis quotes=${judgments.distinctBasisQuotes ?? 0}/${judgments.basisQuotes ?? 0} effort alternatives=${effort.distinctAlternatives ?? 0}/${effort.records ?? 0}${flag}`;
+}
+
 /** The lines every console block opens with after its finding count. */
 // [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-302) --for-spec --no-implementation-order`.
 function buildSummaryLines(report) {
   const readingsLine = report.readings?.policy === 'advisory'
     ? `${formatReadingsLine(report.readings)} (advisory; not blocking)`
@@ -385,6 +398,7 @@ function buildSummaryLines(report) {
   const lines = [
     `provenance: ${formatProvenanceLine(report.provenance)}`,
     `readings: ${readingsLine}`,
+    formatInstrumentLine(report.instrument),
   ];
   if (report.checks.blocked > 0 || report.checks.failed > 0) {
     lines.push(`checks: run=${report.checks.run} blocked=${report.checks.blocked} failed=${report.checks.failed} families=${report.checks.families}`);
@@ -451,6 +465,7 @@ export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } =
     `checks: run=${report.checks.run} blocked=${report.checks.blocked} failed=${report.checks.failed} families=${report.checks.families}`,
     `provenance: ${formatProvenanceLine(report.provenance)}`,
     `readings: ${formatReadingsLine(report.readings)}`,
+    formatInstrumentLine(report.instrument),
     ...renderReadingsWithheldLine(report.readings),
     renderDenominatorLine(report.denominator),
     `blocked: ${report.blocked.length === 0 ? 'none' : `${report.blocked.length} check(s) in ${surfaceCount} surface(s)`}`,

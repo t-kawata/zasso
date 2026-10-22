@@ -31,9 +31,11 @@ import { decideAll } from '../shared-obligations/decide.mjs';
 import { readEvidenceManifest, sha256File, validateManifestReceipts, validateWriteReceipts } from '../shared-obligations/evidence.mjs';
 import { EVIDENCE_FILE_BY_KIND } from '../shared-obligations/evidence-writer.mjs';
 import { buildWorklist } from '../shared-obligations/judgment.mjs';
-import { resolveCensusObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
+import { resolveCensusObligations, resolveConsistencyObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
 import { attackReaderForGeneration, readerForGeneration } from '../shared-obligations/reader.mjs';
 import { deriveObligations } from '../shared-obligations/registry.mjs';
+import { summarizeInstrument } from '../shared-obligations/instrument.mjs';
+import { readPinnedCensus } from '../shared-obligations/source-census.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { compareFindingSets, computeFindingKey, readWaivers } from './lib/evidence-ledger.mjs';
 import { computeFindingKeysDigest, MODE_VERIFICATION, readStatus, writeGeneration } from './lib/generation.mjs';
@@ -190,7 +192,7 @@ function currentReceiptDigests(root, loaded, evidenceManifest) {
 }
 
 /** The census and declaration the obligation registry compares the artifact against. */
-// [::TICKET::] PX-289, PX-290, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-297, PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297|PX-303) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function censusFor(root, artifact) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -211,7 +213,8 @@ function censusFor(root, artifact) {
   const sections = Array.isArray(declaration?.sections)
     ? declaration.sections.map((entry) => entry.id)
     : (artifact?.sections ?? []).map((entry) => entry.id);
-  return { census: { operations, entries, sections }, declaration: declaration ?? {} };
+  const operationCensus = operationPin === undefined ? null : readPinnedCensus(root, operationPin);
+  return { census: { operations, entries, sections }, declaration: declaration ?? {}, operationCensus };
 }
 
 /** The denominator each demand axis is measured against, as far as the workspace states it. */
@@ -424,6 +427,7 @@ function readSpecLines(root, artifact) {
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -519,8 +523,9 @@ export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     let worklist = [];
     let readings;
+    let effortEvidence = [];
     if (closureMode) {
-      const { census, declaration } = censusFor(root, loaded.artifact);
+      const { census, declaration, operationCensus } = censusFor(root, loaded.artifact);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       let registry = deriveObligations({
         census,
@@ -531,6 +536,7 @@ export function runCommand(argv, io = {}) {
         packages: loaded.packages,
         readings: rawReadings,
         mechanical: evaluation,
+        operationCensus,
       });
       registry = resolveMechanicalObligations(registry, evaluation);
       registry = resolveCensusObligations(registry, {
@@ -539,6 +545,12 @@ export function runCommand(argv, io = {}) {
         treeManifest: loaded.treeManifest,
         allocateManifest: loaded.allocateManifest,
         packages: loaded.packages,
+      });
+      registry = resolveConsistencyObligations(registry, {
+        operationCensus,
+        artifact: loaded.artifact,
+        packages: loaded.packages,
+        allocateManifest: loaded.allocateManifest,
       });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const artifactDigest = evidenceManifest?.artifact?.sha256 ?? null;
@@ -568,6 +580,7 @@ export function runCommand(argv, io = {}) {
       const effortRecords = strictEvidence
         ? readJsonLinesIfPresent(join(root, 'educe-sequences', 'readings-effort.jsonl'))
         : [];
+      effortEvidence = effortRecords;
       registry = resolveReadingsObligations(registry, {
         readings: rawReadings,
         artifactDigest,
@@ -645,6 +658,14 @@ export function runCommand(argv, io = {}) {
         policy: parsed.advisoryReadings ? 'advisory' : 'blocking',
       };
     }
+    // The diagnostic is computed from the same evidence the verdict used, so the two
+    // can never describe different runs.
+    const instrument = summarizeInstrument({
+      readings,
+      judgments: rawReadings.judgment ?? [],
+      attacks: rawReadings.attack ?? [],
+      effort: effortEvidence,
+    });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const unresolvedReadings = readings.policy === 'advisory'
       ? 0
@@ -697,6 +718,7 @@ export function runCommand(argv, io = {}) {
       checks,
       provenance,
       readings,
+      instrument,
       denominator,
       verdict,
       wouldExit: parsed.audit ? wouldExit : null,

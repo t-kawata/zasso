@@ -1,3 +1,4 @@
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 /**
  * Detect an attack that is the same sentence with a different subject.
@@ -8,6 +9,8 @@
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const RISK_CLASS_WORDS = /\b(?:idempotency|replay|partial-failure|concurrency|liveness|finality|external-dependency)\b/gi;
+const QUOTED_SPAN = /"[^"]*"|「[^」]*」/g;
+const EVIDENCE_TAG = /\[(?:evidence|signal)\s+[0-9a-f]+\]/gi;
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function normalizeAttackText(text) {
@@ -20,9 +23,13 @@ export function normalizeAttackText(text) {
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function templateSignature(text) {
-  return normalizeAttackText(text)
+  // The quoted evidence and the writer's evidence/signal tags are the parts that
+  // vary per record; the sentence around them is the template under test.
+  const withoutEvidence = String(text ?? '')
+    .replace(QUOTED_SPAN, ' ')
+    .replace(EVIDENCE_TAG, ' ');
+  return normalizeAttackText(withoutEvidence)
     .replace(RISK_CLASS_WORDS, ' risk ')
-    .replace(/\b\d+\b/g, ' n ')
     .replace(/\s+/g, ' ')
     .trim();
 }

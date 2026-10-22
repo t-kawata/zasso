@@ -38,6 +38,19 @@ export const DECISION_SOURCE = Object.freeze({
 });
 
 /**
+ * The ratio of ok entries, or null when no evidence was supplied.
+ *
+ * Null means the instrument was not measured. Returning 1 here would turn an
+ * absent measurement into a clean counter, which is the false assurance PX-302
+ * removes.
+ */
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+function ratioOrNull(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return null;
+  return entries.filter((entry) => entry?.ok === true).length / entries.length;
+}
+
+/**
  * The identity of one basis entry for the anti-reuse check.
  *
  * An artifact row and a contract clause are identified by the row and field they
@@ -103,7 +116,7 @@ function indexRecords(records, rejected, kind) {
 
 /** The decision for one obligation. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297, PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-303) --for-spec --no-implementation-order`.
 function decideObligation(obligation, item, record, attack, context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const base = {
@@ -122,7 +135,7 @@ function decideObligation(obligation, item, record, attack, context) {
   if (obligation.class === 'mechanical') {
     return obligation.state === 'closed'
       ? { ...base, state: DECISION_STATE.PROVEN, source: DECISION_SOURCE.MECHANICAL }
-      : { ...base, reason: 'MECHANICAL_OPEN' };
+      : { ...base, reason: obligation.reason ?? 'MECHANICAL_OPEN' };
   }
   if (typeof obligation.id === 'string' && obligation.id.startsWith('READ:')) {
     // A reading is settled by its own semantics, not by a judgment record. A closed
@@ -394,10 +407,6 @@ export function decideAll(input = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const escapeConflicts = decisions.filter((entry) => entry.reason === 'ESCAPE_ACT_CONFLICT'
     || entry.reason === 'POSITION_DISPOSITION_CONFLICT').length;
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-  const discriminating = Array.isArray(sensitivity) ? sensitivity.filter((entry) => entry?.ok === true).length : 0;
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-  const rejudgeAgreements = Array.isArray(rejudge) ? rejudge.filter((entry) => entry?.ok === true).length : 0;
   const staleGenerationCodes = new Set(['READER_GENERATION_STALE', 'READING_NOT_REREAD']);
   const staleReaderGenerationCount = decisions.filter((entry) => staleGenerationCodes.has(entry.reason)).length;
   const generationMismatchCount = decisions.filter((entry) => entry.reason === 'READER_GENERATION_STALE').length;
@@ -426,12 +435,8 @@ export function decideAll(input = {}) {
         staleReceiptCount: Array.isArray(staleReceipts) ? staleReceipts.length : 0,
         effortCoverage: effortHeld.length === 0 ? 1 : effortCovered / effortHeld.length,
         blindAttackRatio: tier1Held.length === 0 ? 1 : blindHeld / tier1Held.length,
-        discriminatingRatio: Array.isArray(sensitivity) && sensitivity.length > 0
-          ? discriminating / sensitivity.length
-          : 1,
-        rejudgeAgreement: Array.isArray(rejudge) && rejudge.length > 0
-          ? rejudgeAgreements / rejudge.length
-          : 1,
+        discriminatingRatio: ratioOrNull(sensitivity),
+        rejudgeAgreement: ratioOrNull(rejudge),
         staleReaderGenerationCount,
         generationMismatchCount,
         rereadCount,
