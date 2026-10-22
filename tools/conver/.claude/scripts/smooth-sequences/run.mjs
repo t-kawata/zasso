@@ -25,6 +25,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
+import { runClosureGates } from './lib/closure-gates.mjs';
 import { buildCertificate, writeCertificate } from '../shared-obligations/certificate.mjs';
 import { decideAll } from '../shared-obligations/decide.mjs';
 import { readEvidenceManifest, sha256File, validateManifestReceipts, validateWriteReceipts } from '../shared-obligations/evidence.mjs';
@@ -461,12 +462,38 @@ export function runCommand(argv, io = {}) {
     };
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const evaluation = evaluateCheckRegistry(index);
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+    const evidenceManifest = readEvidenceManifest(root);
+    // The closure gates are the design-authoring gates. They are measured only where the
+    // workspace claims the whole pipeline: an artifact or evidence manifest, and both
+    // manifests those gates read. A unit fixture carrying neither is not claiming closure,
+    // and refusing it for a tree it never had would measure nothing.
+    const closureMode = !parsed.legacy
+      && (evidenceManifest !== null || loaded.artifact?.schema_version === SCHEMA_V3)
+      && loaded.treeManifest !== null && loaded.treeManifest !== undefined
+      && loaded.allocateManifest !== null && loaded.allocateManifest !== undefined;
+    const closure = closureMode
+      ? (io.runClosureGates ?? runClosureGates)({ root })
+      : { ok: true, gates: [] };
+    const closureBlocked = closure.gates
+      .filter((gate) => gate.exitCode !== 0)
+      .map((gate) => ({
+        checkId: `CLOSURE:${gate.script}`,
+        family: 'closure',
+        surface: 'design-authoring-gate',
+        reason: gate.reason || `${gate.script} exited ${gate.exitCode}`,
+        producer: gate.script,
+        repairClass: 'regeneration',
+      }));
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const blocked = evaluation.blocked.map((entry) => ({
-      ...entry,
-      producer: producerForBlockedSurface(entry.surface),
-      repairClass: 'regeneration',
-    }));
+    const blocked = [
+      ...evaluation.blocked.map((entry) => ({
+        ...entry,
+        producer: producerForBlockedSurface(entry.surface),
+        repairClass: 'regeneration',
+      })),
+      ...closureBlocked,
+    ];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const waivers = readWaivers(root);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -484,9 +511,7 @@ export function runCommand(argv, io = {}) {
     const findings = annotatePersisted([...unwaivedFindings, ...ledger.withdrawn], baseline);
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const evidenceManifest = readEvidenceManifest(root);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const closureMode = !parsed.legacy && (evidenceManifest !== null || loaded.artifact?.schema_version === SCHEMA_V3);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const rawReadings = readReadingsForRegistry(root);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -612,6 +637,7 @@ export function runCommand(argv, io = {}) {
         },
         assurance: decisionSet.metrics,
         receiptDebt,
+        closureGates: closure.gates,
       });
     } else {
       readings = {

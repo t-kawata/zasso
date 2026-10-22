@@ -190,7 +190,10 @@ Find every closed vocabulary, its members, lines those members occupy. Record `e
 Invocation supplied material carrying a census (registry of operations an interface must implement, or regions that must be adjudicated) → record `sourceEnumerations[].{name,source,selector,role}`:
 - `source` = supplied file;
 - `selector` = generic shape reading it: `jsonFieldRows` (with a field every row of a fenced block carries) | `tableColumn` (with a header every row of a table stands beneath) | `markedLines` (with a prefix every member line begins with);
-- `role` = what it answers for: `operations` | `entries`; a pin with no role answers for nothing and is permitted;
+- `role` = what it answers for: `operations` | `entries` | `sequences`; a pin with no role answers for nothing and is permitted;
+  `sequences` states the realized-sequence axis the grill's obligation-coverage gate measures. Supply it from a table of the
+  realized sequence ids (`tableColumn` on the id column) whenever the artifact realizes sequences; without it that axis stays
+  unstated and the gate refuses by name;
 - `specSpans` (with the field every row of a fenced block carries, its value a span of the specification: `34-35` for a region of two lines, `34` for one) = the shape for an
   **entries** census. The other three read names the document itself states, which is why a census of the entries a reading produces cannot be written in them: those are named
   inside the run. This shape reads the specification's own line numbers instead, so it is authored from the document rather than from the run, and it is the only role it answers

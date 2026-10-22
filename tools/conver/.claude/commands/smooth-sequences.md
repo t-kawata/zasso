@@ -55,7 +55,9 @@ Only human surface: delegated design command's direction questions within its ow
 - `status.json`: `schemaVersion: 2`; `generation`, `mode`, `measuredAt`, `inputDigest`, `reportDigest`, `findingKeysDigest`, `schemaHistory`, `verdict` (`exitCode`, `findings`, `blocked`, `readings`; audit adds `wouldExit`).
 - `archive/<N>/`: the pair generation N wrote; moved byte-identically; never deleted.
 - Console: one `route:` header/authored surface; one line/finding; `generation: N (new generation|verification; no new generation)`; final `next:`.
-- Exits: `0` pass; `1` blocking findings; `2` misuse/refusal (broken chain, open transaction); `3` AI handoff (ground to settle / educe phase to run); `4` unproven (a required surface is absent or synthesized, a reading is unresolved, or the artifact was downgraded from v3 to v2); not a request to a human; only `0` is completion.
+- Exits: `0` pass; `1` blocking findings; `2` misuse/refusal (broken chain, open transaction); `3` AI handoff (ground to settle / educe phase to run); `4` unproven (a required surface is absent or synthesized, a reading is unresolved, the artifact was downgraded from v3 to v2, or a design-authoring gate failed); not a request to a human; only `0` is completion.
+
+Closure mode is a v3 artifact or an evidence manifest, with both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` present. In closure mode the four grill mechanical gates are run here — `check-obligation-coverage.js`, `check-contribution-completeness.js`, `check-distribution-completeness.js` and `defect-report.js --gate` — so a pass from this command means the closure they measure holds too. A failing gate keeps the certificate incomplete with an open entry `CLOSURE:<script>` carrying the gate's first refusal line, and the run exits `4`. `--legacy` does not run them. A command that is not in closure mode is not claiming that closure; say so in the report rather than reading its exit as the pipeline's.
 
 ## Generations
 
@@ -88,7 +90,7 @@ Before design read: resolve interrupted regeneration commit; refuse while a tran
 | `1` | findings; report written | Step 2 |
 | `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node .claude/scripts/regeneration/run.mjs status` to identify it (`state: none` = none); `node .claude/scripts/regeneration/run.mjs continue`; follow `next:`; Step 1 |
 | `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node .claude/scripts/regeneration/run.mjs continue`; Step 1 |
-| `4` | unproven: report written | Step 2: restore each blocked surface with its named producer, or resolve the readings; never read exit 4 as completion |
+| `4` | unproven: report written | Step 2: restore each blocked surface with its named producer, resolve the readings, or repair the design-authoring gate named `CLOSURE:<script>`; never read exit 4 as completion |
 
 Open transaction → resume; never abandon.
 Transaction owns workspace in open/derived/verified/committing → no detector report.

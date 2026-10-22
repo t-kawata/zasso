@@ -142,3 +142,29 @@ test('--strict-freshness is a flag and the certificate carries generation counte
     workspace.remove();
   }
 });
+
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+test('a failing design-authoring gate makes a closure-mode run unproven and names the gate', () => {
+  // The acceptance gate used to pass while the grill's obligation-coverage gate was red.
+  // That allowed smooth passing to stand in for a closed pipeline. One failing closure
+  // gate now keeps the certificate incomplete and carries the gate's refusal into open.
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const output = capture();
+    const result = runCommand([workspace.root], {
+      ...output.io,
+      runClosureGates: () => ({
+        ok: false,
+        gates: [{ script: 'check-obligation-coverage.js', exitCode: 1, reason: 'unstated denominator: 1' }],
+      }),
+    });
+
+    assert.equal(result.exitCode, 4);
+    assert.equal(result.report.certificate.status, 'incomplete');
+    const entry = result.report.certificate.open.find((row) => row.id === 'CLOSURE:check-obligation-coverage.js');
+    assert.notEqual(entry, undefined);
+    assert.equal(entry.subject, 'unstated denominator: 1');
+  } finally {
+    workspace.remove();
+  }
+});

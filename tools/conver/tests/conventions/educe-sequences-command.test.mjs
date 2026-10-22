@@ -18,6 +18,8 @@ import { ARCHIVE_DIRECTORY, DECLARATION_FILE, readingsFileName } from '../../.cl
 import { RUN_DIRECTORY_NAME } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 import { SUPPLIED_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 import { UNREACHED_ESCAPES, DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { SOURCE_ROLES } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
+import { PHASE_GUIDANCE } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const COMMAND_PATH = `${PROJECT_ROOT}.claude/commands/educe-sequences.md`;
@@ -140,4 +142,19 @@ test('PX-253 every vocabulary the merge section names is the one the rail declar
   const absentOutcomes = repairing.filter((outcome) => !mergeSection.includes(outcome));
   assert.deepEqual(absentEscapes, [], `the merge section does not name the escape(s): ${absentEscapes.join(', ')}`);
   assert.deepEqual(absentOutcomes, [], `the merge section does not name the outcome(s): ${absentOutcomes.join(', ')}`);
+});
+
+// ---------------------------------------------------------------------------
+// PX-299 — the command and the phase guidance name every census role
+// ---------------------------------------------------------------------------
+
+test('PX-299 the command file and phase 4 guidance name every census role the rail accepts', () => {
+  // A role the rail accepts but the document never names is a repair no reader can find:
+  // the grill denominator then stays unstated and the transaction refuses by name. The
+  // document and the guidance are the only place a reader learns the vocabulary.
+  const absentFromCommand = SOURCE_ROLES.filter((role) => !COMMAND.includes(`\`${role}\``));
+  const absentFromGuidance = SOURCE_ROLES.filter((role) => !PHASE_GUIDANCE[4].includes(role));
+
+  assert.deepEqual(absentFromCommand, [], `the command file does not name the role(s): ${absentFromCommand.join(', ')}`);
+  assert.deepEqual(absentFromGuidance, [], `the phase 4 guidance does not name the role(s): ${absentFromGuidance.join(', ')}`);
 });

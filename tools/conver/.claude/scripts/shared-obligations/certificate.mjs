@@ -148,7 +148,7 @@ function openEntry(entry, code) {
  *
  * @param {{ obligations?: Array<object>, decisions?: Array<object>,
  *   checks?: Array<object>, readings?: object, inputs?: object,
- *   assurance?: object }} input
+ *   assurance?: object, closureGates?: Array<{script: string, exitCode: number, reason: string}> }} input
  * @returns {object}
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -161,6 +161,7 @@ export function buildCertificate(options = {}) {
     inputs = {},
     assurance = null,
     receiptDebt = [],
+    closureGates = [],
   } = options;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const byId = new Map();
@@ -219,6 +220,18 @@ export function buildCertificate(options = {}) {
       code: debt?.code ?? 'STALE_RECEIPT',
       reason: debt?.code ?? 'STALE_RECEIPT',
       subject: Array.isArray(debt?.mismatches) ? debt.mismatches.join(', ') : null,
+    });
+  }
+  // A design-authoring gate that failed leaves the obligation list unproven, so the
+  // certificate cannot call the workspace complete even when every evidence row holds.
+  // The entry names the gate and the refusal it wrote, so the repair is not a guess.
+  for (const gate of Array.isArray(closureGates) ? closureGates : []) {
+    if (gate?.exitCode === 0) continue;
+    open.push({
+      id: `CLOSURE:${gate?.script ?? 'unknown'}`,
+      code: 'GRILL_GATE_FAILED',
+      reason: 'GRILL_GATE_FAILED',
+      subject: gate?.reason ?? null,
     });
   }
 
