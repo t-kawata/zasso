@@ -104,17 +104,103 @@ test('C107 a census-only and an artifact-only operation are both reported', () =
   assert.equal(mismatches.some((entry) => entry.operationId === 'OpB' && entry.field === 'presence'), true);
 });
 
-// @verifies C107
-test('C107 a view owning an artifact-excluded operation is reported', () => {
+// @verifies C001 (PX-304 contract)
+// [::TICKET::] PX-304 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-304 --for-spec --no-implementation-order`.
+test('C001 an active operation placed only by an operation unit is not reported', () => {
+  const { mismatches } = compareOperationCensus({
+    censusRows: [censusRow({ disposition: 'active' })],
+    artifact: { operations: [artifactOperation({ disposition: 'active' })] },
+    packages: [{
+      id: 'pkg-1',
+      view: {
+        ownedOperationUnits: [],
+        obligationUnits: [{ unitId: 'op-OpA', relation: 'assigns', subject: 'OpA', kind: 'operation', ground: 'line 1 states the act' }],
+      },
+    }],
+  });
+
+  assert.equal(mismatches.some((entry) => entry.field === 'owner'), false);
+});
+
+// @verifies C002 (PX-304 contract)
+// PX-304 supersedes the PX-303 test-plan item that reported an excluded operation
+// merely because a view owned its result objects. Object ownership is not placement.
+test('C002 an excluded operation owned through result classes is not reported', () => {
   const { mismatches } = compareOperationCensus({
     censusRows: [censusRow({ disposition: 'excluded' })],
     artifact: { operations: [artifactOperation({ disposition: 'excluded' })] },
     packages: [{ id: 'pkg-1', view: { ownedOperationUnits: [{ operationId: 'OpA' }] } }],
   });
 
-  assert.equal(mismatches.some((entry) => entry.field === 'owner'
-    && entry.operationId === 'OpA'
-    && entry.actual === 'pkg-1'), true);
+  assert.equal(mismatches.some((entry) => entry.field === 'owner'), false);
+});
+
+// @verifies C003 (PX-304 contract)
+test('C003 an active operation with no placement is reported', () => {
+  const { mismatches } = compareOperationCensus({
+    censusRows: [censusRow({ disposition: 'active' })],
+    artifact: { operations: [artifactOperation({ disposition: 'active' })] },
+    packages: [{ id: 'pkg-1', view: { ownedOperationUnits: [], obligationUnits: [] } }],
+  });
+
+  const owner = mismatches.filter((entry) => entry.field === 'owner');
+  assert.equal(owner.length, 1);
+  assert.equal(owner[0].operationId, 'OpA');
+});
+
+// @verifies C004 (PX-304 contract)
+test('C004 a sequence-kind obligation unit does not place an operation', () => {
+  const packagesFor = (unit) => [{ id: 'pkg-1', view: { obligationUnits: [unit] } }];
+  const inputs = {
+    censusRows: [censusRow({ disposition: 'active' })],
+    artifact: { operations: [artifactOperation({ disposition: 'active' })] },
+  };
+
+  const sequenceKind = compareOperationCensus({
+    ...inputs,
+    packages: packagesFor({ unitId: 'seq-OpA', kind: 'sequence', subject: 'OpA' }),
+  });
+  assert.equal(sequenceKind.mismatches.some((entry) => entry.field === 'owner'), true);
+
+  const operationKind = compareOperationCensus({
+    ...inputs,
+    packages: packagesFor({ unitId: 'op-OpA', kind: 'operation', subject: 'OpA' }),
+  });
+  assert.equal(operationKind.mismatches.some((entry) => entry.field === 'owner'), false);
+});
+
+// @verifies C001 (PX-304 contract)
+test('the placement map unions owned units and operation units', () => {
+  const packages = [
+    { id: 'pkg-owned', view: { ownedOperationUnits: [{ operationId: 'OpA' }] } },
+    { id: 'pkg-obliged', view: { obligationUnits: [{ unitId: 'op-OpB', kind: 'operation', subject: 'OpB' }] } },
+  ];
+  const artifact = {
+    operations: [
+      artifactOperation({ id: 'OpA', kind: 'OpA', disposition: 'active' }),
+      artifactOperation({ id: 'OpB', kind: 'OpB', disposition: 'active' }),
+    ],
+  };
+  const censusRows = [censusRow({ kind: 'OpA' }), censusRow({ kind: 'OpB' })];
+
+  const both = compareOperationCensus({ censusRows, artifact, packages });
+  assert.equal(both.mismatches.some((entry) => entry.field === 'owner'), false);
+
+  const ownedOnly = compareOperationCensus({ censusRows, artifact, packages: [packages[0]] });
+  assert.equal(ownedOnly.mismatches.some((entry) => entry.field === 'owner'
+    && entry.operationId === 'OpB'), true);
+});
+
+// @verifies C003 (PX-304 contract)
+test('C003 an empty census and an empty artifact close the obligation', () => {
+  const closed = resolveConsistencyObligations([consistencyObligation()], {
+    operationCensus: { ok: true, rows: [] },
+    artifact: { operations: [] },
+    packages: [],
+    allocateManifest: {},
+  });
+
+  assert.equal(closed[0].state, 'closed');
 });
 
 // @verifies C106
