@@ -301,13 +301,54 @@ function sameValue(left, right) {
   return JSON.stringify(canonicalValue(left)) === JSON.stringify(canonicalValue(right));
 }
 
+/** The unit-id prefix a package view uses for an operation obligation. */
+const OPERATION_UNIT_PREFIX = 'op-';
+
+/**
+ * Whether an obligation unit places an operation.
+ *
+ * The view carries two different claims. `ownedOperationUnits` is object ownership,
+ * derived from `result_object_classes`; an operation-kind `obligationUnits` entry is an
+ * assigned design duty. Only the second is placement of work, which is why an excluded
+ * operation may be object-owned without contradicting its disposition.
+ */
+// [::TICKET::] PX-304 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-304 --for-spec --no-implementation-order`.
+function isOperationObligationUnit(unit) {
+  return unit?.kind === 'operation'
+    || String(unit?.unitId ?? '').startsWith(OPERATION_UNIT_PREFIX);
+}
+
+/** The packages each operation is placed with, from object ownership and assigned duties. */
+// [::TICKET::] PX-304 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-304 --for-spec --no-implementation-order`.
+function collectOperationPlacements(packages) {
+  const placements = new Map();
+  const add = (operationId, packageId) => {
+    if (typeof operationId !== 'string' || operationId === '') return;
+    if (!placements.has(operationId)) placements.set(operationId, []);
+    placements.get(operationId).push(packageId);
+  };
+
+  for (const pkg of Array.isArray(packages) ? packages : []) {
+    for (const unit of pkg?.view?.ownedOperationUnits ?? []) {
+      add(unit?.operationId ?? unit?.id, pkg.id);
+    }
+    for (const unit of pkg?.view?.obligationUnits ?? []) {
+      if (!isOperationObligationUnit(unit)) continue;
+      add(unit?.subject, pkg.id);
+    }
+  }
+
+  return placements;
+}
+
 /**
  * Compare one operation across the pinned census, the artifact, the package views
  * and the allocation.
  *
  * The census is the supplied authority for the twenty columns; the artifact is the
- * derivation under test. Ownership is the package view's claim, and the allocate
- * manifest contributes the package set because it holds no operation rows.
+ * derivation under test. Placement is the package view's claim, read from object
+ * ownership and assigned operation duties; the allocate manifest contributes the
+ * package set because it holds no operation rows.
  */
 export function compareOperationCensus({
   censusRows = [],
@@ -356,22 +397,11 @@ export function compareOperationCensus({
     }
   }
 
-  const owners = new Map();
-  for (const pkg of Array.isArray(packages) ? packages : []) {
-    for (const unit of pkg?.view?.ownedOperationUnits ?? []) {
-      const id = unit?.operationId ?? unit?.id;
-      if (typeof id !== 'string') continue;
-      if (!owners.has(id)) owners.set(id, []);
-      owners.get(id).push(pkg.id);
-    }
-  }
+  const placements = collectOperationPlacements(packages);
   for (const [id, operation] of artifactById) {
-    const ownerIds = owners.get(id) ?? [];
-    if (operation.disposition === ACTIVE_DISPOSITION && ownerIds.length === 0) {
+    const placementIds = placements.get(id) ?? [];
+    if (operation.disposition === ACTIVE_DISPOSITION && placementIds.length === 0) {
       mismatches.push({ operationId: id, field: 'owner', expected: 'at least one package view', actual: 'none', source: 'views' });
-    }
-    if (operation.disposition === 'excluded' && ownerIds.length > 0) {
-      mismatches.push({ operationId: id, field: 'owner', expected: 'none', actual: ownerIds.join(','), source: 'views' });
     }
   }
 
