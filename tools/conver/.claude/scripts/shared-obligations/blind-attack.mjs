@@ -1,4 +1,6 @@
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+import { isDegenerateQuote } from './judgment.mjs';
+
 /**
  * A blind attack is written from the worklist item, not from the judgment.
  *
@@ -21,6 +23,7 @@ function fail(code, problem) {
 }
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 export function validateBlindAttack(attack, item = {}) {
   if (attack === null || typeof attack !== 'object' || Array.isArray(attack)) {
     return fail('BLIND_ATTACK_REQUIRED', 'the attack record is not an object');
@@ -38,6 +41,9 @@ export function validateBlindAttack(attack, item = {}) {
   const quote = normalized(attack.searched?.quote);
   if (!text(quote)) {
     return fail('ATTACK_QUOTE_NOT_FOUND', 'the attack carries no searched quote');
+  }
+  if (isDegenerateQuote(quote)) {
+    return fail('ATTACK_QUOTE_NOT_DISCRIMINATING', 'the searched quote is too short or carries no discriminating text');
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const basisQuotes = (Array.isArray(item.basisQuotes) ? item.basisQuotes : []).map(normalized);

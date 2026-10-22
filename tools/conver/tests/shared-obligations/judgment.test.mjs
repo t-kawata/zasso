@@ -1,3 +1,4 @@
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
 import test from 'node:test';
@@ -16,7 +17,7 @@ const record = {
   obligationId: 'MESH:b/A',
   contextDigest: 'abc',
   verdict: 'entailed',
-  basis: [{ source: 'spec.md', line: 1, quote: 'q' }],
+  basis: [{ source: 'spec.md', line: 1, quote: 'a substantive specification clause' }],
 };
 
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.

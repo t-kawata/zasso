@@ -49,6 +49,7 @@ const findings = [
 /** A report over the default findings. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function reportOf(overrides = {}) {
   return buildReport({
     workspace: { root: '/tmp/x' },
@@ -119,6 +120,7 @@ test('a clean console block prints next: none and no finding line', () => {
     'smooth-sequences: 0 finding(s)',
     'provenance: not-recorded (no migration field; prose total 0: typed 0, legacy 0, absent 0)',
     'readings: absent; required readings are open',
+    'instrument: inquest yes=0/0 attack broken=0/0 basis quotes=0/0 effort alternatives=0/0 (non-discriminating)',
     'next: none. verdict: pass.',
   ]);
 });

@@ -5,6 +5,7 @@ import { decideAll } from '../../.claude/scripts/shared-obligations/decide.mjs';
 import { fixture, OBLIGATION_ID } from '../fixtures/closure-core/records.mjs';
 
 // [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function decide({ item, obligation, record, attack }, extra = {}) {
   return decideAll({
     obligations: obligation === null ? [] : [obligation],
@@ -383,4 +384,34 @@ test('two clause quotes under one boundary and field are distinct claims', () =>
   assert.equal(result.decisions[0].state, 'held');
   assert.equal(result.decisions[1].state, 'held');
   assert.equal(result.metrics.reusedBasis, 0);
+});
+
+// @verifies C001
+test('C001 absent sensitivity and rejudge yield null', () => {
+  const result = decideAll({
+    obligations: [],
+    worklist: [],
+    judgments: [],
+    attacks: [],
+    requireEffort: true,
+  });
+
+  assert.equal(result.metrics.discriminatingRatio, null);
+  assert.equal(result.metrics.rejudgeAgreement, null);
+});
+
+// @verifies C002
+test('C002 supplied arrays yield the measured ratios', () => {
+  const result = decideAll({
+    obligations: [],
+    worklist: [],
+    judgments: [],
+    attacks: [],
+    requireEffort: true,
+    sensitivity: [{ ok: true }, { ok: false }],
+    rejudge: [{ ok: true }, { ok: true }],
+  });
+
+  assert.equal(result.metrics.discriminatingRatio, 0.5);
+  assert.equal(result.metrics.rejudgeAgreement, 1);
 });

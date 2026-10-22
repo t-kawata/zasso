@@ -1,3 +1,4 @@
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -61,4 +62,12 @@ test('C016 an attack that does not name the subject is rejected', () => {
     ...blind,
     attack: 'searched the record; none was found.',
   }, item).code, 'ATTACK_SUBJECT_GENERIC');
+});
+
+// @verifies C102
+test('C102 a punctuation-only searched quote is rejected', () => {
+  assert.equal(validateBlindAttack({
+    ...blind,
+    searched: { ...blind.searched, quote: '```' },
+  }, item).code, 'ATTACK_QUOTE_NOT_DISCRIMINATING');
 });

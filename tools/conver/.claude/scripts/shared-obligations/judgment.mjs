@@ -54,6 +54,52 @@ function normalize(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+/** The case-folded form used only by the discrimination rule. */
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+function foldCase(value) {
+  return normalize(value).toLowerCase();
+}
+
+const MIN_QUOTE_CHARS = 4;
+const MIN_CJK_QUOTE_CHARS = 8;
+const MAX_QUOTE_FREQUENCY = 0.5;
+const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const PUNCTUATION_ONLY = /^[\p{P}\p{S}\s]+$/u;
+const HEADING_ONLY = /^#{1,6}\s+\S/u;
+
+/**
+ * Whether a quote carries too little text to distinguish one claim from another.
+ *
+ * The rule measures discrimination, not truth: a bracket, a fence, a heading or a
+ * single character can occur on almost any line, so it cannot serve as evidence.
+ * The thresholds are deliberately low to keep legitimate short identifiers.
+ */
+export function isDegenerateQuote(quote) {
+  const value = normalize(quote);
+  if (value.length < MIN_QUOTE_CHARS) return true;
+  if (PUNCTUATION_ONLY.test(value)) return true;
+  if (HEADING_ONLY.test(value)) return true;
+  if (CJK_TEXT.test(value) && [...value].length < MIN_CJK_QUOTE_CHARS) return true;
+  return false;
+}
+
+/**
+ * How often a quote occurs in the candidate values it is meant to distinguish.
+ *
+ * A quote that appears in most candidates does not select one of them. A single
+ * candidate is not a frequency question; the degeneracy rule covers that case.
+ */
+export function quoteDiscrimination(quote, candidates = []) {
+  const value = foldCase(quote);
+  const values = (Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => foldCase(candidate))
+    .filter((candidate) => candidate !== '');
+  if (value === '' || values.length < 2) return { ok: value !== '', ratio: 0 };
+  const matches = values.filter((candidate) => candidate.includes(value)).length;
+  const ratio = matches / values.length;
+  return { ok: ratio <= MAX_QUOTE_FREQUENCY, ratio };
+}
+
 /** The falsifier a worklist item carries when the obligation does not state one. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const DEFAULT_FALSIFIER = 'Name a concrete line, fact or conflict that makes this verdict false.';
@@ -166,11 +212,14 @@ function artifactBasisMatches(entry, anchorSet) {
 }
 
 /** The spec line a basis cites, or a coded problem. */
-// [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293, PX-297, PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297|PX-303) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validateSpecBasis(entry, anchorSet, linesByPath) {
   if (!Number.isInteger(entry.line) || entry.line <= 0 || !text(entry.quote)) {
     return { ok: false, code: 'BASIS_SHAPE', problem: 'a spec basis needs a positive line and a quote' };
+  }
+  if (isDegenerateQuote(entry.quote)) {
+    return { ok: false, code: 'BASIS_NOT_DISCRIMINATING', problem: 'the quote is too short or carries no discriminating text' };
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const anchors = anchorsFor(anchorSet, 'spec');
@@ -230,6 +279,9 @@ export function resolveArtifactBasis(entry, artifact) {
   if (!text(entry?.quote)) {
     return { ok: false, code: 'BASIS_QUOTE_MISSING', problem: 'an artifact basis needs a quote' };
   }
+  if (isDegenerateQuote(entry.quote)) {
+    return { ok: false, code: 'BASIS_NOT_DISCRIMINATING', problem: 'the quote is too short or carries no discriminating text' };
+  }
   if (!normalize(fieldText(value)).includes(normalize(entry.quote))) {
     return { ok: false, code: 'BASIS_QUOTE_NOT_FOUND', problem: 'the quote does not occur in the field value' };
   }
@@ -257,6 +309,12 @@ export function resolveClauseBasis(entry, contractRegistry) {
   }
   if (!text(entry?.quote)) {
     return { ok: false, code: 'BASIS_QUOTE_MISSING', problem: 'a contract-registry basis needs a quote' };
+  }
+  if (isDegenerateQuote(entry.quote)) {
+    return { ok: false, code: 'BASIS_NOT_DISCRIMINATING', problem: 'the quote is too short or carries no discriminating text' };
+  }
+  if (!quoteDiscrimination(entry.quote, resolved.values).ok) {
+    return { ok: false, code: 'BASIS_NOT_DISCRIMINATING', problem: 'the quote occurs in most candidate clauses' };
   }
   if (!normalize(resolved.values.join(' ')).includes(normalize(entry.quote))) {
     return { ok: false, code: 'BASIS_QUOTE_NOT_FOUND', problem: 'the quote does not occur in the resolved clause' };
@@ -363,6 +421,9 @@ export function validateSearchedQuote(searched, sources) {
     return { ok: false, code: 'ATTACK_QUOTE_NOT_FOUND', problem: `the source ${searched.path} was not supplied` };
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+  if (isDegenerateQuote(searched?.quote)) {
+    return { ok: false, code: 'BASIS_NOT_DISCRIMINATING', problem: 'the searched quote is too short or carries no discriminating text' };
+  }
   const joined = normalize(lines.slice(searched.from - 1, searched.to).join(' '));
   if (!text(searched.quote) || !joined.includes(normalize(searched.quote))) {
     return { ok: false, code: 'ATTACK_QUOTE_NOT_FOUND', problem: 'the quote does not occur in the cited range' };

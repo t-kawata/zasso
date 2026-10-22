@@ -1,3 +1,4 @@
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,6 +50,24 @@ test('C007 an attack that copies the basis quote is rejected', () => {
 
 // @verifies C007
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// @verifies C103
+test('C103 two attacks differing only inside the quoted span share a signature', () => {
+  const first = 'searched the line carrying "first quote" for a contradiction in A-1; none found.';
+  const second = 'searched the line carrying "second quote" for a contradiction in A-1; none found.';
+  const otherSubject = 'searched the line carrying "first quote" for a contradiction in A-2; none found.';
+
+  assert.equal(templateSignature(first), templateSignature(second));
+  assert.notEqual(templateSignature(first), templateSignature(otherSubject));
+});
+
+// @verifies C103
+test('C103 evidence and signal tags do not make a template unique', () => {
+  const first = 'searched the line carrying "a quote" in A-1; none found. [evidence aabbccdd] [signal 11223344]';
+  const second = 'searched the line carrying "another quote" in A-1; none found. [evidence eeff0011] [signal 55667788]';
+
+  assert.equal(templateSignature(first), templateSignature(second));
+});
+
 test('C007 a normalized template reused beyond the threshold is rejected', () => {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const templateA = 'searched the operation record for a case in which the concurrency risk is neither mitigated nor accepted; none was found.';

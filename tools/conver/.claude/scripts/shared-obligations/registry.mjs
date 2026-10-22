@@ -261,6 +261,148 @@ const RISK_CLASSES_FOR_STATE = Object.freeze(['idempotency', 'replay', 'partial-
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const RISK_CLASSES_FOR_EXTERNAL = Object.freeze(['liveness', 'finality', 'external-dependency']);
 
+/** The twenty columns a pinned operation census and its artifact must agree on. */
+const OPERATION_COLUMNS = Object.freeze([
+  'kind',
+  'purpose',
+  'mutates_protocol_state',
+  'required_authority',
+  'requires_remote_time_handshake',
+  'requires_session_binding',
+  'required_pre_state_checkpoint',
+  'required_proof_classes',
+  'idempotency_scope',
+  'initial_status',
+  'allowed_status_transitions',
+  'external_dependency_class',
+  'result_object_classes',
+  'finality_predicate',
+  'cancellation_rule',
+  'reversal_or_recovery_rule',
+  'rest',
+  'websocket',
+  'cli',
+  'reject_code_families',
+]);
+
+/** A value with object keys sorted, so key order is not a difference. */
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
+  }
+  return value;
+}
+
+/** Whether two field values carry the same content. */
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+function sameValue(left, right) {
+  return JSON.stringify(canonicalValue(left)) === JSON.stringify(canonicalValue(right));
+}
+
+/**
+ * Compare one operation across the pinned census, the artifact, the package views
+ * and the allocation.
+ *
+ * The census is the supplied authority for the twenty columns; the artifact is the
+ * derivation under test. Ownership is the package view's claim, and the allocate
+ * manifest contributes the package set because it holds no operation rows.
+ */
+export function compareOperationCensus({
+  censusRows = [],
+  artifact = {},
+  packages = [],
+  allocateManifest = null,
+} = {}) {
+  const mismatches = [];
+  const rows = Array.isArray(censusRows) ? censusRows : [];
+  const operations = Array.isArray(artifact?.operations) ? artifact.operations : [];
+  const censusByKind = new Map(rows.map((row) => [row?.kind, row]));
+  const artifactById = new Map(operations.map((operation) => [operation?.id, operation]));
+
+  for (const kind of censusByKind.keys()) {
+    if (!artifactById.has(kind)) {
+      mismatches.push({ operationId: kind, field: 'presence', expected: 'artifact row', actual: 'absent', source: 'artifact' });
+    }
+  }
+  for (const id of artifactById.keys()) {
+    if (!censusByKind.has(id)) {
+      mismatches.push({ operationId: id, field: 'presence', expected: 'census row', actual: 'absent', source: 'census' });
+    }
+  }
+  for (const [kind, row] of censusByKind) {
+    const operation = artifactById.get(kind);
+    if (operation === undefined) continue;
+    if (operation.disposition !== row.disposition) {
+      mismatches.push({
+        operationId: kind,
+        field: 'disposition',
+        expected: row.disposition,
+        actual: operation.disposition,
+        source: 'artifact',
+      });
+    }
+    for (const column of OPERATION_COLUMNS) {
+      if (!sameValue(operation[column], row[column])) {
+        mismatches.push({
+          operationId: kind,
+          field: column,
+          expected: row[column],
+          actual: operation[column],
+          source: 'artifact',
+        });
+      }
+    }
+  }
+
+  const owners = new Map();
+  for (const pkg of Array.isArray(packages) ? packages : []) {
+    for (const unit of pkg?.view?.ownedOperationUnits ?? []) {
+      const id = unit?.operationId ?? unit?.id;
+      if (typeof id !== 'string') continue;
+      if (!owners.has(id)) owners.set(id, []);
+      owners.get(id).push(pkg.id);
+    }
+  }
+  for (const [id, operation] of artifactById) {
+    const ownerIds = owners.get(id) ?? [];
+    if (operation.disposition === ACTIVE_DISPOSITION && ownerIds.length === 0) {
+      mismatches.push({ operationId: id, field: 'owner', expected: 'at least one package view', actual: 'none', source: 'views' });
+    }
+    if (operation.disposition === 'excluded' && ownerIds.length > 0) {
+      mismatches.push({ operationId: id, field: 'owner', expected: 'none', actual: ownerIds.join(','), source: 'views' });
+    }
+  }
+
+  const allocatedPackages = new Set((allocateManifest?.seed_index ?? [])
+    .map((entry) => entry?.package)
+    .filter((id) => typeof id === 'string'));
+  if (allocatedPackages.size > 0) {
+    for (const pkg of Array.isArray(packages) ? packages : []) {
+      if (typeof pkg?.id === 'string' && !allocatedPackages.has(pkg.id)) {
+        mismatches.push({ operationId: null, field: 'package', expected: 'seed_index entry', actual: pkg.id, source: 'allocate' });
+      }
+    }
+  }
+
+  return { mismatches };
+}
+
+/** The consistency obligation that holds the operation census together. */
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+function operationConsistencyObligation() {
+  return obligation({
+    id: 'CENSUS:CONSISTENCY:operations',
+    className: OBLIGATION_CLASS.MECHANICAL,
+    kind: 'consistency',
+    subject: 'operations',
+    claim: 'every operation agrees across the pinned census, the artifact, the package views and the allocation',
+    predicate: 'mechanical:operation-census-consistency',
+    producer: 'shared-obligations/registry',
+  });
+}
+
 /**
  * Derive every obligation the pipeline must settle.
  *
@@ -341,6 +483,10 @@ export function deriveObligations(inputs = {}) {
     (treeManifest.workspace?.packages ?? []).map((pkg) => pkg.id).filter((id) => !packages.some((pkg) => pkg.id === id)),
     packages.map((pkg) => pkg.id).filter((id) => !(treeManifest.workspace?.packages ?? []).some((record) => record.id === id)),
   ));
+
+  if (inputs.operationCensus !== undefined && inputs.operationCensus !== null) {
+    add(operationConsistencyObligation());
+  }
 
   for (const subCheck of Array.isArray(inputs.mechanical?.subChecks) ? inputs.mechanical.subChecks : []) {
     add(checkObligation(subCheck));

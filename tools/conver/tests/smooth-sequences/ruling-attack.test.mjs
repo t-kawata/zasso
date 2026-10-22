@@ -36,6 +36,7 @@ function attack(overrides = {}) {
 }
 
 // [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function resolve({ rulings = [ruling()], attacks = [], artifactDigest = 'art-1' } = {}) {
   return resolveReadingsObligations([OBLIGATION], {
     readings: { adversarial: rulings, attack: attacks },
@@ -65,6 +66,16 @@ test('a held ruling attack closes it, while broken and unresolved attacks do not
 
 // @verifies C001
 // [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// @verifies C102
+test('C102 a held ruling attack with a degenerate quote is invalid', () => {
+  const result = resolve({
+    attacks: [attack({ searched: { ...attack().searched, quote: '```' } })],
+  });
+
+  assert.equal(result.state, 'open');
+  assert.equal(result.reason, 'ATTACK_INVALID');
+});
+
 test('a missing or stale ruling is named rather than assumed', () => {
   const missing = resolve({ rulings: [] });
   assert.equal(missing.state, 'open');

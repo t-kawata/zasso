@@ -6,8 +6,11 @@
  * These functions decide only facts the workspace already carries. A semantic claim is
  * never resolved here; it stays open until the judgment protocol records a held judgment.
  */
-import { ACTIVE_DISPOSITION, OBLIGATION_CLASS, OBLIGATION_STATE, REALIZED_OUTCOMES } from './registry.mjs';
+import { isDegenerateQuote } from './judgment.mjs';
+import { ACTIVE_DISPOSITION, OBLIGATION_CLASS, OBLIGATION_STATE, REALIZED_OUTCOMES, compareOperationCensus } from './registry.mjs';
 import { performedOperations } from './span.mjs';
+
+const MAX_REPORTED_MISMATCH_IDS = 5;
 
 /** The operations a span reading performed; the shared definition lives in span.mjs. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -138,7 +141,7 @@ export function resolveCensusObligations(obligations = [], context = {}) {
     )],
   ]);
   return obligations.map((entry) => {
-    if (entry.kind !== 'census') return entry;
+    if (entry.kind !== 'census' || !String(entry.id).startsWith('CENSUS:BIJECTION:')) return entry;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const kind = entry.id.replace('CENSUS:BIJECTION:', '');
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -147,6 +150,48 @@ export function resolveCensusObligations(obligations = [], context = {}) {
       return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'CENSUS_MISMATCH' };
     }
     return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
+  });
+}
+
+/**
+ * Resolve the operation-census consistency obligation.
+ *
+ * Zero mismatches close the obligation. A mismatch keeps it open with the count and
+ * the first operation ids, so the next iteration can see which rows disagree.
+ */
+export function resolveConsistencyObligations(obligations = [], options = {}) {
+  const {
+    operationCensus = null,
+    artifact = {},
+    packages = [],
+    allocateManifest = null,
+  } = options;
+  return obligations.map((entry) => {
+    if (entry.id !== 'CENSUS:CONSISTENCY:operations') return entry;
+    if (operationCensus === null || operationCensus === undefined) {
+      return { ...entry, state: OBLIGATION_STATE.OPEN, reason: 'CENSUS_UNAVAILABLE' };
+    }
+    if (operationCensus.ok !== true) {
+      return { ...entry, state: OBLIGATION_STATE.OPEN, reason: operationCensus.code ?? 'CENSUS_UNAVAILABLE' };
+    }
+    const { mismatches } = compareOperationCensus({
+      censusRows: operationCensus.rows,
+      artifact,
+      packages,
+      allocateManifest,
+    });
+    if (mismatches.length === 0) {
+      return { ...entry, state: OBLIGATION_STATE.CLOSED, reason: null };
+    }
+    const ids = [...new Set(mismatches
+      .map((mismatch) => mismatch.operationId)
+      .filter((id) => typeof id === 'string'))];
+    return {
+      ...entry,
+      state: OBLIGATION_STATE.OPEN,
+      reason: 'OPERATION_CENSUS_MISMATCH',
+      subject: `${mismatches.length} mismatch(es): ${ids.slice(0, MAX_REPORTED_MISMATCH_IDS).join(', ')}`,
+    };
   });
 }
 
@@ -208,11 +253,12 @@ function validFindingResolution(row, artifactDigest) {
 }
 
 /** Whether one ruling attack has the shape the ruling question asks for. */
-// [::TICKET::] PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-297, PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-297|PX-303) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function validRulingAttack(attack) {
   if (!['held', 'broken', 'unresolved'].includes(attack?.outcome)) return false;
-  if (attack.outcome === 'held' && !text(attack?.searched?.source)) return false;
+  if (attack.outcome === 'held'
+    && (!text(attack?.searched?.source) || isDegenerateQuote(attack?.searched?.quote))) return false;
   if (attack.outcome === 'broken' && (attack.counterexample === undefined || attack.counterexample === null)) return false;
   if (attack.outcome === 'unresolved' && !text(attack.reason)) return false;
   return true;

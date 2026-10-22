@@ -1,3 +1,4 @@
+// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -85,6 +86,55 @@ test('C004 a generation mismatch keeps the certificate incomplete', () => {
     decisions: [],
     checks: [],
     assurance: { ...CLEAN_V3_ASSURANCE, generationMismatchCount: 1 },
+  });
+  assert.equal(certificate.status, 'incomplete');
+});
+
+// @verifies C001
+test('C001 a legacy assurance carrying 1 and 1 stays complete', () => {
+  const certificate = buildCertificate({
+    obligations: [],
+    decisions: [],
+    checks: [],
+    assurance: CLEAN_V3_ASSURANCE,
+  });
+  assert.equal(certificate.status, 'complete');
+  assert.deepEqual(certificate.assurance.notMeasured, []);
+});
+
+// @verifies C003
+test('C003 null E3 and E4 counters are complete and not measured', () => {
+  const certificate = buildCertificate({
+    obligations: [],
+    decisions: [],
+    checks: [],
+    assurance: { ...CLEAN_V3_ASSURANCE, discriminatingRatio: null, rejudgeAgreement: null },
+  });
+  assert.equal(certificate.status, 'complete');
+  assert.deepEqual(
+    [...certificate.assurance.notMeasured].sort(),
+    ['discriminatingRatio', 'rejudgeAgreement'],
+  );
+});
+
+// @verifies C004
+test('C004 a measured discriminating ratio of 0.5 is incomplete', () => {
+  const certificate = buildCertificate({
+    obligations: [],
+    decisions: [],
+    checks: [],
+    assurance: { ...CLEAN_V3_ASSURANCE, discriminatingRatio: 0.5, rejudgeAgreement: 1 },
+  });
+  assert.equal(certificate.status, 'incomplete');
+});
+
+// @verifies C004
+test('C004 a measured rejudge disagreement is incomplete', () => {
+  const certificate = buildCertificate({
+    obligations: [],
+    decisions: [],
+    checks: [],
+    assurance: { ...CLEAN_V3_ASSURANCE, discriminatingRatio: 1, rejudgeAgreement: 0 },
   });
   assert.equal(certificate.status, 'incomplete');
 });
