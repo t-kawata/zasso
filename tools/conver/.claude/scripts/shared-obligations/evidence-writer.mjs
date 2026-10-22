@@ -30,6 +30,26 @@ export const EVIDENCE_FILE_BY_KIND = Object.freeze({
   effort: 'educe-sequences/readings-effort.jsonl',
 });
 
+/**
+ * Every live reading file a write receipt must bind.
+ *
+ * The three reader-authored kinds are written through this module; the rest are written
+ * by the rail's reading phases, and all of them are evidence the certificate counts. A
+ * file outside this list would be a reading no receipt can vouch for.
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export const EVIDENCE_FILE_PATHS = Object.freeze([
+  'educe-sequences/readings-judgment.jsonl',
+  'educe-sequences/readings-attack.jsonl',
+  'educe-sequences/readings-effort.jsonl',
+  'educe-sequences/readings-inquest.jsonl',
+  'educe-sequences/readings-adversarial.jsonl',
+  'educe-sequences/readings-uncovered.jsonl',
+  'educe-sequences/readings-span.jsonl',
+  'educe-sequences/readings-adjudicate.jsonl',
+  'educe-sequences/readings-reroute.jsonl',
+]);
+
 /** A non-empty string. */
 // [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function text(value) {
@@ -84,8 +104,12 @@ export function validateForKind(kind, record, item, options = {}) {
   }
   if (kind === 'attack') {
     const judgment = judgmentFor(record, options.judgments);
+    // A FALSIFY obligation has no judgment basis; its claim is the counterexample itself.
+    const requireAnchor = options.requireAnchor === true
+      && !String(item?.obligationId ?? '').startsWith('FALSIFY:');
     const result = validateAttackRecord(record, judgment, item, {
       sources: options.sources ?? options.linesByPath,
+      requireAnchor,
     });
     if (!result.ok) return { ok: false, code: result.code, problems: result.problems ?? [] };
     if (item?.requireEffort === true && item?.attackTier === ATTACK_TIER.TIER_ONE) {
@@ -101,7 +125,10 @@ export function validateForKind(kind, record, item, options = {}) {
   }
   if (kind === 'effort') {
     const judgment = judgmentFor(record, options.judgments);
-    const result = validateEffortTrace(record, item, { verdict: judgment?.verdict });
+    const result = validateEffortTrace(record, item, {
+      verdict: judgment?.verdict,
+      requireAnchor: options.requireAnchor === true,
+    });
     return { ok: result.ok, code: result.code, problems: result.problem ? [result.problem] : [] };
   }
   return { ok: false, code: 'UNKNOWN_EVIDENCE_KIND', problems: [`${kind} is not an evidence kind`] };
@@ -124,13 +151,22 @@ export function writeAtomically(path, rows) {
  *   generation: number, generationStartedAt?: string|null, now?: Date,
  *   linesByPath?: object, contractRegistry?: object[], rfcByPackage?: object}} request
  */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function writeEvidence(request) {
   const {
     root, kind, records, worklist, judgments = [], artifact, artifactDigest,
-    generation, now = new Date(), linesByPath, sources, contractRegistry, rfcByPackage,
+    generation, generationStartedAt, now = new Date(), linesByPath, sources, contractRegistry, rfcByPackage,
+    requireAnchor = false,
   } = request;
-  // generationStartedAt is part of the caller's contract; the writer stamps the
-  // current time and generation, so the start is enforced by the gate, not here.
+  // A positive generation without a start cannot prove the record was taken after the
+  // questions changed; refuse before writing rather than stamping a fresh readAt onto it.
+  if (Number.isInteger(generation) && generation > 0 && typeof generationStartedAt !== 'string') {
+    return {
+      ok: false,
+      written: [],
+      rejected: [{ obligationId: null, code: 'READING_NOT_REREAD' }],
+    };
+  }
   const path = EVIDENCE_FILE_BY_KIND[kind];
   if (path === undefined) {
     return { ok: false, written: [], rejected: [{ obligationId: null, code: 'UNKNOWN_EVIDENCE_KIND' }] };
@@ -157,7 +193,7 @@ export function writeEvidence(request) {
       ? { ...stamped.record, recordId: recordIdOf(stamped.record) }
       : stamped.record;
     const result = validateForKind(kind, withId, item, {
-      judgments, artifact, artifactDigest, linesByPath, sources, contractRegistry, rfcByPackage,
+      judgments, artifact, artifactDigest, linesByPath, sources, contractRegistry, rfcByPackage, requireAnchor,
     });
     if (!result.ok) {
       rejected.push({ obligationId: record.obligationId, code: result.code, problems: result.problems });
@@ -238,6 +274,7 @@ function readerContext(root) {
 
 /** Run the CLI. */
 // [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function runCli(argv) {
   const root = resolve(argumentFor(argv, 'root') ?? process.cwd());
   const kind = argumentFor(argv, 'kind');
@@ -268,6 +305,7 @@ function runCli(argv) {
     sources: context.sources,
     contractRegistry: context.contractRegistry,
     rfcByPackage: context.rfcByPackage,
+    requireAnchor: true,
   });
   process.stdout.write(`${JSON.stringify({
     ok: result.ok,

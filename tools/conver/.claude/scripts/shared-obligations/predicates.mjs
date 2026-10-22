@@ -281,15 +281,19 @@ function freshnessOf(row, artifactDigest) {
  * reader answered the current generation, which is what a re-read means.
  */
 // [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
-function generationFreshness(row, generation, generationStartedAt) {
-  if (generation !== null && row?.readerGeneration !== generation) {
-    return { ok: false, reason: 'READER_GENERATION_STALE' };
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function generationFreshness(row, generation, generationStartedAt) {
+  if (generation !== null && generation !== undefined && row?.readerGeneration !== generation) {
+    return { ok: false, reason: 'READER_GENERATION_STALE', code: 'READER_GENERATION_STALE' };
+  }
+  if (Number.isInteger(generation) && generation > 0 && typeof generationStartedAt !== 'string') {
+    return { ok: false, reason: 'READING_NOT_REREAD', code: 'READING_NOT_REREAD' };
   }
   if (typeof generationStartedAt === 'string'
     && (typeof row?.readAt !== 'string' || row.readAt < generationStartedAt)) {
-    return { ok: false, reason: 'READING_NOT_REREAD' };
+    return { ok: false, reason: 'READING_NOT_REREAD', code: 'READING_NOT_REREAD' };
   }
-  return { ok: true, reason: null };
+  return { ok: true, reason: null, code: null };
 }
 
 /**

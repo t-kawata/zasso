@@ -88,6 +88,7 @@ const ANCHORED_CITATIONS = Object.freeze([
  */
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
 
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 /** The line at 1-indexed `line`, or null when the file is shorter than that. */
 function lineOf(relativePath, line) {
   const lines = readFileSync(join(PROJECT_ROOT, relativePath), 'utf8').split('\n');
@@ -216,9 +217,9 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // as separate definitions and then annotated each of them, moving it from 519 to 623.
   // Re-measured for PX-266, which added the fourth census shape and the coordinate rule
   // beneath it, and re-measured again after that change's own annotation: 623 -> 661.
-  { asWritten: 'pins.mjs:661', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 661, token: 'export function rederiveAll' },
+  { asWritten: 'pins.mjs:665', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 665, token: 'export function rederiveAll' },
   // Re-measured for PX-266 by the same growth, and again after its annotation: 280 -> 311.
-  { asWritten: 'pins.mjs:311', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 311, token: 'export function selectNeighbourFor' },
+  { asWritten: 'pins.mjs:315', path: '.claude/scripts/educe-sequences/rail/pins.mjs', line: 315, token: 'export function selectNeighbourFor' },
   // Re-measured for PX-266, whose coordinates of one check moved the registry beneath them,
   // and again after that change's annotation: 626 -> 704. PX-267 moved it three times: once
   // when the ruling vocabulary and the check's source grew above it, once when that change's own
@@ -242,10 +243,10 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // above `PHASE_GUIDANCE`, and re-measured for PX-266, which annotated that same constant
   // again: 276 -> 278.
   { asWritten: 'phases.mjs:299', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 299, token: 'export function runPhase' },
-  { asWritten: 'run-state.mjs:191', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 191, token: 'export function openRun' },
+  { asWritten: 'run-state.mjs:194', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 194, token: 'export function openRun' },
   // Re-measured for PX-267, whose vocabulary change and annotation both added a line above it:
   // 303 -> 309.
-  { asWritten: 'readings.mjs:500', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 500, token: 'export function readReadingsFile' },
+  { asWritten: 'readings.mjs:502', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 502, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.

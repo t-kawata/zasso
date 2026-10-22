@@ -3,32 +3,41 @@
 /**
  * verify-ticket-closure.test.cjs — Tests for verify-ticket-closure.js (Gate L2)
  *
+ * PX-306 @verifies C003
+ * A closure is a postcondition that satisfies the next precondition. Equality of a
+ * contract's own precondition and postcondition is not a closure predicate; the old
+ * implementation asserted exactly that and passed every real gap.
+ *
  * Run: node tests/verify-ticket-closure.test.cjs
  */
 
 const assert = require('assert');
 
-let verifyModule;
-try {
-  verifyModule = require('../.claude/scripts/tickets/verify-ticket-closure.js');
-} catch (e) {
-  verifyModule = null;
-}
+const verifyModule = require('../.claude/scripts/tickets/verify-ticket-closure.js');
 
 const stats = { passed: 0, failed: 0, total: 0 };
 
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function test(name, fn) {
   stats.total++;
-  try { fn(); stats.passed++; console.log('  ✅', name); }
-  catch (e) { stats.failed++; console.log('  ❌', name); console.error('     ' + e.message); }
+  try {
+    fn();
+    stats.passed++;
+    console.log('  ✅', name);
+  } catch (error) {
+    stats.failed++;
+    console.log('  ❌', name);
+    console.error('     ' + error.message);
+  }
 }
 
 function makeTicket(id, nodeIds, contracts, extra) {
   return Object.assign({ id, phaseId: 0, title: 'T' + id, status: 'todo', nodeIds, contracts }, extra || {});
 }
 
-function makeGraph(edges) {
-  return { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges };
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function makeGraph(edges, nodes) {
+  return { sourceFile: 't.md', mainLanguage: 'rust', nodes: nodes || [], edges };
 }
 
 function makeEdge(from, to, type, contracts) {
@@ -41,87 +50,89 @@ function makeContract(id, pre, post, inv) {
 
 console.log('\n--- verify-ticket-closure tests ---\n');
 
-if (!verifyModule || !verifyModule.verifyClosure) {
-  console.log('  ⚠️  Module not loaded — RED phase\n');
-  for (let i = 1; i <= 7; i++) test('Test ' + i + ' — SKIPPED', () => { throw new Error('not loaded'); });
-} else {
-  test('passes intra-ticket closure (all chains closed)', () => {
-    // Edge N0001→N0003: precondition "key_loaded" and postcondition "key_loaded" are equal → closed
-    const tickets = [makeTicket(1, ['N0001', 'N0003'], [
-      { id: 'C001', sourceEdge: 'N0001→N0003', precondition: 'key_loaded', postcondition: 'key_loaded', invariant: 'mem' }
-    ])];
-    const graph = makeGraph([
-      makeEdge('N0001', 'N0003', 'depends_on', [
-        makeContract('C001', 'key_loaded', 'key_loaded', 'mem')
-      ])
-    ]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    assert.strictEqual(result.valid, true);
-  });
+test('passes an intra-ticket chain whose incoming postcondition satisfies the next precondition', () => {
+  const contracts = [
+    { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
+    { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'token', postcondition: 'session active', invariant: 'mem' },
+  ];
+  const tickets = [makeTicket(1, ['N0001', 'N0002', 'N0003'], contracts)];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'key loaded', 'token issued', 'mem')]),
+    makeEdge('N0002', 'N0003', 'depends_on', [makeContract('C002', 'token', 'session active', 'mem')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
+});
 
-  test('passes inter-ticket closure', () => {
-    // P0-1 has postcondition "token generated", P0-2 has precondition "token available"
-    // "token generated" conceptually satisfies "token available"
-    // For closure check, we match: P0-1's contracts where sourceEdge nodes are wholly within P0-1
-    // and P0-2's precondition references match a postcondition from P0-1
-    const tickets = [
-      makeTicket(1, ['N0001'], [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'token generated', invariant: 'state' }]),
-      makeTicket(2, ['N0002'], [{ id: 'C002', sourceEdge: 'N0001→N0002', precondition: 'token available', postcondition: 'session active', invariant: 'state' }])
-    ];
-    const graph = makeGraph([
-      makeEdge('N0001', 'N0002', 'depends_on', [
-        makeContract('C001', 'init', 'token generated', 'state'),
-        makeContract('C002', 'token available', 'session active', 'state')
-      ])
-    ]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    assert.strictEqual(result.valid, true);
-  });
+test('blocks an intra-ticket chain whose incoming postcondition does not satisfy the next precondition', () => {
+  const contracts = [
+    { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
+    { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'session active', postcondition: 'closed', invariant: 'mem' },
+  ];
+  const tickets = [makeTicket(1, ['N0001', 'N0002', 'N0003'], contracts)];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'key loaded', 'token issued', 'mem')]),
+    makeEdge('N0002', 'N0003', 'depends_on', [makeContract('C002', 'session active', 'closed', 'mem')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'));
+});
 
-  test('blocks intra-ticket open chain', () => {
-    // precondition != postcondition in the same edge → should still be considered
-    // "open" means the chain between contracts within a ticket doesn't connect
-    const tickets = [makeTicket(1, ['N0001', 'N0003'], [
-      { id: 'C001', sourceEdge: 'N0001→N0003', precondition: 'needs A', postcondition: 'produces B', invariant: 'state' }
-    ])];
-    const graph = makeGraph([
-      makeEdge('N0001', 'N0003', 'depends_on', [
-        makeContract('C001', 'needs A', 'produces B', 'state')
-      ])
-    ]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    // needs A != produces B → chain not closed within the edge itself
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.length > 0);
-  });
+test('passes an inter-ticket bridge whose postcondition satisfies the target precondition', () => {
+  const tickets = [
+    makeTicket(1, ['N0001'], [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'token issued', invariant: 'state' }]),
+    makeTicket(2, ['N0002'], [{ id: 'C002', sourceEdge: 'N0001→N0002', precondition: 'token', postcondition: 'session active', invariant: 'state' }]),
+  ];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [
+      makeContract('C001', 'init', 'token issued', 'state'),
+      makeContract('C002', 'token', 'session active', 'state'),
+    ]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
+});
 
-  test('passes with empty graph (no edges)', () => {
-    const tickets = [makeTicket(1, ['N0001'], [])];
-    const graph = makeGraph([]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    assert.strictEqual(result.valid, true);
-  });
+test('blocks an inter-ticket bridge that carries no matching precondition', () => {
+  const tickets = [
+    makeTicket(1, ['N0001'], [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'token issued', invariant: 'state' }]),
+    makeTicket(2, ['N0002'], [{ id: 'C002', sourceEdge: 'N0001→N0002', precondition: 'session active', postcondition: 'session ended', invariant: 'state' }]),
+  ];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [
+      makeContract('C001', 'init', 'token issued', 'state'),
+      makeContract('C002', 'session active', 'session ended', 'state'),
+    ]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN'));
+});
 
-  test('passes with single ticket, no inter-ticket edges', () => {
-    const tickets = [makeTicket(1, ['N0001'], [])];
-    const graph = makeGraph([]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    assert.strictEqual(result.valid, true);
-  });
+test('blocks a ticket contract with no edge and no registry row', () => {
+  const tickets = [makeTicket(1, ['N0001'], [
+    makeContract('C999', 'x', 'y', 'z'),
+  ])];
+  const graph = makeGraph([], [{ id: 'N0001' }]);
+  const result = verifyModule.verifyClosure(tickets, graph, { registryBoundaryIds: ['boundary-001'] });
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'INVENTED_TICKET_CONTRACT'));
+});
 
-  test('outputs errors array on failure', () => {
-    const tickets = [makeTicket(1, ['N0001', 'N0003'], [])];
-    const graph = makeGraph([
-      makeEdge('N0001', 'N0003', 'depends_on', [
-        makeContract('C001', 'a', 'b', 'c')
-      ])
-    ]);
-    const result = verifyModule.verifyClosure(tickets, graph);
-    assert.strictEqual(result.valid, false);
-    assert.ok(Array.isArray(result.errors));
-    assert.ok(result.errors.length > 0);
-  });
-}
+test('blocks a registry boundary that no ticket carries', () => {
+  const tickets = [makeTicket(1, ['N0001'], [])];
+  const graph = makeGraph([], [{ id: 'N0001', unitIds: [] }]);
+  const result = verifyModule.verifyClosure(tickets, graph, { registryBoundaryIds: ['boundary-001'] });
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'MISSING_BOUNDARY_CONTRACT'));
+});
+
+test('passes with an empty graph and no contracts', () => {
+  const tickets = [makeTicket(1, ['N0001'], [])];
+  const result = verifyModule.verifyClosure(tickets, makeGraph([]));
+  assert.strictEqual(result.valid, true);
+});
 
 console.log('\n===================');
 console.log('Total:  ' + stats.total);

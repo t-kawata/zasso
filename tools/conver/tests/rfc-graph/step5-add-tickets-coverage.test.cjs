@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { verifyNodeCoverage, resolveDefaultFiles, parseCliArguments } = require('../../.claude/scripts/tickets/add-tickets-for-phase.js');
+const { verifyNodeCoverage, verifyTicketUnits, resolveDefaultFiles, parseCliArguments } = require('../../.claude/scripts/tickets/add-tickets-for-phase.js');
 const { checkPhase, verifyAllTicketCoverage, formatReport } = require('../../.claude/scripts/tickets/verify-all-ticket-coverage.js');
 const { bulkAddTickets } = require('../../.claude/scripts/tickets/bulk-add-tickets.js');
 const { validateTickets } = require('../../.claude/scripts/lib/validate-tickets.js');
@@ -20,6 +20,7 @@ const { validateTickets } = require('../../.claude/scripts/lib/validate-tickets.
 // ============================================================
 
 const SAMPLE_NODE_IDS = ['N0001', 'N0002', 'N0003'];
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 
 function createTestTicketsData(overrides) {
   const data = {
@@ -115,6 +116,34 @@ describe('verifyNodeCoverage', () => {
     const result = verifyNodeCoverage(phase);
     assert.equal(result.valid, true); // no missing nodes
     assert.deepEqual(result.extraNodeIds, ['N9999']);
+  });
+});
+
+// ============================================================
+// verifyTicketUnits (PX-306 @verifies C002)
+// ============================================================
+
+describe('verifyTicketUnits', () => {
+  it('reports a graph unit no ticket carries', () => {
+    const phase = { tickets: [{ nodeIds: ['N0001'] }] };
+    const graph = { nodes: [{ id: 'N0001', unitIds: ['op-A'] }] };
+    const result = verifyTicketUnits(phase, graph);
+    assert.equal(result.valid, false);
+    assert.deepEqual(result.missingUnitIds, ['op-A']);
+  });
+
+  it('reports a ticket unit the graph does not carry', () => {
+    const phase = { tickets: [{ nodeIds: ['N0001', 'op-Ghost'] }] };
+    const graph = { nodes: [{ id: 'N0001', unitIds: [] }] };
+    const result = verifyTicketUnits(phase, graph);
+    assert.equal(result.valid, false);
+    assert.deepEqual(result.inventedUnitIds, ['op-Ghost']);
+  });
+
+  it('accepts tickets carrying every graph unit and nothing else', () => {
+    const phase = { tickets: [{ nodeIds: ['N0001', 'op-A', 'ctr-boundary-005'] }] };
+    const graph = { nodes: [{ id: 'N0001', unitIds: ['op-A', 'ctr-boundary-005'] }] };
+    assert.equal(verifyTicketUnits(phase, graph).valid, true);
   });
 });
 

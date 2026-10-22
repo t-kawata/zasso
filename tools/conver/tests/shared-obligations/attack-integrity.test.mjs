@@ -57,7 +57,16 @@ test('C103 two attacks differing only inside the quoted span share a signature',
   const otherSubject = 'searched the line carrying "first quote" for a contradiction in A-2; none found.';
 
   assert.equal(templateSignature(first), templateSignature(second));
-  assert.notEqual(templateSignature(first), templateSignature(otherSubject));
+  // PX-306: the subject id is the part that varies per attack; stripping it is what makes
+  // the template visible. A genuinely different searched claim still keeps its signature.
+  assert.equal(
+    templateSignature(first, 'A-1'),
+    templateSignature(otherSubject, 'A-2'),
+  );
+  assert.notEqual(
+    templateSignature('searched the line for a contradiction on line 10.', 'A-1'),
+    templateSignature('searched the line for a contradiction on line 20.', 'A-1'),
+  );
 });
 
 // @verifies C103

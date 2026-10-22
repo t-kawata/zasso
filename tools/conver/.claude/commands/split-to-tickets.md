@@ -322,13 +322,19 @@ Done: precise tests, all green, empirical genuine correctness, no coverage/inten
 After all 5-2 phase loops complete:
 
 ```bash
-node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH" "$GRAPH_PATH"
-node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH"
-node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
+REGISTRY_ARG=""
+if [ -n "${ALLOCATE_MANIFEST_PATH:-}" ] && [ -f "$ALLOCATE_MANIFEST_PATH" ]; then
+  REGISTRY_ARG="--registry=$ALLOCATE_MANIFEST_PATH"
+fi
+node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH" "$GRAPH_PATH" $REGISTRY_ARG
+node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" $REGISTRY_ARG
+node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH" --graph="$GRAPH_PATH" --ledger="$DOC_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
-Closure/coverage fail → no Step 6; reset 5-2.
+`ALLOCATE_MANIFEST_PATH` is the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` when the split can see it; without it the registry chain is skipped and only the graph/ticket chain is checked.
+
+Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, and `INVENTED_TICKET_CONTRACT`.
 
 ### Resuming from an Error
 

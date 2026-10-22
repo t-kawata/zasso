@@ -29,7 +29,7 @@ import { runClosureGates } from './lib/closure-gates.mjs';
 import { buildCertificate, writeCertificate } from '../shared-obligations/certificate.mjs';
 import { decideAll } from '../shared-obligations/decide.mjs';
 import { readEvidenceManifest, sha256File, validateManifestReceipts, validateWriteReceipts } from '../shared-obligations/evidence.mjs';
-import { EVIDENCE_FILE_BY_KIND } from '../shared-obligations/evidence-writer.mjs';
+import { EVIDENCE_FILE_PATHS } from '../shared-obligations/evidence-writer.mjs';
 import { buildWorklist } from '../shared-obligations/judgment.mjs';
 import { resolveCensusObligations, resolveConsistencyObligations, resolveMechanicalObligations, resolveReadingsObligations } from '../shared-obligations/predicates.mjs';
 import { attackReaderForGeneration, readerForGeneration } from '../shared-obligations/reader.mjs';
@@ -426,6 +426,7 @@ function readSpecLines(root, artifact) {
 
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -560,6 +561,12 @@ export function runCommand(argv, io = {}) {
       const strictEvidence = parsed.requireEffort === true || parsed.strictFreshness === true;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const rfcByPackage = strictEvidence ? readRfcByPackage(loaded) : undefined;
+      // The claim anchor may be a specification line or a package RFC line; both must be
+      // available to the searched-quote resolver, or a correct RFC citation is refused.
+      const searchableSources = { ...specLines };
+      for (const document of Object.values(rfcByPackage ?? {})) {
+        if (Array.isArray(document?.lines)) searchableSources[document.path] = document.lines;
+      }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const educeStatus = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
       const generation = educeStatus?.generation ?? null;
@@ -571,7 +578,7 @@ export function runCommand(argv, io = {}) {
       const writeReceiptDebt = strictEvidence && evidenceManifest !== null
         ? validateWriteReceipts(evidenceManifest, {
           root,
-          paths: Object.values(EVIDENCE_FILE_BY_KIND),
+          paths: EVIDENCE_FILE_PATHS,
           generation,
         }).stale
         : [];
@@ -629,7 +636,8 @@ export function runCommand(argv, io = {}) {
           artifact: loaded.artifact,
           contractRegistry: loaded.allocateManifest.contract_registry ?? [],
           rfcByPackage,
-          sources: specLines,
+          sources: searchableSources,
+          requireAnchor: true,
         } : {}),
       });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

@@ -16,6 +16,44 @@
 const fs = require("fs");
 const path = require("path");
 
+const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
+const { collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
+
+/** Read `--name=value` or `--name value`, returning null when absent. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function argumentFor(argv, name) {
+  const inline = argv.find((entry) => entry.startsWith("--" + name + "="));
+  if (inline !== undefined) return inline.slice(("--" + name + "=").length);
+  const index = argv.indexOf("--" + name);
+  return index === -1 ? null : argv[index + 1] || null;
+}
+
+/** The unit material the CLI supplied, or empty material when it supplied none. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function readUnitMaterial(argv) {
+  const graphPath = argumentFor(argv, "graph");
+  const viewPath = argumentFor(argv, "view");
+  const ledgerPath = argumentFor(argv, "ledger");
+  const material = {};
+  if (graphPath !== null) material.graph = JSON.parse(fs.readFileSync(path.resolve(graphPath), "utf8"));
+  if (viewPath !== null) {
+    const document = JSON.parse(fs.readFileSync(path.resolve(viewPath), "utf8"));
+    material.viewUnitIds = collectViewUnitIds(Array.isArray(document) ? document : document.packages || [document]);
+  }
+  if (ledgerPath !== null) {
+    const text = fs.readFileSync(path.resolve(ledgerPath), "utf8");
+    if (ledgerPath.endsWith(".md")) {
+      const { readLedgerRows } = require("../sequences-slice/lib/distribution-ledger.mjs");
+      material.ledgerUnitIds = collectLedgerUnitIds(readLedgerRows(text) || []);
+    } else {
+      const document = JSON.parse(text);
+      const rows = Array.isArray(document) ? document : document.rows || document.ledger || [];
+      material.ledgerUnitIds = collectLedgerUnitIds(rows);
+    }
+  }
+  return material;
+}
+
 // ============================================================
 // Constants
 // ============================================================
@@ -103,7 +141,8 @@ function checkPhase(phase) {
  *   failedPhases: Array
  * }}
  */
-function verifyAllTicketCoverage(ticketsData) {
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
   let totalTickets = 0;
@@ -115,7 +154,13 @@ function verifyAllTicketCoverage(ticketsData) {
   }
 
   const failedPhases = phaseResults.filter(function (r) { return !r.valid; });
-  const valid = failedPhases.length === 0;
+  const unitFindings = checkUnitCoverage({
+    viewUnitIds: material && material.viewUnitIds ? material.viewUnitIds : [],
+    ledgerUnitIds: material && material.ledgerUnitIds ? material.ledgerUnitIds : [],
+    graph: material && material.graph ? material.graph : { nodes: [] },
+    tickets: ticketsData,
+  });
+  const valid = failedPhases.length === 0 && unitFindings.length === 0;
 
   return {
     valid: valid,
@@ -123,6 +168,7 @@ function verifyAllTicketCoverage(ticketsData) {
     totalPhases: phases.length,
     totalTickets: totalTickets,
     failedPhases: failedPhases,
+    unitFindings: unitFindings,
   };
 }
 
@@ -135,6 +181,7 @@ function verifyAllTicketCoverage(ticketsData) {
  *
  * @param {Object} report — return value of verifyAllTicketCoverage
  */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function formatReport(report) {
   const lines = [];
 
@@ -146,6 +193,9 @@ function formatReport(report) {
   lines.push("");
 
   lines.push("Total " + report.totalPhases + " phases / " + report.totalTickets + " tickets");
+  for (const finding of report.unitFindings || []) {
+    lines.push("- " + finding.code + " " + finding.unitId + " (" + finding.layer + "): " + finding.message);
+  }
   lines.push("");
 
   for (const phaseResult of report.phaseResults) {
@@ -177,6 +227,7 @@ function formatReport(report) {
 // Main Entry Point
 // ============================================================
 
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function main() {
   const ticketsJsonPath = process.argv[2];
 
@@ -197,7 +248,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  const report = verifyAllTicketCoverage(ticketsData);
+  const report = verifyAllTicketCoverage(ticketsData, readUnitMaterial(process.argv.slice(2)));
   const output = formatReport(report);
 
   // Output human-readable report to stdout
@@ -219,6 +270,9 @@ function main() {
             "]"
         );
       }
+    }
+    for (const finding of report.unitFindings || []) {
+      console.error(finding.code + ": " + finding.message);
     }
     process.exit(EXIT_FAILURE);
   }

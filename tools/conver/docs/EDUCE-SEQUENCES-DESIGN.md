@@ -36,7 +36,7 @@ where no reader can check it.
 The artifact carries the pins: the predicate line and its limbs, the row-schema line and
 its fields, the enumerations with their ranges, the forms, and the section partition.
 Each pin is recorded together with the rule it was read by, and `rederiveAll` at
-`pins.mjs:661` re-runs that rule against the specification text in the same run that
+`pins.mjs:665` re-runs that rule against the specification text in the same run that
 consumes it.
 
 This is the property that keeps the single-input design from becoming a self-referential
@@ -108,7 +108,7 @@ many of them examined at least one row and which examined none, because a select
 nothing and a selection found sound read the same in every other line of a report.
 
 A neighbour is selected by citation: the entry that cites a line inside the entry's own
-span, at `pins.mjs:311`. A neighbour that merely covers the span is not a candidate — that
+span, at `pins.mjs:315`. A neighbour that merely covers the span is not a candidate — that
 is the shape of the fabrication — and an ambiguous selection returns nothing rather than a
 first match.
 
@@ -210,7 +210,7 @@ parsing the prose.
 
 The run's working state — where it has reached, which loops it has spent, which briefs have
 reported — lives in a run directory **beside the specification**, at
-`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:191`. It is not
+`join(dirname(specPath), 'educe-sequences')`, opened at `run-state.mjs:194`. It is not
 ignored by the tool, because the declaration and the readings in it are the evidence for
 the artifact and a reader of the specification has to be able to find them. PX-240 kept
 the state under the tool so that the one-argument contract would be a statement about
@@ -251,7 +251,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:500` before anything downstream sees them. Two files are
+line by line at `readings.mjs:502` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 

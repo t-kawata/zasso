@@ -101,6 +101,124 @@ export function carryUnitIdsToNode(node, unitIds) {
   return { ...node, unitIds: merged };
 }
 
+/** The four arrays a package view distributes. */
+const VIEW_UNIT_ARRAYS = Object.freeze([
+  'ownedOperationUnits',
+  'ownedSequenceUnits',
+  'crossBoundarySequenceUnits',
+  'obligationUnits',
+]);
+
+/** The unit ids a set of package views distributes, deduplicated in view order. */
+export function collectViewUnitIds(packages = []) {
+  const ids = new Set();
+  for (const pkg of Array.isArray(packages) ? packages : []) {
+    const view = pkg?.view ?? pkg;
+    for (const field of VIEW_UNIT_ARRAYS) {
+      for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
+        if (isUnitId(unit?.unitId)) ids.add(unit.unitId);
+      }
+    }
+  }
+  return [...ids];
+}
+
+/** The unit ids a distribution ledger assigns, excluding declared residuals. */
+export function collectLedgerUnitIds(rows = []) {
+  const ids = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (row?.kind === 'declared-residual') continue;
+    if (isUnitId(row?.unit)) ids.add(row.unit);
+  }
+  return [...ids];
+}
+
+/** A heading's text without the marker or surrounding whitespace. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function normalizeHeading(text) {
+  return String(text ?? '').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * The unit anchors each heading section carries.
+ *
+ * The section ends at the next heading of the same or a higher level, so an anchor is
+ * attributed to the paragraph that owns it rather than to the whole document.
+ *
+ * @param {string} rfcText
+ * @returns {Array<{headingText: string|null, level: number, unitIds: string[]}>}
+ */
+export function readSectionUnitAnchors(rfcText) {
+  const sections = [];
+  let current = { headingText: null, level: 0, unitIds: [] };
+  const flush = () => {
+    if (current.headingText !== null || current.unitIds.length > 0) sections.push(current);
+  };
+  for (const line of String(rfcText).split('\n')) {
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line);
+    if (heading !== null) {
+      flush();
+      current = { headingText: heading[2].trim(), level: heading[1].length, unitIds: [] };
+      continue;
+    }
+    for (const match of line.matchAll(new RegExp(SECTION_ANCHOR.source, 'g'))) {
+      if (isUnitId(match[1]) && !current.unitIds.includes(match[1])) current.unitIds.push(match[1]);
+    }
+  }
+  flush();
+  return sections;
+}
+
+/** The units a graph would carry if every RFC anchor reached the node its heading built. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function unitsByNode(graph, rfcText) {
+  const sections = readSectionUnitAnchors(rfcText);
+  const nodeByHeading = new Map();
+  for (const node of graph?.nodes ?? []) {
+    for (const ref of node.headingRefs ?? []) {
+      for (const text of ref.texts ?? []) nodeByHeading.set(normalizeHeading(text), node.id);
+    }
+  }
+  const byNode = new Map();
+  for (const section of sections) {
+    if (section.headingText === null) continue;
+    const nodeId = nodeByHeading.get(normalizeHeading(section.headingText));
+    if (nodeId === undefined) continue;
+    const units = byNode.get(nodeId) ?? [];
+    for (const unitId of section.unitIds) if (!units.includes(unitId)) units.push(unitId);
+    byNode.set(nodeId, units);
+  }
+  return byNode;
+}
+
+/**
+ * A graph whose nodes carry the unit anchors written under their headings.
+ *
+ * The input graph is not modified. A node that already carries an id keeps it, so a
+ * second run over an unchanged RFC produces the same graph.
+ */
+export function assignUnitIdsFromRfc(graph, rfcText) {
+  const byNode = unitsByNode(graph, rfcText);
+  return {
+    ...graph,
+    nodes: (graph?.nodes ?? []).map((node) => carryUnitIdsToNode(node, byNode.get(node.id) ?? [])),
+  };
+}
+
+/** The anchors no node's heading claims, so a dropped anchor is reported rather than lost. */
+export function unassignedAnchors(graph, rfcText) {
+  const sections = readSectionUnitAnchors(rfcText);
+  const byNode = unitsByNode(graph, rfcText);
+  const assigned = new Set([...byNode.values()].flat());
+  const unassigned = [];
+  for (const section of sections) {
+    for (const unitId of section.unitIds) {
+      if (!assigned.has(unitId) && !unassigned.includes(unitId)) unassigned.push(unitId);
+    }
+  }
+  return unassigned;
+}
+
 /** The graph node a generated header names, or null when it names none. */
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function readHeaderNodeId(fileText) {

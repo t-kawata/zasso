@@ -20,13 +20,14 @@ const path = require('path');
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
-  let ticketsPath, graphPath;
+  let ticketsPath, graphPath, registryPath = null;
   for (const a of args) {
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
+    if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
   }
   if (!ticketsPath || !graphPath) {
     console.error('[ERROR] --tickets=<path> and --graph=<path> are required');
@@ -34,7 +35,15 @@ function parseArgs() {
     console.error('Action: Provide both --tickets and --graph paths');
     process.exit(1);
   }
-  return { ticketsPath, graphPath };
+  return { ticketsPath, graphPath, registryPath };
+}
+
+/** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function registryBoundaryIds(registryPath) {
+  if (registryPath === null || !fs.existsSync(registryPath)) return [];
+  const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  return (document.contract_registry || []).map((row) => row.boundary_id).filter(Boolean);
 }
 
 /**
@@ -44,72 +53,139 @@ function parseArgs() {
  * @param {Object} graph — Graph JSON
  * @returns {{ valid: boolean, errors: Array<{ticket: string, detail: string}> }}
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
-function verifyClosure(tickets, graph) {
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+/** A normalized contract clause for the satisfaction comparison. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function normalizeClause(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Whether one postcondition satisfies a later precondition.
+ *
+ * The two clauses are prose, so equality alone would reject every paraphrase. Containment
+ * is the mechanical relation the split can check: "token issued" satisfies "token", and
+ * "token issued" does not satisfy "session active".
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function postconditionSatisfiesPrecondition(postcondition, precondition) {
+  const post = normalizeClause(postcondition);
+  const pre = normalizeClause(precondition);
+  if (post === '' || pre === '') return false;
+  return post === pre || post.includes(pre) || pre.includes(post);
+}
+
+/** The contracts an edge carries, or an empty list. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function contractsOf(edge) {
+  return Array.isArray(edge.contracts) ? edge.contracts : [];
+}
+
+/** The ticket key a flat ticket is reported under. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function ticketKeyOf(ticket) {
+  return 'P' + (ticket.phaseId !== undefined ? ticket.phaseId : -1) + '-' + ticket.id;
+}
+
+/** The edge label a ticket contract records, without the merge suffix. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function edgeLabelOf(contract) {
+  return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
+}
+
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
 
-  // Build nodeId → ticketId map
   const nodeToTicket = {};
-  for (const t of tickets) {
-    if (t.nodeIds) {
-      for (const nid of t.nodeIds) {
-        nodeToTicket[nid] = t.id;
-      }
-    }
+  for (const ticket of tickets) {
+    for (const nodeId of ticket.nodeIds || []) nodeToTicket[nodeId] = ticket.id;
   }
 
-  // Build ticketId → ticket map
-  const ticketMap = {};
-  for (const t of tickets) ticketMap[t.id] = t;
-
   for (const ticket of tickets) {
-    const nodeIds = ticket.nodeIds || [];
-    const nodeSet = new Set(nodeIds);
-    const ticketKey = 'P' + (ticket.phaseId !== undefined ? ticket.phaseId : -1) + '-' + ticket.id;
+    const nodeSet = new Set(ticket.nodeIds || []);
+    const ticketKey = ticketKeyOf(ticket);
+    const inside = edges.filter((edge) => nodeSet.has(edge.from) && nodeSet.has(edge.to));
 
-    // Find all edges where both ends are within this ticket
-    for (const edge of edges) {
-      const fromInTicket = nodeSet.has(edge.from);
-      const toInTicket = nodeSet.has(edge.to);
-
-      if (!fromInTicket || !toInTicket) continue; // Skip cross-ticket edges here
-
-      const edgeContracts = edge.contracts || [];
-      for (const contract of edgeContracts) {
-        // Intra-ticket closure check:
-        // The edge's contract should have postcondition that fulfills precondition
-        // If postcondition !== precondition, the chain is not closed
-        if (contract.postcondition && contract.precondition
-            && contract.postcondition !== contract.precondition) {
+    // A node inside this ticket that receives one contract and emits another must have
+    // its incoming postcondition satisfy the outgoing precondition.
+    for (const nodeId of nodeSet) {
+      const incoming = inside.filter((edge) => edge.to === nodeId).flatMap((edge) => contractsOf(edge)
+        .filter((contract) => contract.postcondition));
+      const outgoing = inside.filter((edge) => edge.from === nodeId).flatMap((edge) => contractsOf(edge)
+        .filter((contract) => contract.precondition));
+      if (incoming.length === 0 || outgoing.length === 0) continue;
+      for (const next of outgoing) {
+        const satisfied = incoming.some((previous) => postconditionSatisfiesPrecondition(previous.postcondition, next.precondition));
+        if (!satisfied) {
           errors.push({
             ticket: ticketKey,
-            detail: 'Intra-ticket edge ' + edge.from + '→' + edge.to
-              + ': postcondition "' + contract.postcondition + '" !== precondition "' + contract.precondition + '"'
+            code: 'CONTRACT_CHAIN_OPEN',
+            detail: 'Intra-ticket node ' + nodeId + ': no incoming postcondition satisfies precondition "' + next.precondition + '"',
           });
         }
       }
     }
+  }
 
-    // Inter-ticket closure: check contracts where sourceEdge references nodes in other tickets
-    const contracts = ticket.contracts || [];
-    for (const c of contracts) {
-      if (!c.sourceEdge) continue;
-      // Check if sourceEdge references a node outside this ticket
-      const parts = c.sourceEdge.split('→');
-      if (parts.length !== 2) continue;
-      const fromNode = parts[0].trim();
-      const fromTicket = nodeToTicket[fromNode];
+  // Inter-ticket: a crossing edge's source ticket must provide what the target ticket
+  // requires. The target's contracts record the precondition it was written against.
+  for (const edge of edges) {
+    const fromTicketId = nodeToTicket[edge.from];
+    const toTicketId = nodeToTicket[edge.to];
+    if (fromTicketId === undefined || toTicketId === undefined || fromTicketId === toTicketId) continue;
+    const sourceTicket = tickets.find((ticket) => ticket.id === fromTicketId);
+    const targetTicket = tickets.find((ticket) => ticket.id === toTicketId);
+    const label = edge.from + '→' + edge.to;
+    const sourceContracts = (sourceTicket && Array.isArray(sourceTicket.contracts) ? sourceTicket.contracts : [])
+      .filter((contract) => edgeLabelOf(contract) === label && contract.postcondition);
+    const targetContracts = (targetTicket && Array.isArray(targetTicket.contracts) ? targetTicket.contracts : [])
+      .filter((contract) => contract.precondition);
+    if (sourceContracts.length === 0 || targetContracts.length === 0) continue;
+    for (const target of targetContracts) {
+      const satisfied = sourceContracts.some((source) => postconditionSatisfiesPrecondition(source.postcondition, target.precondition));
+      if (!satisfied) {
+        errors.push({
+          ticket: ticketKeyOf(targetTicket),
+          code: 'INTER_TICKET_CLOSURE_OPEN',
+          detail: 'Inter-ticket edge ' + label + ': no source postcondition satisfies precondition "' + target.precondition + '"',
+        });
+      }
+    }
+  }
 
-      // If the FROM node is in a different ticket, that ticket's postcondition should
-      // be consistent with this ticket's precondition
-      if (fromTicket !== undefined && fromTicket !== ticket.id) {
-        // Find the originating edge in the graph
-        const origEdge = edges.find(e =>
-          e.from === parts[0].trim() && e.to === (parts[1] ? parts[1].split(' ')[0] : '')
-        );
-        // This is a cross-ticket dependency — verify consistency
-        // (In a full implementation, check specific contract ID matching)
+  // Boundary chain (PX-306 @verifies C003): registry -> ctr-B in graph and tickets.
+  const registry = options.registryBoundaryIds || [];
+  const unitIdsByTicket = tickets.flatMap((ticket) => (ticket.nodeIds || []).filter((entry) => String(entry).startsWith('ctr-')));
+  for (const boundaryId of registry) {
+    const unitId = 'ctr-' + boundaryId;
+    const inGraph = (graph.nodes || []).some((node) => Array.isArray(node.unitIds) && node.unitIds.includes(unitId));
+    const inTicket = unitIdsByTicket.includes(unitId)
+      && tickets.some((ticket) => (ticket.nodeIds || []).includes(unitId)
+        && Array.isArray(ticket.contracts) && ticket.contracts.length > 0);
+    if (!inGraph || !inTicket) {
+      errors.push({
+        ticket: 'boundary',
+        code: 'MISSING_BOUNDARY_CONTRACT',
+        detail: 'Registry boundary ' + boundaryId + ' is not carried by a graph node and a ticket contract',
+      });
+    }
+  }
+
+  const edgeLabels = new Set(edges.map((edge) => edge.from + '→' + edge.to));
+  const registrySet = new Set(registry);
+  for (const ticket of tickets) {
+    for (const contract of Array.isArray(ticket.contracts) ? ticket.contracts : []) {
+      const edgeResolves = edgeLabels.has(edgeLabelOf(contract));
+      const registryResolves = registrySet.has(contract.boundaryId)
+        || [...registrySet].some((boundaryId) => contract.id === 'contract-' + boundaryId || contract.id === boundaryId);
+      if (!edgeResolves && !registryResolves) {
+        errors.push({
+          ticket: ticketKeyOf(ticket),
+          code: 'INVENTED_TICKET_CONTRACT',
+          detail: 'Contract ' + (contract.id || '?') + ' names no graph edge and no registry boundary',
+        });
       }
     }
   }
@@ -117,9 +193,9 @@ function verifyClosure(tickets, graph) {
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, graphPath } = parseArgs();
+  const { ticketsPath, graphPath, registryPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -144,7 +220,7 @@ function main() {
     }
   }
 
-  const result = verifyClosure(allTickets, graph);
+  const result = verifyClosure(allTickets, graph, { registryBoundaryIds: registryBoundaryIds(registryPath) });
 
   if (!result.valid) {
     for (const err of result.errors) {

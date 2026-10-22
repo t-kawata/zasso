@@ -9,6 +9,7 @@ const stats = { passed: 0, failed: 0, total: 0 };
 function test(n, fn) { stats.total++; try { fn(); stats.passed++; console.log('  ✅', n); } catch (e) { stats.failed++; console.log('  ❌', n); console.error('     ' + e.message); } }
 function makeTicket(id, nodeIds, extra) { return Object.assign({ id, phaseId: -1, title: 'T' + id, status: 'todo', nodeIds }, extra || {}); }
 function makeEdge(f, t, type, contracts) { return { from: f, to: t, type, attributes: { strength: 'hard', bidirectional: false }, contracts }; }
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function makeContract(id, pre, post, inv) { return { id, precondition: pre, postcondition: post, invariant: inv }; }
 
 console.log('\n--- merge-contracts-to-tickets tests ---\n');
@@ -63,6 +64,34 @@ if (!mergeModule || !mergeModule.mergeContracts) {
       ])
     ]};
     assert.strictEqual(mergeModule.mergeContracts([makeTicket(1, ['N0001', 'N0003'])], graph)[0].contracts.length, 2);
+  });
+
+  // PX-306 @verifies C003: a ticket carrying ctr-B must carry the boundary contract.
+  test('reports a boundary ticket with no merged contract', () => {
+    const graph = { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges: [] };
+    const tickets = [makeTicket(1, ['N0001', 'ctr-boundary-005'])];
+    const findings = mergeModule.verifyMergedBoundaryContracts(tickets, graph, ['boundary-005']);
+    assert.ok(findings.some((entry) => entry.code === 'MISSING_BOUNDARY_CONTRACT'));
+  });
+
+  test('reports a ticket contract whose source edge is not in the graph', () => {
+    const graph = { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges: [] };
+    const tickets = [makeTicket(1, ['N0001'], {
+      contracts: [{ id: 'C999', sourceEdge: 'N9→N8', precondition: 'x', postcondition: 'y', invariant: 'z' }],
+    })];
+    const findings = mergeModule.verifyMergedBoundaryContracts(tickets, graph, []);
+    assert.ok(findings.some((entry) => entry.code === 'INVENTED_TICKET_CONTRACT'));
+  });
+
+  test('accepts a boundary ticket carrying the registry contract id', () => {
+    const graph = {
+      sourceFile: 't.md', mainLanguage: 'rust', nodes: [],
+      edges: [makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'a', 'b', 'c')])],
+    };
+    const tickets = [makeTicket(1, ['N0001', 'ctr-boundary-005'], {
+      contracts: [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'a', postcondition: 'b', invariant: 'c' }],
+    })];
+    assert.deepStrictEqual(mergeModule.verifyMergedBoundaryContracts(tickets, graph, ['boundary-005']), []);
   });
 }
 

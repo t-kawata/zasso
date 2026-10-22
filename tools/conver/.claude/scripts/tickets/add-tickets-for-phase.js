@@ -24,6 +24,7 @@ const fs = require("fs");
 const path = require("path");
 const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
+const { isUnitId } = require("../rfc-graph/lib/unit-ids.mjs");
 
 // ============================================================
 // Constants
@@ -157,6 +158,38 @@ function verifyNodeCoverage(phase) {
   return { valid, missingNodeIds, extraNodeIds, ticketsWithoutNodeIds };
 }
 
+/**
+ * Verify that the unit ids a graph carries reach the tickets of this phase.
+ *
+ * Phase nodeIds are graph node ids, not unit ids, so this is a separate comparison: the
+ * union of `nodeIds` filtered to unit ids must equal the graph's unit set. A graph unit
+ * no ticket names is an omission; a ticket unit the graph does not carry is an invention.
+ *
+ * @param {Object} phase — phase object with tickets
+ * @param {Object|null} graph — parsed GRAPH.json
+ * @returns {{valid: boolean, missingUnitIds: string[], inventedUnitIds: string[]}}
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function verifyTicketUnits(phase, graph) {
+  const graphUnitIds = new Set(
+    (graph && Array.isArray(graph.nodes) ? graph.nodes : [])
+      .flatMap((node) => (Array.isArray(node.unitIds) ? node.unitIds : []))
+      .filter(isUnitId),
+  );
+  const ticketUnitIds = new Set(
+    (phase.tickets || [])
+      .flatMap((ticket) => (Array.isArray(ticket.nodeIds) ? ticket.nodeIds : []))
+      .filter(isUnitId),
+  );
+  const missingUnitIds = [...graphUnitIds].filter((unitId) => !ticketUnitIds.has(unitId));
+  const inventedUnitIds = [...ticketUnitIds].filter((unitId) => !graphUnitIds.has(unitId));
+  return {
+    valid: missingUnitIds.length === 0 && inventedUnitIds.length === 0,
+    missingUnitIds,
+    inventedUnitIds,
+  };
+}
+
 // ============================================================
 // Main processing
 // ============================================================
@@ -187,6 +220,7 @@ function parseCliArguments(argv) {
   return { ticketsJsonPath, dirsTreePath, phaseArg, graphPath, error: null };
 }
 
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -246,11 +280,12 @@ function main() {
   resolveDefaultFiles(ticketsInput, nodeToDirMap);
 
   // 3b. Auto-generate referenceSection from GRAPH.json
+  let graphData = null;
   if (graphPath) {
     try {
       const resolvedGraphPath = path.resolve(graphPath);
       if (fs.existsSync(resolvedGraphPath)) {
-        const graphData = JSON.parse(fs.readFileSync(resolvedGraphPath, 'utf8'));
+        graphData = JSON.parse(fs.readFileSync(resolvedGraphPath, 'utf8'));
         const graphNodes = graphData.nodes || [];
         const sourceFile = graphData.sourceFile || '';
         for (const ticket of ticketsInput) {
@@ -336,6 +371,20 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
+  // 6b. Unit-id coverage: every graph unit must reach a ticket, and no ticket may invent one.
+  if (graphData !== null) {
+    const unitResult = verifyTicketUnits(phase, graphData);
+    if (!unitResult.valid) {
+      if (unitResult.missingUnitIds.length > 0) {
+        console.error("MISSING_UNIT_AT_LAYER: [" + unitResult.missingUnitIds.join(", ") + "]");
+      }
+      if (unitResult.inventedUnitIds.length > 0) {
+        console.error("INVENTED_UNIT: [" + unitResult.inventedUnitIds.join(", ") + "]");
+      }
+      process.exit(EXIT_FAILURE);
+    }
+  }
+
   // 7. Validation passed — write to file
   fs.writeFileSync(resolvedPath, JSON.stringify(data, null, 2) + "\n", "utf8");
 
@@ -353,4 +402,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyNodeCoverage, resolveDefaultFiles, resolveReferenceSection, parseCliArguments };
+module.exports = { verifyNodeCoverage, verifyTicketUnits, resolveDefaultFiles, resolveReferenceSection, parseCliArguments };

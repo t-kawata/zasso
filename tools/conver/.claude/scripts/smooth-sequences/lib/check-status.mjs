@@ -51,10 +51,11 @@ function collectTypedSteps(index) {
 }
 
 /** Whether a step carries typed authored facts or an authored prose contract. */
-// [::TICKET::] PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-288|PX-306) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
-  if (step?.contract?.contract_origin === 'synthesized') return false;
+  if (['synthesized', 'projected'].includes(step?.contract?.contract_origin)) return false;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const authored = step?.contract?.authored;
   if (authored !== null && typeof authored === 'object') {

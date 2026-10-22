@@ -27,6 +27,13 @@ export const UNKNOWN_ANNOTATION_TARGET = 'UNKNOWN_ANNOTATION_TARGET';
 const AUTHORSHIP_KEY = 'authorship';
 const ANNOTATIONS_DIGEST_KEY = 'annotations_digest';
 const CITED_FIELDS = Object.freeze(['pre', 'post', 'invariants']);
+/** The share of a fact's content terms a quote must support before the fact is authored prose. */
+export const MIN_FACT_SUPPORT_RATIO = 0.5;
+const FACT_STOPWORDS = new Set([
+  'the', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'of', 'to', 'and', 'or', 'in',
+  'on', 'for', 'with', 'by', 'as', 'that', 'this', 'it', 'its', 'from', 'at', 'not',
+  'no', 'must', 'shall', 'may', 'will', 'can', 'has', 'have', 'had', 'when', 'then',
+]);
 const FACT_LIST_FIELDS = Object.freeze(['pre', 'post', 'invariants', 'consumes', 'produces', 'errors']);
 const ACTIVE_DISPOSITION = 'active';
 const BOUNDARY_EFFECT_DIRECTIONS = Object.freeze(['provides', 'consumes']);
@@ -142,13 +149,20 @@ function crossingsOf(step, owners, sequenceUnits, boundaries) {
 }
 
 /** The clause facts a boundary contributes to one side. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function boundaryFacts(contract, clauseName) {
   const value = contract.clauses?.[clauseName];
+  const projected = (factId, entry) => ({
+    factId,
+    text: String(entry ?? ''),
+    origin: 'contract_registry',
+    source: { kind: 'contract_registry', boundaryId: contract.boundary_id, field: clauseName },
+  });
   if (Array.isArray(value)) {
-    return value.map((entry, index) => fact(`boundary:${contract.boundary_id}/${clauseName}/${index}`, entry, `boundary:${contract.boundary_id}/${clauseName}/${index}`));
+    return value.map((entry, index) => projected(`boundary:${contract.boundary_id}/${clauseName}/${index}`, entry));
   }
   if (typeof value === 'string' && value.trim() !== '') {
-    return [fact(`boundary:${contract.boundary_id}/${clauseName}`, value, `boundary:${contract.boundary_id}/${clauseName}`)];
+    return [projected(`boundary:${contract.boundary_id}/${clauseName}`, value)];
   }
   return [];
 }
@@ -316,7 +330,10 @@ export function canonicalJson(value) {
  * naming it authored would let meshing compare the registry with itself.
  */
 export function classifyContractOrigin(authoredContract, derivedContract) {
-  return canonicalJson(authoredContract) === canonicalJson(derivedContract) ? 'synthesized' : 'authored';
+  if (canonicalJson(authoredContract) === canonicalJson(derivedContract)) return 'synthesized';
+  const facts = CITED_FIELDS.flatMap((field) => (Array.isArray(authoredContract?.[field]) ? authoredContract[field] : []));
+  const projected = facts.length > 0 && facts.every((entry) => typeof entry?.origin === 'string' && entry.origin !== 'authored');
+  return projected ? 'projected' : 'authored';
 }
 
 export function digestOfAnnotations(annotations) {
@@ -327,6 +344,92 @@ export function digestOfAnnotations(annotations) {
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function normalizeQuote(text) {
   return String(text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** The content terms a fact and a quote are compared on. */
+export function contentTokens(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((token) => token.length >= 3 && !FACT_STOPWORDS.has(token))
+    .map((token) => token.replace(/(ing|ed|es|s)$/u, ''))
+    .filter((token) => token.length >= 3);
+}
+
+/**
+ * Whether a quote supports a fact's text.
+ *
+ * A reader may paraphrase the line; what it may not do is state a clause the line never
+ * mentions. The rule accepts a literal substring or a majority of the fact's content
+ * terms, with the s/ed/ing suffix folded so "derived" and "derives" meet.
+ */
+export function isFactTextSupported(text, quote) {
+  const normalizedText = normalizeQuote(text).toLowerCase();
+  const normalizedQuote = normalizeQuote(quote).toLowerCase();
+  if (normalizedText === '') return false;
+  if (normalizedQuote.includes(normalizedText)) return true;
+  const factTokens = contentTokens(text);
+  if (factTokens.length === 0) return false;
+  const quoteTokens = new Set(contentTokens(quote));
+  const supported = factTokens.filter((token) => quoteTokens.has(token)).length;
+  return supported / factTokens.length >= MIN_FACT_SUPPORT_RATIO;
+}
+
+/** The registry row and clause a fact's text reproduces, or null. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function registryOriginOf(text, contractRegistry) {
+  const value = normalizeQuote(text);
+  if (value === '') return null;
+  for (const contract of Array.isArray(contractRegistry) ? contractRegistry : []) {
+    for (const [field, clause] of Object.entries(contract?.clauses ?? {})) {
+      const values = Array.isArray(clause) ? clause : [clause];
+      const matches = values.some((entry) => typeof entry === 'string'
+        && (normalizeQuote(entry).includes(value) || value.includes(normalizeQuote(entry))));
+      if (matches) return { boundaryId: contract.boundary_id ?? contract.contract_id, field };
+    }
+  }
+  return null;
+}
+
+/** The typed origin a fact carries or reproduces, or null when it is prose. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function resolveFactOrigin(entry, options) {
+  if (typeof entry?.origin === 'string' && entry.origin.trim() !== '') return entry.origin;
+  const declaredBoundary = entry?.source?.boundaryId;
+  const declaredField = entry?.source?.field;
+  if (typeof declaredBoundary === 'string' && typeof declaredField === 'string') return 'contract_registry';
+  // A text the step quote supports is authored prose even when it also matches a registry
+  // clause; only a text the quote cannot support is a projection and needs the typed row.
+  if (options?.step !== undefined && isFactTextSupported(entry?.text, options.step.quote)) return null;
+  const projected = registryOriginOf(entry?.text, options?.contractRegistry);
+  if (projected !== null) return 'contract_registry';
+  return null;
+}
+
+/** Whether the typed row a fact names actually carries its text. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function typedOriginSupports(entry, origin, options) {
+  const field = entry?.source?.field;
+  if (typeof field !== 'string' || field.trim() === '') return false;
+  if (origin === 'contract_registry') {
+    const boundaryId = entry?.source?.boundaryId;
+    const contract = (Array.isArray(options?.contractRegistry) ? options.contractRegistry : [])
+      .find((row) => row?.boundary_id === boundaryId || row?.contract_id === boundaryId);
+    if (contract === undefined) return false;
+    const clause = contract?.clauses?.[field];
+    const values = Array.isArray(clause) ? clause : [clause];
+    return values.some((value) => typeof value === 'string'
+      && normalizeQuote(value).includes(normalizeQuote(entry.text)));
+  }
+  if (origin === 'operation' || origin === 'artifact') {
+    const operation = options?.operation;
+    if (operation === null || operation === undefined) return false;
+    const value = operation[field];
+    if (value === undefined || value === null) return false;
+    return normalizeQuote(typeof value === 'string' ? value : JSON.stringify(value))
+      .includes(normalizeQuote(entry.text));
+  }
+  return false;
 }
 
 /** Whether an annotations document carries any authored input. */
@@ -340,11 +443,11 @@ function hasAnnotations(annotations) {
 }
 
 /** Refuse an authored assertion that does not cite its step line and quote. */
-export function assertCitedFact(entry, step, field) {
+export function assertCitedFact(entry, step, field, options = {}) {
   const refuse = (why) => {
     throw new SmoothSequencesError(`authored ${field} entry of ${step.id} is uncited: ${why}`, {
       code: UNCITED_AUTHORED_FACT,
-      repair: `Record {factId, text, source: {step: "${step.id}", line: ${step.line}, quote: <substring of the step quote>}}.`,
+      repair: `Record {factId, text, source: {step: "${step.id}", line: ${step.line}, quote: <substring of the step quote>}} or mark a typed origin {origin: "contract_registry", source: {boundaryId, field}}.`,
     });
   };
   if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) refuse('it is not a fact object');
@@ -356,6 +459,17 @@ export function assertCitedFact(entry, step, field) {
   if (source.line !== step.line) refuse(`source line ${source.line} is not ${step.line}`);
   const quote = normalizeQuote(source.quote);
   if (quote === '' || !normalizeQuote(step.quote).includes(quote)) refuse('the quote is not in the step quote');
+
+  const origin = resolveFactOrigin(entry, { ...options, step });
+  if (origin === null) {
+    if (!isFactTextSupported(entry.text, step.quote)) {
+      refuse('the text is not supported by the step quote and cites no typed row');
+    }
+    return;
+  }
+  if (!typedOriginSupports(entry, origin, options)) {
+    refuse(`the ${origin} row it cites does not carry its text`);
+  }
 }
 
 /** Refuse a ground that does not cite the boundary reason code. */
@@ -381,10 +495,26 @@ function factIdOf(entry) {
 }
 
 /** A normalized authored contract, with every assertion cited. */
-export function normalizeAuthoredContract(contract, step) {
+export function normalizeAuthoredContract(contract, step, options = {}) {
   const normalizeFacts = (field) => (contract[field] ?? []).map((entry) => {
-    assertCitedFact(entry, step, field);
-    return { factId: entry.factId, text: entry.text, source: entry.source };
+    const origin = resolveFactOrigin(entry, { ...options, step });
+    const projected = origin === null ? entry : {
+      ...entry,
+      origin,
+      source: {
+        ...entry.source,
+        ...(origin === 'contract_registry' && entry?.source?.boundaryId === undefined
+          ? registryOriginOf(entry.text, options?.contractRegistry) ?? {}
+          : {}),
+      },
+    };
+    assertCitedFact(projected, step, field, options);
+    return {
+      factId: projected.factId,
+      text: projected.text,
+      source: projected.source,
+      ...(projected.origin === undefined ? {} : { origin: projected.origin }),
+    };
   });
   const normalizeIds = (field) => (contract[field] ?? []).map(factIdOf).filter((id) => typeof id === 'string' && id.length > 0);
   return {
@@ -399,12 +529,12 @@ export function normalizeAuthoredContract(contract, step) {
 }
 
 /** Every step id, or the subset that is authored. */
-// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
 function authoredStepIdsOf(steps) {
   return steps
     .filter((step) => {
       const origin = step.contract?.contract_origin;
-      if (origin === 'synthesized') return false;
+      if (origin === 'synthesized' || origin === 'projected') return false;
       if (origin === 'authored') return true;
       // A legacy v3 row predates contract_origin; its authored facts are the only signal.
       return FACT_LIST_FIELDS.some((field) => Array.isArray(step.contract?.authored?.[field]) && step.contract.authored[field].length > 0);
@@ -462,7 +592,7 @@ function synthesizedSurfacesOf(authorship) {
 }
 
 /** Build the v3 artifact from a v2 artifact and an annotations document. */
-// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
 function migrateV2ToV3(input) {
   const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
   const boundaries = treeManifest.dependencies?.boundaries ?? [];
@@ -484,14 +614,19 @@ function migrateV2ToV3(input) {
     const derived = typedContractFor({ step, operation, owners, sequenceUnits, boundaries, contractsByBoundary });
     const contract = authored === undefined
       ? derived
-      : { ...normalizeAuthoredContract(authored, step) };
+      : {
+        ...normalizeAuthoredContract(authored, step, {
+          contractRegistry: allocateManifest.contract_registry ?? [],
+          operation,
+        }),
+      };
     return {
       ...step,
       ...(annotation === undefined ? {} : { annotation }),
       ...(contractProse === null ? {} : { contract_prose: contractProse }),
       contract: authored === undefined
         ? { ...contract, contract_origin: 'synthesized' }
-        : { ...contract, authored: { ...contract }, contract_origin: 'authored' },
+        : { ...contract, authored: { ...contract }, contract_origin: classifyContractOrigin(contract, derived) },
     };
   });
 
@@ -586,9 +721,9 @@ function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
 }
 
 /** Merge a new annotations document into an existing v3 artifact. */
-// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
 function mergeAnnotationsIntoV3(input) {
-  const { artifact, treeManifest, annotations = {} } = input;
+  const { artifact, treeManifest, allocateManifest = null, annotations = {} } = input;
   const next = JSON.parse(JSON.stringify(artifact));
   const boundaries = treeManifest?.dependencies?.boundaries ?? [];
   const boundariesById = new Map(boundaries.map((boundary) => [boundary.id, boundary]));
@@ -607,8 +742,13 @@ function mergeAnnotationsIntoV3(input) {
         repair: 'Use a step id the artifact declares.',
       });
     }
-    const authored = normalizeAuthoredContract(contract, step);
-    step.contract = { ...authored, authored: { ...authored }, contract_origin: 'authored' };
+    const operation = operationsById.get(step.operation) ?? {};
+    const derived = step.contract;
+    const authored = normalizeAuthoredContract(contract, step, {
+      contractRegistry: allocateManifest?.contract_registry ?? [],
+      operation,
+    });
+    step.contract = { ...authored, authored: { ...authored }, contract_origin: classifyContractOrigin(authored, derived) };
   }
 
   for (const [operationId, annotation] of Object.entries(operationAnnotations)) {

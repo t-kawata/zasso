@@ -7,6 +7,14 @@
  * discriminating fact, and whether the reader admits high uncertainty.
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+import { anchorEntriesOf, searchedOverlapsAnchor } from './judgment.mjs';
+
+/** The code an effort trace returns when no searched row reaches the claim anchor. */
+export const EFFORT_ANCHOR_MISSING = 'EFFORT_ANCHOR_MISSING';
+
+/** The code an effort trace returns when another obligation already used its searched set. */
+export const EFFORT_NOT_SUBJECT_SPECIFIC = 'EFFORT_NOT_SUBJECT_SPECIFIC';
+
 export const MIN_SEARCH_BY_KIND = Object.freeze({
   judgment: 3,
   distribution: 2,
@@ -38,7 +46,29 @@ function fail(code, problem) {
   return { ok: false, code, problem };
 }
 
+/**
+ * The identity of a searched set, independent of the order the reader wrote it in.
+ *
+ * Two obligations that searched the same rows are the same effort; only the subject they
+ * were meant to decide differs. That is the degeneracy this signature makes visible.
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function effortSignature(effort) {
+  const rows = Array.isArray(effort?.searched) ? effort.searched : [];
+  return rows
+    .map((row) => [
+      row?.source ?? '',
+      row?.path ?? '',
+      row?.line ?? '',
+      row?.boundaryId ?? '',
+      row?.field ?? '',
+    ].join('|'))
+    .sort()
+    .join('::');
+}
+
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function validateEffortTrace(effort, item = {}, options = {}) {
   if (effort === null || typeof effort !== 'object' || Array.isArray(effort)) {
     return fail('EFFORT_MISSING', 'the obligation has no effort trace');
@@ -58,6 +88,27 @@ export function validateEffortTrace(effort, item = {}, options = {}) {
   const distinctRows = new Set(searched.map((row) => `${row?.source ?? ''}|${row?.path ?? ''}|${row?.line ?? ''}`));
   if (distinctRows.size < minSearch) {
     return fail('EFFORT_SHALLOW', `the trace searched ${distinctRows.size} row(s); ${minSearch} are required`);
+  }
+
+  const signature = effortSignature(effort);
+  const seenSignatures = options.seenEffortSignatures;
+  if (seenSignatures instanceof Map) {
+    const earlierSubject = seenSignatures.get(signature);
+    if (earlierSubject !== undefined && earlierSubject !== item?.obligationId) {
+      return fail(EFFORT_NOT_SUBJECT_SPECIFIC, `the same searched set already decided ${earlierSubject}`);
+    }
+    seenSignatures.set(signature, item?.obligationId ?? null);
+  }
+
+  if (options.requireAnchor === true) {
+    const anchors = anchorEntriesOf(item?.anchorSet ?? {});
+    if (anchors.length === 0) {
+      return fail(EFFORT_ANCHOR_MISSING, 'the worklist item carries no anchor');
+    }
+    const reachesAnchor = searched.some((row) => anchors.some((anchor) => searchedOverlapsAnchor(row, anchor)));
+    if (!reachesAnchor) {
+      return fail(EFFORT_ANCHOR_MISSING, 'no searched row reaches the claim anchor');
+    }
   }
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

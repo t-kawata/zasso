@@ -7,6 +7,7 @@ import { checkCrossingContracts, layerBWithheld } from '../../.claude/scripts/sm
 import { materializeSmoothWorkspace, minimalV2Artifact, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function indexOf(artifact) {
   const workspace = materializeSmoothWorkspace({ artifact });
@@ -31,7 +32,9 @@ test('S5 rejects a consumer precondition the provider does not imply', () => {
   artifact.steps[1].contract.pre.push({ factId: 'boundary:boundary-001/preconditions/99', text: 'the lease is active', source: 'boundary:boundary-001/preconditions/99' });
   artifact.steps[1].contract.authored.pre.push({
     factId: 'boundary:boundary-001/preconditions/99',
-    text: 'the lease is active',
+    // PX-306: the quote must support the fact's text; the meshing subject is the fact id,
+    // so the text carries the step's own wording and the only finding stays the implication.
+    text: 'the consumer reads order_id',
     source: { step: 'A-1__ConsumeFact', line: 2, quote: 'the consumer reads order_id' },
   });
   const { workspace, index } = indexOf(artifact);
