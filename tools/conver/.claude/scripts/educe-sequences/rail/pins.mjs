@@ -49,7 +49,11 @@ export const SOURCE_SHAPES = Object.freeze(['jsonFieldRows', 'tableColumn', 'mar
  * is permitted; a census with a role outside this list is refused.
  */
 export const ENTRIES_ROLE = 'entries';
-export const SOURCE_ROLES = Object.freeze(['operations', ENTRIES_ROLE]);
+// `sequences` names the realized sequences, which is the axis the grill denominator asks
+// for when it measures whether the obligation list is total. Without the role a supplied
+// sequence census could not state that axis, and the denominator would stay unstated.
+// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+export const SOURCE_ROLES = Object.freeze(['operations', ENTRIES_ROLE, 'sequences']);
 
 /** The bodies of every fenced block in a document, as arrays of lines. */
 // [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.

@@ -185,6 +185,17 @@ test('C001 a role outside the vocabulary refuses, so a misspelled census cannot 
   assert.equal(rederiveAll(roleless, spec.lines, SUPPLIED).ok, true);
 });
 
+test('C001 the sequences role is a census role, so a realized-sequence census can state that axis', () => {
+  // The grill denominator asks the artifact for a census that names the realized
+  // sequences. A role the rail refuses would make that repair impossible to supply,
+  // so the vocabulary admits it beside operations and entries.
+  const pins = establishPins(spec.lines, RUN_INPUT.declaration, SUPPLIED);
+  const sequences = structuredClone(pins);
+  sequences.sourceEnumerations.find((entry) => entry.role === 'operations').role = 'sequences';
+
+  assert.equal(rederiveAll(sequences, spec.lines, SUPPLIED).ok, true);
+});
+
 test('C001 a supplied file that is not beside the run refuses, and a shape outside the vocabulary refuses', () => {
   const pins = establishPins(spec.lines, RUN_INPUT.declaration, SUPPLIED);
 
