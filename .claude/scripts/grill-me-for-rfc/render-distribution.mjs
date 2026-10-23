@@ -359,10 +359,10 @@ export function writeAtomically(targetPath, contents) {
 /**
  * Open one distribution generation for a grill execution of the renderer.
  *
- * The generation is a property of the grill, not of this renderer: a standalone render
- * passes no flag and records nothing. The count answers "how many times did the grill
- * distribute", so a render that finds the map unchanged still counts — the execution
- * happened, even though the artifact did not move. The status is left untouched when it
+ * The count answers "how many times did this renderer distribute", so every write-mode
+ * run counts, even when the map is unchanged — the execution happened, and requiring a
+ * flag made the count depend on a procedure step nobody can verify afterwards. A
+ * `--check` pass records nothing because it is a reading. The status is left untouched when it
  * is absent or unreadable, because the map itself has already been written and a display
  * counter must not turn that into a failure.
  *
@@ -403,7 +403,6 @@ export function main(argv = process.argv.slice(2)) {
   const rfcPath = path.resolve(argumentFor(argv, 'rfc') ?? 'RFC.md');
   const viewPath = path.resolve(argumentFor(argv, 'view') ?? 'SEQUENCES.json');
   const check = argv.includes('--check');
-  const recordGeneration = argv.includes('--record-generation');
 
   if (!fs.existsSync(rfcPath)) {
     process.stdout.write(`${JSON.stringify({ ok: false, code: 'MISSING_RFC', rfc: rfcPath })}\n`);
@@ -426,7 +425,7 @@ export function main(argv = process.argv.slice(2)) {
     return 0;
   }
   if (result.wrote) writeAtomically(rfcPath, result.rfc);
-  if (recordGeneration) recordDistributionGeneration(rfcPath, result.map);
+  if (!check) recordDistributionGeneration(rfcPath, result.map);
   process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: result.wrote, units: result.map?.units?.length ?? 0 })}\n`);
   return 0;
 }

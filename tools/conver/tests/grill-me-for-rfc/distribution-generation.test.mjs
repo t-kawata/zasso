@@ -101,21 +101,21 @@ test('C003 a render without a map records nothing', () => {
   assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });
 
-test('C003 the CLI without the flag leaves Status.json untouched', () => {
+test('C003 the CLI --check leaves Status.json untouched', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-cli-'));
   const { statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 0 });
   const before = readFileSync(statusPath);
 
-  execFileSync(process.execPath, [RENDER], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, [RENDER, '--check'], { cwd: directory, encoding: 'utf8' });
 
   assert.deepEqual(readFileSync(statusPath), before);
 });
 
-test('C003 the CLI with the flag opens the generation after a write', () => {
+test('C003 the CLI in write mode opens the generation without a flag', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-cli-flag-'));
   const { statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 0 });
 
-  execFileSync(process.execPath, [RENDER, '--record-generation'], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, [RENDER], { cwd: directory, encoding: 'utf8' });
 
   const status = JSON.parse(readFileSync(statusPath, 'utf8'));
   assert.equal(status.distributionGeneration, 1);
@@ -126,8 +126,8 @@ test('C003 a second CLI run opens another generation even when the map is unchan
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-cli-repeat-'));
   const { statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 0 });
 
-  execFileSync(process.execPath, [RENDER, '--record-generation'], { cwd: directory, encoding: 'utf8' });
-  execFileSync(process.execPath, [RENDER, '--record-generation'], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, [RENDER], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, [RENDER], { cwd: directory, encoding: 'utf8' });
 
   assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });
