@@ -673,16 +673,17 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 
 ### STEP 8: RFC Completion Declaration
 
-**Distribution map render.** After the RFC body is authored and before the final gates, run the renderer from the package directory. It bootstraps the `distribution-map` block from the existing Distribution ledger on the first run, regenerates the ledger and the managed unit anchors from the map, and writes nothing on failure:
+**Distribution map render.** After the RFC body is authored and before the final gates, the renderer bootstraps the `distribution-map` block from the existing Distribution ledger on the first run, regenerates the ledger and the managed unit anchors from the map, and writes nothing on failure. It is never run in write mode by hand: the last command of this step runs it, so the render and the completion cannot come apart and a run whose ledger cannot be regenerated cannot be declared DONE.
+
+A read-only pass is available before the gates for early feedback. It records nothing:
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/render-distribution.mjs --check
-node .claude/scripts/grill-me-for-rfc/render-distribution.mjs
 ```
 
-The write-mode invocation opens one distribution generation in `Status.json` on every run, so
-the counter answers how many times the grill distributed. The `--check` invocation is a reading
-and never moves it.
+The write happens exactly once, inside `complete-run.js`, and that invocation opens one
+distribution generation in `Status.json` on every run, so the counter answers how many times the
+grill distributed. The `--check` invocation is a reading and never moves it.
 
 The renderer is the only writer of the ledger, the map block and the managed anchors. A view with units and no ledger row fails with the unit named; the author adds the row and re-runs. A package with no `SEQUENCES.json` writes nothing.
 
@@ -692,8 +693,11 @@ The two gates answer the two halves of one guarantee. The coverage gate is measu
 
 Re-running over a workspace projected by an older rail must succeed, require no new workspace, destroy nothing, and leave the workspace carrying the obligation section: an old projection is a target to bring forward, never a reason to refuse.
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
+node .claude/scripts/grill-me-for-rfc/complete-run.js "$RFC_DIR"
 ```
+The completion command renders the distribution ledger, records the generation and then
+declares DONE. A render refusal exits non-zero, writes nothing and leaves the state unchanged,
+so the gate above is re-entered rather than bypassed.
 
 ---
 
