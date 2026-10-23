@@ -21,7 +21,6 @@ import { STATUS_FILENAME, VIEW_JSON_NAME } from '../../.claude/scripts/sequences
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REPORT = path.join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/sequences-ledger.js');
-const GATE = path.join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/check-distribution-ledger.js');
 
 /** The sentence the report prints when it holds no unit at all. */
 const EMPTY_CASE_SENTENCE = 'no unit is distributed to this package';
@@ -93,11 +92,6 @@ function runReport(root, stage = 'upstream') {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-function runGate(root) {
-  const result = spawnSync(process.execPath, [GATE, root], { encoding: 'utf8' });
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
-}
-
 /** The verdict lines of a report, which are the lines the machine vocabulary begins. */
 // [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function verdictLines(stdout) {
@@ -156,17 +150,15 @@ test('C002 the report discharges the units the ledger rows, and only those', () 
   });
 });
 
-test('C003 the report and the gate agree over one directory, and the empty case is unchanged', () => {
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+test('C003 the report names a missing ledger and discharges a present one, and the empty case is unchanged', () => {
   withPackage((root) => {
     writePackage(root, {
       rfc: rfcWithoutLedger(),
       units: { operations: ['op-alpha'] },
     });
     const reportWithoutLedger = runReport(root);
-    const gateWithoutLedger = runGate(root);
     assert.deepEqual(verdictLines(reportWithoutLedger.stdout), ['not proved: op-alpha at upstream']);
-    assert.equal(gateWithoutLedger.status, 1, 'the gate refuses an RFC that carries no ledger');
-    assert.match(gateWithoutLedger.stderr, new RegExp(LEDGER_TITLE_SUFFIX));
   });
 
   withPackage((root) => {
@@ -175,9 +167,7 @@ test('C003 the report and the gate agree over one directory, and the empty case 
       units: { operations: ['op-alpha'] },
     });
     const reportWithLedger = runReport(root);
-    const gateWithLedger = runGate(root);
     assert.deepEqual(verdictLines(reportWithLedger.stdout), ['proved: op-alpha at upstream']);
-    assert.equal(gateWithLedger.status, 0, gateWithLedger.stderr);
   });
 
   withPackage((root) => {

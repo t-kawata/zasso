@@ -19,6 +19,7 @@ const path = require("path");
 const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
 const { collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
 const { findSingleSiblingPath } = require("../lib/package-artifacts");
+const { writeLine } = require("../lib/cli-output");
 
 /** Read `--name=value` or `--name value`, returning null when absent. */
 // [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
@@ -192,6 +193,26 @@ function checkPhase(phase) {
 }
 
 /**
+ * Whether the view object distributes at least one unit.
+ *
+ * Presence of a view file is not the same question: an empty view is a package the
+ * operations do not reach, and it has no map to bind. Reading the content keeps the
+ * additivity rule that a package predating the view keeps its old verdict. A caller that
+ * supplies only unit-id lists is doing a unit-set check and has given the chain no view to
+ * bind, so it keeps the old verdict too.
+ *
+ * @param {object} material
+ * @returns {boolean}
+ */
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+function viewCarriesUnits(material) {
+  const view = material?.view;
+  if (view === null || view === undefined) return false;
+  return ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits', 'obligationUnits']
+    .some((field) => Array.isArray(view[field]) && view[field].length > 0);
+}
+
+/**
  * Verify ticket completeness across all phases.
  *
  * @param {Object} ticketsData — parsed Tickets.json
@@ -203,7 +224,7 @@ function checkPhase(phase) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
@@ -226,11 +247,11 @@ function verifyAllTicketCoverage(ticketsData, material) {
   // none keeps the old verdict; a caller that passes a partial chain gets a missing-digest
   // finding rather than a vacuous pass.
   const digestFindings = [];
-  // Derivation makes `dirs` present for every package, so the chain is tied to a view:
-  // a package that predates the view keeps its old verdict (additivity).
-  const chainRequested = (material?.map !== undefined && material?.map !== null)
-    || (material?.view !== undefined && material?.dirs !== undefined);
-  if (chainRequested) {
+  // Derivation makes `dirs` present for every package, so the chain is tied to a view that
+  // distributes something: a package with an empty view predates the chain (additivity).
+  const digestChainIsRequired = (material?.map !== undefined && material?.map !== null)
+    || viewCarriesUnits(material);
+  if (digestChainIsRequired) {
     const chain = verifyDigestChain({
       map: material?.map,
       graph: material?.graph,
@@ -250,9 +271,10 @@ function verifyAllTicketCoverage(ticketsData, material) {
   // Dirs-Tree. The split stage checks the same records before writing; this is the final gate.
   const distributionFindings = [];
   if (material?.view !== undefined && material?.graph !== undefined && material?.dirs !== undefined) {
-    const { verifyTicketDistribution } = require("./add-tickets-for-phase.js");
+    const { verifyTicketDistribution, verifySequenceSteps } = require("./add-tickets-for-phase.js");
     for (const phase of phases) {
       distributionFindings.push(...verifyTicketDistribution(phase, material.view, material.graph, material.dirs));
+      distributionFindings.push(...verifySequenceSteps(phase, material.view, material.graph));
     }
   }
   const findings = [...unitFindings, ...digestFindings, ...distributionFindings];
@@ -323,7 +345,7 @@ function formatReport(report) {
 // Main Entry Point
 // ============================================================
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-308) --for-spec --no-implementation-order`.
 function main() {
   const ticketsJsonPath = process.argv[2];
 
@@ -348,7 +370,7 @@ function main() {
   const output = formatReport(report);
 
   // Output human-readable report to stdout
-  console.log(output);
+  writeLine(output);
 
   if (!report.valid) {
     // Output failed phase details to stderr
@@ -385,7 +407,7 @@ function main() {
  * @param {{ map?: object, graph?: object, dirs?: object, tickets?: object }} chain
  * @returns {{ ok: boolean, code?: string, layer?: string }}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
 function verifyDigestChain({ map, graph, dirs, tickets } = {}) {
   const { digestValue } = require("../sequences-slice/lib/digest.mjs");
   const mapDigest = map?.digest;
@@ -397,6 +419,12 @@ function verifyDigestChain({ map, graph, dirs, tickets } = {}) {
   if (!mapDigest || !graphDigest || !dirsDigest || !distribution?.sourceMapDigest || !distribution?.digest) {
     return { ok: false, code: "MISSING_DISTRIBUTION_DIGEST" };
   }
+  // The map names the view it was derived from. A ticket derived from a newer view would
+  // otherwise keep every digest intact while carrying stale roles and surfaces.
+  if (map?.sourceViewDigest != null && distribution?.sourceViewDigest != null
+      && map.sourceViewDigest !== distribution.sourceViewDigest) {
+    return { ok: false, code: "DISTRIBUTION_DIGEST_MISMATCH", layer: "view" };
+  }
   if (mapDigest !== graphDigest) return { ok: false, code: "DISTRIBUTION_DIGEST_MISMATCH", layer: "graph" };
   if (graphDigest !== dirsDigest) return { ok: false, code: "DISTRIBUTION_DIGEST_MISMATCH", layer: "dirs" };
   if (dirsDigest !== distribution.sourceMapDigest) return { ok: false, code: "DISTRIBUTION_DIGEST_MISMATCH", layer: "tickets" };
@@ -407,4 +435,4 @@ function verifyDigestChain({ map, graph, dirs, tickets } = {}) {
 }
 
 if (require.main === module) main();
-module.exports = { checkPhase, verifyAllTicketCoverage, formatReport, verifyDigestChain, derivePackagePaths, readUnitMaterial };
+module.exports = { checkPhase, verifyAllTicketCoverage, formatReport, verifyDigestChain, derivePackagePaths, readUnitMaterial, viewCarriesUnits };

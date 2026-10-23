@@ -9,11 +9,15 @@ import { renderDistribution } from '../../.claude/scripts/grill-me-for-rfc/rende
 import { readDistributionMap, assignUnitIdsFromMap } from '../../.claude/scripts/rfc-graph/lib/unit-ids.mjs';
 import { buildDistributionIndex, collectNodePaths, verifyDistributionCoverage } from '../../.claude/scripts/rfc-graph/lib/distribution-index.js';
 import {
+  appendNodeUnitIds,
   populateTicketDistribution,
   reconstructSequenceOrder,
   verifyTicketDistribution,
 } from '../../.claude/scripts/tickets/add-tickets-for-phase.js';
-import { verifyDigestChain } from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';
+import {
+  verifyAllTicketCoverage,
+  verifyDigestChain,
+} from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';
 import { digestValue } from '../../.claude/scripts/sequences-slice/lib/digest.mjs';
 
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
@@ -151,4 +155,73 @@ test('C004 a node unit missing from its ticket is reported', async () => {
   phase.tickets = phase.tickets.filter((ticket) => ticket.id !== 1);
   const findings = verifyTicketDistribution(phase, fixtureView(), attached.graph, dirsTree);
   assert.ok(findings.some((finding) => finding.code === 'MISSING_UNIT_AT_LAYER' && finding.unitId === 'op-Produce'));
+});
+
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+function coveragePhase() {
+  return {
+    id: -1,
+    nodeIds: ['N0001', 'N0002', 'N0003'],
+    tickets: [
+      { id: 1, phaseId: -1, status: 'todo', title: 'produce', nodeIds: ['N0001'], specPath: 'SPEC.md' },
+      { id: 2, phaseId: -1, status: 'todo', title: 'consume', nodeIds: ['N0002'], specPath: 'SPEC.md' },
+      { id: 3, phaseId: -1, status: 'todo', title: 'boundary', nodeIds: ['N0003'], specPath: 'SPEC.md' },
+    ],
+  };
+}
+
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+async function runCoverageChain() {
+  const { map, attached, dirsTree } = await runChain();
+  const withUnits = await appendNodeUnitIds(coveragePhase().tickets, attached.graph);
+  const phase = await populateTicketDistribution({ ...coveragePhase(), tickets: withUnits }, attached.graph, dirsTree, fixtureView());
+  const ticketDigests = Object.fromEntries(phase.tickets.map((ticket) => [ticket.id, ticket.distribution.digest]));
+  const ticketsData = {
+    phases: [phase],
+    distribution: {
+      sourceMapDigest: dirsTree.distribution.digest,
+      sourceViewDigest: map.sourceViewDigest,
+      ticketDigests,
+      digest: digestValue({ ticketDigests }),
+    },
+  };
+  const material = {
+    view: fixtureView(),
+    viewUnitIds: ['op-Produce', 'op-Consume', 'seq-A-1'],
+    ledgerUnitIds: ['op-Produce', 'op-Consume', 'seq-A-1'],
+    graph: attached.graph,
+    dirs: dirsTree,
+    map,
+  };
+  return { ticketsData, material, phase };
+}
+
+test('C005 C006 the final coverage gate accepts the synthetic package', async () => {
+  const { ticketsData, material } = await runCoverageChain();
+  const report = verifyAllTicketCoverage(ticketsData, material);
+  assert.equal(report.valid, true, JSON.stringify(report.unitFindings));
+});
+
+test('C006 the final coverage gate names a dropped sequence step', async () => {
+  const { ticketsData, material, phase } = await runCoverageChain();
+  const dropped = {
+    ...ticketsData,
+    phases: [{
+      ...phase,
+      tickets: phase.tickets.map((ticket) => ticket.id === 2 ? {
+        ...ticket,
+        distribution: {
+          ...ticket.distribution,
+          units: ticket.distribution.units.map((unit) => unit.unitId === 'seq-A-1'
+            ? { ...unit, obligation: { ...unit.obligation, steps: [] } }
+            : unit),
+        },
+      } : ticket),
+    }],
+  };
+
+  const report = verifyAllTicketCoverage(dropped, material);
+  const finding = report.unitFindings.find((entry) => entry.code === 'MISSING_SEQUENCE_STEP');
+  assert.ok(finding, JSON.stringify(report.unitFindings));
+  assert.equal(finding.stepId, 's2');
 });

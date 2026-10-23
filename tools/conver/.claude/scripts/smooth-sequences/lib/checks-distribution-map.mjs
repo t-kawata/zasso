@@ -84,6 +84,7 @@ export function checkDistributionMap({ view = null, rfc = null } = {}) {
  * @param {Array<{ packageId: string, units: Array<object> }>} maps
  * @returns {{ ok: boolean, code?: string, unitId?: string, findings?: Array<object> }}
  */
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
 export function checkOwnerRoles(maps) {
   const byUnit = new Map();
   for (const map of maps ?? []) {
@@ -95,12 +96,22 @@ export function checkOwnerRoles(maps) {
     }
   }
 
-  for (const [unitId, entries] of byUnit) {
-    if (entries.length < 2) continue;
-    const implementers = entries.filter((entry) => entry.role === 'implementer');
-    if (implementers.length === 1) continue;
-    if (implementers.length > 1) {
-      const surfaces = implementers.map((entry) => entry.surface);
+  for (const [unitId, roleEntries] of byUnit) {
+    const implementerEntries = roleEntries.filter((entry) => entry.role === 'implementer');
+    // A single owner is the common case, and the case a wrong role hides best: one
+    // consumer leaves the operation with no implementer at all.
+    if (roleEntries.length === 1) {
+      if (implementerEntries.length === 1) continue;
+      return {
+        ok: false,
+        code: 'OWNER_ROLE_UNDECLARED',
+        unitId,
+        findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has a sole owner that does not declare itself the implementer`)],
+      };
+    }
+    if (implementerEntries.length === 1) continue;
+    if (implementerEntries.length > 1) {
+      const surfaces = implementerEntries.map((entry) => entry.surface);
       const declaredAndDistinct = surfaces.every((surface) => typeof surface === 'string')
         && new Set(surfaces).size === surfaces.length;
       if (declaredAndDistinct) continue;
@@ -109,7 +120,7 @@ export function checkOwnerRoles(maps) {
       ok: false,
       code: 'OWNER_ROLE_UNDECLARED',
       unitId,
-      findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has ${implementers.length} implementer(s) and no disjoint surface split`)],
+      findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has ${implementerEntries.length} implementer(s) and no disjoint surface split`)],
     };
   }
   return { ok: true, findings: [] };

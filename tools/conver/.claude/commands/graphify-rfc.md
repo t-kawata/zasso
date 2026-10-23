@@ -252,6 +252,8 @@ Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$1` when present, matches each unit's section against a node heading exactly, attaches the unit, and writes `distributionDigest`. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`. `/graphify-rfc` still reads only `RFC.md`; no sidecar is passed.
 
+`verify-graph-contracts.js` discovers the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the boundary contract-edge check (check 4) runs whenever the graph is inside a workspacify workspace and is skipped outside one. Pass `--registry=<path>` only to override that discovery.
+
 ### Error Recovery
 
 fail → repair per error; cleanup; reset 2; re-run Step 2. Individual repair: `delete-edges` then `create-edges`; extensive repair → reset 2.
