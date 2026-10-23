@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { renderDistribution } from '../../.claude/scripts/grill-me-for-rfc/render-distribution.mjs';
+
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPLETE_RUN = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/complete-run.js');
 const GRILL_COMMAND = join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md');
@@ -61,10 +63,10 @@ function fixtureRfc() {
  * that skipped them would prove only the happy half of the transition.
  */
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function writePackage(directory, { state = 'GRILLING', view = fixtureView() } = {}) {
+function writePackage(directory, { state = 'GRILLING', view = fixtureView(), rfcText = fixtureRfc() } = {}) {
   const rfcPath = join(directory, 'RFC.md');
   const statusPath = join(directory, 'Status.json');
-  writeFileSync(rfcPath, fixtureRfc());
+  writeFileSync(rfcPath, rfcText);
   if (view !== null) writeFileSync(join(directory, 'SEQUENCES.json'), JSON.stringify(view));
   writeFileSync(statusPath, JSON.stringify({
     state,
@@ -103,6 +105,21 @@ test('C004 completion renders the ledger, records the generation and then declar
   assert.match(status.distributionDigest, /^[0-9a-f]{64}$/);
   assert.equal(status.completedSessions, 1);
   assert.match(readFileSync(rfcPath, 'utf8'), /<!-- unit: op-Produce -->/);
+});
+
+test('C004 a package that predates the counter advances from the generation its map already is', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-complete-legacy-'));
+  // No distributionGeneration field, but the RFC already carries a map, which the
+  // display counts as generation one. Completion must record two.
+  const rendered = renderDistribution(fixtureRfc(), fixtureView());
+  const { statusPath } = writePackage(directory, { rfcText: rendered.rfc });
+
+  const result = runCompletion(directory);
+
+  assert.equal(result.status, 0, result.stderr);
+  const status = readStatus(statusPath);
+  assert.equal(status.state, 'DONE');
+  assert.equal(status.distributionGeneration, 2);
 });
 
 test('C004 a refused render writes nothing and leaves the run unfinished', () => {

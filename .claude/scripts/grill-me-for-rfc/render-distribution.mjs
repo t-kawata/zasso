@@ -23,6 +23,9 @@ import { isUnitId, normalizeHeading } from '../rfc-graph/lib/unit-ids.mjs';
 
 const LEDGER_TITLE = 'Distribution ledger';
 const STATUS_FILE_NAME = 'Status.json';
+
+/** The generation a package's first recorded distribution is counted as. */
+const FIRST_GENERATION = 1;
 const PRECEDENCE_SENTENCE = 'RFC.md is canonical for this package; the projection is an input, not an authority.';
 const HEADING = /^(#{1,6})\s+(.*\S)\s*$/;
 const ANCHOR_LINE = /^\s*<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->\s*$/;
@@ -356,6 +359,28 @@ export function writeAtomically(targetPath, contents) {
   fs.renameSync(staged, targetPath);
 }
 
+/** The fence the renderer writes its map block behind. */
+const DISTRIBUTION_MAP_FENCE = /^```json\s+distribution-map\s*$/m;
+
+/**
+ * Whether the RFC on disk already carries a rendered distribution map.
+ *
+ * Read before the renderer writes: a package that predates the counter has a map and
+ * no number, and the display treats that map as generation one. The writer must start
+ * from the same number the reader reports, or the first execution after the upgrade
+ * records one and the display never moves.
+ *
+ * @param {string} rfcPath
+ * @returns {boolean}
+ */
+function carriesDistributionMap(rfcPath) {
+  try {
+    return DISTRIBUTION_MAP_FENCE.test(fs.readFileSync(rfcPath, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Open one distribution generation for a grill execution of the renderer.
  *
@@ -366,7 +391,10 @@ export function writeAtomically(targetPath, contents) {
  * is absent or unreadable, because the map itself has already been written and a display
  * counter must not turn that into a failure.
  *
- * @param {string} rfcPath — the RFC the renderer wrote
+ * Call this before writing the rendered RFC: the pre-render file is what says whether
+ * the package already carried a map, and therefore which generation this execution opens.
+ *
+ * @param {string} rfcPath — the RFC the renderer is about to write
  * @param {{digest?: string}|null} map — the map the renderer produced
  * @returns {boolean} whether a new generation was recorded
  */
@@ -383,8 +411,10 @@ export function recordDistributionGeneration(rfcPath, map) {
   }
   const recorded = Number.isInteger(status.distributionGeneration) && status.distributionGeneration >= 0
     ? status.distributionGeneration
-    : 0;
-  status.distributionGeneration = recorded + 1;
+    : carriesDistributionMap(rfcPath)
+      ? FIRST_GENERATION
+      : FIRST_GENERATION - 1;
+  status.distributionGeneration = recorded + FIRST_GENERATION;
   if (typeof map.digest === 'string') status.distributionDigest = map.digest;
   writeAtomically(statusPath, `${JSON.stringify(status, null, 2)}\n`);
   return true;
@@ -424,8 +454,10 @@ export function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: false, units: result.map?.units?.length ?? 0 })}\n`);
     return 0;
   }
+  // Recorded before the write: the pre-render file is what says whether the package
+  // already carried a map, and therefore which generation this execution opens.
+  recordDistributionGeneration(rfcPath, result.map);
   if (result.wrote) writeAtomically(rfcPath, result.rfc);
-  if (!check) recordDistributionGeneration(rfcPath, result.map);
   process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: result.wrote, units: result.map?.units?.length ?? 0 })}\n`);
   return 0;
 }

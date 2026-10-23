@@ -78,8 +78,10 @@ function renderPackage(rfcDir) {
     };
   }
 
-  if (result.wrote) writeAtomically(rfcPath, result.rfc);
+  // Recorded before the write: the pre-render file is what says whether the package
+  // already carried a map, and therefore which generation this execution opens.
   recordDistributionGeneration(rfcPath, result.map);
+  if (result.wrote) writeAtomically(rfcPath, result.rfc);
   return { ok: true, rendered: true, wrote: result.wrote };
 }
 

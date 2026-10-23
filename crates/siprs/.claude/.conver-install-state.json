@@ -326,7 +326,7 @@
     "scripts/grill-me-for-rfc/check-io-stubs.js": "80ae178a99645e8024e5fedb729cc5204f51430c83d3b0b258ecb039930ce6a1",
     "scripts/grill-me-for-rfc/check-ledger-discharge.js": "aa01363b52da078232a02f2dac07f41c69a079b5df4a0b834c7cb27439001b5d",
     "scripts/grill-me-for-rfc/check-obligation-coverage.js": "2e258f0ba5c0ac4debd8e5a6146a29104f2c7c1ef4846131e2382abd1df54b37",
-    "scripts/grill-me-for-rfc/complete-run.js": "f14c0ef0753887758f70aab0fb0dbbcac516aa2994a6f58539d11354fafad6c7",
+    "scripts/grill-me-for-rfc/complete-run.js": "68e94c3f01731cc0b268af5f05b85a9ad93eadd9b730dfcab2784bae0ef2a3b3",
     "scripts/grill-me-for-rfc/defect-report.js": "b0c66386588bc2952b00e6ffc8bb3b91e2bb05029556cf31bf0227b59bf3b27c",
     "scripts/grill-me-for-rfc/extract-io-boundary.js": "1f21059a2441a59cbb67d489e4f6b1135d78b97db4b719b94259eb5125430cdb",
     "scripts/grill-me-for-rfc/generate-checklist.js": "7b80330f6b6e5211d0e7a8a758f5f08a8520b9c28d8cf6d10b24e136822e7455",

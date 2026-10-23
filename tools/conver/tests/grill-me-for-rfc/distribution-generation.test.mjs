@@ -92,6 +92,22 @@ test('C003 a second execution opens another generation even with the same digest
   assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });
 
+test('C003 a record with no field starts from the map the RFC already carries', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-dist-legacy-'));
+  const rfcPath = join(directory, 'RFC.md');
+  const statusPath = join(directory, 'Status.json');
+  const rendered = renderDistribution(fixtureRfc(), fixtureView());
+  // The package predates the field: its RFC already carries a map, and the display
+  // counts that map as generation one. The writer must start from the same number,
+  // or the first execution after the upgrade records 1 and the display never moves.
+  writeFileSync(rfcPath, rendered.rfc);
+  writeFileSync(statusPath, JSON.stringify({ state: 'GRILLING' }));
+
+  recordDistributionGeneration(rfcPath, rendered.map);
+
+  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
+});
+
 test('C003 a render without a map records nothing', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-none-'));
   const { rfcPath, statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 2 });
