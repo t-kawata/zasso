@@ -107,6 +107,42 @@ test('C004 completion renders the ledger, records the generation and then declar
   assert.match(readFileSync(rfcPath, 'utf8'), /<!-- unit: op-Produce -->/);
 });
 
+test('C004 completion mirrors the grill generation, so SEQ and GRI agree', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-complete-grill-'));
+  const { statusPath } = writePackage(directory);
+  const status = readStatus(statusPath);
+  writeFileSync(statusPath, JSON.stringify({ ...status, grillGeneration: 3 }, null, 2));
+
+  const result = runCompletion(directory);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readStatus(statusPath).distributionGeneration, 3);
+});
+
+test('C004 a repeated completion inside one grill generation does not advance the counter', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-complete-grill-repeat-'));
+  const { statusPath } = writePackage(directory);
+  const status = readStatus(statusPath);
+  writeFileSync(statusPath, JSON.stringify({ ...status, grillGeneration: 3 }, null, 2));
+
+  runCompletion(directory);
+  runCompletion(directory);
+
+  assert.equal(readStatus(statusPath).distributionGeneration, 3);
+});
+
+test('C004 a package with no view still reports the grill generation it belongs to', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-complete-grill-noview-'));
+  const { statusPath } = writePackage(directory, { view: null });
+  const status = readStatus(statusPath);
+  writeFileSync(statusPath, JSON.stringify({ ...status, grillGeneration: 4 }, null, 2));
+
+  const result = runCompletion(directory);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readStatus(statusPath).distributionGeneration, 4);
+});
+
 test('C004 a package that predates the counter advances from the generation its map already is', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-complete-legacy-'));
   // No distributionGeneration field, but the RFC already carries a map, which the

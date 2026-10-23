@@ -57,7 +57,12 @@ function emit(payload) {
 function renderPackage(rfcDir) {
   const rfcPath = path.join(rfcDir, RFC_FILE_NAME);
   const viewPath = path.join(rfcDir, VIEW_FILE_NAME);
-  if (!fs.existsSync(viewPath)) return { ok: true, rendered: false };
+  if (!fs.existsSync(viewPath)) {
+    // Nothing to distribute, but the run is still the generation this package belongs
+    // to, so the display can report which run it is looking at.
+    recordDistributionGeneration(rfcPath, null);
+    return { ok: true, rendered: false };
+  }
 
   let view;
   try {

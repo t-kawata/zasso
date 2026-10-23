@@ -108,6 +108,35 @@ test('C003 a record with no field starts from the map the RFC already carries', 
   assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });
 
+test('C003 a render records the grill generation it belongs to, not a fresh count', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-dist-grill-'));
+  const { rfcPath, statusPath } = writeFixture(directory, {
+    state: 'GRILLING',
+    grillGeneration: 5,
+    distributionGeneration: 2,
+  });
+  const rendered = renderDistribution(fixtureRfc(), fixtureView());
+
+  recordDistributionGeneration(rfcPath, rendered.map);
+
+  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 5);
+});
+
+test('C003 two renders in one grill generation record the same generation', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'px309-dist-grill-repeat-'));
+  const { rfcPath, statusPath } = writeFixture(directory, {
+    state: 'GRILLING',
+    grillGeneration: 5,
+    distributionGeneration: 4,
+  });
+  const rendered = renderDistribution(fixtureRfc(), fixtureView());
+
+  recordDistributionGeneration(rfcPath, rendered.map);
+  recordDistributionGeneration(rfcPath, rendered.map);
+
+  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 5);
+});
+
 test('C003 a render without a map records nothing', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-none-'));
   const { rfcPath, statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 2 });
