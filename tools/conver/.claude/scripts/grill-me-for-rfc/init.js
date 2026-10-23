@@ -208,12 +208,14 @@ fs.mkdirSync(rfcDir, { recursive: true });
 // and check-all-schema.js still requires it; a run with no material records the
 // empty string rather than null, which that same check rejects as missing.
 const statusTemplate = {
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
   state: "GRILLING",
   researchPath: materialPaths[0] ?? "",
   materialPaths,
   rfcPath,
   rfcDir,
   reviewLoopCount: 0,
+  grillGeneration: 1,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

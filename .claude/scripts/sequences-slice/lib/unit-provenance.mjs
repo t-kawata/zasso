@@ -98,21 +98,26 @@ function provenanceFinding(code, unitId, layer, message) {
  * for, the graph is what graphify read from that RFC, and the ticket is what the split
  * assigned. A gap at any link is reported at the link that dropped it.
  *
- * @param {{viewUnitIds?: string[], ledgerUnitIds?: string[],
+ * @param {{viewUnitIds?: string[], ledgerUnitIds?: string[], residualUnitIds?: string[],
  *   graph?: {nodes?: Array<object>}|null, tickets?: {phases?: Array<object>}|null}} input
  * @returns {Array<{code: string, severity: string, unitId: string, layer: string, message: string}>}
  */
-export function checkUnitCoverage({
-  viewUnitIds = [], ledgerUnitIds = [], graph = null, tickets = null,
-} = {}) {
+export function checkUnitCoverage(input = {}) {
+  const {
+    viewUnitIds = [], ledgerUnitIds = [], residualUnitIds = [], graph = null, tickets = null,
+  } = input;
   const view = new Set((Array.isArray(viewUnitIds) ? viewUnitIds : []).filter(isUnitId));
   const ledger = new Set((Array.isArray(ledgerUnitIds) ? ledgerUnitIds : []).filter(isUnitId));
+  // A residual is the ledger's explicit account of a view unit it does not distribute, so
+  // the rfc link is satisfied without the unit entering the graph or the tickets.
+  const residual = new Set((Array.isArray(residualUnitIds) ? residualUnitIds : []).filter(isUnitId));
   const graphUnits = new Set(unitsVisibleToShip(graph));
   const ticketUnits = ticketUnitIds(tickets);
   const findings = [];
   const add = (code, unitId, layer, message) => findings.push(provenanceFinding(code, unitId, layer, message));
 
   for (const unitId of view) {
+    if (residual.has(unitId)) continue;
     if (!ledger.has(unitId)) add('MISSING_UNIT_AT_LAYER', unitId, 'rfc', `unit ${unitId} is distributed by the view and absent from the distribution ledger`);
   }
   if (view.size > 0) {

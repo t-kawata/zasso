@@ -122,12 +122,14 @@ export function viewDigest(view) {
 }
 
 /** The map body the map digest covers, with the digest itself excluded. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function canonicalMapBody(map) {
   const units = (map?.units ?? []).map((unit) => ({
     unitId: unit.unitId,
     kind: unit.kind,
     role: unit.role ?? null,
     surface: unit.surface ?? null,
+    owners: unit.owners === undefined ? null : (unit.owners ?? []).map(normalizeText).sort(),
     sections: (unit.sections ?? []).map(normalizeText),
     implementationSections: unit.implementationSections === undefined
       ? null
@@ -136,6 +138,9 @@ export function canonicalMapBody(map) {
   })).sort((left, right) => left.unitId.localeCompare(right.unitId));
   const residuals = (map?.residuals ?? []).map((residual) => ({
     unit: normalizeText(residual.unit),
+    kind: residual.kind ?? 'declared-residual',
+    owners: residual.owners === undefined ? null : (residual.owners ?? []).map(normalizeText).sort(),
+    location: residual.location === undefined ? null : normalizeText(residual.location),
     ground: normalizeText(residual.ground),
   })).sort((left, right) => left.unit.localeCompare(right.unit));
   return {
@@ -175,6 +180,7 @@ function invalidMap(reason) {
 }
 
 /** Read and validate the map block from an RFC. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function parseDistributionMap(rfcText) {
   const body = distributionMapBody(rfcText);
   if (body === null) return { ok: false, code: 'DISTRIBUTION_MAPPING_MISSING', reason: 'no distribution-map block', map: null };
@@ -211,6 +217,10 @@ export function parseDistributionMap(rfcText) {
     if (unit.surface !== undefined && unit.surface !== null && !UNIT_SURFACES.includes(unit.surface)) {
       return invalidMap(`unit ${unit.unitId} declares surface ${unit.surface}`);
     }
+    if (unit.owners !== undefined && unit.owners !== null
+        && (!Array.isArray(unit.owners) || unit.owners.some((owner) => typeof owner !== 'string' || owner.trim().length === 0))) {
+      return invalidMap(`unit ${unit.unitId} has a malformed owner list`);
+    }
   }
 
   const residualUnits = new Set();
@@ -218,6 +228,13 @@ export function parseDistributionMap(rfcText) {
     if (typeof residual?.unit !== 'string' || residual.unit.trim().length === 0) return invalidMap('a residual has no unit');
     if (residualUnits.has(residual.unit)) return invalidMap(`duplicate residual ${residual.unit}`);
     if (typeof residual.ground !== 'string' || residual.ground.trim().length === 0) return invalidMap(`residual ${residual.unit} has no ground`);
+    if (residual.owners !== undefined && residual.owners !== null
+        && (!Array.isArray(residual.owners) || residual.owners.some((owner) => typeof owner !== 'string'))) {
+      return invalidMap(`residual ${residual.unit} has a malformed owner list`);
+    }
+    if (residual.location !== undefined && residual.location !== null && typeof residual.location !== 'string') {
+      return invalidMap(`residual ${residual.unit} has a malformed location`);
+    }
     residualUnits.add(residual.unit);
   }
 
@@ -273,25 +290,46 @@ export function ledgerRowOf(unit, packageId) {
   return {
     unit: unit.unitId,
     kind: unit.kind,
-    owner: packageId,
+    owner: ownerCellOf(unit.owners, packageId),
     location: unit.sections.map(sectionLabel).join(', '),
     ground: normalizeText(unit.ground),
   };
 }
 
+/** One ledger row for a declared residual, keeping the owner and location the RFC authored. */
+export function residualRowOf(residual, packageId) {
+  return {
+    unit: residual.unit,
+    kind: residual.kind ?? 'declared-residual',
+    owner: ownerCellOf(residual.owners, packageId),
+    location: normalizeText(residual.location ?? '—'),
+    ground: normalizeText(residual.ground),
+  };
+}
+
+/** The Owner cell: every co-owner when the map carries them, the package otherwise. */
+export function ownerCellOf(owners, packageId) {
+  const named = (Array.isArray(owners) ? owners : []).filter((owner) => typeof owner === 'string' && owner.trim().length > 0);
+  return (named.length > 0 ? named : [packageId]).join(' + ');
+}
+
 /** Compare a map with the view it was authored from. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function validateMapAgainstView(map, view) {
   const viewUnits = collectViewUnits(view);
   const mapUnits = new Set((map?.units ?? []).map((unit) => unit.unitId));
-  const missing = [...viewUnits.keys()].filter((unitId) => !mapUnits.has(unitId));
+  const residualIds = new Set((map?.residuals ?? []).map((residual) => normalizeText(residual.unit)));
+  // A residual accounts for a unit the ledger declares rather than distributes, so it
+  // covers a view unit the map deliberately does not carry.
+  const covered = new Set([...mapUnits, ...residualIds]);
+  const missing = [...viewUnits.keys()].filter((unitId) => !covered.has(unitId));
   const invented = [...mapUnits].filter((unitId) => !viewUnits.has(unitId));
 
   if (missing.length > 0) return { ok: false, code: 'MISSING_UNIT', missing, invented };
   if (invented.length > 0) return { ok: false, code: 'INVENTED_UNIT', missing, invented };
 
-  const residualIds = new Set((map?.residuals ?? []).map((residual) => normalizeText(residual.unit)));
-  const residualIsViewUnit = [...residualIds].filter((unitId) => viewUnits.has(unitId));
-  if (residualIsViewUnit.length > 0) return { ok: false, code: 'RESIDUAL_IS_A_VIEW_UNIT', units: residualIsViewUnit };
+  const declaredTwice = [...residualIds].filter((unitId) => mapUnits.has(unitId));
+  if (declaredTwice.length > 0) return { ok: false, code: 'RESIDUAL_IS_A_MAP_UNIT', units: declaredTwice };
 
   if (map?.sourceViewDigest !== viewDigest(view)) return { ok: false, code: 'STALE_DISTRIBUTION_MAP' };
   if (map?.digest !== undefined && map.digest !== mapDigest(map)) return { ok: false, code: 'DISTRIBUTION_LEDGER_MISMATCH' };

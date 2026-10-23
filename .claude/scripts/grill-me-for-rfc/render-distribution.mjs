@@ -14,6 +14,7 @@ import {
   mapDigest,
   parseDistributionMap,
   renderDistributionMap,
+  residualRowOf,
   resolveSections,
   validateMapAgainstView,
   viewDigest,
@@ -58,10 +59,30 @@ function cleanCell(value) {
   return String(value ?? '').replace(/`/g, '').trim();
 }
 
+/** A cell read as prose: whitespace collapsed, but the author's inline code kept. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function groundCell(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** The package ids an Owner cell names; a co-owned operation lists them with `+` or `,`. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function ownerPackages(cell) {
+  return cleanCell(cell)
+    .split(/[+,]/)
+    .map((token) => cleanCell(token))
+    .filter((token) => token.length > 0);
+}
+
 /** The section tokens a ledger location names. */
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function locationTokens(location) {
-  return cleanCell(location)
+  const cleaned = cleanCell(location);
+  // An authored cell may join two references with prose ("§3.6 and §1.4"). Each reference
+  // is still a section the unit lives in, so they are read out instead of the cell prose.
+  const references = [...cleaned.matchAll(/§\s*\d+(?:\.\d+)*/g)].map((match) => match[0].replace(/\s+/g, ''));
+  if (references.length > 1) return references;
+  return cleaned
     .split(/[,;]/)
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
@@ -88,40 +109,51 @@ function resolveLocation(rfcText, location) {
   return { ok: true, sections };
 }
 
+/** Index ledger rows by the unit their first cell names. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function indexByUnit(rows) {
+  const byUnit = new Map();
+  for (const row of rows) {
+    const unit = cleanCell(row.unit);
+    const list = byUnit.get(unit) ?? [];
+    list.push(row);
+    byUnit.set(unit, list);
+  }
+  return byUnit;
+}
+
 /** Build a map from the existing Distribution ledger rows. */
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function bootstrapFromLedger(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   const rows = readLedgerRows(rfcText) ?? [];
-  const rowsByUnit = new Map();
-  for (const row of rows) {
-    const unit = cleanCell(row.unit);
-    const list = rowsByUnit.get(unit) ?? [];
-    list.push(row);
-    rowsByUnit.set(unit, list);
-  }
+  const residualRows = rows.filter((row) => cleanCell(row.kind) === 'declared-residual');
+  const distributedRows = rows.filter((row) => cleanCell(row.kind) !== 'declared-residual');
+  const rowsByUnit = indexByUnit(distributedRows);
+  const residualByUnit = indexByUnit(residualRows);
 
   const units = [];
-  const residuals = [];
   const missing = [];
   const duplicate = [];
 
   for (const [unitId, record] of viewUnits) {
     const matching = rowsByUnit.get(unitId) ?? [];
     if (matching.length === 0) {
-      missing.push(unitId);
+      // A residual row accounts for the unit instead of distributing it.
+      if (!residualByUnit.has(unitId)) missing.push(unitId);
       continue;
     }
     if (matching.length > 1) {
       duplicate.push(unitId);
       continue;
     }
+    if (residualByUnit.has(unitId)) return refuse('RESIDUAL_IS_A_MAP_UNIT', { units: [unitId] });
     const row = matching[0];
     const kind = cleanCell(row.kind);
-    const owner = cleanCell(row.owner);
-    const ground = cleanCell(row.ground);
+    const owners = ownerPackages(row.owner);
+    const ground = groundCell(row.ground);
     if (kind !== record.kind) return refuse('KIND_MISMATCH', { units: [unitId] });
-    if (owner !== view.packageId) return refuse('OWNER_MISMATCH', { units: [unitId] });
+    if (!owners.includes(view.packageId)) return refuse('OWNER_MISMATCH', { units: [unitId] });
     if (ground.length === 0) return refuse('EMPTY_GROUND', { units: [unitId] });
 
     const location = resolveLocation(rfcText, row.location);
@@ -130,6 +162,7 @@ function bootstrapFromLedger(rfcText, view) {
     const unit = {
       unitId,
       kind: record.kind,
+      owners,
       sections: location.sections,
       ground,
     };
@@ -143,17 +176,23 @@ function bootstrapFromLedger(rfcText, view) {
   if (duplicate.length > 0) return refuse('DUPLICATE_LEDGER_ROW', { units: duplicate });
   if (missing.length > 0) return refuse('DISTRIBUTION_MAPPING_MISSING', { missing });
 
-  for (const row of rows) {
-    if (cleanCell(row.kind) !== 'declared-residual') continue;
+  const residuals = [];
+  for (const row of residualRows) {
     const unit = cleanCell(row.unit);
-    const ground = cleanCell(row.ground);
-    if (unit.length === 0) return refuse('EMPTY_GROUND', { units: ['residual'] });
-    residuals.push({ unit, ground });
+    const ground = groundCell(row.ground);
+    if (unit.length === 0) return refuse('EMPTY_RESIDUAL_UNIT', { units: ['residual'] });
+    if (ground.length === 0) return refuse('EMPTY_GROUND', { units: [unit] });
+    residuals.push({
+      unit,
+      kind: 'declared-residual',
+      owners: ownerPackages(row.owner),
+      location: cleanCell(row.location),
+      ground,
+    });
   }
 
   const known = new Set(units.map((unit) => unit.unitId));
-  const invented = rows
-    .filter((row) => cleanCell(row.kind) !== 'declared-residual')
+  const invented = distributedRows
     .map((row) => cleanCell(row.unit))
     .filter((unitId) => isUnitId(unitId) && !known.has(unitId));
   if (invented.length > 0) return refuse('INVENTED_UNIT', { invented });
@@ -174,9 +213,10 @@ function bootstrapFromLedger(rfcText, view) {
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function renderLedgerAppendix(map) {
   const escape = (value) => String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-  const rows = map.units
-    .map((unit) => ledgerRowOf(unit, map.packageId))
-    .sort((left, right) => left.unit.localeCompare(right.unit));
+  const rows = [
+    ...map.units.map((unit) => ledgerRowOf(unit, map.packageId)),
+    ...map.residuals.map((residual) => residualRowOf(residual, map.packageId)),
+  ].sort((left, right) => left.unit.localeCompare(right.unit));
   return [
     `## ${LEDGER_TITLE}`,
     '',

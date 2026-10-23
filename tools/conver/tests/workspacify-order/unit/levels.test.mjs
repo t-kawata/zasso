@@ -241,13 +241,14 @@ test('C005 invariant: displayWidth counts wide, zero-width and emoji clusters', 
 });
 
 test('C001/C002/C003 postcondition: buildModel carries the root and per-package counters', (t) => {
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
     edges: [['pkg-0002', 'pkg-0001']],
     levels: [['pkg-0001'], ['pkg-0002']],
     rootCounters: { educe: 10, smooth: 2 },
     counters: {
-      'pkg-0001': { completedSessions: 3, distributions: 3, digest: 'a'.repeat(64) },
+      'pkg-0001': { grillGeneration: 3, distributionGeneration: 3 },
       'pkg-0002': { completedSessions: 0 },
     },
   });
@@ -256,8 +257,8 @@ test('C001/C002/C003 postcondition: buildModel carries the root and per-package 
   const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
 
   assert.deepEqual(model.rootCounters, { edu: 10, smo: 2 });
-  assert.equal(model.grillCounts.get('pkg-0001'), 3);
-  assert.equal(model.grillCounts.get('pkg-0002'), 0);
-  assert.deepEqual(model.distributionCounts.get('pkg-0001'), { distributions: 3, digest: 'a'.repeat(64) });
-  assert.equal(model.distributionCounts.get('pkg-0002'), null);
+  assert.equal(model.grillGenerations.get('pkg-0001'), 3);
+  assert.equal(model.grillGenerations.get('pkg-0002'), null);
+  assert.equal(model.distributionGenerations.get('pkg-0001'), 3);
+  assert.equal(model.distributionGenerations.get('pkg-0002'), null);
 });

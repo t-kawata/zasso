@@ -459,12 +459,13 @@ test('IT: a failed verdict prints its mark, writes nothing to stderr and exits 0
 
 // [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('IT: the counters render on the package line and the command still writes nothing', (t) => {
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001'],
     levels: [['pkg-0001']],
     documents: { explained: ['pkg-0001'], grilled: ['pkg-0001'], carried: ['pkg-0001'] },
     rootCounters: { educe: 10, smooth: 2 },
-    counters: { 'pkg-0001': { completedSessions: 3, distributions: 3, digest: 'a'.repeat(64) } },
+    counters: { 'pkg-0001': { completedSessions: 3, grillGeneration: 3, distributionGeneration: 3 } },
   });
   t.after(() => workspace.remove());
   const manifestsBefore = [readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')];

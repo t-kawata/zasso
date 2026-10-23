@@ -143,6 +143,29 @@ test('C002 validateMapAgainstView reports missing, invented and a stale view dig
   assert.equal(validateMapAgainstView(stale, view).code, 'STALE_DISTRIBUTION_MAP');
 });
 
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+test('C002 a residual may account for a view unit the map does not distribute', () => {
+  const view = fixtureView();
+  const map = fixtureMap(view);
+  const declaring = {
+    ...map,
+    units: map.units.filter((unit) => unit.unitId !== 'obl-pkg-1'),
+    residuals: [...map.residuals, { unit: 'obl-pkg-1', ground: 'the view distributes it as a declared residual' }],
+  };
+  assert.equal(validateMapAgainstView(declaring, view).ok, true);
+});
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+test('C002 a unit declared both distributed and residual is refused', () => {
+  const view = fixtureView();
+  const map = fixtureMap(view);
+  const doubled = { ...map, residuals: [...map.residuals, { unit: 'op-Produce', ground: 'also a residual' }] };
+  const result = validateMapAgainstView(doubled, view);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'RESIDUAL_IS_A_MAP_UNIT');
+  assert.deepEqual(result.units, ['op-Produce']);
+});
+
 test('C002 resolveSections matches exact text and an exact leading number', () => {
   const rfc = `${RFC}\n## 3.2.1 The normative scheme\n\nbody\n`;
   const exact = resolveSections(rfc, ['3.1 Produce']);

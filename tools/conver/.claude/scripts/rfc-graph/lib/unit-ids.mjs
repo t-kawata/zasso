@@ -126,10 +126,27 @@ export function collectViewUnitIds(packages = []) {
 }
 
 /** The unit ids a distribution ledger assigns, excluding declared residuals. */
+/** A ledger row's Kind cell without the markdown emphasis a table may carry. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function ledgerKindOf(row) {
+  return String(row?.kind ?? '').replace(/`/g, '').trim();
+}
+
 export function collectLedgerUnitIds(rows = []) {
   const ids = new Set();
   for (const row of Array.isArray(rows) ? rows : []) {
-    if (row?.kind === 'declared-residual') continue;
+    if (ledgerKindOf(row) === 'declared-residual') continue;
+    if (isUnitId(row?.unit)) ids.add(row.unit);
+  }
+  return [...ids];
+}
+
+/** The unit ids a distribution ledger declares as residuals rather than distributing. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function collectLedgerResidualUnitIds(rows = []) {
+  const ids = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (ledgerKindOf(row) !== 'declared-residual') continue;
     if (isUnitId(row?.unit)) ids.add(row.unit);
   }
   return [...ids];

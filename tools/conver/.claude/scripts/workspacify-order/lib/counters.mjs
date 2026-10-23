@@ -22,6 +22,28 @@ export const EDUSEQUENCES_DIRECTORY = 'educe-sequences';
 export const SMOOTH_SEQUENCES_DIRECTORY = 'smooth-sequences';
 export const STATUS_FILE_NAME = 'status.json';
 
+/** The status file a grill session keeps in its package directory. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const PACKAGE_STATUS_FILE_NAME = 'Status.json';
+
+/** The generation a grill opens on every new run. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const FIRST_GENERATION = 1;
+
+/** The status fields that carry the two generations. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const GRILL_GENERATION_FIELD = 'grillGeneration';
+export const DISTRIBUTION_GENERATION_FIELD = 'distributionGeneration';
+
+/** The sessions a status written before generations existed records. */
+const COMPLETED_SESSIONS_FIELD = 'completedSessions';
+
+/** The design document whose map block proves at least one distribution generation. */
+const RFC_FILE_NAME = 'RFC.md';
+
+/** The fence that marks a distribution map inside the RFC. */
+const DISTRIBUTION_MAP_FENCE = /^```json\s+distribution-map\s*$/m;
+
 /**
  * One JSON document, or null with the reason it could not be read.
  *
@@ -85,6 +107,49 @@ export function readRootSmoothGeneration(root) {
 export function readCompletedSessions(packageDirectory) {
   const value = readJsonFile(join(packageDirectory, STATUS_FILE_NAME)).value?.completedSessions;
   return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** Whether an RFC carries the map a distribution generation writes. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function carriesDistributionMap(rfcPath) {
+  if (!existsSync(rfcPath)) return false;
+  try {
+    return DISTRIBUTION_MAP_FENCE.test(readFileSync(rfcPath, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The grill generation a package stands in, or null when it records none.
+ *
+ * A status written before the field existed counts the sessions that reached DONE, which
+ * is a lower bound rather than a reconstruction. Zero completed sessions is no generation
+ * at all, so it answers null and the display keeps its unknown mark.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function readGrillGeneration(packageDirectory) {
+  const status = readJsonFile(join(packageDirectory, PACKAGE_STATUS_FILE_NAME)).value;
+  if (status === null) return null;
+  const generation = status[GRILL_GENERATION_FIELD];
+  if (Number.isInteger(generation) && generation >= FIRST_GENERATION) return generation;
+  const sessions = status[COMPLETED_SESSIONS_FIELD];
+  return Number.isInteger(sessions) && sessions >= FIRST_GENERATION ? sessions : null;
+}
+
+/**
+ * The distribution generation the grill recorded, or null when none is provable.
+ *
+ * A status written before the field existed falls back to one when the RFC already carries
+ * a map, because that map is one distribution the package received; the history before it
+ * is unknown and is not guessed.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function readDistributionGeneration(packageDirectory) {
+  const status = readJsonFile(join(packageDirectory, PACKAGE_STATUS_FILE_NAME)).value;
+  const recorded = status?.[DISTRIBUTION_GENERATION_FIELD];
+  if (Number.isInteger(recorded) && recorded >= 0) return recorded;
+  return carriesDistributionMap(join(packageDirectory, RFC_FILE_NAME)) ? FIRST_GENERATION : null;
 }
 
 /** The distribution record a package carries, or null when it carries none. */

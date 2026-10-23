@@ -846,7 +846,7 @@ const FIRST_MARK = /[🟤🔴🟠🟡🟢❌]/u;
 const PACKAGE_PATH = 'crates/protocol/package-1';
 
 /** A two-package chain with every counter present on the first package. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
 function countedFixture(t) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
@@ -855,7 +855,7 @@ function countedFixture(t) {
     documents: { explained: ['pkg-0001'], grilled: ['pkg-0001'], carried: ['pkg-0001'] },
     rootCounters: { educe: 10, smooth: 2 },
     counters: {
-      'pkg-0001': { completedSessions: 3, distributions: 3, digest: 'a'.repeat(64) },
+      'pkg-0001': { completedSessions: 3, grillGeneration: 3, distributionGeneration: 3 },
       'pkg-0002': { completedSessions: 0 },
     },
   });
@@ -955,8 +955,8 @@ test('C004 boundary: an absent middle field keeps its width, so the later field 
     documents: { explained: ['pkg-0001'], grilled: ['pkg-0001'], carried: ['pkg-0001', 'pkg-0002'] },
     rootCounters: { educe: 10 },
     counters: {
-      'pkg-0001': { completedSessions: 3, distributions: 3, digest: 'a'.repeat(64) },
-      'pkg-0002': { completedSessions: 0, distributions: 3, digest: 'a'.repeat(64) },
+      'pkg-0001': { completedSessions: 3, grillGeneration: 3, distributionGeneration: 3 },
+      'pkg-0002': { completedSessions: 0, distributionGeneration: 3 },
     },
   });
   t.after(() => workspace.remove());
@@ -964,7 +964,7 @@ test('C004 boundary: an absent middle field keeps its width, so the later field 
   const line = text.split('\n').find((entry) => entry.includes('package-2'));
 
   assert.equal(text.includes('\t'), false, text);
-  assert.match(line, /🟤 EDU:10 {8}🟠 GRI:0/);
+  assert.match(line, /🟤 EDU:10 {8}🟠 GRI:\?/);
   // EDU cell (9) + separator + blank EXP cell (6) + separator + GRI cell (8) + separator.
   assert.equal(columnOf(line, '🟡'), 30 + 9 + 1 + 6 + 1 + 8 + 1);
 });
@@ -1087,8 +1087,8 @@ test('C004 invariant: a failed SEQ followed by SMO keeps SMO in the same column'
     documents: { grilled: ['pkg-0001', 'pkg-0002'], carried: ['pkg-0001', 'pkg-0002'] },
     rootCounters: { smooth: 2 },
     counters: {
-      'pkg-0001': { distributions: 3, digest: 'a'.repeat(64) },
-      'pkg-0002': { distributions: 3, digest: 'a'.repeat(64) },
+      'pkg-0001': { distributionGeneration: 3 },
+      'pkg-0002': { distributionGeneration: 3 },
     },
   });
   t.after(() => workspace.remove());

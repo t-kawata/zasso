@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 
 const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
-const { collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
+const { collectLedgerResidualUnitIds, collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
 const { findSingleSiblingPath } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
@@ -107,11 +107,14 @@ function readUnitMaterial(argv) {
     const text = fs.readFileSync(path.resolve(ledgerPath), "utf8");
     if (ledgerPath.endsWith(".md")) {
       const { readLedgerRows } = require("../sequences-slice/lib/distribution-ledger.mjs");
-      material.ledgerUnitIds = collectLedgerUnitIds(readLedgerRows(text) || []);
+      const rows = readLedgerRows(text) || [];
+      material.ledgerUnitIds = collectLedgerUnitIds(rows);
+      material.residualUnitIds = collectLedgerResidualUnitIds(rows);
     } else {
       const document = JSON.parse(text);
       const rows = Array.isArray(document) ? document : document.rows || document.ledger || [];
       material.ledgerUnitIds = collectLedgerUnitIds(rows);
+      material.residualUnitIds = collectLedgerResidualUnitIds(rows);
     }
   }
   return material;
@@ -240,6 +243,7 @@ function verifyAllTicketCoverage(ticketsData, material) {
   const unitFindings = checkUnitCoverage({
     viewUnitIds: material && material.viewUnitIds ? material.viewUnitIds : [],
     ledgerUnitIds: material && material.ledgerUnitIds ? material.ledgerUnitIds : [],
+    residualUnitIds: material && material.residualUnitIds ? material.residualUnitIds : [],
     graph: material && material.graph ? material.graph : { nodes: [] },
     tickets: ticketsData,
   });

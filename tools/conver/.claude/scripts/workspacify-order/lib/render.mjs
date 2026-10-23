@@ -28,9 +28,17 @@ export const GRILL_GLYPH = '🟠';
 export const SEQUENCE_GLYPH = '🟡';
 export const FAILED_SEQUENCE_GLYPH = '❌';
 export const SMOOTH_GLYPH = '🟢';
+export const GRAPH_GLYPH = '🔵';
+export const BOUNDIFY_GLYPH = '🟣';
+export const SPLIT_GLYPH = '⚫️';
 
 /** The word the explanation field carries: a document mark, not a count. */
 export const EXPLANATION_TEXT = 'EXP';
+
+/** The three downstream fields are document marks: the artifact each command wrote. */
+export const GRAPH_TEXT = 'GRA';
+export const BOUNDIFY_TEXT = 'BOU';
+export const SPLIT_TEXT = 'SPL';
 /**
  * The value a numeric field prints when no record exists.
  *
@@ -40,7 +48,7 @@ export const EXPLANATION_TEXT = 'EXP';
 export const UNKNOWN_COUNT = '?';
 
 /** The field order is the pipeline order, so a line reads left to right as the work happened. */
-export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo']);
+export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
 /** Emoji presentation occupies two terminal columns. */
 export const EMOJI_COLUMNS = 2;
 
@@ -110,43 +118,64 @@ function renderLevelHeader(index, memberCount) {
  * is used when the producer recorded one; when it did not, the field prints `?` so the line
  * keeps one shape and never invents a number.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
+function generationCell(generation, glyph, label) {
+  return generation === null || generation === undefined
+    ? null
+    : { glyph, text: `${label}:${generation}` };
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function artifactCell(present, glyph, text) {
+  return present ? { glyph, text } : null;
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function educationCell(model) {
+  return generationCell(model.rootCounters.edu, EDU_GLYPH, 'EDU');
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function explanationCell(model, id) {
+  return model.explainedIds.has(id) ? { glyph: EXPLANATION_GLYPH, text: EXPLANATION_TEXT } : null;
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function grillCell(model, id) {
+  const generation = generationCell(model.grillGenerations.get(id), GRILL_GLYPH, 'GRI');
+  if (generation !== null) return generation;
+  return model.grilledIds.has(id) ? { glyph: GRILL_GLYPH, text: `GRI:${UNKNOWN_COUNT}` } : null;
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function sequenceCell(model, id) {
+  const verdict = model.sequenceVerdicts.get(id);
+  const judged = verdict?.state === SEQUENCE_VERDICT_COMPLETE || verdict?.state === SEQUENCE_VERDICT_FAILED;
+  const generation = model.distributionGenerations.get(id) ?? null;
+  if (generation === null && !judged) return null;
+  const value = generation === null ? UNKNOWN_COUNT : String(generation);
+  const glyph = verdict?.state === SEQUENCE_VERDICT_FAILED ? FAILED_SEQUENCE_GLYPH : SEQUENCE_GLYPH;
+  return { glyph, text: `SEQ:${value}` };
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function smoothCell(model) {
+  return generationCell(model.rootCounters.smo, SMOOTH_GLYPH, 'SMO');
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function cellFor(model, id, key) {
-  if (key === 'edu') {
-    return model.rootCounters.edu === null
-      ? null
-      : { glyph: EDU_GLYPH, text: `EDU:${model.rootCounters.edu}` };
+  switch (key) {
+    case 'edu': return educationCell(model);
+    case 'exp': return explanationCell(model, id);
+    case 'gri': return grillCell(model, id);
+    case 'seq': return sequenceCell(model, id);
+    case 'smo': return smoothCell(model);
+    case 'gra': return artifactCell(model.graphifiedIds.has(id), GRAPH_GLYPH, GRAPH_TEXT);
+    case 'bou': return artifactCell(model.boundifiedIds.has(id), BOUNDIFY_GLYPH, BOUNDIFY_TEXT);
+    case 'spl': return artifactCell(model.splitIds.has(id), SPLIT_GLYPH, SPLIT_TEXT);
+    default: return null;
   }
-  if (key === 'exp') {
-    return model.explainedIds.has(id)
-      ? { glyph: EXPLANATION_GLYPH, text: EXPLANATION_TEXT }
-      : null;
-  }
-  if (key === 'gri') {
-    const count = model.grillCounts.get(id) ?? null;
-    if (count !== null) return { glyph: GRILL_GLYPH, text: `GRI:${count}` };
-    return model.grilledIds.has(id)
-      ? { glyph: GRILL_GLYPH, text: `GRI:${UNKNOWN_COUNT}` }
-      : null;
-  }
-  if (key === 'seq') {
-    const verdict = model.sequenceVerdicts.get(id);
-    const count = model.distributionCounts.get(id)?.distributions ?? null;
-    const value = count === null ? UNKNOWN_COUNT : String(count);
-    if (verdict?.state === SEQUENCE_VERDICT_COMPLETE) {
-      return { glyph: SEQUENCE_GLYPH, text: `SEQ:${value}` };
-    }
-    if (verdict?.state === SEQUENCE_VERDICT_FAILED) {
-      return { glyph: FAILED_SEQUENCE_GLYPH, text: `SEQ:${value}` };
-    }
-    return null;
-  }
-  if (key === 'smo') {
-    return model.rootCounters.smo === null
-      ? null
-      : { glyph: SMOOTH_GLYPH, text: `SMO:${model.rootCounters.smo}` };
-  }
-  return null;
 }
 
 /**

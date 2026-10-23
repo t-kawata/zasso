@@ -46950,6 +46950,166 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-23"
+        },
+        {
+          "id": 309,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Stage generation counters and downstream completion marks in workspacify-order",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-309.md",
+          "background": "workspacify-order shows GRI from Status.json completedSessions and SEQ from SEQUENCES-DISTRIBUTIONS.json. Neither is an execution generation: a repeated DONE never increments completedSessions, and SEQ belongs to sequences-slice, which the grill never writes.\n\n### Goal\nThe implementation-order line reports how many times each stage ran and which downstream stages produced their artifacts: GRI is the grill execution generation, SEQ is the number of distribution generations opened inside the grill, and GRA/BOU/SPL mark the presence of the graphify, boundify and split artifacts.\n\n### Purpose\nA reader of the line must be able to tell a first run from a re-run and to see how far each package has gone down the pipeline without opening any file.\n\n### Motivation\ngaia-foundation was re-run through the grill and stayed at GRI:1 because the state machine counts only transitions into DONE. Its SEQ:1 was a 2026-10-20 sequences-slice record, not a distribution the grill performed. Both numbers described something other than the execution the user asked about.\n\n### Constraints\n- graphify-rfc, boundify-graph and split-to-tickets are not modified; their existing artifacts are read only.\n- Every reader stays total: an absent, unreadable or malformed record answers null and never throws.\n- Status.json stays backward compatible; files written before the new fields remain valid.\n- The three downstream fields are presence marks, not generation counters.",
+          "scope": [
+            "workspacify-order/lib/workspace.mjs — add GRAPH/DIRS_TREE/TICKETS artifact names and resolve an artifact stem from RFC.md, falling back to exactly one matching file; before: only EXPLAIN/RFC document probes; after: the same existence-only probes serve the three downstream stages; API: no exported signature changes, new exported constants and probe functions; schema: none; config: none; dependency: none",
+            "workspacify-order/lib/counters.mjs — add readGrillGeneration and readDistributionGeneration; before: completedSessions and SEQUENCES-DISTRIBUTIONS.distributions; after: generation fields with a documented fallback; API: two new exported readers; schema: reads optional integer fields; config: none; dependency: none",
+            "workspacify-order/lib/levels.mjs — replace grillCounts/distributionCounts with grillGenerations/distributionGenerations and add graphifiedIds/boundifiedIds/splitIds; before: four per-package fields; after: seven; API: buildModel return shape gains three fields and renames two; schema: none; config: none; dependency: none",
+            "workspacify-order/lib/render.mjs — GRI and SEQ read generation maps; add GRA/BOU/SPL glyphs and cells; FIELD_SEQUENCE becomes edu,exp,gri,seq,smo,gra,bou,spl; before: five fields; after: eight; API: exports three glyph constants; schema: none; config: none; dependency: none",
+            "grill-me-for-rfc/init.js — write grillGeneration 1 in the Status.json template; before: no generation field; after: every fresh status opens generation 1; API: none; schema: new optional field; config: none; dependency: none",
+            "grill-me-for-rfc/update-status.js — on set-state GRILLING increment grillGeneration only when the previous state is DONE; before: only completedSessions on DONE; after: the same transition also opens a grill generation; API: the JSON response gains grillGeneration; schema: new optional field; config: none; dependency: none",
+            "grill-me-for-rfc/render-distribution.mjs — add --record-generation; when it writes and the new map digest differs from Status.json.distributionDigest, store the digest and increment distributionGeneration; before: the renderer wrote only the RFC; after: it can also record the generation beside it; API: new optional CLI flag; schema: writes two optional Status.json fields; config: none; dependency: none",
+            "grill-me-for-rfc/check-all-schema.js — accept grillGeneration (integer >= 1) and distributionGeneration (integer >= 0) as optional fields; before: unknown fields were ignored; after: the two fields are validated when present; API: none; schema: validation only; config: none; dependency: none",
+            ".claude/commands/grill-me-for-rfc.md — STEP 8 write invocation passes --record-generation; the --check invocation does not; before: both invocations were identical; after: only the writing invocation opens a generation; API: none; schema: none; config: none; dependency: none",
+            "tests/workspacify-order and tests/grill-me-for-rfc — add contract tests and update the golden line; before: golden showed five fields; after: eight fields and generation counts; no production API change",
+            "Non-change: graphify-rfc, boundify-graph, split-to-tickets and update-step-status/update-boundify-step-status/update-split-step-status — no generation is added to these stages; only their existing artifacts are read",
+            "Non-change: smooth-sequences and educe-sequences generation records — SMO and EDU keep their current readers",
+            "Impact: any consumer that destructures the buildModel result must use the new field names; the change is contained to workspacify-order and its tests",
+            "Impact: the line widens by three marks; RULE_WIDTH and the no-wrap assertion move together",
+            "Impact: no performance change; each probe is one existsSync per package"
+          ],
+          "testUnit": [
+            "UT: [Normal] init writes grillGeneration 1 into a fresh Status.json",
+            "UT: [Normal] set-state GRILLING from DONE increments grillGeneration by one and the JSON response reports the new value",
+            "UT: [Normal] render-distribution --record-generation increments distributionGeneration and stores the map digest when it writes a changed map",
+            "UT: [Normal] cellFor renders GRI from grillGeneration and SEQ from distributionGeneration",
+            "UT: [Normal] GRA/BOU/SPL appear only when stem-GRAPH.json, stem-Dirs-Tree.json and Tickets.json exist",
+            "UT: [Normal] FIELD_SEQUENCE orders edu, exp, gri, seq, smo, gra, bou, spl and trims absent fields at both edges",
+            "UT: [Error] set-state GRILLING from REVIEWING leaves grillGeneration unchanged",
+            "UT: [Error] set-state GRILLING from GRILLING leaves grillGeneration unchanged",
+            "UT: [Error] render-distribution --record-generation does not increment when wrote is false",
+            "UT: [Error] render-distribution --record-generation does not increment when the written map digest equals the stored digest",
+            "UT: [Error] render-distribution without --record-generation never writes Status.json",
+            "UT: [Error] a malformed Status.json yields null without throwing",
+            "UT: [Boundary] readGrillGeneration falls back to completedSessions when the field is absent",
+            "UT: [Boundary] readDistributionGeneration falls back to one when the RFC carries a distribution-map and the field is absent",
+            "UT: [Boundary] the stem resolver uses the RFC.md stem and falls back to a single matching artifact",
+            "UT: [Boundary] two matching GRAPH artifacts yield no mark instead of guessing",
+            "UT: [Boundary] displayWidth returns two for U+26AB U+FE0F so the black circle occupies the same two columns as the other glyphs",
+            "UT: [Invariant] the rendered block stays aligned and no line exceeds the rule width with the three new glyphs present",
+            "UT: [Invariant] the grillGeneration value never decreases across any sequence of set-state calls"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] run.mjs -> buildModel -> render over a synthetic workspace containing Status.json generation fields and the three downstream artifacts",
+            "IT: [Verification] the emitted line shows GRI:2 and SEQ:2 after two grill generations and two changed distributions, and shows GRA BOU SPL when the three artifacts exist",
+            "IT: [Prerequisites] a temporary workspace with Tree.json and Allocate.json manifests, one package directory, and fabricated Status.json plus artifact files; no network and no real grill run",
+            "IT: [Related tickets] PX-282 (counter display), PX-307/PX-308 (distribution chain), PX-309 (this ticket)",
+            "IT: [Verification] a package with no downstream artifacts shows no GRA/BOU/SPL and the earlier fields keep their columns"
+          ],
+          "testExceptions": [
+            "Physical terminal glyph width differs between fonts and terminal emulators, so a pixel-level assertion cannot test it; the deterministic contract is displayWidth, and displayWidth returning two for U+26AB U+FE0F is unit-tested as the substitute. This is an external rendering dependency, not a design defect.",
+            "A pixel-level assertion over the rendered line depends on the terminal emulator and font in use, so it cannot test the line deterministically; the line content and column arithmetic are asserted instead, and the glyph width is covered by the displayWidth unit test. This is an external dependency, not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/workspacify-order/lib/workspace.mjs",
+            ".claude/scripts/workspacify-order/lib/counters.mjs",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/scripts/workspacify-order/lib/render.mjs",
+            ".claude/scripts/grill-me-for-rfc/init.js",
+            ".claude/scripts/grill-me-for-rfc/update-status.js",
+            ".claude/scripts/grill-me-for-rfc/render-distribution.mjs",
+            ".claude/scripts/grill-me-for-rfc/check-all-schema.js"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] After two grill runs (DONE -> GRILLING twice), two changed distribution renders, and the three downstream artifacts, the line shows GRI:2 SEQ:2 GRA BOU SPL.",
+            "[Error case] A corrupt Status.json or an ambiguous artifact stem omits the affected field; the plan still prints and exits 0.",
+            "[Edge case] A no-op render does not open a distribution generation, and a REVIEWING -> GRILLING loop does not open a grill generation."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "grill Status.json state machine",
+              "precondition": "Status.json exists with state DONE and grillGeneration G",
+              "postcondition": "set-state GRILLING writes grillGeneration G+1 and the JSON response reports it",
+              "invariant": "grillGeneration is an integer >= 1 and never decreases"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "grill init",
+              "precondition": "a package directory has no Status.json",
+              "postcondition": "init writes state GRILLING and grillGeneration 1",
+              "invariant": "a fresh status has exactly one generator field value"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "grill STEP 8 render",
+              "precondition": "render-distribution --record-generation runs while Status.json carries distributionGeneration D and distributionDigest X",
+              "postcondition": "a write whose map digest differs from X stores the new digest and D+1; otherwise D is unchanged",
+              "invariant": "distributionGeneration increments only when a new map digest is written"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "workspacify-order counters",
+              "precondition": "a package Status.json lacks the generation fields",
+              "postcondition": "GRI falls back to completedSessions and SEQ to one when a distribution-map exists",
+              "invariant": "every reader is total and answers null for unreadable input"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "workspacify-order workspace probes",
+              "precondition": "a package directory contains zero or more stage artifacts",
+              "postcondition": "GRA is present iff stem-GRAPH.json exists, BOU iff stem-Dirs-Tree.json exists, SPL iff Tickets.json exists",
+              "invariant": "an ambiguous stem yields no mark and the plan still prints"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "workspacify-order layout",
+              "precondition": "the model carries any subset of the eight fields",
+              "postcondition": "fields render in edu exp gri seq smo gra bou spl order with absent edge fields trimmed",
+              "invariant": "no rendered line exceeds the rule width and columns align"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) presence fields (C005/C006) with model and layout tests; 2) grill generation writer and init (C001/C002); 3) render-distribution --record-generation (C003); 4) read path and fallbacks (C004); 5) command procedure and golden update.\n- [Risks] The three new marks widen the line; RULE_WIDTH and the no-wrap test must move in the same step. Renaming grillCounts/distributionCounts touches every consumer, so the compiler is not available: search the whole tests tree before renaming.\n- [Caveats] The fallback values are documented lower bounds, not reconstructed history. A package whose distribution map predates the field starts SEQ at 1 and increments from there.\n- [Open items] Whether GRA/BOU/SPL should later become generation counters is deliberately out of scope; that would require changing the three stage status writers.\n- [Future improvements] A single workspace-level generation ledger would remove the per-file fallbacks, but it would add a new artifact and a new writer.\nImplementation summary:\n- Changed files: workspacify-order/lib/{workspace,counters,levels,render}.mjs; grill-me-for-rfc/{init,update-status,check-all-schema}.js; grill-me-for-rfc/render-distribution.mjs; commands/grill-me-for-rfc.md; tests/workspacify-order/{unit,integration}; tests/grill-me-for-rfc\n- Key changes: generation readers with legacy fallbacks; artifact probes with a single-match stem rule; eight-field layout; --record-generation flag\n- Test results: 2,308 tests, 2,306 pass, 1 skipped, 0 fail; the single failure is the pre-existing baseline 'the refresh writes the two view files', confirmed on the stashed tree\n- Quality checks: 0 issues\nReview report (PX-309):\n- Crimes/stubs: 0 open crimes, 0 [::STUB::], 0 terminal-excuse markers, 0 [::AMBIGUOUS::].\n- Contracts C001-C006: each has a failing-first test with a @verifies header; verify-red-coverage reported 6/6 covered.\n- Changed-code scan: no todo!/unimplemented!/placeholder/commented-out implementation; no debug output.\n- Behaviour reviewed: GRI moves only on DONE to GRILLING; a review loop and a resume do not. SEQ moves only when a changed map digest is written with --record-generation. GRA/BOU/SPL are existence marks and an ambiguous stem yields none. Every reader answers null rather than throwing.\n- Scope note: the same working tree also carries the earlier distribution-ledger bridge fix (declared-residual rows and multi-owner cells), which the user requested before this ticket and which the annotator attributes to PX-309. It is committed together and reported here rather than silently bundled.\n- Quality: the old grillCounts/distributionCounts names are gone; artifact file names are constants; cellFor dispatches to one resolver per stage.\n- Assumption: the fallback values are documented lower bounds, not reconstructed history.",
+          "invariants": "- [Normal condition] grillGeneration is an integer >= 1, initialized to 1 by init and incremented by exactly one on DONE to GRILLING.\n- [Error invariant] An absent, unreadable or malformed Status.json never throws; the affected field is omitted or falls back to the documented lower bound.\n- [Internal state invariant] FIELD_SEQUENCE is the single order source and cellFor is the single per-field resolver; buildFieldLayout and renderFields derive everything from them.\n- [Boundary invariant] Absent fields at the edges are trimmed; an absent middle field keeps its column width; no rendered line exceeds RULE_WIDTH and columns align.\n- [Error invariant] distributionGeneration increments only when a changed map digest is actually written; a no-op render leaves Status.json untouched.",
+          "instrumentation": "- Logging: none added. update-status.js and render-distribution.mjs keep their JSON stdout so callers can assert the written generation values.\n- Metrics: none.\n- Error tracking: the readers return null rather than throwing; no new error surface.\n- Health check: workspacify-order itself is the visible check; the counters are its output.\nReview static quality check: passed (0 issues).\nTranslatability greps: no noun-function, generic-variable or debug-output findings in the changed code.\nTests: impact set 2,308 tests, 2,306 pass, 1 skipped, 1 failure; the failure is the pre-existing baseline 'the refresh writes the two view files and leaves the session documents alone', reproduced on the stashed tree before this ticket.\nProvenance: 35 changed files verified annotated; 0 [::AMBIGUOUS::] markers.",
+          "investigation": "Evidence gathered from the current source:\n- `.claude/scripts/workspacify-order/lib/counters.mjs:85` reads `Status.json.completedSessions`; `:92` reads `SEQUENCES-DISTRIBUTIONS.json` through `readDistributionRecord`. Both are the wrong source for the requested generations.\n- `.claude/scripts/workspacify-order/lib/levels.mjs:334-349` builds `grilledIds` from `holdsRfc`, `grillCounts` from `readCompletedSessions`, and `distributionCounts` from `readPackageDistribution`. The model is returned at `:353-366`.\n- `.claude/scripts/workspacify-order/lib/render.mjs:28` defines `FIELD_SEQUENCE` as edu,exp,gri,seq,smo; `:118-141` is `cellFor`, where GRI reads `grillCounts` and SEQ reads `distributionCounts` gated by the sequence verdict.\n- `.claude/scripts/workspacify-order/lib/workspace.mjs:17-78` already holds the document-name constants and the existence-only probes `holdsExplanation` and `holdsRfc` that the new probes mirror.\n- `.claude/scripts/workspacify-order/lib/levels.mjs:83` treats a variation selector as a two-column glyph, so U+26AB U+FE0F is measured as two columns.\n- `.claude/scripts/grill-me-for-rfc/update-status.js:81-88` increments `completedSessions` only when the previous state is not DONE; `:99-104` is the `set-state` branch. `.claude/scripts/grill-me-for-rfc/init.js:211` writes the template with `state: \"GRILLING\"` and no generation field.\n- `.claude/scripts/grill-me-for-rfc/render-distribution.mjs:327-355` is the CLI entry; `renderDistribution` returns the map with its digest and `wrote`.\n- Artifact names confirmed in the commands: graphify writes `<stem>-GRAPH.json` (`commands/graphify-rfc.md:50`), boundify writes `<stem>-Dirs-Tree.json` (`commands/boundify-graph.md:49`), split writes `Tickets.json` in the RFC directory (`commands/split-to-tickets.md:47`). Split's cleanup never removes the status file, but the ticket uses the output artifact as the user directed.\n- No graph, Dirs-Tree or Tickets artifact exists in gaia yet, so the new marks start absent there.",
+          "boyScoutPlan": "Touched code is left more translatable:\n- Extract the three artifact probes into `workspace.mjs` beside `holdsRfc` and name their file names as constants, so `levels.mjs` never spells a filename.\n- Split `cellFor`'s work by stage: one resolver per pipeline field, with `cellFor` dispatching by key. The existing function already has six branches and would reach nine.\n- Name the fallback numbers (`FIRST_GENERATION`, `DISTRIBUTION_FALLBACK_WITH_MAP`) instead of literal 1.\n- Keep the readers total and document the fallback rule on each exported function.\n- Remove the now-false `grillCounts`/`distributionCounts` names rather than leaving aliases.",
+          "created_at": "2026-10-23",
+          "updated_at": "2026-10-23",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 set-state GRILLING from DONE opens a new grill generation\n```js\nconst directory = mkdtempSync(join(tmpdir(), 'px309-status-'));\nwriteFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE', grillGeneration: 2, completedSessions: 1, researchPath: '', rfcPath: 'RFC.md', rfcDir: directory, reviewLoopCount: 0 }));\nexecFileSync(process.execPath, [UPDATE_STATUS, directory, 'set-state', 'GRILLING'], { encoding: 'utf8' });\nconst status = JSON.parse(readFileSync(join(directory, 'Status.json'), 'utf8'));\nassert.equal(status.grillGeneration, 3);\nassert.equal(status.state, 'GRILLING');\n```",
+            "UT: [Error] C001 REVIEWING to GRILLING and GRILLING to GRILLING leave the generation unchanged\n```js\nwriteFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'REVIEWING', grillGeneration: 3 }));\nexecFileSync(process.execPath, [UPDATE_STATUS, directory, 'set-state', 'GRILLING'], { encoding: 'utf8' });\nassert.equal(JSON.parse(readFileSync(join(directory, 'Status.json'), 'utf8')).grillGeneration, 3);\n```",
+            "UT: [Normal] C002 init writes grillGeneration one into a fresh Status.json\n```js\nconst root = mkdtempSync(join(tmpdir(), 'px309-init-'));\nconst rfcDir = join(root, 'rfc');\nconst materialDir = join(root, 'material');\nmkdirSync(rfcDir);\nmkdirSync(materialDir);\nwriteFileSync(join(materialDir, 'seed.md'), '# seed\\n');\nexecFileSync(process.execPath, [INIT, rfcDir, materialDir], { encoding: 'utf8' });\nconst status = JSON.parse(readFileSync(join(rfcDir, 'Status.json'), 'utf8'));\nassert.equal(status.state, 'GRILLING');\nassert.equal(status.grillGeneration, 1);\n```",
+            "UT: [Normal] C003 a changed map written with --record-generation increments distributionGeneration and stores the digest\n```js\nconst result = renderDistribution(rfcText, view);\nassert.equal(result.ok, true);\nwriteFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'GRILLING', distributionGeneration: 0 }));\nrecordDistributionGeneration(join(directory, 'RFC.md'), result.map);\nconst status = JSON.parse(readFileSync(join(directory, 'Status.json'), 'utf8'));\nassert.equal(status.distributionGeneration, 1);\nassert.equal(status.distributionDigest, result.map.digest);\n```",
+            "UT: [Error] C003 a no-op render and an unchanged digest do not open a generation\n```js\nrecordDistributionGeneration(rfcPath, map);\nconst before = JSON.parse(readFileSync(statusPath, 'utf8'));\nrecordDistributionGeneration(rfcPath, map);\nconst after = JSON.parse(readFileSync(statusPath, 'utf8'));\nassert.equal(after.distributionGeneration, before.distributionGeneration);\nassert.equal(after.distributionDigest, before.distributionDigest);\n```",
+            "UT: [Boundary] C004 absent generation fields fall back to completedSessions and to one when a map exists\n```js\nwriteFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE', completedSessions: 4 }));\nwriteFileSync(join(directory, 'RFC.md'), '```json distribution-map\\n{}\\n```\\n');\nassert.equal(readGrillGeneration(directory), 4);\nassert.equal(readDistributionGeneration(directory), 1);\nwriteFileSync(join(directory, 'Status.json'), '{not json');\nassert.equal(readGrillGeneration(directory), null);\nassert.equal(readDistributionGeneration(directory), 1);\n```",
+            "UT: [Boundary] C005 the three artifacts are probed by existence and an ambiguous stem yields no mark\n```js\nwriteFileSync(join(directory, 'RFC-GRAPH.json'), '{}');\nassert.equal(holdsGraphArtifact({ root, packagePath }), true);\nassert.equal(holdsBoundifyArtifact({ root, packagePath }), false);\nwriteFileSync(join(directory, 'OTHER-GRAPH.json'), '{}');\nassert.equal(holdsGraphArtifact({ root, packagePath }), true);\nassert.equal(artifactStem({ root, packagePath }), 'RFC');\n```",
+            "UT: [Invariant] C006 the eight fields render in pipeline order and the line stays inside the computed width\n```js\nconst line = renderPlan(model).split('\\n').find((entry) => entry.includes('package-1'));\nassert.match(line, /🟤 EDU:2 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:1 🔵 GRA 🟣 BOU ⚫️ SPL/);\nassert.equal(maxLineWidth(renderPlan(model)), Math.max(...renderPlan(model).split('\\n').map((entry) => entry.length)));\nassert.equal(displayWidth('⚫️'), 2);\n```"
+          ],
+          "startedAt": "2026-10-23",
+          "changes": [
+            {
+              "before": "GRI read Status.json.completedSessions and SEQ read SEQUENCES-DISTRIBUTIONS.json",
+              "after": "GRI reads Status.json.grillGeneration and SEQ reads Status.json.distributionGeneration, with documented fallbacks",
+              "description": "The display counters now report execution generations instead of session completions and sequences-slice records."
+            },
+            {
+              "before": "grill status had no generation field",
+              "after": "init writes grillGeneration 1; update-status increments it only on DONE to GRILLING",
+              "description": "A re-run opens a generation; a review loop and a resume do not."
+            },
+            {
+              "before": "render-distribution wrote only the RFC",
+              "after": "render-distribution --record-generation records distributionGeneration and distributionDigest when a changed map is written",
+              "description": "The grill records one generation per changed distribution; a standalone render records nothing."
+            },
+            {
+              "before": "the line carried five fields",
+              "after": "the line carries edu, exp, gri, seq, smo, gra, bou, spl",
+              "description": "GRA/BOU/SPL mark the existence of the graphify, boundify and split artifacts."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-23"
         }
       ]
     },

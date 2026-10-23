@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 
 const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
-const { collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
+const { collectLedgerResidualUnitIds, collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
 const { findSingleSiblingPath } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
@@ -80,7 +80,7 @@ function derivePackagePaths(ticketsJsonPath) {
 }
 
 /** The unit material the CLI supplied, or derived from the Tickets.json beside it. */
-// [::TICKET::] PX-306, PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-309) --for-spec --no-implementation-order`.
 function readUnitMaterial(argv) {
   const ticketsJsonPath = argv.find((entry) => !entry.startsWith("--")) ?? null;
   const derived = ticketsJsonPath === null ? {} : derivePackagePaths(ticketsJsonPath);
@@ -107,11 +107,14 @@ function readUnitMaterial(argv) {
     const text = fs.readFileSync(path.resolve(ledgerPath), "utf8");
     if (ledgerPath.endsWith(".md")) {
       const { readLedgerRows } = require("../sequences-slice/lib/distribution-ledger.mjs");
-      material.ledgerUnitIds = collectLedgerUnitIds(readLedgerRows(text) || []);
+      const rows = readLedgerRows(text) || [];
+      material.ledgerUnitIds = collectLedgerUnitIds(rows);
+      material.residualUnitIds = collectLedgerResidualUnitIds(rows);
     } else {
       const document = JSON.parse(text);
       const rows = Array.isArray(document) ? document : document.rows || document.ledger || [];
       material.ledgerUnitIds = collectLedgerUnitIds(rows);
+      material.residualUnitIds = collectLedgerResidualUnitIds(rows);
     }
   }
   return material;
@@ -224,7 +227,7 @@ function viewCarriesUnits(material) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
@@ -240,6 +243,7 @@ function verifyAllTicketCoverage(ticketsData, material) {
   const unitFindings = checkUnitCoverage({
     viewUnitIds: material && material.viewUnitIds ? material.viewUnitIds : [],
     ledgerUnitIds: material && material.ledgerUnitIds ? material.ledgerUnitIds : [],
+    residualUnitIds: material && material.residualUnitIds ? material.residualUnitIds : [],
     graph: material && material.graph ? material.graph : { nodes: [] },
     tickets: ticketsData,
   });

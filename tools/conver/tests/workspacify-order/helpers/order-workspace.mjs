@@ -95,6 +95,7 @@ function levelsFromEdges(packageIds, edges) {
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function materializeOrderWorkspace(options = {}) {
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const {
     packages = ['pkg-0001'],
     edges = [],
@@ -125,8 +126,11 @@ export function materializeOrderWorkspace(options = {}) {
     if (explainedPackages.has(id)) writeFileSync(join(directory, EXPLAIN_FILE_NAME), '');
     if (grilledPackages.has(id)) writeFileSync(join(directory, RFC_FILE_NAME), '');
     const counter = counters[id];
-    if (counter?.completedSessions !== undefined) {
-      writeFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE', completedSessions: counter.completedSessions }, null, 2));
+    const statusFields = ['completedSessions', 'grillGeneration', 'distributionGeneration']
+      .filter((field) => counter?.[field] !== undefined)
+      .map((field) => [field, counter[field]]);
+    if (statusFields.length > 0) {
+      writeFileSync(join(directory, 'Status.json'), JSON.stringify({ state: 'DONE', ...Object.fromEntries(statusFields) }, null, 2));
     }
     if (counter?.distributions !== undefined) {
       writeFileSync(join(directory, DISTRIBUTIONS_FILE_NAME), JSON.stringify({
