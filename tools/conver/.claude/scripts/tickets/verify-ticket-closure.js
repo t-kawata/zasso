@@ -3,7 +3,10 @@
 /**
  * verify-ticket-closure.js — Verify ticket contract closure (Gate L2)
  *
- * Usage: node verify-ticket-closure.js --tickets=<path> --graph=<path>
+ * Usage: node verify-ticket-closure.js --tickets=<path> [--graph=<path>] [--registry=<path>]
+ *
+ * The graph is derived from the Tickets directory when omitted; the registry is
+ * discovered at the nearest workspace ancestor when omitted.
  *
  * Verifies:
  * 1. Intra-ticket closure: all postcondition→precondition chains within tickets
@@ -16,25 +19,35 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  deriveGraphPathFromTickets,
+  findAllocateManifest,
+} = require('../lib/package-artifacts');
 
 /**
  * Parse CLI arguments
  */
 // [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
-function parseArgs() {
-  const args = process.argv.slice(2);
+function parseArgs(argv = process.argv.slice(2)) {
   let ticketsPath, graphPath, registryPath = null;
-  for (const a of args) {
+  for (const a of argv) {
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
     if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
   }
-  if (!ticketsPath || !graphPath) {
-    console.error('[ERROR] --tickets=<path> and --graph=<path> are required');
+  if (!ticketsPath) {
+    console.error('[ERROR] --tickets=<path> is required');
     console.error('Cause: Missing arguments');
-    console.error('Action: Provide both --tickets and --graph paths');
+    console.error('Action: Provide the Tickets.json path');
     process.exit(1);
   }
+  if (!graphPath) graphPath = deriveGraphPathFromTickets(ticketsPath);
+  if (!graphPath) {
+    console.error('[ERROR] Cannot derive GRAPH.json beside ' + ticketsPath);
+    console.error('Action: pass --graph=<path> or keep exactly one *-GRAPH.json beside Tickets.json');
+    process.exit(1);
+  }
+  if (registryPath === null) registryPath = findAllocateManifest(path.dirname(ticketsPath));
   return { ticketsPath, graphPath, registryPath };
 }
 
@@ -236,4 +249,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyClosure };
+module.exports = { verifyClosure, parseArgs };

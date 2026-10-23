@@ -36,6 +36,11 @@ const treeBuilder = require("./boundify-tree.js");
 const { validateFiles } = require("./validate-dirs-tree-schema.js");
 const { createDefaultStatus, atomicWrite } = require("./update-boundify-step-status.js");
 const { toHomeRelative } = require("../lib/path-utils");
+const {
+  buildDistributionIndex,
+  collectNodePaths,
+  verifyDistributionCoverage,
+} = require("./lib/distribution-index.js");
 
 // ============================================================
 // Constants
@@ -412,6 +417,7 @@ function resolveOutputPaths(graphDir, basename) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function main(testArgs) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs);
@@ -496,6 +502,27 @@ function main(testArgs) {
     dependencyDirections: allDependencyDirections,
     warnings: allWarnings,
   };
+
+  // The distribution index is a projection of mappedNodeIds, not an authored document.
+  // It is written only when graphify recorded a map digest, so a package that predates
+  // the map keeps its old Dirs-Tree shape.
+  if (typeof graph.distributionDigest === "string") {
+    dirsTree.distribution = buildDistributionIndex(graph, collectNodePaths(trees), graph.distributionDigest);
+    const coverage = verifyDistributionCoverage(dirsTree, graph);
+    if (!coverage.ok) {
+      const details = [
+        coverage.missing.length > 0 ? `MISSING_UNIT_AT_LAYER: ${coverage.missing.join(", ")}` : null,
+        coverage.invented.length > 0 ? `INVENTED_UNIT: ${coverage.invented.join(", ")}` : null,
+        coverage.unmapped.length > 0 ? `MISSING_UNIT_AT_LAYER (unmapped): ${coverage.unmapped.join(", ")}` : null,
+      ].filter(Boolean).join("\n");
+      reportError(
+        "Dirs-Tree distribution coverage failed",
+        details,
+        "Map every unit-bearing node to a directory or file, or remove the unit from the graph",
+      );
+      process.exit(EXIT_FAILURE);
+    }
+  }
 
   // ---- Step 6: Schema validation (file-based validation after writing) ----
   const outputPaths = resolveOutputPaths(graphDir, basename);

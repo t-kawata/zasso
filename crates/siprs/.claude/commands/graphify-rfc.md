@@ -81,7 +81,7 @@ Root: `.claude/scripts/rfc-graph/`.
 | `analyze-source-structure.js <source>` | source structure; 3-axis split aid |
 | `show-graph-summary-markdown.js --graph=<path> --source=<path>` | kind-organized graph summary |
 
-Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `tickets/verify-graph-contracts.js`, `query-all-nodes.sh`, `get-node-for-check.js`. Preserve their invocation contracts below; Script List is not an exclusive tool allow-list.
+Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `attach-unit-ids.js`, `tickets/verify-graph-contracts.js`, `query-all-nodes.sh`, `get-node-for-check.js`. Preserve their invocation contracts below; Script List is not an exclusive tool allow-list.
 
 ## Graph Schema Definitions
 
@@ -241,6 +241,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
 node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
 node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
+node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1"
 node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
@@ -248,6 +249,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}`.
+
+`attach-unit-ids.js` reads the `distribution-map` block from `$1` when present, matches each unit's section against a node heading exactly, attaches the unit, and writes `distributionDigest`. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`. `/graphify-rfc` still reads only `RFC.md`; no sidecar is passed.
 
 ### Error Recovery
 

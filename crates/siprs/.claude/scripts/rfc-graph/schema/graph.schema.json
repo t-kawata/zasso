@@ -10,6 +10,11 @@
       "type": "string",
       "description": "プロジェクト全体の主要プログラミング言語（例: \"rust\"）。graphify 側で静的に確定する。PX-25 以降の boundify パイプラインで使用。"
     },
+    "distributionDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "The digest of the RFC distribution-map this graph was built from. Optional: a graph that predates the map remains valid."
+    },
     "nodes": { "type": "array", "items": { "$ref": "node.schema.json" } },
     "edges": { "type": "array", "items": { "$ref": "edge.schema.json" } }
   }

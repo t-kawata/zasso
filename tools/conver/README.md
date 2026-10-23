@@ -319,9 +319,9 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - 循環依存の検出と警告
 - **逆対応（B1/B2/B3）**: 逆モードの処理はファイルを生成せず、欠けている `Initial Design Artifact` ヘッダを付与し、差分をヘッダのみに制限します。**既存ヘッダは1バイトも書き換えません**（最高法規4）。`--apply` を付けない限り、測った木には何も書きません
 
-#### `/split-to-tickets <RFCファイルパス> <GRAPHファイルパス> <Dirs-Treeファイルパス>`
+#### `/split-to-tickets <RFCファイルパス>`
 
-設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
+設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。GRAPH・Dirs-Tree・Tickets.json・SPLIT status は RFC のパスから命名規則で導出されるため、引数は RFC 1 本だけです。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
 
 - **機械的フェーズ設計**: `phasify-graph-and-dirs-files-tree.js` が GRAPH と Dirs-Tree を入力に、重み付きトポロジカルソート + SCC 縮約で全ノードを実装フェーズへグループ化
 - **1チケット・1不変条件**: ノード群を安全な I/O 境界でチケットに束ね、各チケットに `nodeIds` / `contracts` / `default_files` を付与

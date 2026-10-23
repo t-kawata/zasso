@@ -9,6 +9,7 @@
  * `subChecks` is the same information in family order.
  */
 import { collectBoundaryClauses, collectContributionCompleteness, collectEnumerationIntegrity, collectOperationEnvelope, collectArtifactViewConsistency } from './checks-layer-a.mjs';
+import { collectDistributionMap } from './checks-distribution-map.mjs';
 import { collectCrossingContracts } from './checks-layer-b.mjs';
 import { collectDangers } from './checks-danger.mjs';
 import { CHECK_FAMILY_COUNT, CHECK_REGISTRY } from './check-status.mjs';
@@ -23,6 +24,7 @@ export { CHECK_FAMILY_COUNT, CHECK_REGISTRY };
  */
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export function evaluateCheckRegistry(index) {
   const results = [
     collectEnumerationIntegrity(index),
@@ -32,6 +34,7 @@ export function evaluateCheckRegistry(index) {
     collectArtifactViewConsistency(index),
     collectCrossingContracts(index),
     collectDangers(index),
+    collectDistributionMap(index),
   ];
   const subChecks = results.flatMap((result) => result.subChecks);
   const blocked = subChecks

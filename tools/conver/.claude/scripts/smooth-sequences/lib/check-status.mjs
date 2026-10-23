@@ -123,6 +123,7 @@ function countBoundaryGrounds(index) {
 
 /** Every check id, in the order the report lists its family. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export const CHECK_REGISTRY = Object.freeze([
   check('S1.duplicate-id', 'enumeration', {
     requires: [SURFACES.OPERATIONS, SURFACES.SEQUENCES, SURFACES.STEPS],
@@ -253,6 +254,21 @@ export const CHECK_REGISTRY = Object.freeze([
     requires: [SURFACES.PACKAGE_VIEWS, SURFACES.SEQUENCES],
     claims: 'spec',
     denominator: countRealizedSequences,
+  }),
+  check('S7.distribution-map', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS],
+    claims: 'spec',
+    denominator: (index) => countRows(index.packages),
+  }),
+  check('S7.owner-role-undeclared', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS],
+    claims: 'spec',
+    denominator: (index) => countRows(index.packages),
+  }),
+  check('S7.root-unit-uncovered', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.OPERATIONS],
+    claims: 'spec',
+    denominator: countActiveOperations,
   }),
   check('S5.crossing-boundary-unknown', 'meshing', {
     requires: [SURFACES.STEP_CROSSINGS],

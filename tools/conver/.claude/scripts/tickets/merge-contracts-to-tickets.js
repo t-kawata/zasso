@@ -3,7 +3,10 @@
 /**
  * merge-contracts-to-tickets.js — Merge edge contracts into ticket contracts
  *
- * Usage: node merge-contracts-to-tickets.js <Tickets.json> <GRAPH.json>
+ * Usage: node merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>]
+ *
+ * The graph is derived from the Tickets directory when omitted; the registry is
+ * discovered at the nearest workspace ancestor when omitted.
  *
  * For each ticket, collects contracts from all edges between its nodeIds.
  * Contracts that are internally closed (source.postcondition === target.precondition
@@ -16,24 +19,39 @@
 const fs = require('fs');
 const path = require('path');
 const { isUnitId } = require('../rfc-graph/lib/unit-ids.mjs');
+const {
+  deriveGraphPathFromTickets,
+  findAllocateManifest,
+} = require('../lib/package-artifacts');
 
 /**
  * Parse CLI arguments
  */
 // [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
-function parseArgs() {
-  const args = process.argv.slice(2).filter((entry) => !entry.startsWith('--registry='));
-  const registryArg = process.argv.slice(2).find((entry) => entry.startsWith('--registry='));
-  if (args.length < 2) {
-    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> <GRAPH.json> [--registry=<ALLOCATE-MANIFEST.json>]');
+function parseArgs(argv = process.argv.slice(2)) {
+  const args = argv.filter((entry) => !entry.startsWith('--registry='));
+  const registryArg = argv.find((entry) => entry.startsWith('--registry='));
+  if (args.length < 1) {
+    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>]');
     console.error('Cause: Missing arguments');
-    console.error('Action: Provide Tickets.json path and GRAPH.json path');
+    console.error('Action: Provide the Tickets.json path');
+    process.exit(1);
+  }
+  const ticketsPath = path.resolve(args[0]);
+  const graphPath = args.length >= 2
+    ? path.resolve(args[1])
+    : deriveGraphPathFromTickets(ticketsPath);
+  if (!graphPath) {
+    console.error('[ERROR] Cannot derive GRAPH.json beside ' + ticketsPath);
+    console.error('Action: pass GRAPH.json explicitly or keep exactly one *-GRAPH.json beside Tickets.json');
     process.exit(1);
   }
   return {
-    ticketsPath: path.resolve(args[0]),
-    graphPath: path.resolve(args[1]),
-    registryPath: registryArg === undefined ? null : path.resolve(registryArg.slice('--registry='.length)),
+    ticketsPath,
+    graphPath,
+    registryPath: registryArg === undefined
+      ? findAllocateManifest(path.dirname(ticketsPath))
+      : path.resolve(registryArg.slice('--registry='.length)),
   };
 }
 
@@ -214,4 +232,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { mergeContracts, verifyMergedBoundaryContracts };
+module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs };

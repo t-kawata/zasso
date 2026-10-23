@@ -668,6 +668,15 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 
 ### STEP 8: RFC Completion Declaration
 
+**Distribution map render.** After the RFC body is authored and before the final gates, run the renderer from the package directory. It bootstraps the `distribution-map` block from the existing Distribution ledger on the first run, regenerates the ledger and the managed unit anchors from the map, and writes nothing on failure:
+
+```bash
+node .claude/scripts/grill-me-for-rfc/render-distribution.mjs --check
+node .claude/scripts/grill-me-for-rfc/render-distribution.mjs
+```
+
+The renderer is the only writer of the ledger, the map block and the managed anchors. A view with units and no ledger row fails with the unit named; the author adds the row and re-runs. A package with no `SEQUENCES.json` writes nothing.
+
 gate (all 9 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" $ARGUMENTS` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
 
 The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.

@@ -116,7 +116,7 @@ function indexRecords(records, rejected, kind) {
 
 /** The decision for one obligation. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-297, PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-303) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297, PX-303, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-303|PX-306) --for-spec --no-implementation-order`.
 function decideObligation(obligation, item, record, attack, context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const base = {
@@ -161,7 +161,9 @@ function decideObligation(obligation, item, record, attack, context) {
   if (typeof obligation.id === 'string' && obligation.id.startsWith('FALSIFY:')) {
     if (attack === undefined) return { ...base, reason: 'NO_ATTACK' };
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const result = validateAttackRecord(attack, null, item, context.validateOptions);
+    // A FALSIFY obligation has no judgment basis to anchor against; its claim is the
+    // counterexample itself, which validateFalsificationClaim checks against the subject.
+    const result = validateAttackRecord(attack, null, item, { ...context.validateOptions, requireAnchor: false });
     if (!result.ok) {
       context.rejected.push({ record: attack, obligationId: obligation.id, code: result.code, problems: result.problems });
       return { ...base, reason: result.code };
@@ -201,7 +203,11 @@ function decideObligation(obligation, item, record, attack, context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const effort = context.effortByObligation.get(obligation.id);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const effortResult = validateEffortTrace(effort, { ...item, verdict: record.verdict });
+    const effortResult = validateEffortTrace(effort, { ...item, verdict: record.verdict }, {
+      verdict: record.verdict,
+      requireAnchor: context.validateOptions.requireAnchor === true,
+      seenEffortSignatures: context.seenEffortSignatures,
+    });
     if (!effortResult.ok) {
       context.rejected.push({ record: effort ?? null, obligationId: obligation.id, code: effortResult.code, problems: [effortResult.problem] });
       context.countRejection(effortResult.code);
@@ -261,7 +267,7 @@ function decideObligation(obligation, item, record, attack, context) {
   }
   if (attack !== undefined) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const attackResult = validateAttackRecord(attack, record, item);
+    const attackResult = validateAttackRecord(attack, record, item, context.validateOptions);
     if (!attackResult.ok) {
       context.rejected.push({ record: attack, obligationId: obligation.id, code: attackResult.code, problems: attackResult.problems });
       context.countRejection(attackResult.code);
@@ -302,6 +308,8 @@ export function decideAll(input = {}) {
     effort = [],
     artifactDigest = null,
     linesByPath = {},
+    sources = undefined,
+    requireAnchor = false,
     artifact = undefined,
     contractRegistry = undefined,
     rfcByPackage = undefined,
@@ -343,7 +351,15 @@ export function decideAll(input = {}) {
     independentAttacks: 0,
     effortByObligation,
     seenBasis: new Map(),
-    validateOptions: { linesByPath, artifact, contractRegistry, rfcByPackage },
+    seenEffortSignatures: new Map(),
+    validateOptions: {
+      linesByPath,
+      ...(sources === undefined ? {} : { sources }),
+      requireAnchor,
+      artifact,
+      contractRegistry,
+      rfcByPackage,
+    },
 // [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
     countRejection(code) {
       if (code === 'BASIS_OUT_OF_SCOPE') this.genericBasis += 1;
@@ -393,7 +409,8 @@ export function decideAll(input = {}) {
   const signatureCounts = new Map();
   for (const attack of Array.isArray(attacks) ? attacks : []) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const signature = templateSignature(attack?.attack);
+    const subject = items.get(attack?.obligationId)?.subject ?? '';
+    const signature = templateSignature(attack?.attack, subject);
     signatureCounts.set(signature, (signatureCounts.get(signature) ?? 0) + 1);
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

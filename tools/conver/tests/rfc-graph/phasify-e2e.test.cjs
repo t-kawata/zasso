@@ -265,9 +265,11 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
     });
 
     it('should exit with code 2 when only one argument', () => {
+      // One RFC or one *-GRAPH.json is now a complete input; a name that is
+      // neither is the remaining argument error.
       const result = spawnSync('node', [
         PHASIFY_SCRIPT,
-        graphPath,
+        path.join(tmpDir, 'not-an-artifact.json'),
       ], { encoding: 'utf8', timeout: 10000 });
 
       assert.strictEqual(result.status, 2, 'should exit with code 2 for 1 arg');

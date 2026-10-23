@@ -7,7 +7,10 @@
  * each node's title, summary, current line number (dynamically resolved from markers),
  * and edge relationships to stdout in Markdown format.
  *
- * CLI: show-graph-summary-markdown.js --graph=<path> --source=<path>
+ * CLI: show-graph-summary-markdown.js --source=<path> [--graph=<path>] [--with-cli-examples]
+ *
+ * The graph is derived from the source path by the pipeline's naming rule when
+ * --graph is omitted.
  *
  * Output contract:
  *   Success → Markdown summary written to stdout (exit code 0)
@@ -18,6 +21,8 @@ const fs = require('fs');
 const path = require('path');
 
 const { resolveByHeading } = require('./resolve-by-heading.js');
+const { deriveGraphPathFromDoc } = require('../lib/package-artifacts');
+const { writeLine } = require('../lib/cli-output');
 
 // ============================================================
 // Constants
@@ -61,32 +66,35 @@ const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 const DEFAULT_HOPS = 2;
 
 function parseArguments(argv) {
-  if (argv.length < 4) {
-    throw new Error('Insufficient arguments.\nUsage: show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]');
+  const args = argv.slice(2);
+  let graphPath = null;
+  let sourcePath = null;
+  let withCliExamples = false;
+
+  for (const arg of args) {
+    if (arg.startsWith('--graph=')) {
+      graphPath = arg.slice('--graph='.length);
+      if (!graphPath) throw new Error('--graph=<path> path is empty.');
+    } else if (arg.startsWith('--source=')) {
+      sourcePath = arg.slice('--source='.length);
+      if (!sourcePath) throw new Error('--source=<path> path is empty.');
+    } else if (arg === '--with-cli-examples') {
+      withCliExamples = true;
+    } else if (arg.startsWith('--')) {
+      throw new Error(
+        `First argument must be --graph=<path> or --source=<path>: ${arg}`
+      );
+    }
   }
 
-  const graphArg = argv[2];
-  const sourceArg = argv[3];
-
-  if (!graphArg.startsWith('--graph=')) {
-    throw new Error(`First argument must be --graph=<path>: ${graphArg}`);
-  }
-  if (!sourceArg.startsWith('--source=')) {
-    throw new Error(`Second argument must be --source=<path>: ${sourceArg}`);
-  }
-
-  const graphPath = graphArg.slice('--graph='.length);
-  const sourcePath = sourceArg.slice('--source='.length);
-
-  if (!graphPath) {
-    throw new Error('--graph=<path> path is empty.');
-  }
   if (!sourcePath) {
-    throw new Error('--source=<path> path is empty.');
+    throw new Error(
+      'Insufficient arguments.\nUsage: show-graph-summary-markdown.js --source=<path> [--graph=<path>] [--with-cli-examples]'
+    );
   }
-
-  // Optional flag
-  const withCliExamples = argv.slice(4).some(a => a === '--with-cli-examples');
+  if (!graphPath) {
+    graphPath = deriveGraphPathFromDoc(sourcePath);
+  }
 
   return { graphPath, sourcePath, withCliExamples };
 }
@@ -323,9 +331,9 @@ function main() {
   if (parsed.withCliExamples) {
     const firstNodeId = graph.nodes.length > 0 ? graph.nodes[0].id : undefined;
     const cliExamples = generateCliExamples(parsed.graphPath, parsed.sourcePath, firstNodeId);
-    console.log(output + '\n' + cliExamples.join('\n'));
+    writeLine(output + '\n' + cliExamples.join('\n'));
   } else {
-    console.log(output);
+    writeLine(output);
   }
 }
 

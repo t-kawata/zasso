@@ -275,6 +275,36 @@ export function writeReceiptFor(root, request) {
 }
 
 /**
+ * Append a write receipt when the workspace already carries a manifest.
+ *
+ * The rail's reading phases write files this module never sees as a batch. Their receipt
+ * is optional for a legacy workspace with no manifest and mandatory once a generation has
+ * opened one, so the caller does not have to know which kind it is.
+ *
+ * @param {string} root — the workspace root
+ * @param {{kind: string, path: string, generation: number, writer?: string, now?: Date}} request
+ * @returns {object|null} the receipt, or null when no manifest exists
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function appendWriteReceipt(root, request) {
+  const directory = join(root, 'educe-sequences');
+  const manifest = readManifestAt(directory);
+  if (manifest === null) return null;
+  const {
+    kind, path, generation, writer = WRITE_RECEIPT_WRITER, now = new Date(),
+  } = request;
+  const digest = sha256File(join(root, path));
+  if (digest === null) return null;
+  const writeReceipts = (Array.isArray(manifest.writeReceipts) ? manifest.writeReceipts : [])
+    .filter((entry) => entry?.path !== path);
+  const receipt = { kind, path, sha256: digest, generation, writer, writtenAt: now.toISOString() };
+  writeReceipts.push(receipt);
+  writeReceipts.sort((left, right) => String(left.path).localeCompare(String(right.path)));
+  writeManifestAt(directory, { ...manifest, writeReceipts });
+  return receipt;
+}
+
+/**
  * Validate every expected evidence file against its write receipt.
  *
  * @param {object} manifest — the evidence manifest

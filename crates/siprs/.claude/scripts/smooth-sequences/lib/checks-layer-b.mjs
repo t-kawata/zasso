@@ -11,6 +11,7 @@
  */
 import { finding } from './index.mjs';
 import { buildFamilySubChecks } from './check-status.mjs';
+import { isFactTextSupported } from './migrate-v3.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const V3 = 3;
@@ -34,7 +35,7 @@ function hasAuthoredFacts(authored) {
 /** The authored contract of a step, or null when the step carries only a projection. */
 // [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 export function readAuthoredContract(step) {
-  if (step.contract?.contract_origin === 'synthesized') return null;
+  if (['synthesized', 'projected'].includes(step.contract?.contract_origin)) return null;
   const authored = step.contract?.[AUTHORED_CONTRACT_FIELD];
   return hasAuthoredFacts(authored) ? authored : null;
 }
@@ -151,19 +152,42 @@ function normalizeQuote(text) {
   return String(text ?? '').replace(/\s+/g, ' ').trim();
 }
 
+/** Whether the typed row a fact names carries its text. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function typedFactSupports(fact, index) {
+  const field = fact?.source?.field;
+  if (typeof field !== 'string' || field.trim() === '') return false;
+  const text = normalizeQuote(fact.text);
+  if (fact.origin === 'contract_registry') {
+    const contract = index?.contractsByBoundary?.get(fact?.source?.boundaryId);
+    const clause = contract?.clauses?.[field];
+    const values = Array.isArray(clause) ? clause : [clause];
+    return values.some((value) => typeof value === 'string' && normalizeQuote(value).includes(text));
+  }
+  if (fact.origin === 'operation' || fact.origin === 'artifact') {
+    const operation = (index?.artifact?.operations ?? []).find((row) => row?.id === fact?.source?.operationId);
+    const value = operation?.[field];
+    if (value === undefined || value === null) return false;
+    return normalizeQuote(typeof value === 'string' ? value : JSON.stringify(value)).includes(text);
+  }
+  return false;
+}
+
 /** Whether a fact cites the step line and a quote the step actually carries. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
-function isCitedFact(fact, step) {
+// [::TICKET::] PX-286, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306) --for-spec --no-implementation-order`.
+function isCitedFact(fact, step, index) {
   if (fact === null || typeof fact !== 'object' || Array.isArray(fact)) return false;
   const source = fact.source;
   if (source === null || typeof source !== 'object' || Array.isArray(source)) return false;
   if (source.step !== step.id || source.line !== step.line) return false;
   const quote = normalizeQuote(source.quote);
-  return quote !== '' && normalizeQuote(step.quote).includes(quote);
+  if (quote === '' || !normalizeQuote(step.quote).includes(quote)) return false;
+  if (typeof fact.origin === 'string' && fact.origin !== 'authored') return typedFactSupports(fact, index);
+  return isFactTextSupported(fact.text, step.quote);
 }
 
 /** One finding for every authored assertion that cites no matching step quote. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306) --for-spec --no-implementation-order`.
 function checkAuthoredSources(index, findings) {
   for (const step of index.artifact.steps ?? []) {
     const authored = step?.contract?.authored;
@@ -172,7 +196,7 @@ function checkAuthoredSources(index, findings) {
     if (!carriesAssertion) continue;
     for (const field of CITED_CONTRACT_FIELDS) {
       for (const [position, fact] of (authored[field] ?? []).entries()) {
-        if (isCitedFact(fact, step)) continue;
+        if (isCitedFact(fact, step, index)) continue;
         addFinding(findings, 'S5.authored-source-missing', `${step.id}/${field}/${position}`, {
           className: 'deficiency',
           route: routeForStep('S5.authored-source-missing', index, step),

@@ -14,15 +14,22 @@
  * Usage:
  *   node show-phase-nodes.js \
  *     --tickets=<Path to Tickets.json> \
- *     --graph=<Path to GRAPH.json> \
- *     --dirs-tree=<Path to Dirs-Tree.json> \
+ *     [--graph=<Path to GRAPH.json>] \
+ *     [--dirs-tree=<Path to Dirs-Tree.json>] \
  *     --phase=<P{id}>
+ *
+ * The graph and Dirs-Tree are derived from the Tickets directory when omitted.
  */
 
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { fromHomeRelative } = require("../lib/path-utils");
+const {
+  deriveGraphPathFromTickets,
+  deriveDirsTreePathFromTickets,
+} = require("../lib/package-artifacts");
+const { writeLine } = require("../lib/cli-output");
 
 // ============================================================
 // Constant definitions
@@ -75,6 +82,11 @@ function parseCliArguments(args) {
     } else if (arg.startsWith(PHASE_ARG_PREFIX)) {
       phaseArg = arg.slice(PHASE_ARG_PREFIX.length);
     }
+  }
+
+  if (ticketsPath !== null) {
+    if (graphPath === null) graphPath = deriveGraphPathFromTickets(ticketsPath);
+    if (dirsTreePath === null) dirsTreePath = deriveDirsTreePathFromTickets(ticketsPath);
   }
 
   return { ticketsPath, graphPath, dirsTreePath, phaseArg };
@@ -303,7 +315,7 @@ function main() {
 
   // 5. Generate Markdown and output to stdout
   const output = formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors);
-  process.stdout.write(output + "\n");
+  writeLine(output);
 
   if (hasErrors) {
     console.error(

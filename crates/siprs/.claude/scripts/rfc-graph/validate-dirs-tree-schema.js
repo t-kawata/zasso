@@ -93,10 +93,38 @@ function checkDependencyDirectionsField(dirsTree, errors) {
  * @param {object} dirsTree — Dirs-Tree.json object to validate
  * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function checkRequiredFields(dirsTree, errors) {
   checkSchemaVersion(dirsTree, errors);
   checkTreesField(dirsTree, errors);
   checkDependencyDirectionsField(dirsTree, errors);
+  checkDistributionField(dirsTree, errors);
+}
+
+/**
+ * Validates the optional distribution index written by the PX-307 distribution step.
+ *
+ * The field is optional so every existing Dirs-Tree remains valid; when it is present,
+ * its digest and unit map must be readable, because a malformed index would otherwise
+ * pass as an absent one.
+ *
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+function checkDistributionField(dirsTree, errors) {
+  const distribution = dirsTree.distribution;
+  if (distribution === undefined) return;
+  if (distribution === null || typeof distribution !== 'object' || Array.isArray(distribution)) {
+    errors.push('distribution must be an object');
+    return;
+  }
+  if (typeof distribution.digest !== 'string' || !/^[0-9a-f]{64}$/.test(distribution.digest)) {
+    errors.push('distribution.digest must be 64 lowercase hex characters');
+  }
+  if (distribution.units === null || typeof distribution.units !== 'object' || Array.isArray(distribution.units)) {
+    errors.push('distribution.units must be an object');
+  }
 }
 
 /**

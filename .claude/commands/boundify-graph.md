@@ -188,6 +188,8 @@ node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
 ```
 
+When the graph carries `distributionDigest`, `boundify-graph-to-dirs.js` also writes the top-level `distribution` index from `mappedNodeIds`. The index is derived, never hand-edited. A unit-bearing node that resolves to no directory or file fails `MISSING_UNIT_AT_LAYER`; the node must be mapped or the unit recorded as a declared residual in the RFC.
+
 ### When Cyclic Dependencies Are Detected
 
 `boundify-graph-to-dirs.js` `warnings` name cycles + fix procedure. Fix graph edge definitions per warning; regenerate; confirm cycle resolved; always run `verify-graph-integrity.js` after edge repair.

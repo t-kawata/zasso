@@ -250,6 +250,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}`.
 
+`attach-unit-ids.js` reads the `distribution-map` block from `$1` when present, matches each unit's section against a node heading exactly, attaches the unit, and writes `distributionDigest`. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`. `/graphify-rfc` still reads only `RFC.md`; no sidecar is passed.
+
 ### Error Recovery
 
 fail → repair per error; cleanup; reset 2; re-run Step 2. Individual repair: `delete-edges` then `create-edges`; extensive repair → reset 2.

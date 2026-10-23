@@ -25,16 +25,30 @@ const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with']
 /** Edge types that are optional (no contract requirement) */
 const TYPES_OPTIONAL = ['references', 'refines', 'extends', 'supersedes', 'triggers', 'precedes', 'part_of', 'validates', 'implements'];
 
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
+  let graphPath = null;
+  let registryPath = null;
   for (const a of args) {
-    if (a.startsWith('--graph=')) return { graphPath: path.resolve(a.slice('--graph='.length)) };
+    if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
+    if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
   }
-  console.error('[ERROR] --graph=<path> is required');
-  console.error('Cause: Missing --graph argument');
-  console.error('Action: Re-run with --graph=<path-to-GRAPH.json>');
-  process.exit(1);
+  if (graphPath === null) {
+    console.error('[ERROR] --graph=<path> is required');
+    console.error('Cause: Missing --graph argument');
+    console.error('Action: Re-run with --graph=<path-to-GRAPH.json>');
+    process.exit(1);
+  }
+  return { graphPath, registryPath };
+}
+
+/** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function registryBoundaryIds(registryPath) {
+  if (registryPath === null || !fs.existsSync(registryPath)) return [];
+  const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  return (document.contract_registry || []).map((row) => row.boundary_id).filter(Boolean);
 }
 
 /**
@@ -42,8 +56,8 @@ function parseArgs() {
  * @param {object} graph — Parsed GRAPH.json
  * @returns {Array<{edge: string, detail: string}>} — Errors (empty array = pass)
  */
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
-function verifyGraphContracts(graph) {
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+function verifyGraphContracts(graph, options = {}) {
   const errors = [];
   const seenIds = {};
   const edges = graph.edges || [];
@@ -94,12 +108,28 @@ function verifyGraphContracts(graph) {
     }
   }
 
+  // Check 4 (PX-306 @verifies C003): every registry boundary reaches a node and a contract edge.
+  for (const boundaryId of options.registryBoundaryIds || []) {
+    const unitId = 'ctr-' + boundaryId;
+    const nodes = (graph.nodes || []).filter((node) => Array.isArray(node.unitIds) && node.unitIds.includes(unitId));
+    if (nodes.length === 0) {
+      errors.push({ edge: boundaryId, code: 'MISSING_BOUNDARY_CONTRACT', detail: 'no graph node carries ' + unitId });
+      continue;
+    }
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    const contracted = edges.some((edge) => (nodeIds.has(edge.from) || nodeIds.has(edge.to))
+      && Array.isArray(edge.contracts) && edge.contracts.length > 0);
+    if (!contracted) {
+      errors.push({ edge: boundaryId, code: 'MISSING_BOUNDARY_CONTRACT', detail: 'the node carrying ' + unitId + ' has no contract edge' });
+    }
+  }
+
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
 function main() {
-  const { graphPath } = parseArgs();
+  const { graphPath, registryPath } = parseArgs();
   if (!fs.existsSync(graphPath)) {
     console.error('[ERROR] Graph file not found: ' + graphPath);
     process.exit(1);
@@ -110,7 +140,7 @@ function main() {
     console.error('[ERROR] Failed to parse graph JSON: ' + e.message);
     process.exit(1);
   }
-  const errors = verifyGraphContracts(graph);
+  const errors = verifyGraphContracts(graph, { registryBoundaryIds: registryBoundaryIds(registryPath) });
   if (errors.length > 0) {
     for (const err of errors) {
       console.error('[ERROR] Edge ' + err.edge + ': ' + err.detail);

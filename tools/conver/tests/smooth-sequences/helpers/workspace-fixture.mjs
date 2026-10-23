@@ -13,6 +13,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { mapDigest, viewDigest } from '../../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
+
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 export const ARTIFACT_FILE_NAME = 'example-sequences.json';
@@ -347,6 +349,8 @@ export function rfcBody(input) {
     '',
     boundary,
     '',
+    ...units.map((unit) => `<!-- unit: ${unit.id} -->`),
+    '',
     '## Distribution ledger',
     '',
     'This document is canonical for the units below.',
@@ -382,12 +386,59 @@ export function defaultViews() {
  *   remove: () => void }}
  */
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+/** The kind a fixture unit id declares. */
+function fixtureKindOf(unitId) {
+  if (unitId.startsWith('op-')) return 'operation';
+  if (unitId.startsWith('seq-')) return 'sequence';
+  if (unitId.startsWith('xdir-')) return 'cross-boundary-sequence';
+  if (unitId.startsWith('ctr-')) return 'contract';
+  return 'surface';
+}
+
+/**
+ * A distribution-map block matching a fixture view.
+ *
+ * Every unit maps to the fixture's single design section, which is also the section whose
+ * anchors the fixture body carries. The digest is computed from the same view the check
+ * reads, so the clean fixture is clean under the PX-307 contract rather than only under
+ * the pre-map contract.
+ *
+ * @param {object} view
+ * @returns {string}
+ */
+export function distributionMapBlock(view) {
+  const units = [
+    ...(view.ownedOperationUnits ?? []),
+    ...(view.ownedSequenceUnits ?? []),
+    ...(view.crossBoundarySequenceUnits ?? []),
+    ...(view.obligationUnits ?? []),
+  ].map((unit) => ({
+    unitId: unit.unitId,
+    kind: fixtureKindOf(unit.unitId),
+    sections: ['1.1 Design'],
+    ...(unit.unitId.startsWith('op-') ? { role: 'implementer', implementationSections: ['1.1 Design'] } : {}),
+    ground: 'the fixture design section',
+  })).sort((left, right) => left.unitId.localeCompare(right.unitId));
+  const body = {
+    schemaVersion: 1,
+    packageId: view.packageId,
+    sourceViewDigest: viewDigest(view),
+    units,
+    residuals: [],
+  };
+  return `\`\`\`json distribution-map\n${JSON.stringify({ ...body, digest: mapDigest(body) }, null, 2)}\n\`\`\`\n`;
+}
+
 export function materializeSmoothWorkspace(input = {}) {
   const root = mkdtempSync(join(tmpdir(), 'smooth-sequences-'));
   const artifact = input.artifact ?? minimalV3Artifact();
   const treeManifest = input.treeManifest ?? defaultTreeManifest();
   const allocateManifest = input.allocateManifest ?? defaultAllocateManifest();
   const views = input.views ?? defaultViews();
+  // A caller supplying its own body is testing that body's effect on a check. Appending a
+  // generated map would change what the body says, so the map is added only to the
+  // default clean fixture, whose purpose is to be clean under the full contract.
+  const appendDistributionMap = input.rfcBodies === undefined;
   const bodies = input.rfcBodies ?? {
     [PROVIDER]: rfcBody({ packageId: PROVIDER, operationId: 'ProduceFact', sequenceIds: ['A-1'], crossSequenceIds: ['A-1'] }),
     [CONSUMER]: rfcBody({ packageId: CONSUMER, operationId: 'ConsumeFact', crossSequenceIds: ['A-1'] }),
@@ -397,7 +448,12 @@ export function materializeSmoothWorkspace(input = {}) {
     const directory = join(root, pkg.path);
     mkdirSync(directory, { recursive: true });
     if (views[pkg.id] !== undefined) writeFileSync(join(directory, VIEW_FILE_NAME), JSON.stringify(views[pkg.id], null, 2));
-    if (bodies[pkg.id] !== undefined) writeFileSync(join(directory, RFC_FILE_NAME), bodies[pkg.id]);
+    if (bodies[pkg.id] !== undefined) {
+      const body = appendDistributionMap && views[pkg.id] !== undefined && !bodies[pkg.id].includes('json distribution-map')
+        ? `${bodies[pkg.id]}\n${distributionMapBlock(views[pkg.id])}`
+        : bodies[pkg.id];
+      writeFileSync(join(directory, RFC_FILE_NAME), body);
+    }
   }
 
   const artifactPath = join(root, ARTIFACT_FILE_NAME);

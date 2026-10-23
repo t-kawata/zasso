@@ -9,7 +9,9 @@
  * phase names and summaries.
  *
  * Usage:
- *   node show-all-nodes-title-summary.js --tickets=<PATH> --graph=<PATH> --phase=<phaseId>
+ *   node show-all-nodes-title-summary.js --tickets=<PATH> [--graph=<PATH>] --phase=<phaseId>
+ *
+ * The graph is derived from the Tickets directory when --graph is omitted.
  *
  * Output format:
  *   N0001: [§1 Purpose — Crate responsibility definition] Safely wrapping PJSUA from Rust...
@@ -26,6 +28,9 @@
 const fs = require('fs');
 const path = require('path');
 
+const { deriveGraphPathFromTickets } = require('../lib/package-artifacts');
+const { writeLine } = require('../lib/cli-output');
+
 /**
  * Parse CLI arguments.
  */
@@ -37,9 +42,17 @@ function parseArguments(argv) {
       parsed[match[1]] = match[2];
     }
   }
-  if (!parsed.tickets || !parsed.graph || !parsed.phase) {
-    console.error('[ERROR] Usage: node show-all-nodes-title-summary.js --tickets=<PATH> --graph=<PATH> --phase=<phaseId>');
+  if (!parsed.tickets || !parsed.phase) {
+    console.error('[ERROR] Usage: node show-all-nodes-title-summary.js --tickets=<PATH> [--graph=<PATH>] --phase=<phaseId>');
     process.exit(2);
+  }
+  if (!parsed.graph) {
+    parsed.graph = deriveGraphPathFromTickets(parsed.tickets);
+    if (!parsed.graph) {
+      console.error('[ERROR] Cannot derive GRAPH.json beside ' + parsed.tickets);
+      console.error('Action: pass --graph=<PATH> or keep exactly one *-GRAPH.json beside Tickets.json');
+      process.exit(2);
+    }
   }
   return parsed;
 }
@@ -86,7 +99,7 @@ function main() {
     }
     const title = node.title || '(no title)';
     const summary = node.summary || '(no summary)';
-    console.log(nid + ': [' + title + '] ' + summary);
+    writeLine(nid + ': [' + title + '] ' + summary);
   }
 }
 

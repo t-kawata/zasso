@@ -13,6 +13,8 @@
 
 /** The id shape a distributed unit has: op- an operation, seq- a sequence one package owns, xdir- one that crosses, ctr- a boundary side, obl- a declared surface. */
 // [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+import { parseDistributionMap, resolveSections } from '../../sequences-slice/lib/distribution-map.mjs';
+
 export const UNIT_ID_PATTERN = '^(op|seq|xdir|ctr|obl)-.+';
 
 /** The prefixes the pattern admits, kept beside it so a reader sees the vocabulary once. */
@@ -101,6 +103,125 @@ export function carryUnitIdsToNode(node, unitIds) {
   return { ...node, unitIds: merged };
 }
 
+/** The four arrays a package view distributes. */
+const VIEW_UNIT_ARRAYS = Object.freeze([
+  'ownedOperationUnits',
+  'ownedSequenceUnits',
+  'crossBoundarySequenceUnits',
+  'obligationUnits',
+]);
+
+/** The unit ids a set of package views distributes, deduplicated in view order. */
+export function collectViewUnitIds(packages = []) {
+  const ids = new Set();
+  for (const pkg of Array.isArray(packages) ? packages : []) {
+    const view = pkg?.view ?? pkg;
+    for (const field of VIEW_UNIT_ARRAYS) {
+      for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
+        if (isUnitId(unit?.unitId)) ids.add(unit.unitId);
+      }
+    }
+  }
+  return [...ids];
+}
+
+/** The unit ids a distribution ledger assigns, excluding declared residuals. */
+export function collectLedgerUnitIds(rows = []) {
+  const ids = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (row?.kind === 'declared-residual') continue;
+    if (isUnitId(row?.unit)) ids.add(row.unit);
+  }
+  return [...ids];
+}
+
+/** A heading's text without the marker or surrounding whitespace. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function normalizeHeading(text) {
+  return String(text ?? '').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * The unit anchors each heading section carries.
+ *
+ * The section ends at the next heading of the same or a higher level, so an anchor is
+ * attributed to the paragraph that owns it rather than to the whole document.
+ *
+ * @param {string} rfcText
+ * @returns {Array<{headingText: string|null, level: number, unitIds: string[]}>}
+ */
+export function readSectionUnitAnchors(rfcText) {
+  const sections = [];
+  let current = { headingText: null, level: 0, unitIds: [] };
+  const flush = () => {
+    if (current.headingText !== null || current.unitIds.length > 0) sections.push(current);
+  };
+  for (const line of String(rfcText).split('\n')) {
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line);
+    if (heading !== null) {
+      flush();
+      current = { headingText: heading[2].trim(), level: heading[1].length, unitIds: [] };
+      continue;
+    }
+    for (const match of line.matchAll(new RegExp(SECTION_ANCHOR.source, 'g'))) {
+      if (isUnitId(match[1]) && !current.unitIds.includes(match[1])) current.unitIds.push(match[1]);
+    }
+  }
+  flush();
+  return sections;
+}
+
+/** The units a graph would carry if every RFC anchor reached the node its heading built. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function unitsByNode(graph, rfcText) {
+  const sections = readSectionUnitAnchors(rfcText);
+  const nodeByHeading = new Map();
+  for (const node of graph?.nodes ?? []) {
+    for (const ref of node.headingRefs ?? []) {
+      for (const text of ref.texts ?? []) nodeByHeading.set(normalizeHeading(text), node.id);
+    }
+  }
+  const byNode = new Map();
+  for (const section of sections) {
+    if (section.headingText === null) continue;
+    const nodeId = nodeByHeading.get(normalizeHeading(section.headingText));
+    if (nodeId === undefined) continue;
+    const units = byNode.get(nodeId) ?? [];
+    for (const unitId of section.unitIds) if (!units.includes(unitId)) units.push(unitId);
+    byNode.set(nodeId, units);
+  }
+  return byNode;
+}
+
+/**
+ * A graph whose nodes carry the unit anchors written under their headings.
+ *
+ * The input graph is not modified. A node that already carries an id keeps it, so a
+ * second run over an unchanged RFC produces the same graph.
+ */
+export function assignUnitIdsFromRfc(graph, rfcText) {
+  const byNode = unitsByNode(graph, rfcText);
+  return {
+    ...graph,
+    nodes: (graph?.nodes ?? []).map((node) => carryUnitIdsToNode(node, byNode.get(node.id) ?? [])),
+  };
+}
+
+/** The anchors no node's heading claims, so a dropped anchor is reported rather than lost. */
+export function unassignedAnchors(graph, rfcText) {
+  const sections = readSectionUnitAnchors(rfcText);
+  const byNode = unitsByNode(graph, rfcText);
+  const assigned = new Set([...byNode.values()].flat());
+  const unassigned = [];
+  for (const section of sections) {
+    for (const unitId of section.unitIds) {
+      if (!assigned.has(unitId) && !unassigned.includes(unitId)) unassigned.push(unitId);
+    }
+  }
+  return unassigned;
+}
+
 /** The graph node a generated header names, or null when it names none. */
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function readHeaderNodeId(fileText) {
@@ -172,4 +293,79 @@ export function writeUnitIdsToTicket(ticket, unitIds) {
     if (isUnitId(unitId) && !nodeIds.includes(unitId)) nodeIds.push(unitId);
   }
   return { ...ticket, nodeIds };
+}
+
+/**
+ * The distribution map embedded in an RFC, or null when it carries none.
+ *
+ * Graphify may read only RFC.md, so the map has to travel inside it. This reader is the
+ * one entry point the graph stage uses; a malformed block reads as absent rather than as
+ * a partial map, and the caller's digest gate then refuses the stage.
+ *
+ * @param {string} rfcText
+ * @returns {object|null}
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function readDistributionMap(rfcText) {
+  const parsed = parseDistributionMap(rfcText);
+  return parsed.ok ? parsed.map : null;
+}
+
+/**
+ * Attach the map's units to the nodes whose headings the map names.
+ *
+ * Matching is exact: a section text or its leading dotted number must equal a node's
+ * heading, never a substring. A map unit with no node and a node unit outside the map are
+ * returned as findings so the caller can fail with the code the layer names.
+ *
+ * @param {{ nodes?: Array<object> }} graph
+ * @param {object} map
+ * @param {string} rfcText
+ * @returns {{ graph: object, missing: string[], invented: string[] }}
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function assignUnitIdsFromMap(graph, map, rfcText) {
+  const managed = new Set((map?.units ?? []).map((unit) => unit.unitId));
+  const sectionTextsByUnit = new Map();
+  const unresolvable = [];
+
+  for (const unit of map?.units ?? []) {
+    const resolution = resolveSections(rfcText, unit.sections);
+    if (!resolution.ok) {
+      unresolvable.push(unit.unitId);
+      continue;
+    }
+    sectionTextsByUnit.set(unit.unitId, new Set(resolution.resolved.map((entry) => normalizeHeading(entry.text))));
+  }
+
+  const attached = new Set();
+  const invented = [];
+  const nodes = (graph?.nodes ?? []).map((node) => {
+    const headings = new Set();
+    for (const ref of node.headingRefs ?? []) {
+      for (const text of ref.texts ?? []) headings.add(normalizeHeading(text));
+    }
+    const carried = [];
+    for (const [unitId, sections] of sectionTextsByUnit) {
+      if ([...sections].some((section) => headings.has(section))) {
+        carried.push(unitId);
+        attached.add(unitId);
+      }
+    }
+    const existing = Array.isArray(node.unitIds) ? node.unitIds.filter(isUnitId) : [];
+    for (const unitId of existing) {
+      if (!managed.has(unitId) && !invented.includes(unitId)) invented.push(unitId);
+    }
+    return {
+      ...node,
+      unitIds: [...new Set([...existing.filter((unitId) => !managed.has(unitId)), ...carried])],
+    };
+  });
+
+  const missing = [...managed].filter((unitId) => !attached.has(unitId) && !unresolvable.includes(unitId));
+  return {
+    graph: { ...graph, nodes, distributionDigest: map?.digest ?? null },
+    missing: [...missing, ...unresolvable],
+    invented,
+  };
 }

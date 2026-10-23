@@ -132,6 +132,9 @@ const PACKAGE_VIEW_CHECK_IDS = Object.freeze([
   'S7.view-missing',
   'S7.view-package-mismatch',
   'S7.view-unit-mismatch',
+  'S7.distribution-map',
+  'S7.owner-role-undeclared',
+  'S7.root-unit-uncovered',
 ]);
 
 /** Every emitted checkId mapped to the surface that authored it. */

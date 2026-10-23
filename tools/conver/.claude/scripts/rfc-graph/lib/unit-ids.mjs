@@ -13,6 +13,8 @@
 
 /** The id shape a distributed unit has: op- an operation, seq- a sequence one package owns, xdir- one that crosses, ctr- a boundary side, obl- a declared surface. */
 // [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+import { parseDistributionMap, resolveSections } from '../../sequences-slice/lib/distribution-map.mjs';
+
 export const UNIT_ID_PATTERN = '^(op|seq|xdir|ctr|obl)-.+';
 
 /** The prefixes the pattern admits, kept beside it so a reader sees the vocabulary once. */
@@ -135,7 +137,8 @@ export function collectLedgerUnitIds(rows = []) {
 
 /** A heading's text without the marker or surrounding whitespace. */
 // [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function normalizeHeading(text) {
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function normalizeHeading(text) {
   return String(text ?? '').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
@@ -290,4 +293,79 @@ export function writeUnitIdsToTicket(ticket, unitIds) {
     if (isUnitId(unitId) && !nodeIds.includes(unitId)) nodeIds.push(unitId);
   }
   return { ...ticket, nodeIds };
+}
+
+/**
+ * The distribution map embedded in an RFC, or null when it carries none.
+ *
+ * Graphify may read only RFC.md, so the map has to travel inside it. This reader is the
+ * one entry point the graph stage uses; a malformed block reads as absent rather than as
+ * a partial map, and the caller's digest gate then refuses the stage.
+ *
+ * @param {string} rfcText
+ * @returns {object|null}
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function readDistributionMap(rfcText) {
+  const parsed = parseDistributionMap(rfcText);
+  return parsed.ok ? parsed.map : null;
+}
+
+/**
+ * Attach the map's units to the nodes whose headings the map names.
+ *
+ * Matching is exact: a section text or its leading dotted number must equal a node's
+ * heading, never a substring. A map unit with no node and a node unit outside the map are
+ * returned as findings so the caller can fail with the code the layer names.
+ *
+ * @param {{ nodes?: Array<object> }} graph
+ * @param {object} map
+ * @param {string} rfcText
+ * @returns {{ graph: object, missing: string[], invented: string[] }}
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+export function assignUnitIdsFromMap(graph, map, rfcText) {
+  const managed = new Set((map?.units ?? []).map((unit) => unit.unitId));
+  const sectionTextsByUnit = new Map();
+  const unresolvable = [];
+
+  for (const unit of map?.units ?? []) {
+    const resolution = resolveSections(rfcText, unit.sections);
+    if (!resolution.ok) {
+      unresolvable.push(unit.unitId);
+      continue;
+    }
+    sectionTextsByUnit.set(unit.unitId, new Set(resolution.resolved.map((entry) => normalizeHeading(entry.text))));
+  }
+
+  const attached = new Set();
+  const invented = [];
+  const nodes = (graph?.nodes ?? []).map((node) => {
+    const headings = new Set();
+    for (const ref of node.headingRefs ?? []) {
+      for (const text of ref.texts ?? []) headings.add(normalizeHeading(text));
+    }
+    const carried = [];
+    for (const [unitId, sections] of sectionTextsByUnit) {
+      if ([...sections].some((section) => headings.has(section))) {
+        carried.push(unitId);
+        attached.add(unitId);
+      }
+    }
+    const existing = Array.isArray(node.unitIds) ? node.unitIds.filter(isUnitId) : [];
+    for (const unitId of existing) {
+      if (!managed.has(unitId) && !invented.includes(unitId)) invented.push(unitId);
+    }
+    return {
+      ...node,
+      unitIds: [...new Set([...existing.filter((unitId) => !managed.has(unitId)), ...carried])],
+    };
+  });
+
+  const missing = [...managed].filter((unitId) => !attached.has(unitId) && !unresolvable.includes(unitId));
+  return {
+    graph: { ...graph, nodes, distributionDigest: map?.digest ?? null },
+    missing: [...missing, ...unresolvable],
+    invented,
+  };
 }

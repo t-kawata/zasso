@@ -40,6 +40,18 @@ export const ATTACK_TIER = Object.freeze({ TIER_ONE: 'tier1', STANDARD: 'standar
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const ARTIFACT_BASIS_SOURCES = Object.freeze(['contract_registry', 'artifact', 'view', 'ledger']);
 
+/** The code a searched row outside the claim anchor returns. */
+export const ATTACK_ANCHOR_MISMATCH = 'ATTACK_ANCHOR_MISMATCH';
+
+/** The anchorSet field each basis source is read from. */
+const ANCHOR_FIELD_BY_SOURCE = Object.freeze({
+  spec: 'spec',
+  contract_registry: 'contract',
+  artifact: 'artifact',
+  view: 'view',
+  ledger: 'ledger',
+});
+
 /** A non-empty string. */
 // [::TICKET::] PX-289, PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -188,6 +200,93 @@ function anchorsFor(anchorSet, source) {
   if (source === 'view') return Array.isArray(anchorSet?.view) ? anchorSet.view : [];
   if (source === 'ledger') return Array.isArray(anchorSet?.ledger) ? anchorSet.ledger : [];
   return Array.isArray(anchorSet?.spec) ? anchorSet.spec : [];
+}
+
+/**
+ * Every anchor a worklist item carries, tagged with the basis source it belongs to.
+ *
+ * The anchorSet stores one array per layer; the attack validator needs one list where each
+ * entry says which layer it came from, so a searched row can be compared with the same
+ * vocabulary a basis reads.
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function anchorEntriesOf(anchorSet) {
+  const entries = [];
+  for (const [source, field] of Object.entries(ANCHOR_FIELD_BY_SOURCE)) {
+    for (const anchor of anchorsFor(anchorSet, source)) {
+      if (anchor !== null && typeof anchor === 'object') entries.push({ ...anchor, source });
+    }
+  }
+  return entries;
+}
+
+/**
+ * Whether a searched row names the same claim as one anchor.
+ *
+ * A boundary, an artifact row and a view unit are identified by their id; a specification
+ * line is identified by its path and the line range it covers. Two rows that name the same
+ * boundary but a different clause are not the same claim.
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function searchedOverlapsAnchor(searched, anchor) {
+  if (searched === null || typeof searched !== 'object' || anchor === null || typeof anchor !== 'object') return false;
+
+  const searchedBoundary = searched.boundaryId ?? null;
+  const anchorBoundary = anchor.boundaryId ?? null;
+  if (text(searchedBoundary) && text(anchorBoundary)) {
+    if (normalize(searchedBoundary) !== normalize(anchorBoundary)) return false;
+    return !text(searched.field) || !text(anchor.field) || normalize(searched.field) === normalize(anchor.field);
+  }
+
+  const searchedId = searched.id ?? searched.operationId ?? null;
+  const anchorId = anchor.id ?? anchor.operationId ?? null;
+  if (text(searchedId) && text(anchorId)) {
+    if (normalize(searchedId) !== normalize(anchorId)) return false;
+    return !text(searched.field) || !text(anchor.field) || normalize(searched.field) === normalize(anchor.field);
+  }
+
+  const searchedUnit = searched.unitId ?? searched.unit ?? null;
+  const anchorUnit = anchor.unitId ?? anchor.unit ?? null;
+  const searchedPackage = searched.packageId ?? null;
+  const anchorPackage = anchor.packageId ?? null;
+  if (text(searchedUnit) && text(anchorUnit)) {
+    if (normalize(searchedUnit) !== normalize(anchorUnit)) return false;
+    return !text(searchedPackage) || !text(anchorPackage) || normalize(searchedPackage) === normalize(anchorPackage);
+  }
+
+  if (text(searched.path) && text(anchor.path)) {
+    if (normalize(searched.path) !== normalize(anchor.path)) return false;
+    if (!Number.isInteger(anchor.line)) return true;
+    const from = Number.isInteger(searched.from) ? searched.from : searched.line;
+    const to = Number.isInteger(searched.to) ? searched.to : from;
+    return Number.isInteger(from) && Number.isInteger(to) && from <= anchor.line && anchor.line <= to;
+  }
+
+  return false;
+}
+
+/**
+ * Refuse an attack whose searched row is outside every anchor the claim carries.
+ *
+ * The judgment basis is the claim's own citation; when there is no basis the worklist
+ * anchorSet is the claim. An empty anchor is a deficiency, not a licence to search anything.
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+export function validateAttackAnchor(attack, record, item) {
+  const anchors = Array.isArray(record?.basis) && record.basis.length > 0
+    ? record.basis
+    : anchorEntriesOf(item?.anchorSet ?? {});
+  if (anchors.length === 0) {
+    return { ok: false, code: ATTACK_ANCHOR_MISMATCH, problem: 'the worklist item carries no anchor' };
+  }
+  const searched = attack?.searched;
+  if (searched === null || typeof searched !== 'object' || Array.isArray(searched)) {
+    return { ok: false, code: ATTACK_ANCHOR_MISMATCH, problem: 'the attack states no searched row' };
+  }
+  if (anchors.some((anchor) => searchedOverlapsAnchor(searched, anchor))) {
+    return { ok: true, code: null, problem: null };
+  }
+  return { ok: false, code: ATTACK_ANCHOR_MISMATCH, problem: 'the attack searched a row outside the claim anchor' };
 }
 
 /** Whether one artifact-like basis names the row the anchor set expects. */
@@ -562,9 +661,13 @@ export function validateJudgmentRecord(record, item, options = {}) {
   if (item?.generation !== undefined && item.generation !== null && record.readerGeneration !== item.generation) {
     return fail('READER_GENERATION_STALE', `the record was written in generation ${record.readerGeneration}, not ${item.generation}`);
   }
-  if (typeof item?.generationStartedAt === 'string'
-    && (typeof record.readAt !== 'string' || record.readAt < item.generationStartedAt)) {
-    return fail('READING_NOT_REREAD', 'the record predates the current generation start');
+  if (Number.isInteger(item?.generation) && item.generation > 0) {
+    if (typeof item.generationStartedAt !== 'string') {
+      return fail('READING_NOT_REREAD', 'the generation records no start');
+    }
+    if (typeof record.readAt !== 'string' || record.readAt < item.generationStartedAt) {
+      return fail('READING_NOT_REREAD', 'the record predates the current generation start');
+    }
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const vocabulary = Array.isArray(item?.answerVocabulary) ? item.answerVocabulary : ANSWER_VOCABULARY;
@@ -610,6 +713,7 @@ function validSearched(searched) {
  * states no counterexample is held, and an unresolved attack becomes stuck.
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function validateAttackRecord(attack, record, item, options = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const problems = [];
@@ -643,6 +747,10 @@ export function validateAttackRecord(attack, record, item, options = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const searched = validateSearchedQuote(attack.searched, options.sources);
     if (!searched.ok) return fail(searched.code, searched.problem);
+  }
+  if (options.requireAnchor === true) {
+    const anchored = validateAttackAnchor(attack, record, item);
+    if (!anchored.ok) return fail(anchored.code, anchored.problem);
   }
   if (record !== null && record !== undefined) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

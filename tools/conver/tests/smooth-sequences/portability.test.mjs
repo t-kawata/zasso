@@ -5,6 +5,8 @@ import { join } from 'node:path';
 
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import {
+  defaultViews,
+  distributionMapBlock,
   materializeSmoothWorkspace,
   minimalV3Artifact,
   operationRow,
@@ -60,6 +62,7 @@ test('a workspace that declares grpc and closed is judged green', () => {
 
 // @verifies C007
 test('prose that names contribution shapes changes no verdict', () => {
+  const providerView = defaultViews()['pkg-0001'];
   const prose = [
     '# RFC pkg-0001',
     '',
@@ -69,7 +72,14 @@ test('prose that names contribution shapes changes no verdict', () => {
     'pub const CONTRIBUTED_OPERATION_KINDS: &[&str] = &["ProduceFact"];',
     'const KIND: &str = "ProduceFact"; // operation_kind: "ProduceFact"',
     '```',
+    '### 1.1 Design',
+    '',
     'boundary-001',
+    '',
+    '<!-- unit: op-ProduceFact -->',
+    '<!-- unit: seq-A-1 -->',
+    '<!-- unit: xdir-A-1 -->',
+    '<!-- unit: ctr-boundary-001 -->',
     '',
     '## Distribution ledger',
     '',
@@ -86,11 +96,11 @@ test('prose that names contribution shapes changes no verdict', () => {
     '',
     'Composition check: the designs were read; no contradiction was found.',
     '',
-  ].join('\n');
+  ].join('\n') + `\n${distributionMapBlock(providerView)}`;
   const workspace = materializeSmoothWorkspace({
     rfcBodies: {
       'pkg-0001': prose,
-      'pkg-0002': rfcBody({ packageId: 'pkg-0002', operationId: 'ConsumeFact', crossSequenceIds: ['A-1'] }),
+      'pkg-0002': `${rfcBody({ packageId: 'pkg-0002', operationId: 'ConsumeFact', crossSequenceIds: ['A-1'] })}\n${distributionMapBlock(defaultViews()['pkg-0002'])}`,
     },
   });
   try {

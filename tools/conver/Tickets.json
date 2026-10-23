@@ -46524,6 +46524,232 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-22"
+        },
+        {
+          "id": 307,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Per-ticket obligation penetration: every view unit and its obligation reaches all owning tickets through RFC, GRAPH and Dirs-Tree, with per-ticket digests and blocking gates",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-307.md",
+          "background": "### Goal\nMake the distribution of every SEQUENCES view unit mechanical and prove, per ticket, that the unit and its obligation reached the finest granularity. Replace TMP001's scalar downstream digest with per-ticket records whose digest covers placement and obligation, and make every stage a blocking gate.\n\n### Purpose\nTMP001 measured that unit-to-section mapping cannot be inferred (80/627 unique heading matches and 529/627 absent in the gaia corpus) and designed a declared map. It nevertheless certified only that adjacent layers were generated from the same map, while the ticket layer carried unit ids only. The per-package view already drops the step and operation payload, so \"what must this ticket do\" was structurally unrepresentable. This ticket closes that gap.\n\n### Motivation\nWithout per-ticket obligation records, every ticket can be implemented correctly and some sequence or operation can still be missing from the workspace, and a top-level digest can be copied while a single ticket is stale. PX-306 closed the layer-level checks but left the empty-ledger pass and the optional registry chain. This ticket removes both.\n\n### Constraints\n- RFC.md prose and all design decisions remain authored by the AI; the mechanism only declares, propagates, totals and refuses inconsistency.\n- /graphify-rfc keeps RFC.md as its only input; no sidecar.\n- No existing command argument changes.\n- Root commands run at the workspace root; package commands run at the package top.\n- A package with no view or an empty view keeps its old verdict (additivity).\n- A non-empty view without a map is a failure, not a vacuous pass.\n- Writes are atomic; a failed stage writes nothing.\n- Verification runs the impact set with node --test; make test is not used.",
+          "notes": "- [Implementation steps] 1) revise docs/TMP001.md; 2) Red distribution-map and renderer; 3) Green core and renderer; 4) Red/Green view payload; 5) Red/Green smooth; 6) Red/Green graph; 7) Red/Green dirs; 8) Red/Green tickets and obligation partition; 9) Red/Green digest chain and evolution; 10) command docs; 11) run the impact set; 12) run the copy migration dry run.\n- [Risks] The gate can over-constrain legitimate design; mitigate with the AI-decides/machine-totals rule, multiple sections, surface splits and free node granularity. The existing corpus is unmigrated; blocking will fail every package with a view until the operational migration runs.\n- [Caveats] The guarantee is distribution completeness and non-invention, not prose semantics or implementation correctness. The role decision is authored at the map; the machine only checks uniqueness and surface coverage.\n- [Open items] Confirm the exact implementation field list for the operation obligation projection during Red; the artifact is the authority and the projection must be lossless for the fields named in the spec.\n- [Future improvements] Add a seeded-defect mutation suite that removes each obligation item and asserts a distinct finding, and a migration progress report at the workspace root.\n- [Naming] The ticket key is PX-307. The ticket is intentionally one ticket: the chain is one closure contract, and splitting it would land a writer with no consumer or a gate that cannot pass.\n- [Plan decisions] Smooth check ids are S7.distribution-map, S7.owner-role-undeclared and S7.root-unit-uncovered because S5 already names the authored-source and boundary families and S7 is the artifact-view consistency family. The map block uses the info string json distribution-map. New ESM modules follow their directory module system; CJS callers use require of ESM or dynamic import, as existing code does. The operation obligation projection is an explicit field list, not the raw artifact record.\nImplementation summary (PX-307):\n- Changed source: sequences-slice (distribution-map, view payload), grill-me-for-rfc (render-distribution), smooth-sequences (checks-distribution-map, registry, status, repair route), rfc-graph (unit-ids, attach-unit-ids, distribution-index, boundify, schema, dirs schema), tickets (add-tickets-for-phase, verify-all-ticket-coverage).\n- Command docs updated: grill-me-for-rfc, graphify-rfc, boundify-graph, split-to-tickets.\n- Test results: new distribution tests 61/61 pass; sequences-slice + rfc-graph impact set 1162/1162 pass; smooth-sequences 352 pass, 1 skipped, 0 fail; grill + tickets impact set 383 pass, 1 pre-existing failure (step-zero.test.mjs: a third SEQUENCES-DISTRIBUTIONS.json written by the existing PX-282 counter; not caused by this ticket).\n- Red evidence: the new tests failed before implementation with ERR_MODULE_NOT_FOUND or missing exports, then passed after.\n- Behaviour changes: a view with units and no map is now a finding; a ticket's obligation is derived from the artifact rather than copied as an id.\n- Pre-existing failure left untouched: tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs expects only the two view files, while the existing recordDistribution writes SEQUENCES-DISTRIBUTIONS.json. This was present at HEAD and is outside this ticket.\n- [Follow-up] The split coverage gate now derives the graph, Dirs-Tree, RFC and view from the Tickets.json directory. The command line passes only Tickets.json; the old flags remain as overrides. Verified by tests/tickets/derive-material.test.cjs (3 tests) and the coverage regression set (36/36).",
+          "invariants": "- [Normal condition] A package with a non-empty view has a valid map, a regenerated ledger, anchors in every listed section, and equal map and view unit sets.\n- [Error invariant] A failed stage writes nothing; the previous artifact remains readable and no partial file is left behind.\n- [Internal state invariant] The canonicalizer is single-sourced from sequences-slice/lib/digest.mjs; no second key-sorting or sha256 implementation is introduced.\n- [Boundary invariant] Additivity holds: no view or empty view produces no map and no finding; a view with units and no map is always a failure.",
+          "scope": [
+            "**Design document:** revise docs/TMP001.md sections 1 (guarantee scope), 4 (payload path), 5.5 (split), 6 (per-ticket digest chain), 9 (schemas) and 13 (acceptance), and add the implementer/consumer role decision. The revised document is the normative design; the ticket spec records the same contract.",
+            "**Core library:** add sequences-slice/lib/distribution-map.mjs exporting DISTRIBUTION_MAP_FENCE, DISTRIBUTION_MAP_SCHEMA_VERSION, collectViewUnits, viewDigest, mapDigest, parseDistributionMap, renderDistributionMap, validateMapAgainstView, resolveSections, kindOfUnit, sectionLabel and ledgerRowOf.",
+            "**Map schema:** a unit entry carries unitId, kind, sections, optional implementationSections, optional role (implementer or consumer for op- only), optional surface (rest, websocket or cli) and ground; residuals carry unit and ground. The renderer validates kind prefix, role uniqueness, surface vocabulary and non-empty ground.",
+            "**View projection:** modify sequences-slice/lib/view.mjs and project-package.mjs to add an obligation payload to operation units, an ordered steps array with contract, line and quote to sequence and cross-boundary units, specLines, and roleCandidate. The projection is additive; no existing key is removed or renamed.",
+            "**Renderer:** add grill-me-for-rfc/render-distribution.mjs with --check, --rfc, --view and --obligation; bootstrap from the Distribution ledger; regenerate the ledger and map; remove and reinsert managed anchors; write atomically; write nothing when the view is absent or empty.",
+            "**Smooth:** add smooth-sequences/lib/checks-distribution-map.mjs registering S5.distribution-map per package and the root findings ROOT_UNIT_UNCOVERED and OWNER_ROLE_UNDECLARED; the check is a deficiency finding with a repair route and never modifies the workspace.",
+            "**Graph:** extend rfc-graph/lib/unit-ids.mjs with readDistributionMap and assignUnitIdsFromMap; keep assignUnitIdsFromRfc for backward compatibility; extend rfc-graph/attach-unit-ids.js with map parsing, --dirs-tree and distributionDigest; add optional distributionDigest to rfc-graph/schema/graph.schema.json.",
+            "**Dirs:** extend rfc-graph/boundify-graph-to-dirs.js or add a post-step that writes the top-level distribution object { digest, units: { unitId: { nodeIds, paths } } }; extend rfc-graph/validate-dirs-tree-schema.js to accept it; do not modify mappedNodeIds entries.",
+            "**Tickets:** extend tickets/add-tickets-for-phase.js with populateTicketDistribution; write a per-ticket distribution record { sourceMapDigest, sourceViewDigest, units, digest } and the Tickets aggregate { sourceViewDigest, sourceMapDigest, ticketDigests, digest }; extend tickets/verify-all-ticket-coverage.js with --view, --dirs-tree and --map plus per-ticket findings; add optional distribution fields to lib/validate-tickets.js.",
+            "**Obligation partition:** derive the split from the artifact, not from a second authoring pass. An operation implementer ticket carries the full operation obligation; a consumer carries a reference and the boundary contracts. A sequence step belongs to the ticket implementing its operation; the ordered list reconstructs from the artifact order. A contract clause reaches every participating side. A surface obligation reaches the tickets on the side named by direction.",
+            "**Spec reach:** every ticket unit carries at least one specRef { path, line, quote } derived from step line and quote, operation evidence.spec_lines or contract source_refs; the gate normalizes whitespace and resolves the line and quote in the specification.",
+            "**Commands:** update grill-me-for-rfc.md, graphify-rfc.md, boundify-graph.md and split-to-tickets.md to invoke the new steps; the four command argument lists are unchanged.",
+            "**Tests:** add tests/sequences-slice/distribution-map.test.mjs, tests/grill-me-for-rfc/render-distribution.test.mjs, tests/smooth-sequences/distribution-map-check.test.mjs, tests/rfc-graph/attach-unit-ids-map.test.mjs, tests/rfc-graph/dirs-tree-distribution.test.mjs, tests/tickets/add-tickets-units.test.mjs, tests/tickets/distribution-digest-chain.test.mjs and tests/grill-me-for-rfc/evolution-preservation.test.mjs, each with a positive fixture and a seeded negative.",
+            "**Out of scope:** editing the live gaia workspace. Migration is an operational step after green, executed on a copy first and reviewed before application, and it is not a second code ticket.",
+            "**Out of scope:** proving that the RFC prose correctly designs a unit, that the unit-to-section declaration is semantically right, or that an implementation satisfies its obligation. The guarantee is distribution completeness and non-invention.",
+            "**Out of scope:** ticket grouping quality, graph node granularity and directory layout. These remain AI design decisions; the gates only prove coverage and non-invention.",
+            "**Affected areas:** sequences-slice, grill-me-for-rfc, smooth-sequences, rfc-graph, tickets, four command docs, graph.schema.json, node.schema.json if a role field is needed on a node, and lib/validate-tickets.js.",
+            "**Compatibility:** every new JSON field is optional, so existing graphs, dirs trees and Tickets.json remain valid. A package without a view keeps its verdict. No dependency is added; canonicalJson and digestValue are reused from sequences-slice/lib/digest.mjs."
+          ],
+          "testUnit": [
+            "UT: [Normal] canonicalJson sorts object keys and preserves array order, and digestValue returns the same sha256 for two documents that differ only in key order.",
+            "UT: [Normal] viewDigest changes when a unit is added or removed, when a sequence step is added or reordered, and when a step contract changes; it is stable when unrelated view metadata changes.",
+            "UT: [Normal] mapDigest excludes the digest field and changes when a section, implementation section, role, surface or ground changes.",
+            "UT: [Normal] collectViewUnits deduplicates the four view arrays and classifies op-, seq-, xdir-, ctr- and obl- by prefix.",
+            "UT: [Normal] parseDistributionMap reads a fenced json distribution-map block, rejects malformed JSON, and renderDistributionMap round-trips the parsed map.",
+            "UT: [Normal] validateMapAgainstView passes when the map unit set equals the view unit set and reports the exact missing and invented unit ids otherwise.",
+            "UT: [Normal] resolveSections matches an exact heading text and matches a leading dotted number exactly, so 2.2 matches 2.2 Canonical encoding and not 2.2.1 The normative scheme.",
+            "UT: [Normal] render-distribution bootstraps a map from the existing Distribution ledger rows, preserves each row ground, and preserves declared-residual rows as residuals.",
+            "UT: [Normal] render-distribution generates the ledger with exactly the five columns Unit, Kind, Owner, RFC location, Ground, rows sorted by Unit, and a precedence sentence containing canonical.",
+            "UT: [Normal] render-distribution inserts one unit anchor at the end of each listed section and writes the map block immediately after the ledger table.",
+            "UT: [Normal] render-distribution removes every managed anchor before reinserting and leaves anchors for units outside the view untouched.",
+            "UT: [Normal] render-distribution produces byte-identical RFC content on a second run over the same view and RFC.",
+            "UT: [Normal] project-package adds an obligation payload to every operation unit and an ordered steps array with contract, line and quote to every sequence and cross-boundary unit.",
+            "UT: [Normal] roleCandidate is implementer for a single-owner operation and undecided for a multi-owner operation; the map resolves undecided to implementer or consumer.",
+            "UT: [Normal] smooth reports S5.distribution-map for a non-empty view with no map, with a repair route naming render-distribution.mjs and the offending unit.",
+            "UT: [Normal] smooth reports a stale sourceViewDigest when the view content changed after the map was written.",
+            "UT: [Normal] smooth does not fire for a package with no view or an empty view.",
+            "UT: [Normal] attach-unit-ids attaches every map unit to every node whose headingRefs contain one of its sections and writes distributionDigest equal to the map digest.",
+            "UT: [Normal] attach-unit-ids reports MISSING_UNIT_AT_LAYER when a map unit has no node and INVENTED_UNIT when a node carries a unit outside the map.",
+            "UT: [Normal] boundify writes the top-level distribution index with digest and, for every unit, the graph node ids and resolved paths.",
+            "UT: [Normal] boundify reports MISSING_UNIT_AT_LAYER when a unit-bearing node resolves to no directory or file.",
+            "UT: [Normal] add-tickets copies each graph node unit into every ticket that owns the node, writes a per-ticket distribution record and a per-ticket digest, and writes the Tickets aggregate digest over sorted ticket digests.",
+            "UT: [Normal] a ticket for an operation implementer carries the full operation obligation; a ticket for a consumer carries a reference and the boundary contracts but not the full implementation payload.",
+            "UT: [Normal] the ordered steps of a sequence reconstruct from the per-ticket records in artifact order, including when the steps are split across tickets.",
+            "UT: [Normal] every contract clause reaches at least one ticket on each participating boundary side.",
+            "UT: [Normal] every ticket unit carries at least one specRef whose path, line and normalized quote resolve in the specification.",
+            "UT: [Normal] the digest chain copies the map digest to graph distributionDigest, to dirs distribution.digest, to each ticket sourceMapDigest, and the Tickets aggregate is the digest of sorted ticket digests.",
+            "UT: [Error] a non-empty view with no map and no complete ledger fails DISTRIBUTION_MAPPING_MISSING with the unit list and writes nothing.",
+            "UT: [Error] a view unit with no ledger row fails DISTRIBUTION_MAPPING_MISSING; a unit with two ledger rows fails DUPLICATE_LEDGER_ROW.",
+            "UT: [Error] a ledger row whose kind differs from the unit prefix fails KIND_MISMATCH; an owner different from the package id fails OWNER_MISMATCH; an empty ground fails EMPTY_GROUND.",
+            "UT: [Error] a ledger location that is not a section reference fails UNPARSEABLE_LEDGER_LOCATION; a section that matches no heading fails MISSING_RFC_SECTION; a section that matches two headings fails AMBIGUOUS_RFC_SECTION.",
+            "UT: [Error] a map unit absent from the graph fails MISSING_UNIT_AT_LAYER; a graph unit absent from the map fails INVENTED_UNIT.",
+            "UT: [Error] a unit-bearing node with no resolved path fails MISSING_UNIT_AT_LAYER.",
+            "UT: [Error] a ticket that owns a node carrying a unit but omits the unit fails MISSING_UNIT_AT_LAYER.",
+            "UT: [Error] a mismatch between any adjacent digests fails DISTRIBUTION_DIGEST_MISMATCH and blocks the stage.",
+            "UT: [Error] a multi-owner operation with no implementer, or with two implementers and no disjoint surface split, fails OWNER_ROLE_UNDECLARED.",
+            "UT: [Error] a residual id that also appears as a view unit fails RESIDUAL_IS_A_VIEW_UNIT.",
+            "UT: [Error] a missing obligation item fails OBLIGATION_ITEM_DROPPED; an item assigned to two tickets that require exactly one fails OBLIGATION_ITEM_DUPLICATED.",
+            "UT: [Error] a sequence whose reconstructed step order differs from the artifact fails SEQUENCE_ORDER_BROKEN.",
+            "UT: [Error] a specRef whose line is outside the specification or whose normalized quote does not match fails SPEC_REF_STALE.",
+            "UT: [Boundary] a package with no SEQUENCES.json keeps its old verdict and the renderer writes nothing.",
+            "UT: [Boundary] a view with only declared residuals still requires a map for its view units.",
+            "UT: [Boundary] a unit with multiple sections receives an anchor in each section and the gate requires at least one node, not one per section.",
+            "UT: [Boundary] a heading without a dotted number is matched by exact normalized text.",
+            "UT: [Boundary] ground text is whitespace-normalized before digesting, so a formatting-only edit does not change the digest.",
+            "UT: [Invariant] a failure at any renderer step leaves the original RFC bytes untouched.",
+            "UT: [Invariant] a second distribution run over unchanged inputs is byte-identical for the RFC, graph, dirs tree and Tickets.",
+            "UT: [Invariant] no layer accepts a unit outside the map, and no map unit is missing from any layer.",
+            "UT: [Invariant] a consumer ticket never receives the full operation implementation payload.",
+            "UT: [Invariant] the existing PX-306 tests remain green."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] Build a synthetic package with RFC headings 3.1 Produce, 3.2 Consume and 3.3 boundary-001, a view with op-Produce, op-Consume, seq-A-1, xdir-A-1 and ctr-boundary-001, and run render-distribution, attach-unit-ids, the boundify distribution step and add-tickets in order.",
+            "IT: [Verification] After the four stages, every unit appears in the map, a section anchor, a graph node, the dirs index and every owning ticket, and every adjacent digest matches.",
+            "IT: [Verification] Run the same chain over two packages where one package has a stale sourceViewDigest; smooth names the stale package and modifies neither package.",
+            "IT: [Verification] Rewrite an RFC heading after the first render; the second render fails MISSING_RFC_SECTION and leaves the RFC bytes unchanged; restore the heading and the second render is byte-identical to the first.",
+            "IT: [Verification] Add a view unit without a map entry; every downstream stage fails with MISSING_UNIT and nothing is written until the map is updated.",
+            "IT: [Verification] Seed a multi-owner operation across two packages; one implementer and one consumer pass, two implementers without a surface split fail, and the consumer ticket carries only the reference obligation.",
+            "IT: [Verification] Mutate the graph distributionDigest, the dirs digest and the ticket digest one at a time; the adjacent gate fails each time with DISTRIBUTION_DIGEST_MISMATCH.",
+            "IT: [Prerequisites] Node 26, no network, temporary directories under the OS temp dir; no live gaia workspace is read or written.",
+            "IT: [Related tickets] PX-306 (view, ledger, graph attach, ticket coverage, boundary registry); PX-255, PX-256 and PX-257 (view projection, ledger and graph units)."
+          ],
+          "testExceptions": [
+            "Live gaia migration cannot test in this repository because the workspace is external and its 627 units are not committed here; this is not a design defect, and the renderer bootstrap plus the synthetic package and root fixtures cover the same code paths.",
+            "Semantic correctness of the unit-to-section declaration cannot test mechanically because it asserts a design judgment about prose; this is not a design defect, and the ground field, the reviewable ledger and the seeded negative fixtures are the alternative verification."
+          ],
+          "instrumentation": "- [Logging] Every CLI writes one JSON object to stdout with ok, code, stage, packageId, unitIds and details; library code writes no console output.\n- [Metrics] No runtime metrics; finding counts and unit counts are emitted in the JSON report for the caller to aggregate.\n- [Error tracking] Exit codes: 0 pass, 1 gate failure, 2 usage or missing input, 4 smooth-sequences unproven; every failure carries a code and a repair route.\n- [Health check] render-distribution.mjs --check performs the full validation without writing, and smooth S5.distribution-map is the root health check.",
+          "acceptanceCriteria": [
+            "Happy path: for every view unit, the map, section anchor, graph node, dirs index and every owning ticket record exist; the per-ticket obligations partition the unit payload; all adjacent digests match; the synthetic package and the root fixture pass.",
+            "Error case: a non-empty view with no map, a stale view digest, a missing section, a missing unit at any layer, an invented unit, a digest mismatch, a dropped or duplicated obligation item, a broken sequence order, a stale spec ref or an undeclared owner role each fails with its named code and writes nothing.",
+            "Edge case: no view and empty view keep the old verdict; a view with only residuals still requires a map; a unit with multiple sections anchors in each; a heading with no number matches by exact text.",
+            "Compatibility: existing graphs, dirs trees and Tickets.json without the new optional fields still validate; no command argument changes; graphify reads only RFC.md.",
+            "Verification: the impact set passes with node --test; the existing PX-306 tests stay green; a second run is byte-identical."
+          ],
+          "investigation": "- docs/TMP001.md is the design source; its section 6 scalar digest chain is replaced by per-ticket records in this ticket.\n- sequences-slice/lib/view.mjs buildPackageView projects ownedOperationUnits as unitId, operationId, resultObjectClasses, ownerPackageIds and unmatchedClassNames; it projects ownedSequenceUnits and crossBoundarySequenceUnits as unitId, sequenceId, outcome and ownerPackageIds. No steps and no operation contract are projected.\n- The workspace artifact at ~/shyme/gaia/GaiaSekkeiShiyousho_v32-sequences.json has 257 operations, 553 sequences and 300 steps; steps carry id, sequence, operation, subject, predicate, object, contract with pre and post, contract_prose, line and quote; operations carry kind, purpose, required_authority, idempotency_scope, allowed_status_transitions, finality_predicate, cancellation_rule, reversal_or_recovery_rule, reject_code_families, boundary_effects and result_object_classes.\n- sequences-slice/lib/ownership.mjs inspectObjectRecords reads canonical_name and owner_package and reports a defect when one canonical name has two owners; multi-owner operations arise from multiple result_object_classes owned by different packages, so ownerPackageIds is a touched-package set, not an implementation role.\n- sequences-slice/lib/digest.mjs already exports canonicalJson and digestValue using sha256; reuse them and do not add a second canonicalizer.\n- sequences-slice/lib/distribution-ledger.mjs exports LEDGER_TITLE_SUFFIX, PRECEDENCE_MARKER, LEDGER_COLUMNS ['Unit','Kind','Owner','RFC location','Ground'], readLedgerRows and readDistributionLedger; the ledger reader already validates the precedence sentence, the exact column set and a composition check.\n- rfc-graph/lib/unit-ids.mjs exports UNIT_ID_PATTERN, isUnitId, readUnitAnchors, collectViewUnitIds, collectLedgerUnitIds, readSectionUnitAnchors, assignUnitIdsFromRfc and unassignedAnchors; normalizeHeading is private, lowercases and collapses whitespace.\n- rfc-graph/attach-unit-ids.js already parses --graph, --rfc and --ledger, imports the ESM libraries with dynamic import, writes atomically via a .partial file and rename, and reports MISSING_UNIT_AT_LAYER.\n- rfc-graph/schema/graph.schema.json has additionalProperties false and requires sourceFile, mainLanguage, nodes and edges; node.schema.json has additionalProperties false and an optional unitIds array with pattern ^(op|seq|xdir|ctr|obl)-.+.\n- rfc-graph/boundify-graph-to-dirs.js builds trees as { language: { name, type, kind, children, crossReferences } }; each directory or file carries mappedNodeIds as [{nodeId,title}] and optionally declarationStub. The output is written at Step 5.\n- tickets/add-tickets-for-phase.js has verifyTicketUnits(phase, graph) comparing graph node unitIds with the union of ticket.nodeIds filtered by isUnitId; resolveDefaultFiles maps nodeIds to paths; tickets currently carry nodeIds, default_files, contracts, acceptanceCriteria and specPath.\n- tickets/verify-all-ticket-coverage.js accepts --graph, --view and --ledger and calls checkUnitCoverage with viewUnitIds, ledgerUnitIds and graph; it reports unitFindings with code, unitId, layer and message.\n- lib/validate-tickets.js validates the ticket shape and does not reject extra optional fields at the top level; adding distribution and distributionDigest as optional is compatible.\n- smooth-sequences/lib/checks-layer-a.mjs registers S1, S3 and S4 finding families with addFinding and repair routes; S5.distribution-map follows the same shape.\n- The four command docs exist at .claude/commands/grill-me-for-rfc.md, graphify-rfc.md, boundify-graph.md and split-to-tickets.md and are the only place the stage order is written.\n- The sampled siprs Tickets.json predates the nodeIds design and has no nodeIds field; the new fields must be optional and the gates must treat a ticket without nodeIds as a finding, not a crash.",
+          "boyScoutPlan": "- Extract verb-named functions: collectViewUnits, validateMapAgainstView, resolveSections, renderLedger, insertManagedAnchors, populateTicketDistribution and reconstructSequenceOrder.\n- Name constants: DISTRIBUTION_MAP_FENCE, DISTRIBUTION_MAP_SCHEMA_VERSION, DISTRIBUTION_EXIT_USAGE, DISTRIBUTION_EXIT_GATE, UNIT_ROLE_IMPLEMENTER and UNIT_ROLE_CONSUMER.\n- Reuse canonicalJson and digestValue from sequences-slice/lib/digest.mjs; do not duplicate key sorting or sha256.\n- Keep library code free of console output; each CLI writes one JSON object to stdout.\n- Replace magic strings in touched code with the exported constants and add the ticket annotation to every changed definition.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "sequences artifact -> per-package view",
+              "precondition": "The sequences artifact parses and every operation, sequence and step has an id.",
+              "postcondition": "The view four unit arrays partition the artifact units owned by the package, and every operation unit carries its implementation obligation and every sequence unit its ordered steps.",
+              "invariant": "No unit is dropped and no unit appears in two ownership buckets."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "per-package view -> RFC distribution-map",
+              "precondition": "A package RFC and its generated view exist.",
+              "postcondition": "The distribution-map unit set equals the view unit set, every section resolves to exactly one heading, and the map digest is the sha256 of its canonical body excluding the digest field.",
+              "invariant": "A second render over unchanged inputs is byte-identical and no invented or missing unit is accepted."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "RFC distribution-map -> GRAPH -> Dirs-Tree",
+              "precondition": "A valid distribution map and a graph built from the same RFC exist.",
+              "postcondition": "Every map unit reaches at least one graph node, one Dirs-Tree path, and every ticket owning a node that carries it.",
+              "invariant": "No layer carries a unit outside the map."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "GRAPH and Dirs-Tree -> Tickets per-ticket distribution",
+              "precondition": "Every ticket carries a distribution record derived from the view, the graph and the dirs index.",
+              "postcondition": "For each unit the ticket obligations form the kind-specific partition: one operation implementer, one ticket per step, ordered sequence reconstruction, and at least one contract holder per boundary side.",
+              "invariant": "The union of ticket obligations equals the unit payload and no item is duplicated where exactly one is required."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "all layers -> digest chain",
+              "precondition": "Each stage writes its artifact from the previous stage digest.",
+              "postcondition": "The map digest equals the graph distributionDigest, the dirs distribution.digest and each ticket sourceMapDigest, and the Tickets aggregate is the digest of sorted ticket digests.",
+              "invariant": "A failed stage writes nothing and a digest mismatch blocks the stage."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "view ownership -> operation role",
+              "precondition": "A package may have no view, an empty view, or a view with multi-owner operations.",
+              "postcondition": "A no-view or empty-view package keeps its old verdict, and a multi-owner operation has exactly one implementer unless a surface split covers the declared surfaces.",
+              "invariant": "A non-empty view without a map fails rather than passing vacuously."
+            }
+          ],
+          "created_at": "2026-10-22",
+          "updated_at": "2026-10-22",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 view partition and payload — tests/sequences-slice/view-payload.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildPackageView } from '../../.claude/scripts/sequences-slice/lib/view.mjs';\n\nconst artifact = {\n  spec: { lines: [] },\n  operations: [{ id: 'Produce', result_object_classes: ['Thing'], kind: 'command', purpose: 'produce a thing' }],\n  sequences: [{ id: 'A-1', outcome: 'direct' }],\n  steps: [{ id: 's1', sequence: 'A-1', operation: 'Produce', contract: { pre: [] }, line: 12, quote: 'produce' }],\n};\nconst treeManifest = {\n  inventory: { objects: [{ canonical_name: 'Thing', owner_package: 'pkg-1' }] },\n  structure: { segments: [] },\n};\nconst view = buildPackageView({ artifact, treeManifest, packageSegments: [] }, 'pkg-1');\nconst op = view.ownedOperationUnits.find((unit) => unit.unitId === 'op-Produce');\nassert.equal(op.obligation.purpose, 'produce a thing');\nassert.equal(view.ownedSequenceUnits[0].steps[0].quote, 'produce');\nconst all = [...view.ownedOperationUnits, ...view.ownedSequenceUnits,\n  ...view.crossBoundarySequenceUnits, ...view.obligationUnits];\nassert.equal(new Set(all.map((unit) => unit.unitId)).size, all.length);\n```",
+            "UT: [Normal] C002 map equals view and section resolution — tests/sequences-slice/distribution-map.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport {\n  validateMapAgainstView, mapDigest, renderDistributionMap, parseDistributionMap,\n  resolveSections, viewDigest,\n} from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';\n\nconst rfc = '# Pkg\\n\\n## 2.2 Canonical encoding\\n\\nbody\\n\\n## 2.2.1 The normative scheme\\n\\nbody\\n';\nconst map = {\n  schemaVersion: 1,\n  packageId: 'pkg-1',\n  sourceViewDigest: viewDigest(view),\n  units: [{ unitId: 'op-Produce', kind: 'operation', sections: ['2.2 Canonical encoding'], ground: 'designed here' }],\n  residuals: [],\n};\nconst digest = mapDigest(map);\nassert.match(digest, /^[0-9a-f]{64}$/);\nconst rendered = renderDistributionMap({ ...map, digest });\nassert.deepEqual(parseDistributionMap(rendered).map, { ...map, digest });\nassert.equal(resolveSections(rfc, ['2.2']).resolved[0].text, '2.2 Canonical encoding');\nassert.equal(validateMapAgainstView(map, view).ok, true);\nassert.equal(validateMapAgainstView({ ...map, units: [] }, view).code, 'MISSING_UNIT');\n```",
+            "UT: [Normal] C003 placement reaches graph and dirs — tests/rfc-graph/attach-unit-ids-map.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { assignUnitIdsFromMap } from '../../.claude/scripts/rfc-graph/lib/unit-ids.mjs';\nimport { buildDistributionIndex } from '../../.claude/scripts/rfc-graph/distribution-index.js';\n\nconst graph = {\n  sourceFile: 'RFC.md', mainLanguage: 'rust',\n  nodes: [{ id: 'N0001', title: 'Canonical encoding', kind: 'architecture', summary: 'x', slug: 'canonical_encoding',\n    headingRefs: [{ refId: 'REF001', heading: 2, texts: ['2.2 Canonical encoding'] }] }],\n  edges: [],\n};\nconst attached = assignUnitIdsFromMap(graph, map, rfc);\nassert.deepEqual(attached.nodes[0].unitIds, ['op-Produce']);\nassert.equal(attached.distributionDigest, map.digest);\nconst dirs = buildDistributionIndex([graph], new Map([['N0001', ['src/produce.rs']]]), map.digest);\nassert.deepEqual(dirs.units['op-Produce'].paths, ['src/produce.rs']);\nassert.equal(dirs.digest, map.digest);\n```",
+            "UT: [Normal] C004 per-ticket obligation partition — tests/tickets/add-tickets-units.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport {\n  populateTicketDistribution, reconstructSequenceOrder,\n} from '../../.claude/scripts/tickets/add-tickets-for-phase.js';\n\nconst phase = { id: -1, nodeIds: ['op-Produce', 'op-Consume'], tickets: [\n  { id: 1, phaseId: -1, status: 'todo', title: 'produce', nodeIds: ['N0001'] },\n] };\nconst graph = { distributionDigest: map.digest, nodes: [\n  { id: 'N0001', unitIds: ['op-Produce'] },\n  { id: 'N0002', unitIds: ['op-Consume'] },\n] };\nconst populated = populateTicketDistribution(phase, graph, dirs, view);\nassert.deepEqual(populated.tickets[0].distribution.units.map((unit) => unit.unitId), ['op-Produce']);\nassert.equal(populated.tickets[0].distribution.units[0].obligation.purpose, 'produce a thing');\nassert.equal(populated.tickets[0].distribution.sourceMapDigest, map.digest);\nconst reconstructed = reconstructSequenceOrder(populated.tickets);\nassert.deepEqual(reconstructed['seq-A-1'], ['s1']);\n```",
+            "UT: [Normal] C005 digest chain and atomicity — tests/tickets/distribution-digest-chain.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { verifyDigestChain } from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';\nimport { writeAtomically } from '../../.claude/scripts/lib/atomic-write.js';\n\nconst graph = { distributionDigest: map.digest, nodes: [] };\nconst dirs = { distribution: { digest: graph.distributionDigest, units: {} } };\nconst tickets = { distribution: {\n  sourceMapDigest: dirs.distribution.digest,\n  sourceViewDigest: map.sourceViewDigest,\n  ticketDigests: { 1: 'a'.repeat(64) },\n  digest: 'b'.repeat(64),\n} };\nassert.equal(verifyDigestChain({ map, graph, dirs, tickets }).ok, true);\nconst broken = { ...tickets, distribution: { ...tickets.distribution, sourceMapDigest: '0'.repeat(64) } };\nassert.equal(verifyDigestChain({ map, graph, dirs, tickets: broken }).code, 'DISTRIBUTION_DIGEST_MISMATCH');\nassert.throws(() => writeAtomically('/tmp/px307-atomic.md', () => { throw new Error('gate'); }));\nassert.equal(fs.readFileSync('/tmp/px307-atomic.md', 'utf8'), 'original');\n```",
+            "UT: [Normal] C006 additivity and owner role — tests/smooth-sequences/distribution-map-check.test.mjs\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport {\n  checkDistributionMap, checkOwnerRoles,\n} from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';\n\nassert.deepEqual(checkDistributionMap({ view: null, rfc: '# x' }), []);\nassert.deepEqual(checkDistributionMap({\n  view: { packageId: 'p', ownedOperationUnits: [], ownedSequenceUnits: [],\n    crossBoundarySequenceUnits: [], obligationUnits: [] }, rfc: '# x',\n}), []);\nconst finding = checkDistributionMap({ view: viewWithUnits, rfc: '# x' })[0];\nassert.equal(finding.code, 'DISTRIBUTION_MAPPING_MISSING');\nconst multi = [mapWithRole(viewA, 'implementer'), mapWithRole(viewB, 'implementer')];\nassert.equal(checkOwnerRoles(multi).code, 'OWNER_ROLE_UNDECLARED');\nconst split = [mapWithSurface(viewA, 'implementer', 'rest'), mapWithSurface(viewB, 'implementer', 'cli')];\nassert.equal(checkOwnerRoles(split).ok, true);\n```"
+          ],
+          "startedAt": "2026-10-22",
+          "changes": [
+            {
+              "before": "TMP001 certified only co-generation with one scalar digest",
+              "after": "TMP001 documents the per-ticket placement chain and the obligation partition",
+              "description": "docs/TMP001.md revised: sections 5.5, 6, 9.4, 13 and 15"
+            },
+            {
+              "before": "no distribution map module",
+              "after": "sequences-slice/lib/distribution-map.mjs owns canonical form, digests, parsing and section resolution",
+              "description": "added the map reader/renderer and reused digest.mjs as the only canonicalizer"
+            },
+            {
+              "before": "ledger, map and anchors were authored by AI",
+              "after": "grill-me-for-rfc/render-distribution.mjs bootstraps, renders and writes them atomically",
+              "description": "added the renderer with --check and no-write-on-failure"
+            },
+            {
+              "before": "the view carried unit ids only",
+              "after": "operation units carry the obligation payload and sequence units carry ordered steps",
+              "description": "extended view.mjs projection; additive fields"
+            },
+            {
+              "before": "smooth had no distribution check",
+              "after": "S7.distribution-map, S7.owner-role-undeclared and S7.root-unit-uncovered report package and workspace findings",
+              "description": "added checks-distribution-map.mjs and registered the ids"
+            },
+            {
+              "before": "attach-unit-ids read RFC anchors only",
+              "after": "it reads the distribution-map block, writes distributionDigest and can write the Dirs-Tree index",
+              "description": "extended unit-ids.mjs and attach-unit-ids.js; graph schema accepts the digest"
+            },
+            {
+              "before": "Dirs-Tree had no unit index",
+              "after": "boundify writes distribution.units derived from mappedNodeIds and refuses an unmapped unit",
+              "description": "added lib/distribution-index.js and the boundify step"
+            },
+            {
+              "before": "tickets carried node ids only",
+              "after": "each ticket carries per-unit placement, obligation, spec refs and its own digest; Tickets carries the aggregate",
+              "description": "added populateTicketDistribution, reconstructSequenceOrder and verifyTicketDistribution"
+            },
+            {
+              "before": "the coverage gate compared adjacent ids only",
+              "after": "verifyDigestChain checks the per-ticket merkle root and each adjacent layer",
+              "description": "extended verify-all-ticket-coverage.js with --map and --dirs-tree"
+            },
+            {
+              "before": "no gate tests",
+              "after": "61 new tests across 9 files plus a synthetic four-stage chain",
+              "description": "every new check has a positive fixture and a seeded negative"
+            },
+            {
+              "before": "the split coverage gate repeated --graph, --ledger, --view, --dirs-tree and --map",
+              "after": "it derives all five from the directory holding Tickets.json, with the flags kept only as overrides",
+              "description": "verify-all-ticket-coverage.js gained derivePackagePaths; split-to-tickets.md now invokes it with one argument"
+            },
+            {
+              "before": "the fixed package paths were repeated at the call site",
+              "after": "the convention is inside the script, as the pipeline fixes the names",
+              "description": "removed the redundant arguments and added a derivation test"
+            }
+          ]
         }
       ]
     },

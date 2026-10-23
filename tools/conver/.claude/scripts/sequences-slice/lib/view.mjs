@@ -29,6 +29,44 @@ const CROSS_BOUNDARY_UNIT_PREFIX = 'xdir-';
 export const VIEW_SOURCE_NOTE = 'Generated from the sequences artifact by /grill-me-for-rfc. Frozen input: do not edit; regenerate instead.';
 
 /**
+ * The implementation fields an operation unit owes its ticket.
+ *
+ * The projection is an explicit list rather than the raw artifact record: the artifact
+ * also carries census metadata (position, grounding, disposition) that is not work, and a
+ * ticket that received it would be told to implement a classification.
+ *
+ * @param {object} operation
+ * @returns {object}
+ */
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+function operationObligation(operation) {
+  return {
+    kind: operation.kind ?? null,
+    purpose: operation.purpose ?? null,
+    requiredAuthority: operation.required_authority ?? null,
+    requiresRemoteTimeHandshake: operation.requires_remote_time_handshake ?? null,
+    requiresSessionBinding: operation.requires_session_binding ?? null,
+    requiredPreStateCheckpoint: operation.required_pre_state_checkpoint ?? null,
+    requiredProofClasses: Array.isArray(operation.required_proof_classes) ? [...operation.required_proof_classes] : [],
+    idempotencyScope: operation.idempotency_scope ?? null,
+    initialStatus: operation.initial_status ?? null,
+    allowedStatusTransitions: Array.isArray(operation.allowed_status_transitions) ? [...operation.allowed_status_transitions] : [],
+    externalDependencyClass: operation.external_dependency_class ?? null,
+    finalityPredicate: operation.finality_predicate ?? null,
+    cancellationRule: operation.cancellation_rule ?? null,
+    reversalOrRecoveryRule: operation.reversal_or_recovery_rule ?? null,
+    rest: operation.rest ?? null,
+    websocket: operation.websocket ?? null,
+    cli: operation.cli ?? null,
+    rejectCodeFamilies: Array.isArray(operation.reject_code_families) ? [...operation.reject_code_families] : [],
+    registryContribution: operation.registry_contribution ?? null,
+    boundaryEffects: Array.isArray(operation.boundary_effects) ? [...operation.boundary_effects] : [],
+    resultObjectClasses: Array.isArray(operation.result_object_classes) ? [...operation.result_object_classes] : [],
+    specLines: Array.isArray(operation.evidence?.spec_lines) ? [...operation.evidence.spec_lines] : [],
+  };
+}
+
+/**
  * The units one package owns, and the ones it shares.
  *
  * `packageSegments` is the workspace's list and not the package's: the line-coordinate
@@ -54,6 +92,27 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
   const units = buildSequenceUnits(artifact);
 
+  // The ordered steps of every sequence, carried once so each sequence unit can expose
+  // the work its implementers owe. The artifact order is the sequence order: a sequence
+  // is defined by the order its steps appear, not by the order a ticket happens to own them.
+  const stepsBySequence = new Map();
+  units.steps.forEach((step, order) => {
+    const steps = stepsBySequence.get(step.sequence) ?? [];
+    steps.push({
+      stepId: step.id,
+      operationId: step.operation,
+      order,
+      subject: step.subject ?? null,
+      predicate: step.predicate ?? null,
+      object: step.object ?? null,
+      contract: step.contract ?? null,
+      contractProse: step.contract_prose ?? null,
+      line: step.line ?? null,
+      quote: step.quote ?? null,
+    });
+    stepsBySequence.set(step.sequence, steps);
+  });
+
   const ownedOperationUnits = artifact.operations
     .map((operation) => {
       const classified = classifyOperationOwnership(operation, ownershipByCanonicalName);
@@ -63,6 +122,8 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
         resultObjectClasses: Array.isArray(operation.result_object_classes) ? [...operation.result_object_classes] : [],
         ownerPackageIds: classified.ownerPackageIds,
         unmatchedClassNames: classified.unmatchedClassNames,
+        roleCandidate: classified.ownerPackageIds.length === 1 ? 'implementer' : 'undecided',
+        obligation: operationObligation(operation),
       };
     })
     .filter((unit) => unit.ownerPackageIds.includes(packageId));
@@ -89,6 +150,7 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
       sequenceId: sequence.id,
       outcome: sequence.outcome,
       ownerPackageIds,
+      steps: stepsBySequence.get(sequence.id) ?? [],
     };
     if (shared) crossBoundarySequenceUnits.push(unit);
     else ownedSequenceUnits.push(unit);

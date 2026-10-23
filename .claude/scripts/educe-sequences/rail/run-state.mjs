@@ -13,9 +13,10 @@
 // digest, so it is stable across revisions and an edited specification is refused
 // against the state it already has rather than quietly opening a second one.
 //
-// The state carries no timestamp. A run that recorded when it happened would make the
-// same run over the same specification produce different bytes on different days, and
-// the only thing the status is for is deciding what to do next.
+// The state carries one timestamp: the instant a generation opened. A run that recorded
+// every step would make the same run produce different bytes on different days; a single
+// generation start is the fact a reading needs to prove it was taken after the questions
+// changed, and it is written once per generation, not once per step.
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
@@ -49,6 +50,8 @@ export const INVALIDATED_FIELD = 'invalidated';
 export const ENTERED_FIELD = 'entered';
 export const ASSETS_FIELD = 'assets';
 export const ASSET_DIGEST_FIELD = 'digest';
+/** The instant the current generation opened, which every reading must follow. */
+export const STARTED_AT_FIELD = 'generationStartedAt';
 
 /**
  * Why an existing status can or cannot be resumed.
@@ -257,6 +260,7 @@ function carryPhaseRecords(phases, receipts, currentDigests) {
 // [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function beginGeneration(status, options = {}) {
   const { spec, digest, inquest = null, coverage = null, receipts = null, currentDigests = null } = options;
   const superseded = generationOf(status);
@@ -264,6 +268,7 @@ export function beginGeneration(status, options = {}) {
     ...status,
     spec,
     [GENERATION_FIELD]: superseded + 1,
+    [STARTED_AT_FIELD]: (options.now ?? new Date()).toISOString(),
     [ENTERED_FIELD]: false,
     [ASSETS_FIELD]: { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: digest },
     phases: carryPhaseRecords(status.phases ?? [], receipts, currentDigests),

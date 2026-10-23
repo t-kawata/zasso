@@ -3,7 +3,10 @@
 /**
  * merge-contracts-to-tickets.js — Merge edge contracts into ticket contracts
  *
- * Usage: node merge-contracts-to-tickets.js <Tickets.json> <GRAPH.json>
+ * Usage: node merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>]
+ *
+ * The graph is derived from the Tickets directory when omitted; the registry is
+ * discovered at the nearest workspace ancestor when omitted.
  *
  * For each ticket, collects contracts from all edges between its nodeIds.
  * Contracts that are internally closed (source.postcondition === target.precondition
@@ -15,20 +18,49 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isUnitId } = require('../rfc-graph/lib/unit-ids.mjs');
+const {
+  deriveGraphPathFromTickets,
+  findAllocateManifest,
+} = require('../lib/package-artifacts');
 
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
-function parseArgs() {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> <GRAPH.json>');
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+function parseArgs(argv = process.argv.slice(2)) {
+  const args = argv.filter((entry) => !entry.startsWith('--registry='));
+  const registryArg = argv.find((entry) => entry.startsWith('--registry='));
+  if (args.length < 1) {
+    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>]');
     console.error('Cause: Missing arguments');
-    console.error('Action: Provide Tickets.json path and GRAPH.json path');
+    console.error('Action: Provide the Tickets.json path');
     process.exit(1);
   }
-  return { ticketsPath: path.resolve(args[0]), graphPath: path.resolve(args[1]) };
+  const ticketsPath = path.resolve(args[0]);
+  const graphPath = args.length >= 2
+    ? path.resolve(args[1])
+    : deriveGraphPathFromTickets(ticketsPath);
+  if (!graphPath) {
+    console.error('[ERROR] Cannot derive GRAPH.json beside ' + ticketsPath);
+    console.error('Action: pass GRAPH.json explicitly or keep exactly one *-GRAPH.json beside Tickets.json');
+    process.exit(1);
+  }
+  return {
+    ticketsPath,
+    graphPath,
+    registryPath: registryArg === undefined
+      ? findAllocateManifest(path.dirname(ticketsPath))
+      : path.resolve(registryArg.slice('--registry='.length)),
+  };
+}
+
+/** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function registryBoundaryIds(registryPath) {
+  if (registryPath === null || !fs.existsSync(registryPath)) return [];
+  const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  return (document.contract_registry || []).map((row) => row.boundary_id).filter(Boolean);
 }
 
 /**
@@ -110,9 +142,47 @@ function mergeContracts(tickets, graph) {
   return tickets;
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+/**
+ * Verify the boundary contracts after merging (PX-306 @verifies C003).
+ *
+ * A ticket that carries a `ctr-` unit must carry a contract, and every contract must name
+ * an edge the graph holds or a boundary the allocate registry declares. The merge copies
+ * edge contracts, so a missing one means the graph never had it; an invented one means the
+ * ticket was written by hand after the merge.
+ *
+ * @param {Array} tickets
+ * @param {Object} graph
+ * @param {string[]} [registryBoundaryIds]
+ * @returns {Array<{code: string, ticketId: number|null, boundaryId?: string, contractId?: string}>}
+ */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function verifyMergedBoundaryContracts(tickets, graph, registryBoundaryIds = []) {
+  const findings = [];
+  const edgeLabels = new Set((graph.edges || []).map((edge) => edge.from + '→' + edge.to));
+  const registry = new Set(registryBoundaryIds);
+  for (const ticket of tickets) {
+    const unitIds = (ticket.nodeIds || []).filter(isUnitId);
+    const contracts = Array.isArray(ticket.contracts) ? ticket.contracts : [];
+    for (const unitId of unitIds.filter((entry) => entry.startsWith('ctr-'))) {
+      if (contracts.length === 0) {
+        findings.push({ code: 'MISSING_BOUNDARY_CONTRACT', ticketId: ticket.id, boundaryId: unitId.slice('ctr-'.length) });
+      }
+    }
+    for (const contract of contracts) {
+      const label = String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
+      const registryMatch = registry.has(contract.boundaryId)
+        || [...registry].some((boundaryId) => contract.id === 'contract-' + boundaryId || contract.id === boundaryId);
+      if (!edgeLabels.has(label) && !registryMatch) {
+        findings.push({ code: 'INVENTED_TICKET_CONTRACT', ticketId: ticket.id, contractId: contract.id || null });
+      }
+    }
+  }
+  return findings;
+}
+
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, graphPath } = parseArgs();
+  const { ticketsPath, graphPath, registryPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -127,10 +197,23 @@ function main() {
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
 
   // Process all phases and tickets
+  const allTickets = [];
   for (const phase of ticketsData.phases) {
     if (phase.tickets) {
       mergeContracts(phase.tickets, graph);
+      allTickets.push(...phase.tickets);
     }
+  }
+
+  // A boundary unit without its contract, or a contract with no source, is a finding.
+  const findings = verifyMergedBoundaryContracts(allTickets, graph, registryBoundaryIds(registryPath));
+  if (findings.length > 0) {
+    for (const finding of findings) {
+      console.error('[ERROR] ' + finding.code + ': ' + JSON.stringify(finding));
+      console.error('Cause: Boundary contract chain violation');
+      console.error('Action: Fix the graph edge or the ticket nodeIds/contracts and re-run');
+    }
+    process.exit(1);
   }
 
   // Atomic write
@@ -149,4 +232,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { mergeContracts };
+module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs };

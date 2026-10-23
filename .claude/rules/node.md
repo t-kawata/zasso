@@ -28,6 +28,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `rfc-graph` | `commonjs` |
 | `regeneration` | `module` |
 | `sequences-slice` | `module` |
+| `shared-obligations` | `module` |
 | `smooth-sequences` | `module` |
 | `tickets` | `commonjs` |
 | `utils` | `unknown` |

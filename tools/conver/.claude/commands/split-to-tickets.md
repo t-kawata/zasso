@@ -1,6 +1,6 @@
 ---
 description: Analyzes a design document and decomposes it into phases and individual tickets based on dependencies.
-argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree.json>
+argument-hint: </path/to/RFC-doc.md>
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,7 @@ Role: decompose RFC into dependency-ordered phases and safe-I/O-boundary impleme
 Downstream: `Tickets.json` is read/updated by `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, and related commands.
 
 Invariants:
-- In: RFC, GRAPH, Dirs-Tree; positional order fixed. Out: `DOC_DIR/Tickets.json`.
+- In: RFC. GRAPH, Dirs-Tree, `Tickets.json` and the SPLIT status file are derived from it by the pipeline's naming rule. Out: `DOC_DIR/Tickets.json`.
 - existing `Tickets.json` → ask; stop; overwrite only after user approval.
 - all ticket scripts schema-validate before write; failure → no save.
 - phase processing: P0 → P1 → …; one phase at a time; never bulk-present/process phases.
@@ -40,18 +40,18 @@ Invariants:
 
 ## Argument Interpretation
 
-In: arg1 required RFC/design-document; arg2 required I/O-boundary GRAPH; arg3 required safe-boundary Dirs-Tree; paths relative | absolute.
+In: arg1 required RFC/design-document. The GRAPH (`<RFC>-GRAPH.json`), the Dirs-Tree (`<RFC>-Dirs-Tree.json`), `Tickets.json` and the SPLIT status file are derived beside it inside the scripts; they are not arguments. Paths relative | absolute.
 
 ## Output Destination
 
-Out: `Tickets.json` in RFC directory; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`.
+Out: `Tickets.json` in RFC directory; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`, with the SPLIT status at `docs/RFC-001-process-registry-SPLIT-Status.json`.
 Existing output → ask; stop before overwrite.
 
 A ticket that implements a node carrying `unitIds` records those ids in its own `nodeIds` array, beside the graph node ids it already carries. The ticket level is the level the consumers read: `verify-consistencies.js` `collectTicketNodeIds` iterates `phases[].tickets[].nodeIds` and never reads a phase-level array, so writing to the phase would put the ids where nothing looks. The schema declares `nodeIds` at both levels as an array of unconstrained strings and requires it at neither, so a unit id is structurally acceptable and no schema change is needed.
 
 ## List of Scripts Used
 
-Root: `.claude/scripts/tickets/`; status/graph utility invocations below retain source paths.
+Root: `.claude/scripts/tickets/`; each script derives the fixed artifact paths of its stage, so the invocations below pass only that stage's anchor.
 
 | Script | Contract |
 |---|---|
@@ -78,9 +78,10 @@ All ticket scripts: pre-write `validate-tickets.js`; failure → no save.
 #### 0-1. Initialization
 
 ```bash
-IFS=' ' read -r DOC_PATH GRAPH_PATH DIRS_TREE_PATH <<< "$ARGUMENTS"
+read -r DOC_PATH _ <<< "$ARGUMENTS"
 DOC_DIR="$(dirname "$DOC_PATH")"
 BASENAME="$(basename "$DOC_PATH" .md)"
+TICKETS_PATH="${DOC_DIR}/Tickets.json"
 STATUS_PATH="${DOC_DIR}/${BASENAME}-SPLIT-Status.json"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 ```
@@ -163,11 +164,10 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "2"
 echo "=== Graph Structure Summary ==="
-if [ -f "$GRAPH_PATH" ]; then
-  node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$GRAPH_PATH" --source="$DOC_PATH" --with-cli-examples
-else
+node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --source="$DOC_PATH" --with-cli-examples || {
   echo "(No graph structure summary. graphify needed beforehand. Interrupt split.)"
-fi
+  exit 1
+}
 echo "==============================="
 ```
 
@@ -190,11 +190,10 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "3"
 echo "=== boundify Directory/File Structure ==="
-if [ -f "$DIRS_TREE_PATH" ]; then
-  node .claude/scripts/rfc-graph/show-dirs-files-tree.js "$DIRS_TREE_PATH"
-else
+node .claude/scripts/rfc-graph/show-dirs-files-tree.js --doc="$DOC_PATH" || {
   echo "(*-Dirs-Tree.json not found. boundify needed beforehand. Interrupt split.)"
-fi
+  exit 1
+}
 echo "========================================="
 ```
 
@@ -218,7 +217,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-1"
-node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js "$GRAPH_PATH" "$DIRS_TREE_PATH"
+node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js "$DOC_PATH"
 ```
 
 Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split.
@@ -242,7 +241,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 Order: P0 → P1 → …; one phase only; display nodes → judge name/summary → write; never output all phases in bulk.
 
 ```bash
-node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" --phase="P0"
+node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js --tickets="$TICKETS_PATH" --phase="P0"
 echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | node .claude/scripts/rfc-graph/write-phase-name-summary.js "$TICKETS_PATH" "P0"
 node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-2"
@@ -267,7 +266,7 @@ Phase-order contract:
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
-node .claude/scripts/rfc-graph/show-phase-nodes.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --phase="P{n}"
+node .claude/scripts/rfc-graph/show-phase-nodes.js --tickets="$TICKETS_PATH" --phase="P{n}"
 ```
 
 Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path.
@@ -282,10 +281,12 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
 
 ```bash
-echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js "$TICKETS_PATH" "$DIRS_TREE_PATH" "P{n}" "$GRAPH_PATH"
+echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js "$TICKETS_PATH" "P{n}"
 ```
 
-Fields: schema `tickets-schema.json#/definitions/ticket`; auto only `id`, `phaseId`, `status`; `additionalProperties: true`; `default_files` script-set with `--dirs-tree`; AI must not input; `contracts` required input `[]`, auto-populated after 5-2.
+When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
+
+Fields: schema `tickets-schema.json#/definitions/ticket`; auto only `id`, `phaseId`, `status`; `additionalProperties: true`; `default_files` is script-set from the Dirs-Tree derived beside `Tickets.json`; AI must not input; `contracts` required input `[]`, auto-populated after 5-2.
 
 | Field | Minimum contract |
 |---|---|
@@ -322,17 +323,13 @@ Done: precise tests, all green, empirical genuine correctness, no coverage/inten
 After all 5-2 phase loops complete:
 
 ```bash
-REGISTRY_ARG=""
-if [ -n "${ALLOCATE_MANIFEST_PATH:-}" ] && [ -f "$ALLOCATE_MANIFEST_PATH" ]; then
-  REGISTRY_ARG="--registry=$ALLOCATE_MANIFEST_PATH"
-fi
-node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH" "$GRAPH_PATH" $REGISTRY_ARG
-node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" $REGISTRY_ARG
-node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH" --graph="$GRAPH_PATH" --ledger="$DOC_PATH"
+node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH"
+node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH"
+node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
-`ALLOCATE_MANIFEST_PATH` is the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` when the split can see it; without it the registry chain is skipped and only the graph/ticket chain is checked.
+Every split-stage script derives the graph, Dirs-Tree, RFC and view from the directory holding `$TICKETS_PATH`. The pipeline fixes those names, so the command line does not repeat them; the scripts keep their explicit-path arguments only as overrides for a non-standard layout. `verify-ticket-closure.js` and `merge-contracts-to-tickets.js` also discover the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the registry chain runs whenever the split is inside a workspacify workspace and is skipped otherwise.
 
 Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, and `INVENTED_TICKET_CONTRACT`.
 
@@ -349,7 +346,7 @@ Sequence: guard → validation → backward merge → ID re-index → `relatedTi
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
-node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH" "$STATUS_PATH"
+node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```
 

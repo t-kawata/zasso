@@ -7,6 +7,9 @@
  * and kind mapped to each file in tree format.
  *
  * CLI: show-dirs-files-tree.js </path/to/RFC-ROOT-Dirs-Tree.json>
+ *      show-dirs-files-tree.js --doc=</path/to/RFC-ROOT.md>
+ *
+ * The --doc form derives the Dirs-Tree from the RFC by the pipeline's naming rule.
  *
  * Exit codes:
  *   0  Success
@@ -16,8 +19,33 @@
 const fs = require("fs");
 const path = require("path");
 
+const { deriveDirsTreePathFromDoc } = require("../lib/package-artifacts");
+const { writeLine } = require("../lib/cli-output");
+
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
+
+/**
+ * Resolve the Dirs-Tree path from the CLI arguments.
+ *
+ * `--doc=<RFC>` derives it; a positional `.md` does the same; any other positional
+ * is taken as the Dirs-Tree itself so the pre-existing form keeps working.
+ *
+ * @param {string[]} args — process.argv.slice(2)
+ * @returns {string|null}
+ */
+function resolveDirsTreePath(args) {
+  const docArgument = args.find(function (arg) { return arg.startsWith("--doc="); });
+  if (docArgument) {
+    return deriveDirsTreePathFromDoc(docArgument.slice("--doc=".length));
+  }
+  const positional = args.filter(function (arg) { return !arg.startsWith("--"); });
+  if (positional.length === 0) return null;
+  if (positional[0].endsWith(".md")) {
+    return deriveDirsTreePathFromDoc(positional[0]);
+  }
+  return path.resolve(positional[0]);
+}
 
 /**
  * Outputs error to stderr using 3-segment template and exits with code 1
@@ -69,18 +97,20 @@ function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    console.log("show-dirs-files-tree.js — Display directory/file tree from Dirs-Tree.json");
-    console.log("");
-    console.log("Usage:");
-    console.log("  show-dirs-files-tree.js </path/to/RFC-ROOT-Dirs-Tree.json>");
-    console.log("");
-    console.log("Options:");
-    console.log("  --help, -h  Show this help");
+    writeLine("show-dirs-files-tree.js — Display directory/file tree from Dirs-Tree.json");
+    writeLine("");
+    writeLine("Usage:");
+    writeLine("  show-dirs-files-tree.js </path/to/RFC-ROOT-Dirs-Tree.json>");
+    writeLine("  show-dirs-files-tree.js --doc=</path/to/RFC-ROOT.md>");
+    writeLine("");
+    writeLine("Options:");
+    writeLine("  --doc=<RFC>  Derive the Dirs-Tree from the RFC path");
+    writeLine("  --help, -h  Show this help");
     process.exit(EXIT_SUCCESS);
   }
 
-  const dirsTreePath = path.resolve(args[0]);
-  if (!fs.existsSync(dirsTreePath)) {
+  const dirsTreePath = resolveDirsTreePath(args);
+  if (!dirsTreePath || !fs.existsSync(dirsTreePath)) {
     exitWithError(
       "Dirs-Tree.json not found: " + dirsTreePath,
       "File does not exist at the specified path.",
@@ -103,20 +133,20 @@ function main() {
   const sourceFileName = path.basename(dirsTree.sourceFile || "");
   const dirsTreeFileName = path.basename(dirsTreePath);
 
-  console.log("# Directory / File Structure — Mapped Nodes");
-  console.log("");
+  writeLine("# Directory / File Structure — Mapped Nodes");
+  writeLine("");
 
   const langKeys = Object.keys(dirsTree.trees || {});
   const langInfo = langKeys.join(", ");
-  console.log(
+  writeLine(
     "Language: " + langInfo + " | Graph: " + graphFileName + " | Source: " + sourceFileName
   );
-  console.log("");
+  writeLine("");
 
-  console.log("## To show node details");
-  console.log("");
-  console.log("```");
-  console.log(
+  writeLine("## To show node details");
+  writeLine("");
+  writeLine("```");
+  writeLine(
     'node .claude/scripts/rfc-graph/query.js --graph="' +
       graphFileName +
       '" --source="' +
@@ -125,27 +155,27 @@ function main() {
       dirsTreeFileName +
       '" --id=Nxxxx (e.g. N0001) --hops=<N> (1=direct, 2+=includes grandchildren)'
   );
-  console.log("```");
-  console.log("");
+  writeLine("```");
+  writeLine("");
 
   const trees = dirsTree.trees || {};
   for (const lang of langKeys) {
     const root = trees[lang];
     if (!root) continue;
 
-    console.log("## " + lang.charAt(0).toUpperCase() + lang.slice(1));
-    console.log("");
+    writeLine("## " + lang.charAt(0).toUpperCase() + lang.slice(1));
+    writeLine("");
 
     const kindLabel = root.kind && root.kind !== "root" ? " [" + root.kind + "]" : " [source-root]";
-    console.log("- " + root.name + "/" + kindLabel);
+    writeLine("- " + root.name + "/" + kindLabel);
 
     if (root.children) {
       var treeLines = [];
       renderTree(root.children, 1, treeLines);
       for (var ti = 0; ti < treeLines.length; ti++) {
-        console.log(treeLines[ti]);
+        writeLine(treeLines[ti]);
       }
-      console.log("");
+      writeLine("");
     }
   }
 }
@@ -154,4 +184,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { renderTree };
+module.exports = { renderTree, resolveDirsTreePath };

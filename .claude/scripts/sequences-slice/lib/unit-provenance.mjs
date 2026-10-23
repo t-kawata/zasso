@@ -72,6 +72,158 @@ function ticketUnitIdsByTicket(tickets) {
   return byTicket;
 }
 
+/** Every ticket in a tickets document. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function allTickets(tickets) {
+  return (tickets?.phases ?? []).flatMap((phase) => phase?.tickets ?? []);
+}
+
+/** A unit id a ticket carries, excluding graph node ids. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function ticketUnitIds(tickets) {
+  return new Set(allTickets(tickets).flatMap((ticket) => (Array.isArray(ticket?.nodeIds) ? ticket.nodeIds : []))
+    .filter(isUnitId));
+}
+
+/** A coded provenance finding. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function provenanceFinding(code, unitId, layer, message) {
+  return { code, severity: SEVERITY_HIGH, unitId, layer, message };
+}
+
+/**
+ * The chain the SEQUENCES view promises: view -> ledger -> graph -> ticket.
+ *
+ * The view is what the package was told to implement, the ledger is what its RFC accounts
+ * for, the graph is what graphify read from that RFC, and the ticket is what the split
+ * assigned. A gap at any link is reported at the link that dropped it.
+ *
+ * @param {{viewUnitIds?: string[], ledgerUnitIds?: string[],
+ *   graph?: {nodes?: Array<object>}|null, tickets?: {phases?: Array<object>}|null}} input
+ * @returns {Array<{code: string, severity: string, unitId: string, layer: string, message: string}>}
+ */
+export function checkUnitCoverage({
+  viewUnitIds = [], ledgerUnitIds = [], graph = null, tickets = null,
+} = {}) {
+  const view = new Set((Array.isArray(viewUnitIds) ? viewUnitIds : []).filter(isUnitId));
+  const ledger = new Set((Array.isArray(ledgerUnitIds) ? ledgerUnitIds : []).filter(isUnitId));
+  const graphUnits = new Set(unitsVisibleToShip(graph));
+  const ticketUnits = ticketUnitIds(tickets);
+  const findings = [];
+  const add = (code, unitId, layer, message) => findings.push(provenanceFinding(code, unitId, layer, message));
+
+  for (const unitId of view) {
+    if (!ledger.has(unitId)) add('MISSING_UNIT_AT_LAYER', unitId, 'rfc', `unit ${unitId} is distributed by the view and absent from the distribution ledger`);
+  }
+  if (view.size > 0) {
+    for (const unitId of ledger) {
+      if (!view.has(unitId)) add('INVENTED_UNIT', unitId, 'rfc', `unit ${unitId} is in the ledger and no package view distributes it`);
+    }
+  }
+
+  for (const unitId of ledger) {
+    if (!graphUnits.has(unitId)) add('MISSING_UNIT_AT_LAYER', unitId, 'graph', `unit ${unitId} is in the ledger and no graph node carries it`);
+  }
+  for (const unitId of graphUnits) {
+    if (!ledger.has(unitId)) add('INVENTED_UNIT', unitId, 'graph', `unit ${unitId} is carried by a graph node and the ledger does not assign it`);
+  }
+
+  for (const unitId of graphUnits) {
+    if (!ticketUnits.has(unitId)) add('MISSING_UNIT_AT_LAYER', unitId, 'ticket', `unit ${unitId} is carried by the graph and no ticket declares it`);
+  }
+  for (const unitId of ticketUnits) {
+    if (!graphUnits.has(unitId)) add('INVENTED_UNIT', unitId, 'ticket', `unit ${unitId} is declared by a ticket and the graph does not carry it`);
+  }
+
+  const seen = new Set();
+  return findings.filter((entry) => {
+    const key = `${entry.code}|${entry.unitId}|${entry.layer}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** The nodes a graph gives a unit id. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function boundaryNodes(graph, unitId) {
+  return (graph?.nodes ?? []).filter((node) => unitIdsOf(node).includes(unitId));
+}
+
+/** Whether a graph edge is incident to one of the nodes. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function incidentEdge(graph, nodes) {
+  const ids = new Set(nodes.map((node) => node.id));
+  return (graph?.edges ?? []).find((edge) => ids.has(edge.from) || ids.has(edge.to));
+}
+
+/** The edge label a ticket contract records, without the merge suffix. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+function edgeLabelOf(contract) {
+  return String(contract?.sourceEdge ?? '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
+}
+
+/**
+ * The boundary contract chain: allocate registry -> graph edge -> ticket contract.
+ *
+ * A registry boundary is carried as `ctr-<boundaryId>`. The graph node carrying it must
+ * have a contract edge, and a ticket carrying it must carry a contract. A ticket contract
+ * that names neither a graph edge nor a registry boundary was invented by the split.
+ *
+ * @param {{registryBoundaryIds?: string[], graph?: object|null, tickets?: object|null}} input
+ * @returns {Array<{code: string, severity: string, boundaryId?: string, contractId?: string, message: string}>}
+ */
+export function checkBoundaryContracts({
+  registryBoundaryIds = [], graph = null, tickets = null,
+} = {}) {
+  const findings = [];
+  const ticketEntries = allTickets(tickets);
+  for (const boundaryId of registryBoundaryIds) {
+    const unitId = `ctr-${boundaryId}`;
+    const nodes = boundaryNodes(graph, unitId);
+    const edge = incidentEdge(graph, nodes);
+    const hasEdgeContract = edge !== undefined && Array.isArray(edge.contracts) && edge.contracts.length > 0;
+    if (nodes.length === 0 || !hasEdgeContract) {
+      findings.push({
+        code: 'MISSING_BOUNDARY_CONTRACT',
+        severity: SEVERITY_HIGH,
+        boundaryId,
+        message: `boundary ${boundaryId} is in the registry and no graph node ${unitId} carries a contract edge`,
+      });
+      continue;
+    }
+    const ticket = ticketEntries.find((entry) => (entry?.nodeIds ?? []).includes(unitId)
+      && Array.isArray(entry.contracts) && entry.contracts.length > 0);
+    if (ticket === undefined) {
+      findings.push({
+        code: 'MISSING_BOUNDARY_CONTRACT',
+        severity: SEVERITY_HIGH,
+        boundaryId,
+        message: `boundary ${boundaryId} reaches the graph and no ticket carries its contract`,
+      });
+    }
+  }
+
+  const edgeLabels = new Set((graph?.edges ?? []).map((edge) => `${edge.from}→${edge.to}`));
+  const registry = new Set(registryBoundaryIds);
+  for (const ticket of ticketEntries) {
+    for (const contract of Array.isArray(ticket?.contracts) ? ticket.contracts : []) {
+      const edgeResolves = edgeLabels.has(edgeLabelOf(contract));
+      const registryResolves = registry.has(contract?.boundaryId)
+        || [...registry].some((boundaryId) => contract?.id === `contract-${boundaryId}` || contract?.id === boundaryId);
+      if (!edgeResolves && !registryResolves) {
+        findings.push({
+          code: 'INVENTED_TICKET_CONTRACT',
+          severity: SEVERITY_HIGH,
+          contractId: contract?.id ?? null,
+          message: `ticket ${ticket?.id ?? '?'} carries contract ${contract?.id ?? '?'} with no graph edge and no registry boundary`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
 /**
  * The provenance findings for one package.
  *
@@ -84,18 +236,28 @@ function ticketUnitIdsByTicket(tickets) {
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function checkUnitProvenance(graph, ledgerUnitIds, headers = [], tickets = null) {
   const unitsInGraph = unitsVisibleToShip(graph);
+  const ledger = ledgerUnitIds instanceof Set
+    ? ledgerUnitIds
+    : new Set(Array.isArray(ledgerUnitIds) ? ledgerUnitIds : []);
   const declaresNothing = unitsInGraph.length === 0
     && (headers ?? []).every((header) => (readHeader(header)?.unitIds ?? []).length === 0)
     && ticketUnitIdsByTicket(tickets).length === 0;
-  if (declaresNothing) return [];
+  if (declaresNothing) {
+    // An empty graph is additive only when the ledger is empty too. A ledger that assigns
+    // units and a graph that carries none is exactly the loss this check exists to report.
+    // A null graph means the caller did not supply the chain at all (the package-level
+    // preservation check), so there is nothing to compare and nothing to report.
+    if (ledger.size === 0 || graph === null || graph === undefined) return [];
+    return [...ledger].map((unitId) => finding(`unit ${unitId} is assigned by the ledger and no graph node or ticket carries it`));
+  }
 
   const findings = [];
   const unitsInGraphSet = new Set(unitsInGraph);
   const unitsByNode = new Map((graph?.nodes ?? []).map((node) => [node.id, new Set(unitIdsOf(node))]));
 
-  if (ledgerUnitIds !== null && ledgerUnitIds !== undefined && ledgerUnitIds.size > 0) {
+  if (ledger.size > 0) {
     for (const unitId of unitsInGraph) {
-      if (!ledgerUnitIds.has(unitId)) {
+      if (!ledger.has(unitId)) {
         findings.push(finding(`unit ${unitId} is carried by this package's graph and the ledger does not assign it here`));
       }
     }

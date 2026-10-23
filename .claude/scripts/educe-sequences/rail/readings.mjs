@@ -7,9 +7,11 @@
 // are validated line by line before anything downstream sees them, because a reading
 // file that is only mostly well formed is the failure this module exists to catch.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { SmoothSequencesError } from '../../smooth-sequences/lib/errors.mjs';
+import { appendWriteReceipt } from '../../shared-obligations/evidence.mjs';
+import { readStatus } from './run-state.mjs';
 
 // The levels a partition may be taken at belong with the partition rule rather than here,
 // so a declaration cannot be validated against a vocabulary the partitioner does not hold.
@@ -645,6 +647,16 @@ export function signedCount(readings) {
 }
 
 /** Write a readings file, one reading per line. */
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function writeReadingsFile(path, readings) {
   writeFileSync(path, `${readings.map((reading) => JSON.stringify(reading)).join('\n')}\n`);
+  const directory = dirname(path);
+  if (basename(directory) !== 'educe-sequences') return;
+  const root = dirname(directory);
+  const status = readStatus(directory);
+  appendWriteReceipt(root, {
+    kind: basename(path, '.jsonl'),
+    path: `${basename(directory)}/${basename(path)}`,
+    generation: status?.generation ?? null,
+  });
 }

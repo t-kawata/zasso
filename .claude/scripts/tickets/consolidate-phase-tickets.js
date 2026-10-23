@@ -10,8 +10,10 @@
  * Usage:
  *   node consolidate-phase-tickets.js \
  *     <path to Tickets.json> \
- *     <path to status.json> \
+ *     [path to status.json] \
  *     [--dry-run]
+ *
+ * The status file is derived from the Tickets directory when omitted.
  *
  * Arguments:
  *   Tickets.json  — ticket data from the split pipeline (required)
@@ -31,6 +33,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadGraphEdgesFromTickets } = require('./generate-related-ticket-ids.js');
+const { deriveStatusPathFromTickets } = require('../lib/package-artifacts');
 
 // ============================================================
 // Constants
@@ -527,18 +530,33 @@ function parseCliArgs(argv) {
     }
   }
 
-  if (positional.length < 2) {
+  if (positional.length < 1) {
     return {
       ticketsPath: '',
       statusPath: '',
       dryRun: false,
-      error: 'Insufficient arguments. Usage: node consolidate-phase-tickets.js <Tickets.json> <status.json> [--dry-run]',
+      error: 'Insufficient arguments. Usage: node consolidate-phase-tickets.js <Tickets.json> [status.json] [--dry-run]',
+    };
+  }
+
+  const ticketsPath = path.resolve(positional[0]);
+  const statusPath = positional.length >= 2
+    ? path.resolve(positional[1])
+    : deriveStatusPathFromTickets(ticketsPath);
+
+  if (!statusPath) {
+    return {
+      ticketsPath: '',
+      statusPath: '',
+      dryRun: false,
+      error: 'Cannot derive the SPLIT status file beside ' + ticketsPath +
+        '. Keep exactly one *-SPLIT-Status.json in the directory or pass its path.',
     };
   }
 
   return {
-    ticketsPath: path.resolve(positional[0]),
-    statusPath: path.resolve(positional[1]),
+    ticketsPath,
+    statusPath,
     dryRun: dryRun,
     error: null,
   };
