@@ -672,8 +672,12 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/render-distribution.mjs --check
-node .claude/scripts/grill-me-for-rfc/render-distribution.mjs
+node .claude/scripts/grill-me-for-rfc/render-distribution.mjs --record-generation
 ```
+
+The writing invocation carries `--record-generation`: when the map digest differs from the one
+`Status.json` records, the renderer opens a new distribution generation. The `--check`
+invocation carries no flag, so a verification pass never moves the counter.
 
 The renderer is the only writer of the ledger, the map block and the managed anchors. A view with units and no ledger row fails with the unit named; the author adds the row and re-runs. A package with no `SEQUENCES.json` writes nothing.
 

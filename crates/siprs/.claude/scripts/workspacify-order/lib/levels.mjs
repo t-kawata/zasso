@@ -11,8 +11,20 @@
  */
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
-import { holdsExplanation, holdsRfc, SEED_FILE_NAME } from './workspace.mjs';
-import { readCompletedSessions, readPackageDistribution, readRootEduceGeneration, readRootSmoothGeneration } from './counters.mjs';
+import {
+  holdsBoundifyArtifact,
+  holdsExplanation,
+  holdsGraphArtifact,
+  holdsRfc,
+  holdsSplitArtifact,
+  SEED_FILE_NAME,
+} from './workspace.mjs';
+import {
+  readDistributionGeneration,
+  readGrillGeneration,
+  readRootEduceGeneration,
+  readRootSmoothGeneration,
+} from './counters.mjs';
 import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
 
@@ -298,6 +310,7 @@ function assertEdgesReferencePackages(packages, edges) {
  */
 // [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function buildModel({ root, treeManifest, allocateManifest }) {
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
   const packageRecords = requirePackageList(treeManifest);
   assertEveryPackageIsComplete(packageRecords);
@@ -341,11 +354,20 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     edu: readRootEduceGeneration(root),
     smo: readRootSmoothGeneration(root),
   };
-  const grillCounts = new Map(
-    packages.map((pkg) => [pkg.id, readCompletedSessions(join(root, pkg.path))]),
+  const grillGenerations = new Map(
+    packages.map((pkg) => [pkg.id, readGrillGeneration(join(root, pkg.path))]),
   );
-  const distributionCounts = new Map(
-    packages.map((pkg) => [pkg.id, readPackageDistribution(join(root, pkg.path))]),
+  const distributionGenerations = new Map(
+    packages.map((pkg) => [pkg.id, readDistributionGeneration(join(root, pkg.path))]),
+  );
+  const graphifiedIds = new Set(
+    packages.filter((pkg) => holdsGraphArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
+  );
+  const boundifiedIds = new Set(
+    packages.filter((pkg) => holdsBoundifyArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
+  );
+  const splitIds = new Set(
+    packages.filter((pkg) => holdsSplitArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
   const pathWidth = Math.max(...packages.map((pkg) => displayWidth(pkg.path)));
 
@@ -356,8 +378,11 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     grilledIds,
     sequenceVerdicts,
     rootCounters,
-    grillCounts,
-    distributionCounts,
+    grillGenerations,
+    distributionGenerations,
+    graphifiedIds,
+    boundifiedIds,
+    splitIds,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),

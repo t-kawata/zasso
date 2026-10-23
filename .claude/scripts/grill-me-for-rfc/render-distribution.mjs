@@ -22,6 +22,7 @@ import {
 import { isUnitId, normalizeHeading } from '../rfc-graph/lib/unit-ids.mjs';
 
 const LEDGER_TITLE = 'Distribution ledger';
+const STATUS_FILE_NAME = 'Status.json';
 const PRECEDENCE_SENTENCE = 'RFC.md is canonical for this package; the projection is an input, not an authority.';
 const HEADING = /^(#{1,6})\s+(.*\S)\s*$/;
 const ANCHOR_LINE = /^\s*<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->\s*$/;
@@ -75,7 +76,7 @@ function ownerPackages(cell) {
 }
 
 /** The section tokens a ledger location names. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
 function locationTokens(location) {
   const cleaned = cleanCell(location);
   // An authored cell may join two references with prose ("§3.6 and §1.4"). Each reference
@@ -123,7 +124,7 @@ function indexByUnit(rows) {
 }
 
 /** Build a map from the existing Distribution ledger rows. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
 function bootstrapFromLedger(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   const rows = readLedgerRows(rfcText) ?? [];
@@ -210,7 +211,7 @@ function bootstrapFromLedger(rfcText, view) {
 }
 
 /** The ledger appendix, rendered from the map. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
 function renderLedgerAppendix(map) {
   const escape = (value) => String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
   const rows = [
@@ -356,6 +357,40 @@ export function writeAtomically(targetPath, contents) {
 }
 
 /**
+ * Open a distribution generation when a grill run writes a map the record has not seen.
+ *
+ * The generation is a property of the grill, not of this renderer: a standalone render
+ * passes no flag and records nothing. A no-op render rewrites the same map, so its digest
+ * matches the recorded one and no generation opens. The status is left untouched when it
+ * is absent or unreadable, because the map itself has already been written and a display
+ * counter must not turn that into a failure.
+ *
+ * @param {string} rfcPath — the RFC the renderer wrote
+ * @param {{digest?: string}|null} map — the map the renderer produced
+ * @returns {boolean} whether a new generation was recorded
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function recordDistributionGeneration(rfcPath, map) {
+  if (map === null || map === undefined || typeof map.digest !== 'string') return false;
+  const statusPath = path.join(path.dirname(rfcPath), STATUS_FILE_NAME);
+  if (!fs.existsSync(statusPath)) return false;
+  let status;
+  try {
+    status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+  } catch {
+    return false;
+  }
+  if (status.distributionDigest === map.digest) return false;
+  const recorded = Number.isInteger(status.distributionGeneration) && status.distributionGeneration >= 0
+    ? status.distributionGeneration
+    : 0;
+  status.distributionGeneration = recorded + 1;
+  status.distributionDigest = map.digest;
+  writeAtomically(statusPath, `${JSON.stringify(status, null, 2)}\n`);
+  return true;
+}
+
+/**
  * The command entry point.
  *
  * Exit codes follow the pipeline: 0 pass, 1 gate failure, 2 usage or missing RFC. The
@@ -368,6 +403,7 @@ export function main(argv = process.argv.slice(2)) {
   const rfcPath = path.resolve(argumentFor(argv, 'rfc') ?? 'RFC.md');
   const viewPath = path.resolve(argumentFor(argv, 'view') ?? 'SEQUENCES.json');
   const check = argv.includes('--check');
+  const recordGeneration = argv.includes('--record-generation');
 
   if (!fs.existsSync(rfcPath)) {
     process.stdout.write(`${JSON.stringify({ ok: false, code: 'MISSING_RFC', rfc: rfcPath })}\n`);
@@ -390,6 +426,7 @@ export function main(argv = process.argv.slice(2)) {
     return 0;
   }
   if (result.wrote) writeAtomically(rfcPath, result.rfc);
+  if (recordGeneration && result.wrote) recordDistributionGeneration(rfcPath, result.map);
   process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: result.wrote, units: result.map?.units?.length ?? 0 })}\n`);
   return 0;
 }

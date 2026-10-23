@@ -122,6 +122,7 @@ export function viewDigest(view) {
 }
 
 /** The map body the map digest covers, with the digest itself excluded. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function canonicalMapBody(map) {
   const units = (map?.units ?? []).map((unit) => ({
     unitId: unit.unitId,
@@ -179,6 +180,7 @@ function invalidMap(reason) {
 }
 
 /** Read and validate the map block from an RFC. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function parseDistributionMap(rfcText) {
   const body = distributionMapBody(rfcText);
   if (body === null) return { ok: false, code: 'DISTRIBUTION_MAPPING_MISSING', reason: 'no distribution-map block', map: null };
@@ -312,6 +314,7 @@ export function ownerCellOf(owners, packageId) {
 }
 
 /** Compare a map with the view it was authored from. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function validateMapAgainstView(map, view) {
   const viewUnits = collectViewUnits(view);
   const mapUnits = new Set((map?.units ?? []).map((unit) => unit.unitId));

@@ -80,7 +80,7 @@ function derivePackagePaths(ticketsJsonPath) {
 }
 
 /** The unit material the CLI supplied, or derived from the Tickets.json beside it. */
-// [::TICKET::] PX-306, PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-309) --for-spec --no-implementation-order`.
 function readUnitMaterial(argv) {
   const ticketsJsonPath = argv.find((entry) => !entry.startsWith("--")) ?? null;
   const derived = ticketsJsonPath === null ? {} : derivePackagePaths(ticketsJsonPath);
@@ -227,7 +227,7 @@ function viewCarriesUnits(material) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];

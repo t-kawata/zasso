@@ -43,6 +43,13 @@ const COMPLETION_STATE = "DONE";
  */
 const COMPLETED_SESSIONS_FIELD = "completedSessions";
 
+/**
+ * The count of runs that started. It moves when a finished package is entered again, so a
+ * re-run is visible even though the session count deliberately stays put on a repeated DONE.
+ */
+const GRILL_GENERATION_FIELD = "grillGeneration";
+const FIRST_GENERATION = 1;
+
 const [,, rfcDir, operation, ...args] = process.argv;
 if (!rfcDir || !operation) {
   console.error("Usage: update-status.js <rfc-dir> <operation> [args...]");
@@ -87,6 +94,24 @@ function recordCompletion(previousState) {
   status[COMPLETED_SESSIONS_FIELD] = recorded + 1;
 }
 
+/**
+ * Open a grill generation when a finished run is entered again.
+ *
+ * A record written before the field existed starts from the sessions it counted, which is
+ * a lower bound on the runs that happened. A review loop and a resume never reach here,
+ * because their previous state is not DONE.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function openGrillGeneration(previousState) {
+  if (previousState !== COMPLETION_STATE) return;
+  const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
+    ? status[GRILL_GENERATION_FIELD]
+    : Number.isInteger(status[COMPLETED_SESSIONS_FIELD]) && status[COMPLETED_SESSIONS_FIELD] >= FIRST_GENERATION
+      ? status[COMPLETED_SESSIONS_FIELD]
+      : FIRST_GENERATION - 1;
+  status[GRILL_GENERATION_FIELD] = recorded + 1;
+}
+
 switch (operation) {
   case "set-state": {
     const newState = args[0];
@@ -98,6 +123,9 @@ switch (operation) {
     status.state = newState;
     if (newState === COMPLETION_STATE) {
       recordCompletion(previousState);
+    }
+    if (newState === "GRILLING") {
+      openGrillGeneration(previousState);
     }
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");

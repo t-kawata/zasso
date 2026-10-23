@@ -102,6 +102,7 @@ function provenanceFinding(code, unitId, layer, message) {
  *   graph?: {nodes?: Array<object>}|null, tickets?: {phases?: Array<object>}|null}} input
  * @returns {Array<{code: string, severity: string, unitId: string, layer: string, message: string}>}
  */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function checkUnitCoverage(input = {}) {
   const {
     viewUnitIds = [], ledgerUnitIds = [], residualUnitIds = [], graph = null, tickets = null,

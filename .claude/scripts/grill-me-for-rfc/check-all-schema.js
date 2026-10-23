@@ -87,6 +87,9 @@ export function validateStatus(rfcDir) {
     errors.push("Status.json.reviewLoopCount: must be a non-negative number");
   }
 
+  validateOptionalGeneration(status, "grillGeneration", 1, errors);
+  validateOptionalGeneration(status, "distributionGeneration", 0, errors);
+
   if (status.createdAt && isNaN(Date.parse(status.createdAt))) {
     errors.push("Status.json.createdAt: must be a valid ISO 8601 date");
   }
@@ -128,6 +131,20 @@ function validateOptionalDates(status, errors) {
     if (status[optionalDate] !== undefined && isNaN(Date.parse(status[optionalDate]))) {
       errors.push(`Status.json.${optionalDate}: must be a valid ISO 8601 date`);
     }
+  }
+}
+
+/**
+ * Validate an optional generation field: absent is valid, present must be an integer at
+ * or above its floor. The floors differ because a distribution generation may be zero
+ * (no render recorded yet) while a grill generation starts at one.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function validateOptionalGeneration(status, field, floor, errors) {
+  const value = status[field];
+  if (value === undefined) return;
+  if (!Number.isInteger(value) || value < floor) {
+    errors.push(`Status.json.${field}: must be an integer >= ${floor}`);
   }
 }
 

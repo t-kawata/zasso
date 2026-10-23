@@ -7,7 +7,7 @@
  * ambiguity this command cannot settle, and a guessed root would print a plan describing a
  * different workspace than the one on disk.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { WorkspacifyOrderError } from './errors.mjs';
@@ -35,6 +35,76 @@ export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
  * explanation file name above: one string is not worth reaching across scripts for.
  */
 export const RFC_FILE_NAME = 'RFC.md';
+
+/** The graph `/graphify-rfc` writes beside its source document. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const GRAPH_ARTIFACT_SUFFIX = '-GRAPH.json';
+
+/** The directory tree `/boundify-graph` writes beside the graph. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const DIRS_TREE_ARTIFACT_SUFFIX = '-Dirs-Tree.json';
+
+/** The ticket file `/split-to-tickets` writes in the design directory. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export const TICKETS_FILE_NAME = 'Tickets.json';
+
+/** The stem every artifact is named after: the design document without its extension. */
+const RFC_STEM = RFC_FILE_NAME.replace(/\.md$/, '');
+
+/** The entries of a directory, or none when it cannot be read. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function entriesOf(directory) {
+  try {
+    return readdirSync(directory);
+  } catch {
+    return [];
+  }
+}
+
+/** Whether either artifact a graph stage writes exists for this stem. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function carriesStageArtifact(directory, stem) {
+  return existsSync(join(directory, `${stem}${GRAPH_ARTIFACT_SUFFIX}`))
+    || existsSync(join(directory, `${stem}${DIRS_TREE_ARTIFACT_SUFFIX}`));
+}
+
+/**
+ * The stem the stage artifacts are named after.
+ *
+ * The design document is written as `RFC.md`, so its stem is the rule. A directory whose
+ * artifacts were produced from another document answers that single stem; two candidates
+ * are an ambiguity this display does not settle, so it answers null and shows no mark.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function artifactStem({ root, packagePath }) {
+  const directory = join(root, packagePath);
+  if (carriesStageArtifact(directory, RFC_STEM)) return RFC_STEM;
+  const stems = [...new Set(entriesOf(directory)
+    .filter((name) => name.endsWith(GRAPH_ARTIFACT_SUFFIX))
+    .map((name) => name.slice(0, -GRAPH_ARTIFACT_SUFFIX.length))
+    .filter((stem) => stem.length > 0))];
+  return stems.length === 1 ? stems[0] : null;
+}
+
+/** Whether the package carries the graph `/graphify-rfc` wrote. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function holdsGraphArtifact({ root, packagePath }) {
+  const stem = artifactStem({ root, packagePath });
+  return stem !== null && holds(join(root, packagePath), `${stem}${GRAPH_ARTIFACT_SUFFIX}`);
+}
+
+/** Whether the package carries the directory tree `/boundify-graph` wrote. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function holdsBoundifyArtifact({ root, packagePath }) {
+  const stem = artifactStem({ root, packagePath });
+  return stem !== null && holds(join(root, packagePath), `${stem}${DIRS_TREE_ARTIFACT_SUFFIX}`);
+}
+
+/** Whether the package carries the ticket file `/split-to-tickets` wrote. */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function holdsSplitArtifact({ root, packagePath }) {
+  return holds(join(root, packagePath), TICKETS_FILE_NAME);
+}
 
 /** Every ancestor of `startDirectory`, nearest first, ending at the filesystem root. */
 export function ancestorsOf(startDirectory) {
