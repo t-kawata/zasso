@@ -6,6 +6,7 @@
  *   set-state  <STATE>        - Update the state
  *                               Valid values: GRILLING | CHECKLIST_PENDING | CHECKLIST_APPROVED
  *                                             WRITING | REVIEWING | DONE
+ *   begin-run                 - Open one grill generation for this invocation
  *   inc-loop                  - Increment reviewLoopCount
  *   show                      - Output the current Status.json
  */
@@ -95,15 +96,15 @@ function recordCompletion(previousState) {
 }
 
 /**
- * Open a grill generation when a finished run is entered again.
+ * Open a grill generation for one invocation.
  *
- * A record written before the field existed starts from the sessions it counted, which is
- * a lower bound on the runs that happened. A review loop and a resume never reach here,
- * because their previous state is not DONE.
+ * The count answers "how many times was the command run", so it moves once per run and
+ * never on a state transition: a review loop, a resume and a repeated DONE are all the
+ * same run continuing. A record written before the field existed starts from the sessions
+ * it counted, a documented lower bound rather than a reconstruction.
  */
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function openGrillGeneration(previousState) {
-  if (previousState !== COMPLETION_STATE) return;
+function openRunGeneration() {
   const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
     ? status[GRILL_GENERATION_FIELD]
     : Number.isInteger(status[COMPLETED_SESSIONS_FIELD]) && status[COMPLETED_SESSIONS_FIELD] >= FIRST_GENERATION
@@ -124,11 +125,14 @@ switch (operation) {
     if (newState === COMPLETION_STATE) {
       recordCompletion(previousState);
     }
-    if (newState === "GRILLING") {
-      openGrillGeneration(previousState);
-    }
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");
+    break;
+  }
+  case "begin-run": {
+    openRunGeneration();
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, grillGeneration: status[GRILL_GENERATION_FIELD] }) + "\n");
     break;
   }
   case "inc-loop": {

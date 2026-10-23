@@ -78,7 +78,7 @@ test('C003 a changed map opens a distribution generation and records its digest'
   assert.equal(status.distributionDigest, rendered.map.digest);
 });
 
-test('C003 the same digest does not open a second generation', () => {
+test('C003 a second execution opens another generation even with the same digest', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-same-'));
   const { rfcPath, statusPath } = writeFixture(directory, {
     state: 'GRILLING',
@@ -89,7 +89,7 @@ test('C003 the same digest does not open a second generation', () => {
 
   recordDistributionGeneration(rfcPath, { ...rendered.map, digest: 'a'.repeat(64) });
 
-  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 1);
+  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });
 
 test('C003 a render without a map records nothing', () => {
@@ -122,12 +122,12 @@ test('C003 the CLI with the flag opens the generation after a write', () => {
   assert.match(status.distributionDigest, /^[0-9a-f]{64}$/);
 });
 
-test('C003 a second CLI run with the same map keeps the generation', () => {
+test('C003 a second CLI run opens another generation even when the map is unchanged', () => {
   const directory = mkdtempSync(join(tmpdir(), 'px309-dist-cli-repeat-'));
   const { statusPath } = writeFixture(directory, { state: 'GRILLING', distributionGeneration: 0 });
 
   execFileSync(process.execPath, [RENDER, '--record-generation'], { cwd: directory, encoding: 'utf8' });
   execFileSync(process.execPath, [RENDER, '--record-generation'], { cwd: directory, encoding: 'utf8' });
 
-  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 1);
+  assert.equal(JSON.parse(readFileSync(statusPath, 'utf8')).distributionGeneration, 2);
 });

@@ -32,35 +32,36 @@ function setState(rfcDir, state) {
 }
 
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function beginRun(rfcDir) {
+  execFileSync(process.execPath, [UPDATE_STATUS, rfcDir, 'begin-run'], { encoding: 'utf8' });
+}
+
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   return JSON.parse(readFileSync(statusPath, 'utf8'));
 }
 
-test('C002 a freshly initialized directory opens grill generation one', () => {
+test('C002 initialization alone records no generation; the first run opens one', () => {
   const session = freshSession();
+  assert.equal(readStatus(session.statusPath).grillGeneration, undefined);
+  beginRun(session.rfcDir);
   const status = readStatus(session.statusPath);
   assert.equal(status.state, 'GRILLING');
   assert.equal(status.grillGeneration, 1);
 });
 
-test('C001 a new run after DONE increments the grill generation by one', () => {
+test('C001 every run increments the grill generation, whatever the state', () => {
   const session = freshSession();
   setState(session.rfcDir, 'DONE');
-  setState(session.rfcDir, 'GRILLING');
-  const status = readStatus(session.statusPath);
-  assert.equal(status.grillGeneration, 2);
-  assert.equal(status.state, 'GRILLING');
+  beginRun(session.rfcDir);
+  assert.equal(readStatus(session.statusPath).grillGeneration, 2);
+  assert.equal(readStatus(session.statusPath).completedSessions, 1);
 });
 
-test('C001 a review loop back to GRILLING does not open a generation', () => {
+test('C001 a state transition alone never opens a generation', () => {
   const session = freshSession();
+  beginRun(session.rfcDir);
   setState(session.rfcDir, 'REVIEWING');
-  setState(session.rfcDir, 'GRILLING');
-  assert.equal(readStatus(session.statusPath).grillGeneration, 1);
-});
-
-test('C001 a repeated GRILLING does not open a generation', () => {
-  const session = freshSession();
   setState(session.rfcDir, 'GRILLING');
   setState(session.rfcDir, 'GRILLING');
   assert.equal(readStatus(session.statusPath).grillGeneration, 1);
@@ -73,6 +74,6 @@ test('C001 a record without the field starts from completedSessions', () => {
   status.state = 'DONE';
   status.completedSessions = 4;
   writeFileSync(session.statusPath, JSON.stringify(status, null, 2));
-  setState(session.rfcDir, 'GRILLING');
+  beginRun(session.rfcDir);
   assert.equal(readStatus(session.statusPath).grillGeneration, 5);
 });

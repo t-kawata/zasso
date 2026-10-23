@@ -357,11 +357,12 @@ export function writeAtomically(targetPath, contents) {
 }
 
 /**
- * Open a distribution generation when a grill run writes a map the record has not seen.
+ * Open one distribution generation for a grill execution of the renderer.
  *
  * The generation is a property of the grill, not of this renderer: a standalone render
- * passes no flag and records nothing. A no-op render rewrites the same map, so its digest
- * matches the recorded one and no generation opens. The status is left untouched when it
+ * passes no flag and records nothing. The count answers "how many times did the grill
+ * distribute", so a render that finds the map unchanged still counts — the execution
+ * happened, even though the artifact did not move. The status is left untouched when it
  * is absent or unreadable, because the map itself has already been written and a display
  * counter must not turn that into a failure.
  *
@@ -371,7 +372,7 @@ export function writeAtomically(targetPath, contents) {
  */
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function recordDistributionGeneration(rfcPath, map) {
-  if (map === null || map === undefined || typeof map.digest !== 'string') return false;
+  if (map === null || map === undefined) return false;
   const statusPath = path.join(path.dirname(rfcPath), STATUS_FILE_NAME);
   if (!fs.existsSync(statusPath)) return false;
   let status;
@@ -380,12 +381,11 @@ export function recordDistributionGeneration(rfcPath, map) {
   } catch {
     return false;
   }
-  if (status.distributionDigest === map.digest) return false;
   const recorded = Number.isInteger(status.distributionGeneration) && status.distributionGeneration >= 0
     ? status.distributionGeneration
     : 0;
   status.distributionGeneration = recorded + 1;
-  status.distributionDigest = map.digest;
+  if (typeof map.digest === 'string') status.distributionDigest = map.digest;
   writeAtomically(statusPath, `${JSON.stringify(status, null, 2)}\n`);
   return true;
 }
@@ -426,7 +426,7 @@ export function main(argv = process.argv.slice(2)) {
     return 0;
   }
   if (result.wrote) writeAtomically(rfcPath, result.rfc);
-  if (recordGeneration && result.wrote) recordDistributionGeneration(rfcPath, result.map);
+  if (recordGeneration) recordDistributionGeneration(rfcPath, result.map);
   process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: result.wrote, units: result.map?.units?.length ?? 0 })}\n`);
   return 0;
 }

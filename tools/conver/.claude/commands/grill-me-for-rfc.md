@@ -266,7 +266,12 @@ out:
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" $ARGUMENTS
+node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" begin-run
 ```
+`begin-run` opens this invocation's generation. It moves once per run whatever path the run
+takes — a fresh session, a resume, or a re-entry after DONE — so the number answers "how many
+times was the grill run", not "how many sessions reached DONE".
+
 generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING), and records the material list and the fixed RFC path in `Status.json`. A material path that does not exist is reported and the run stops before writing anything.
 
 It also makes the recorded view current, in this call and under the same condition the sequences rail below is owed at all: when one of the arguments names a `*-sequences.json`. A view projected from an older artifact was read as material by every later run and nothing in the run's state said it predated the obligation carriage, so the repair is done where the arguments already are rather than as a step a run has to remember. It reports what it refreshed in `refreshed`, and it records the two view files it wrote as material in the same step, because a view written and not recorded is a view the strict readers never walk. With no artifact among the arguments nothing of this runs and the files are exactly what they were.

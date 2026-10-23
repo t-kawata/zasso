@@ -215,7 +215,6 @@ const statusTemplate = {
   rfcPath,
   rfcDir,
   reviewLoopCount: 0,
-  grillGeneration: 1,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
