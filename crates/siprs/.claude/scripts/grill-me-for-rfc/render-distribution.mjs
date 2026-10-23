@@ -255,6 +255,7 @@ function validateExistingMap(rfcText, map, view) {
  * @param {object} view
  * @returns {{ ok: boolean, code?: string, rfc: string, map: object|null, wrote: boolean }}
  */
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
 export function renderDistribution(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   if (viewUnits.size === 0) return { ok: true, rfc: rfcText, map: null, wrote: false };
@@ -278,7 +279,7 @@ export function renderDistribution(rfcText, view) {
     return refuse(parsed.code, {});
   }
 
-  // The digest is a function of the body, so it is recomputed after every change.
+  // Digest derives from the body, so every change recomputes it.
   const withoutDigest = { ...map };
   delete withoutDigest.digest;
   map = { ...withoutDigest, digest: mapDigest(withoutDigest) };

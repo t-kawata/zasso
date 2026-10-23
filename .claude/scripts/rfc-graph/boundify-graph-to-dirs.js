@@ -36,6 +36,7 @@ const treeBuilder = require("./boundify-tree.js");
 const { validateFiles } = require("./validate-dirs-tree-schema.js");
 const { createDefaultStatus, atomicWrite } = require("./update-boundify-step-status.js");
 const { toHomeRelative } = require("../lib/path-utils");
+const { writeLine } = require("../lib/cli-output");
 const {
   buildDistributionIndex,
   collectNodePaths,
@@ -92,8 +93,9 @@ function reportError(message, cause, remedy) {
 /**
  * Display script usage
  */
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(`\
+  writeLine(`\
 boundify-graph-to-dirs.js <graph-json-path> [--json] [--dry-run] [--force]
 
 Arguments:
@@ -417,7 +419,7 @@ function resolveOutputPaths(graphDir, basename) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
 function main(testArgs) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs);
@@ -530,17 +532,17 @@ function main(testArgs) {
   // --dry-run mode: skip file writing and validation
   if (flags.dryRun) {
     if (flags.json) {
-      console.log(JSON.stringify(dirsTree, null, 2));
+      writeLine(JSON.stringify(dirsTree, null, 2));
     } else if (!flags.quiet) {
       const report = treeBuilder.generateReport(graph, dirsTree, "rust");
       const jsonBlock = JSON.stringify(dirsTree, null, 2);
-      console.log(helpers.SAFE_BOUNDARIES_EN_TEXT);
-      console.log("");
-      console.log(report);
-      console.log("");
-      console.log("```json");
-      console.log(jsonBlock);
-      console.log("```");
+      writeLine(helpers.SAFE_BOUNDARIES_EN_TEXT);
+      writeLine("");
+      writeLine(report);
+      writeLine("");
+      writeLine("```json");
+      writeLine(jsonBlock);
+      writeLine("```");
     }
     return;
   }
@@ -582,18 +584,18 @@ function main(testArgs) {
   // ---- Step 7: Stdout 3-way branch ----
   if (flags.json) {
     // --json: stdout only JSON
-    console.log(JSON.stringify(dirsTree, null, 2));
+    writeLine(JSON.stringify(dirsTree, null, 2));
   } else if (!flags.quiet) {
     // Default: .en.md + Markdown + JSON block
     const report = treeBuilder.generateReport(graph, dirsTree, "rust");
     const jsonBlock = JSON.stringify(dirsTree, null, 2);
-    console.log(helpers.SAFE_BOUNDARIES_EN_TEXT);
-    console.log("");
-    console.log(report);
-    console.log("");
-    console.log("```json");
-    console.log(jsonBlock);
-    console.log("```");
+    writeLine(helpers.SAFE_BOUNDARIES_EN_TEXT);
+    writeLine("");
+    writeLine(report);
+    writeLine("");
+    writeLine("```json");
+    writeLine(jsonBlock);
+    writeLine("```");
   }
   // --quiet: completely suppress stdout (file output only)
 }

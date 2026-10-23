@@ -19,6 +19,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { findAllocateManifest } = require('../lib/package-artifacts');
+
 /** Edge types that require non-empty contracts */
 const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with'];
 
@@ -49,6 +51,24 @@ function registryBoundaryIds(registryPath) {
   if (registryPath === null || !fs.existsSync(registryPath)) return [];
   const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   return (document.contract_registry || []).map((row) => row.boundary_id).filter(Boolean);
+}
+
+/**
+ * The registry the graph stage should read, discovering the workspace's allocate manifest
+ * when no explicit path was given.
+ *
+ * The graph lives inside a package directory; the manifest lives at the nearest ancestor
+ * holding both workspace manifests. Discovery makes the boundary check part of the stage,
+ * and a graph outside a workspace keeps the check skipped rather than failing.
+ *
+ * @param {string} graphPath
+ * @param {string|null} registryPath
+ * @returns {string|null}
+ */
+// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+function resolveRegistryPath(graphPath, registryPath) {
+  if (registryPath !== null && registryPath !== undefined) return registryPath;
+  return findAllocateManifest(path.dirname(graphPath));
 }
 
 /**
@@ -127,7 +147,7 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath, registryPath } = parseArgs();
   if (!fs.existsSync(graphPath)) {
@@ -140,7 +160,9 @@ function main() {
     console.error('[ERROR] Failed to parse graph JSON: ' + e.message);
     process.exit(1);
   }
-  const errors = verifyGraphContracts(graph, { registryBoundaryIds: registryBoundaryIds(registryPath) });
+  const errors = verifyGraphContracts(graph, {
+    registryBoundaryIds: registryBoundaryIds(resolveRegistryPath(graphPath, registryPath)),
+  });
   if (errors.length > 0) {
     for (const err of errors) {
       console.error('[ERROR] Edge ' + err.edge + ': ' + err.detail);
@@ -155,4 +177,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyGraphContracts, TYPES_REQUIRING_CONTRACTS, TYPES_OPTIONAL };
+module.exports = { verifyGraphContracts, resolveRegistryPath, TYPES_REQUIRING_CONTRACTS, TYPES_OPTIONAL };

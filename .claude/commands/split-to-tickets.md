@@ -47,7 +47,7 @@ In: arg1 required RFC/design-document. The GRAPH (`<RFC>-GRAPH.json`), the Dirs-
 Out: `Tickets.json` in RFC directory; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`, with the SPLIT status at `docs/RFC-001-process-registry-SPLIT-Status.json`.
 Existing output → ask; stop before overwrite.
 
-A ticket that implements a node carrying `unitIds` records those ids in its own `nodeIds` array, beside the graph node ids it already carries. The ticket level is the level the consumers read: `verify-consistencies.js` `collectTicketNodeIds` iterates `phases[].tickets[].nodeIds` and never reads a phase-level array, so writing to the phase would put the ids where nothing looks. The schema declares `nodeIds` at both levels as an array of unconstrained strings and requires it at neither, so a unit id is structurally acceptable and no schema change is needed.
+A ticket that implements a node carrying `unitIds` does not copy them: `add-tickets-for-phase.js` appends every unit its nodes carry to the ticket's own `nodeIds` array before it verifies coverage. The ticket level is the level the consumers read: `verify-consistencies.js` `collectTicketNodeIds` iterates `phases[].tickets[].nodeIds` and never reads a phase-level array, so writing to the phase would put the ids where nothing looks. The schema declares `nodeIds` at both levels as an array of unconstrained strings and requires it at neither, so a unit id is structurally acceptable and no schema change is needed.
 
 ## List of Scripts Used
 
@@ -326,12 +326,13 @@ After all 5-2 phase loops complete:
 node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH"
 node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH"
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
+node .claude/scripts/tickets/show-ticket-distribution.js "$TICKETS_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
 Every split-stage script derives the graph, Dirs-Tree, RFC and view from the directory holding `$TICKETS_PATH`. The pipeline fixes those names, so the command line does not repeat them; the scripts keep their explicit-path arguments only as overrides for a non-standard layout. `verify-ticket-closure.js` and `merge-contracts-to-tickets.js` also discover the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the registry chain runs whenever the split is inside a workspacify workspace and is skipped otherwise.
 
-Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, and `INVENTED_TICKET_CONTRACT`.
+Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, `INVENTED_TICKET_CONTRACT`, `DUPLICATE_UNIT_AT_TICKET`, `MISSING_SEQUENCE_STEP`, `DUPLICATE_SEQUENCE_STEP`, `SEQUENCE_STEP_WITHOUT_IMPLEMENTER`, `SEQUENCE_ORDER_MISMATCH`, `UNASSIGNED_SEQUENCE_STEP`, `SPEC_REF_MISSING`, and `DISTRIBUTION_DIGEST_MISMATCH`. The ticket's unit ids are appended by `add-tickets-for-phase.js`; the author never copies them.
 
 ### Resuming from an Error
 

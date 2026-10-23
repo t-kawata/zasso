@@ -12,6 +12,7 @@
       "items": { "$ref": "#/definitions/phase" }
     },
     "dependencyMap": { "type": "string" },
+    "distribution": { "$ref": "#/definitions/distributionAggregate" },
     "checklist": {
       "type": "array",
       "items": { "$ref": "#/definitions/checklistEntry" }
@@ -110,6 +111,7 @@
           }
         },
         "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } },
+        "distribution": { "$ref": "#/definitions/distribution" },
         "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" },
         "forNextRound": { "type": "boolean", "description": "Mid-round creation marker: excluded from the current round's processing until cleared at the round transition (PX-143/PX-144)." },
         "contracts": {
@@ -126,6 +128,64 @@
               "postcondition": { "type": "string", "minLength": 1, "description": "このチケットの事後条件 — 完了後に保証する約束" },
               "invariant": { "type": "string", "minLength": 1, "description": "このチケットの不変条件 — 常に維持すべき自己整合性" }
             }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "distribution": {
+      "type": "object",
+      "description": "A ticket's distribution record: the units it owes, their placement and the obligations derived from the view.",
+      "required": ["units"],
+      "properties": {
+        "sourceMapDigest": { "type": ["string", "null"] },
+        "sourceViewDigest": { "type": ["string", "null"] },
+        "digest": { "type": "string" },
+        "units": { "type": "array", "items": { "$ref": "#/definitions/distributionUnit" } }
+      },
+      "additionalProperties": true
+    },
+    "distributionAggregate": {
+      "type": "object",
+      "description": "The package-level aggregate: one digest per ticket, then one digest over the sorted map.",
+      "required": ["ticketDigests", "digest"],
+      "properties": {
+        "sourceMapDigest": { "type": ["string", "null"] },
+        "sourceViewDigest": { "type": ["string", "null"] },
+        "ticketDigests": { "type": "object", "additionalProperties": { "type": "string" } },
+        "digest": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "distributionUnit": {
+      "type": "object",
+      "required": ["unitId", "kind", "obligation", "specRefs"],
+      "properties": {
+        "unitId": { "type": "string", "minLength": 1 },
+        "kind": { "type": ["string", "null"] },
+        "role": { "type": ["string", "null"] },
+        "surface": { "type": ["string", "null"] },
+        "placement": {
+          "type": "object",
+          "properties": {
+            "nodeIds": { "type": "array", "items": { "type": "string" } },
+            "paths": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        },
+        "obligation": { "type": "object", "additionalProperties": true },
+        "obligationDigest": { "type": "string" },
+        "specRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line"],
+            "properties": {
+              "path": { "type": "string" },
+              "line": { "type": "integer" },
+              "quote": { "type": "string" }
+            },
+            "additionalProperties": true
           }
         }
       },
