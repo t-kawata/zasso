@@ -54,12 +54,25 @@ export const OBLIGATION_RELATIONS = Object.freeze(['serves', 'carries', ASSIGNME
 export const OBLIGATION_RECORD_BASENAME = 'OBLIGATION.json';
 
 /** The record version this reader understands. */
-export const OBLIGATION_RECORD_VERSION = 1;
+export const OBLIGATION_RECORD_VERSION = 2;
 
-/** The version field of the record, and the two lists it carries. */
+/**
+ * The versions this reader knows, oldest first.
+ *
+ * A version is a rule set, not a number to match: version 1 recorded an adjudication with a ground
+ * and nothing saying which package the duty went to, and version 2 requires that carrier. Reading
+ * a version-1 record under version-2 rules would refuse every record written before the carrier
+ * existed, which is a workspace punished for having been written yesterday. So the reader accepts
+ * both and answers each under the rules it was written under, and the version it writes is the
+ * newest one it knows.
+ */
+export const OBLIGATION_RECORD_SUPPORTED_VERSIONS = Object.freeze([1, 2]);
+
+/** The version field of the record, and the three lists it carries. */
 const RECORD_VERSION_FIELD = 'version';
 const RECORD_SERVES_FIELD = 'serves';
 const RECORD_ASSIGNMENTS_FIELD = 'assignments';
+const RECORD_ADJUDICATIONS_FIELD = 'adjudications';
 
 /** The demand kind each unit-id prefix names. */
 const DEMAND_KIND_BY_PREFIX = Object.freeze({ [OPERATION_UNIT_PREFIX]: 'operation', [SEQUENCE_UNIT_PREFIX]: 'sequence' });
@@ -74,7 +87,7 @@ const DEMAND_KIND_BY_PREFIX = Object.freeze({ [OPERATION_UNIT_PREFIX]: 'operatio
 export const OBLIGATION_SOURCES = Object.freeze(['declared', 'undeclared', 'absent']);
 
 /** The field a stage-2 manifest may carry the declared interfaces in, keyed by package path. */
-const DECLARED_INTERFACES_FIELD = 'declared_interfaces';
+export const DECLARED_INTERFACES_FIELD = 'declared_interfaces';
 
 /** The fence that opens a JSON block inside a seed document. */
 const JSON_FENCE = /```json\r?\n([\s\S]*?)```/g;
@@ -230,7 +243,7 @@ export function readDeclaredInterfaces(packageRoot, allocateManifest) {
 }
 
 /** The seed declarations of every package beneath a root, keyed by the path the reader keys by. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function readSeedsByDirectory(packageRoot) {
   const seeds = new Map();
   if (!fs.existsSync(packageRoot)) return seeds;
@@ -250,19 +263,20 @@ function readSeedsByDirectory(packageRoot) {
  * as declaring nothing is a package whose silence is indistinguishable from a decision, and
  * that is the confusion this whole relation exists to remove.
  */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function readRecordsByDirectory(packageRoot) {
   const records = new Map();
   if (!fs.existsSync(packageRoot)) return records;
   walkPackageRoot(packageRoot, (directory, name, fullPath) => {
     if (name !== OBLIGATION_RECORD_BASENAME) return;
-    records.set(path.relative(packageRoot, directory), readRecordOrRefusal(fullPath));
+    const packagePath = path.relative(packageRoot, directory);
+    records.set(packagePath, readRecordOrRefusal(fullPath, packagePath));
   });
   return records;
 }
 
 /** Every file beneath a package root, reported with the directory it sits in. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function walkPackageRoot(directory, visit) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);
@@ -281,9 +295,9 @@ function walkPackageRoot(directory, visit) {
  * @param {string} filePath
  * @returns {{ serves: object[], assignments: object[], refused: string|null }}
  */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
-function readRecordOrRefusal(filePath) {
-  const empty = { serves: [], assignments: [], refused: null };
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+function readRecordOrRefusal(filePath, packagePath = '') {
+  const empty = { serves: [], assignments: [], adjudications: [], refused: null };
   const refusedWith = (reason) => ({ ...empty, refused: `${basename(filePath)} ${reason}` });
 
   let parsed;
@@ -292,19 +306,62 @@ function readRecordOrRefusal(filePath) {
   } catch {
     return refusedWith('could not be read as a record');
   }
-  if (parsed?.[RECORD_VERSION_FIELD] !== OBLIGATION_RECORD_VERSION) {
-    return refusedWith(`records version ${JSON.stringify(parsed?.[RECORD_VERSION_FIELD])}, and this reader knows version ${OBLIGATION_RECORD_VERSION}`);
+  if (!OBLIGATION_RECORD_SUPPORTED_VERSIONS.includes(parsed?.[RECORD_VERSION_FIELD])) {
+    return refusedWith(`records version ${JSON.stringify(parsed?.[RECORD_VERSION_FIELD])}, and this reader knows version${OBLIGATION_RECORD_SUPPORTED_VERSIONS.length > 1 ? 's' : ''} ${OBLIGATION_RECORD_SUPPORTED_VERSIONS.join(', ')}`);
   }
 
   const serves = Array.isArray(parsed[RECORD_SERVES_FIELD]) ? parsed[RECORD_SERVES_FIELD].map(normalizeDeclaration) : [];
   const assignments = Array.isArray(parsed[RECORD_ASSIGNMENTS_FIELD]) ? parsed[RECORD_ASSIGNMENTS_FIELD].map(normalizeAssignment).filter((entry) => entry.unit.length > 0) : [];
-  return { serves, assignments, refused: null };
+  const adjudications = classifyAdjudications(parsed, packagePath);
+  return { serves, assignments, adjudications, refused: null };
 }
 
 /** One recorded judgment, with the demand it names and the evidence it rests on. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function normalizeAssignment(entry) {
   return { unit: String(entry?.unit ?? '').trim(), ground: String(entry?.ground ?? '') };
+}
+
+/**
+ * One recorded adjudication, with the column it removes and the evidence it rests on.
+ *
+ * An entry naming no column is dropped rather than kept as an empty subject: it removes nothing,
+ * and a row whose subject is the empty string would sit in the refusal set looking like a demand.
+ *
+ * @param {{ column?: string, ground?: string }} entry
+ * @returns {{ column: string, ground: string }}
+ */
+// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+function normalizeAdjudication(entry, version = OBLIGATION_RECORD_VERSION, packagePath = '') {
+  return {
+    column: String(entry?.column ?? '').trim(),
+    ground: String(entry?.ground ?? ''),
+    // Version 1 had no carrier field, and its writer meant the package that wrote the record: the
+    // adjudication was that package's own judgment about a column it was asked to serve. Reading it
+    // as carrying nobody would turn every record written before this version into a refusal, so the
+    // old rule set is completed rather than reinterpreted.
+    carriedBy: version === 1 ? String(packagePath) : String(entry?.carriedBy ?? '').trim(),
+  };
+}
+
+/**
+ * The columns a record adjudicated away, read from the record alone.
+ *
+ * This is the route a run can write. The artifact's own exemptions array is the other one, and
+ * only a readings pass of the rail writes it, so a candidate column that is not an interface
+ * had nowhere to be recorded until this list existed — and the cheap alternative, declaring the
+ * column as a surface, reaches the guarantee vacuously because every candidate column is carried
+ * by the operation rows.
+ *
+ * @param {{ adjudications?: object[] }|null} record
+ * @returns {Array<{ column: string, ground: string }>}
+ */
+// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+export function classifyAdjudications(record, packagePath = '') {
+  const version = record?.[RECORD_VERSION_FIELD];
+  return (record?.[RECORD_ADJUDICATIONS_FIELD] ?? [])
+    .map((entry) => normalizeAdjudication(entry, version, packagePath))
+    .filter((entry) => entry.column.length > 0);
 }
 
 /**
@@ -319,14 +376,14 @@ function normalizeAssignment(entry) {
  *
  * @param {string} packageRoot
  * @param {{ [DECLARED_INTERFACES_FIELD]?: object }} [allocateManifest]
- * @returns {Map<string, { serves: object[], assignments: object[], refused: string[], listedBy: string|null, source: string }>}
+ * @returns {Map<string, { serves: object[], assignments: object[], adjudications: object[], refused: string[], listedBy: string|null, source: string }>}
  */
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
 export function readPackageObligations(packageRoot, allocateManifest) {
   const obligations = new Map();
   const entryFor = (packagePath) => {
     if (!obligations.has(packagePath)) {
-      obligations.set(packagePath, { serves: [], assignments: [], refused: [], listedBy: null, source: OBLIGATION_SOURCES[1] });
+      obligations.set(packagePath, { serves: [], assignments: [], adjudications: [], refused: [], listedBy: null, source: OBLIGATION_SOURCES[1] });
     }
     return obligations.get(packagePath);
   };
@@ -355,6 +412,7 @@ export function readPackageObligations(packageRoot, allocateManifest) {
       entry.listedBy = OBLIGATION_RECORD_BASENAME;
     }
     entry.assignments = record.assignments;
+    entry.adjudications = record.adjudications;
   }
 
   for (const entry of obligations.values()) {
@@ -468,6 +526,13 @@ export function classifyServes(artifact, declared, packageId) {
         carried: spellings.length,
         total: operations.length,
         uncoveredSpellings: [...vocabulary].filter((spelling) => !carriedSet.has(spelling)).sort(),
+        // The other direction, and the one that catches a declaration naming a column that is
+        // not an interface at all. A column is a candidate as soon as one of its values
+        // instantiates a member, which every candidate column does; a declaration is accepted
+        // only when every value does. The asymmetry is deliberate: candidates over-approximate
+        // so that no column escapes unremarked, and declarations under-approximate so that no
+        // column joins the coverage vacuously.
+        foreignValues: [...new Set(spellings)].filter((spelling) => !vocabulary.has(spelling)).sort(),
         crossChecked: operations.some((operation) => Object.prototype.hasOwnProperty.call(operation ?? {}, declaration.column)),
       },
     };

@@ -388,7 +388,7 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
  * @param {Object} missing — Labeled paths that do not exist
  * @returns {string} Error message with the next action
  */
-// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function formatAbortMessage(missing) {
   const lines = Object.entries(missing).map(([key, filePath]) => {
     const label = ARTIFACT_LABELS[key] || key;

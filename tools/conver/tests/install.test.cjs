@@ -1,11 +1,13 @@
 /**
- * install.test.cjs — Integration test for install.js (copy + --no-install-deps)
+ * install.test.cjs — Integration test for install.js (rsync mirror + --no-install-deps)
  *
  * Hermetic: no network, no real npm install. Verifies that:
- *  - install.js accepts --no-install-deps
  *  - the source .claude tree is copied to the target
- *  - the dependency manifest (package.json) and lockfile are part of the copy
- *  - dependency resolution is skipped, so the target has no node_modules
+ *  - a file present in both is overwritten by the source
+ *  - a file present only in the target is removed
+ *  - project-owned files (settings.local.json, node_modules, .DS_Store) are never touched
+ *  - no install-state record is written or kept
+ *  - dependency resolution is skipped with --no-install-deps
  */
 
 const { describe, it } = require('node:test');
@@ -17,192 +19,170 @@ const path = require('node:path');
 
 const INSTALL_SCRIPT = path.resolve(__dirname, '../install.js');
 const SOURCE_TREE = path.resolve(__dirname, '../.claude');
+const SAMPLE_FILE = path.join('scripts', 'crystalize-readme', 'loop-drive-readme.js');
+const INSTALL_STATE_FILE_NAME = '.conver-install-state.json';
 
-describe('install.js --no-install-deps', () => {
-  it('copies the .claude tree (manifest + lockfile) and skips dependency resolution', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-'));
-    const target = path.join(root, '.claude');
+function installInto(target, options = {}) {
+  const args = [INSTALL_SCRIPT, '--no-install-deps', '-t', target, ...(options.extraArgs ?? [])];
+  return spawnSync('node', args, {
+    cwd: options.cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    env: options.env,
+  });
+}
 
-    const result = spawnSync('node', [INSTALL_SCRIPT, '-y', '--no-install-deps', '-t', target], {
-      encoding: 'utf8',
-    });
-
-    assert.equal(result.status, 0, `stderr: ${result.stderr}`);
-    assert.equal(fs.existsSync(path.join(target, 'package.json')), true, 'manifest must be copied');
-    assert.equal(fs.existsSync(path.join(target, 'package-lock.json')), true, 'lockfile must be copied');
-    assert.equal(
-      fs.existsSync(path.join(target, 'node_modules')),
-      false,
-      'dependency resolution must be skipped with --no-install-deps',
-    );
-    assert.equal(
-      fs.existsSync(path.join(target, 'scripts', 'crystalize-readme', 'loop-drive-readme.js')),
-      true,
-      'scripts must be copied',
-    );
-
+function withTemporaryRoot(prefix, run) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  try {
+    return run(root);
+  } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function snapshotTree(dir, into = {}) {
+  for (const name of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) snapshotTree(full, into);
+    else into[path.relative(dir, full)] = fs.readFileSync(full);
+  }
+  return into;
+}
+
+describe('install.js mirrors the .claude tree into the target', () => {
+  it('copies the tree (manifest + lockfile) and skips dependency resolution', () => {
+    withTemporaryRoot('install-', (root) => {
+      const target = path.join(root, '.claude');
+
+      const result = installInto(target);
+
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.equal(fs.existsSync(path.join(target, 'package.json')), true, 'manifest must be copied');
+      assert.equal(fs.existsSync(path.join(target, 'package-lock.json')), true, 'lockfile must be copied');
+      assert.equal(
+        fs.existsSync(path.join(target, SAMPLE_FILE)),
+        true,
+        'scripts must be copied',
+      );
+      assert.equal(
+        fs.existsSync(path.join(target, 'node_modules')),
+        false,
+        'dependency resolution must be skipped with --no-install-deps',
+      );
+    });
   });
-});
 
-const { decideFileAction, INSTALL_STATE_FILE_NAME } = require('../install-deps.cjs');
+  it('overwrites a target file that differs from the source', () => {
+    withTemporaryRoot('install-overwrite-', (root) => {
+      const target = path.join(root, '.claude');
+      assert.equal(installInto(target).status, 0);
 
-describe('decideFileAction — updating and preserving, decided rather than asked', () => {
-  const SOURCE = 'a'.repeat(64);
-  const NEWER = 'b'.repeat(64);
-  const USER_EDIT = 'c'.repeat(64);
+      const installedFile = path.join(target, SAMPLE_FILE);
+      fs.writeFileSync(installedFile, '// locally edited yesterday\n');
 
-  it('selects the correct action for every combination of the three inputs', () => {
-    assert.equal(decideFileAction({ targetExists: false }), 'install');
-    assert.equal(decideFileAction({ targetExists: true, targetDigest: SOURCE, sourceDigest: SOURCE, previousSourceDigest: SOURCE }), 'unchanged');
-    assert.equal(decideFileAction({ targetExists: true, targetDigest: SOURCE, sourceDigest: NEWER, previousSourceDigest: SOURCE }), 'update');
-    assert.equal(decideFileAction({ targetExists: true, targetDigest: USER_EDIT, sourceDigest: NEWER, previousSourceDigest: SOURCE }), 'preserve');
+      const second = installInto(target);
+
+      assert.equal(second.status, 0, `stderr: ${second.stderr}`);
+      assert.deepEqual(
+        fs.readFileSync(installedFile),
+        fs.readFileSync(path.join(SOURCE_TREE, SAMPLE_FILE)),
+        'the source is the only authority after a mirror sync',
+      );
+    });
   });
 
-  it('resolves unknown provenance toward safety', () => {
-    assert.equal(
-      decideFileAction({ targetExists: true, targetDigest: USER_EDIT, sourceDigest: NEWER, previousSourceDigest: null }),
-      'preserve',
-      'with no record of what was installed, an existing file is never overwritten',
-    );
+  it('removes files and directories that exist only in the target', () => {
+    withTemporaryRoot('install-mirror-', (root) => {
+      const target = path.join(root, '.claude');
+      assert.equal(installInto(target).status, 0);
+
+      const obsoleteDirectory = path.join(target, 'scripts', 'obsolete');
+      fs.mkdirSync(obsoleteDirectory, { recursive: true });
+      fs.writeFileSync(path.join(obsoleteDirectory, 'removed.js'), '// no longer shipped\n');
+      fs.writeFileSync(path.join(target, 'OBSOLETE.md'), '# no longer shipped\n');
+
+      const second = installInto(target);
+
+      assert.equal(second.status, 0, `stderr: ${second.stderr}`);
+      assert.equal(fs.existsSync(obsoleteDirectory), false, 'a target-only directory must be deleted');
+      assert.equal(fs.existsSync(path.join(target, 'OBSOLETE.md')), false, 'a target-only file must be deleted');
+    });
   });
 
-  it('installs a local file into a target that has none, and never replaces one already there', () => {
-    // `settings.local.json` accumulates the permissions of the project holding it, so conver's
-    // copy is a starting point rather than an authority: replacing a project's own file would
-    // delete approvals that project's work depends on. The case below is the one that decides
-    // it — the project still holds exactly what conver last installed, and conver has moved on,
-    // which is an update for every other file and still not one for this.
-    assert.equal(
-      decideFileAction({ targetExists: false, isLocalFile: true }),
-      'install',
-      'a project with no local file gets the one conver ships',
-    );
-    assert.equal(
-      decideFileAction({
-        targetExists: true,
-        targetDigest: SOURCE,
-        sourceDigest: NEWER,
-        previousSourceDigest: SOURCE,
-        isLocalFile: true,
-      }),
-      'preserve',
-      'a local file belongs to the project that holds it, however far conver moves on',
-    );
+  it('never touches project-owned files: settings.local.json, node_modules, .DS_Store', () => {
+    withTemporaryRoot('install-owned-', (root) => {
+      const target = path.join(root, '.claude');
+      const ownedSettings = '{"permissions":{"allow":["Bash(project-specific)"]}}\n';
+      fs.mkdirSync(path.join(target, 'node_modules', 'sentinel'), { recursive: true });
+      fs.writeFileSync(path.join(target, 'settings.local.json'), ownedSettings);
+      fs.writeFileSync(path.join(target, 'node_modules', 'sentinel', 'package.json'), '{}\n');
+      fs.writeFileSync(path.join(target, '.DS_Store'), 'finder metadata\n');
+
+      const result = installInto(target);
+
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.equal(fs.readFileSync(path.join(target, 'settings.local.json'), 'utf8'), ownedSettings);
+      assert.equal(fs.existsSync(path.join(target, 'node_modules', 'sentinel', 'package.json')), true);
+      assert.equal(fs.readFileSync(path.join(target, '.DS_Store'), 'utf8'), 'finder metadata\n');
+    });
+  });
+
+  it('writes no install-state record and removes a legacy one', () => {
+    withTemporaryRoot('install-state-', (root) => {
+      const target = path.join(root, '.claude');
+      assert.equal(installInto(target).status, 0);
+
+      const statePath = path.join(target, INSTALL_STATE_FILE_NAME);
+      assert.equal(fs.existsSync(statePath), false, 'a mirror sync needs no record of what it installed');
+
+      fs.writeFileSync(statePath, '{}\n');
+      assert.equal(installInto(target).status, 0);
+      assert.equal(fs.existsSync(statePath), false, 'a record from the old installer must not survive the mirror');
+    });
+  });
+
+  it('changes nothing on a second run', () => {
+    withTemporaryRoot('install-idem-', (root) => {
+      const target = path.join(root, '.claude');
+      assert.equal(installInto(target).status, 0);
+      const before = snapshotTree(target);
+
+      const second = installInto(target);
+
+      assert.equal(second.status, 0, second.stderr);
+      assert.deepEqual(snapshotTree(target), before, 'the second run must change nothing');
+    });
+  });
+
+  it('fails with a named cause when rsync is not available', () => {
+    withTemporaryRoot('install-no-rsync-', (root) => {
+      const target = path.join(root, '.claude');
+
+      const result = spawnSync(process.execPath, [INSTALL_SCRIPT, '--no-install-deps', '-t', target], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        env: { ...process.env, PATH: path.join(root, 'no-tools-here') },
+      });
+
+      assert.equal(result.status, 1, 'a missing rsync must be a failure, not a silent partial install');
+      assert.match(result.stderr, /rsync/, 'the report must name the missing tool');
+    });
   });
 });
 
 describe('install.js without -t resolves the target from the current directory', () => {
   it('installs into ./.claude and completes with stdin closed', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-cwd-'));
+    withTemporaryRoot('install-cwd-', (root) => {
+      const direct = spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], {
+        cwd: root,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+      });
 
-    const result = spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], {
-      cwd: root,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
+      assert.equal(direct.status, 0, `a closed stdin must not block the entry point: ${direct.stderr}`);
+      assert.equal(fs.existsSync(path.join(root, '.claude', 'package.json')), true, 'the target resolves from the current directory');
+      assert.equal(direct.stdout.includes('?'), false, 'the installer must never prompt');
     });
-
-    assert.equal(result.status, 0, `a closed stdin must not block the entry point: ${result.stderr}`);
-    assert.equal(fs.existsSync(path.join(root, '.claude', 'package.json')), true, 'the target resolves from the current directory');
-    assert.equal(result.stdout.includes('?'), false, 'the installer must never prompt');
-
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it('records what it installed so a later run can tell a user edit from conver moving on', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-state-'));
-    spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-    const statePath = path.join(root, '.claude', INSTALL_STATE_FILE_NAME);
-    assert.equal(fs.existsSync(statePath), true, 'the previous installation record must be written');
-    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    assert.ok(Object.keys(state.files).length > 0, 'the record must list the files it installed');
-
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it('preserves a file the user modified, names it, and still resolves everything else', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-preserve-'));
-    spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-    const userEdited = path.join(root, '.claude', 'scripts', 'crystalize-readme', 'loop-drive-readme.js');
-    const userText = '// locally edited by the user\n';
-    fs.writeFileSync(userEdited, userText);
-
-    const result = spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-    assert.equal(result.status, 0, `resolving everything else must still succeed: ${result.stderr}`);
-    assert.equal(fs.readFileSync(userEdited, 'utf8'), userText, 'the user edit must survive byte-for-byte');
-    assert.match(result.stdout, /preserved/i, 'the report must state that a file was preserved');
-    assert.match(result.stdout, /loop-drive-readme\.js/, 'the preserved file must be named in the report');
-
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it('changes nothing on a second run and says so', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-idem-'));
-    spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-    const snapshot = (dir, into = {}) => {
-      for (const name of fs.readdirSync(dir).sort()) {
-        const full = path.join(dir, name);
-        if (name === 'node_modules' || name === INSTALL_STATE_FILE_NAME) continue;
-        if (fs.statSync(full).isDirectory()) snapshot(full, into);
-        else into[full] = fs.readFileSync(full, 'utf8');
-      }
-      return into;
-    };
-    const before = snapshot(path.join(root, '.claude'));
-
-    const second = spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-    assert.equal(second.status, 0, second.stderr);
-    assert.deepEqual(snapshot(path.join(root, '.claude')), before, 'the second run must change nothing');
-    assert.match(second.stdout, /0 (new|updated)|nothing changed|no changes/i, 'the second run must say that nothing changed');
-
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-});
-
-describe('install.js advances a file it has already observed', () => {
-  it('takes a stale copy to the source on the next run, and still leaves a later edit alone', () => {
-    // A tree installed before the record existed — or installed by hand — holds files the
-    // installer has never written. It cannot tell such a file from an edit, so it preserves it;
-    // what it must also do is write down what it saw, or the file stays at its old revision
-    // forever, however far conver moves on. That is how a whole tool once rotted in place.
-    //
-    // The observation is a baseline rather than a licence, and the second half is what makes it
-    // one: an edit made after the installer looked is the one thing the record can prove, so it
-    // survives every run that follows.
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'install-observe-'));
-    const target = path.join(root, '.claude');
-    const relativePath = path.join('scripts', 'crystalize-readme', 'loop-drive-readme.js');
-    const staleText = '// an older revision, placed before the installer ever ran\n';
-    const observed = path.join(target, relativePath);
-    fs.mkdirSync(path.dirname(observed), { recursive: true });
-    fs.writeFileSync(observed, staleText);
-
-    const install = () => spawnSync('node', [INSTALL_SCRIPT, '--no-install-deps', '-t', target], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-    const first = install();
-    assert.equal(first.status, 0, first.stderr);
-    assert.equal(fs.readFileSync(observed, 'utf8'), staleText, 'the first run preserves a file it never installed, and records what it saw');
-
-    const second = install();
-    assert.equal(second.status, 0, second.stderr);
-    assert.equal(
-      fs.readFileSync(observed, 'utf8'),
-      fs.readFileSync(path.join(SOURCE_TREE, relativePath), 'utf8'),
-      'nothing changed it since the installer looked, so the only thing that moved is conver',
-    );
-
-    const editedText = '// the user edits it after the installer recorded what it saw\n';
-    fs.writeFileSync(observed, editedText);
-    for (const attempt of ['the run after the edit', 'and the one after that']) {
-      const result = install();
-      assert.equal(result.status, 0, `${attempt}: ${result.stderr}`);
-      assert.equal(fs.readFileSync(observed, 'utf8'), editedText, `${attempt} must leave the edit alone`);
-    }
-
-    fs.rmSync(root, { recursive: true, force: true });
   });
 });

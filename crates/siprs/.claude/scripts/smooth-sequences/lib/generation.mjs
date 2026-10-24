@@ -63,7 +63,7 @@ export function readStatus(root) {
 }
 
 /** The digest that says whether one text moved. */
-// [::TICKET::] PX-281, PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-281|PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-281|PX-285) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function computeDigest(text) {
   return createHash('sha256').update(text).digest('hex');
@@ -84,7 +84,7 @@ export function computeFindingKeysDigest(findings) {
  * The pair is renamed, never copied or deleted: the previous verdict stays readable
  * after the next generation replaces it.
  */
-// [::TICKET::] PX-281, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-281|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function archiveCurrentPair(root, previousGeneration) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

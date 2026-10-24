@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 import { coverageLine } from './coverage.mjs';
-import { demandSummaryBeside } from './demand.mjs';
+import { demandSummaryBeside, writeDemandRecord } from './demand.mjs';
 import { checkAll, escapedOperationsOf } from './engine.mjs';
 import { parseSpecArgument, artifactPathFor } from './paths.mjs';
 import { predicateFor } from './pins.mjs';
@@ -28,7 +28,7 @@ import { buildReport } from './report.mjs';
 import { railExitStoreFor, readRailExits } from './harness.mjs';
 import { readStatus, openPhases, phaseState } from './run-state.mjs';
 import { DEFAULT_WIDTH, treeReading } from './text.mjs';
-import { DECLARATION_FILE, inquestQuestions, inquestRecordsIn, readDeclarationFile } from './readings.mjs';
+import { DECLARATION_FILE, inquestQuestions, previousInquestRecordsIn, readDeclarationFile } from './readings.mjs';
 import { ADHOC_DIRECTORY, loadAdhocChecks, promoteRecord, railExitTemplate, readCasesFile, runScaffoldCases, scaffoldCheck, writeRailExit, writeRailExits } from './adhoc.mjs';
 
 /** The usage every refusal ends with, so a caller learns the shape without reading code. */
@@ -220,19 +220,19 @@ function runOne(context, id) {
  * is handed a list of questions and turns it into prose. A brief for any other role is
  * handed an empty list and is untouched by the substitution.
  */
-// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248|PX-288) --for-spec --no-implementation-order`.
 function inquestQuestionsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return [];
   return inquestQuestions({
     declaration: declaration.declaration,
-    previousAnswers: inquestRecordsIn(directory),
+    previousAnswers: previousInquestRecordsIn(directory),
     escaped: escapedOperationsOf(readArtifact(artifactPathFor(specPath)) ?? { operations: [] }),
   });
 }
 
 /** Print the closing report for a run. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248|PX-260|PX-261) --for-spec --no-implementation-order`.
 function report(context) {
   const status = readStatus(context.directory);
   if (status === null) {
@@ -260,6 +260,9 @@ function report(context) {
     // would answer about a workspace state that has already moved.
     demand: artifact === null ? null : demandSummaryBeside(context.specPath, artifact),
   }));
+  // The same record the product path writes, written by the same writer, so the two surfaces a
+  // reader may arrive at leave one durable statement rather than two spellings of it.
+  if (summary !== null && artifact !== null) writeDemandRecord(context.specPath, artifact);
   return summary === null ? 1 : 0;
 }
 

@@ -6,6 +6,7 @@
  *   set-state  <STATE>        - Update the state
  *                               Valid values: GRILLING | CHECKLIST_PENDING | CHECKLIST_APPROVED
  *                                             WRITING | REVIEWING | DONE
+ *   begin-run                 - Open one grill generation for this invocation
  *   inc-loop                  - Increment reviewLoopCount
  *   show                      - Output the current Status.json
  */
@@ -34,6 +35,22 @@ const VALID_STATES = [
  */
 const COMPLETION_STATE = "DONE";
 
+/**
+ * The count of sessions that reached DONE.
+ *
+ * It is optional so a Status.json written before the field existed still validates; the
+ * first completion after this writer reaches it records one, and the history before that
+ * remains unknown rather than being reconstructed as zero.
+ */
+const COMPLETED_SESSIONS_FIELD = "completedSessions";
+
+/**
+ * The count of runs that started. It moves when a finished package is entered again, so a
+ * re-run is visible even though the session count deliberately stays put on a repeated DONE.
+ */
+const GRILL_GENERATION_FIELD = "grillGeneration";
+const FIRST_GENERATION = 1;
+
 const [,, rfcDir, operation, ...args] = process.argv;
 if (!rfcDir || !operation) {
   console.error("Usage: update-status.js <rfc-dir> <operation> [args...]");
@@ -61,13 +78,39 @@ function saveAndValidate() {
 /**
  * Record that the run completed, at the moment it did.
  *
- * Only a completion calls this, and a re-entered run that completes again
- * overwrites the value, which keeps "material arrived after this run finished"
- * true of the latest completion rather than of the first one.
+ * Only a completion calls this, and a re-entered run that completes again overwrites the
+ * value, which keeps "material arrived after this run finished" true of the latest
+ * completion rather than of the first one. The session count moves only on the transition
+ * into DONE: a repeated DONE is the same session, and a resume or a review loop is not a
+ * new one. A record written before this field existed starts at one on its first
+ * completion; the history before it is unknown and is not guessed.
  */
-// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
-function recordCompletion() {
+// [::TICKET::] PX-238, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-282) --for-spec --no-implementation-order`.
+function recordCompletion(previousState) {
   status.completedAt = new Date().toISOString();
+  if (previousState === COMPLETION_STATE) return;
+  const recorded = Number.isInteger(status[COMPLETED_SESSIONS_FIELD]) && status[COMPLETED_SESSIONS_FIELD] >= 0
+    ? status[COMPLETED_SESSIONS_FIELD]
+    : 0;
+  status[COMPLETED_SESSIONS_FIELD] = recorded + 1;
+}
+
+/**
+ * Open a grill generation for one invocation.
+ *
+ * The count answers "how many times was the command run", so it moves once per run and
+ * never on a state transition: a review loop, a resume and a repeated DONE are all the
+ * same run continuing. A record written before the field existed starts from the sessions
+ * it counted, a documented lower bound rather than a reconstruction.
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+function openRunGeneration() {
+  const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
+    ? status[GRILL_GENERATION_FIELD]
+    : Number.isInteger(status[COMPLETED_SESSIONS_FIELD]) && status[COMPLETED_SESSIONS_FIELD] >= FIRST_GENERATION
+      ? status[COMPLETED_SESSIONS_FIELD]
+      : FIRST_GENERATION - 1;
+  status[GRILL_GENERATION_FIELD] = recorded + 1;
 }
 
 switch (operation) {
@@ -77,12 +120,19 @@ switch (operation) {
       console.error(`Invalid state: ${newState}. Valid: ${VALID_STATES.join(", ")}`);
       process.exit(1);
     }
+    const previousState = status.state;
     status.state = newState;
     if (newState === COMPLETION_STATE) {
-      recordCompletion();
+      recordCompletion(previousState);
     }
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");
+    break;
+  }
+  case "begin-run": {
+    openRunGeneration();
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, grillGeneration: status[GRILL_GENERATION_FIELD] }) + "\n");
     break;
   }
   case "inc-loop": {

@@ -132,6 +132,9 @@ const PACKAGE_VIEW_CHECK_IDS = Object.freeze([
   'S7.view-missing',
   'S7.view-package-mismatch',
   'S7.view-unit-mismatch',
+  'S7.distribution-map',
+  'S7.owner-role-undeclared',
+  'S7.root-unit-uncovered',
 ]);
 
 /** Every emitted checkId mapped to the surface that authored it. */
@@ -145,14 +148,14 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
 
 /** A path with the row a reader opens, or the bare path when no row is known. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-277, PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function appendLocator(filePath, locator) {
   return typeof locator === 'string' && locator.trim() !== '' ? `${filePath}#${locator.trim()}` : filePath;
 }
 
 /** The package a package-scoped route names, or a refusal that cannot be rendered as a pass. */
-// [::TICKET::] PX-277, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function requirePackage(context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -169,7 +172,7 @@ function requirePackage(context) {
 }
 
 /** A regeneration route: the live spec is evidence, never an edit surface. */
-// [::TICKET::] PX-278, PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-285) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function buildSpecTarget(context) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

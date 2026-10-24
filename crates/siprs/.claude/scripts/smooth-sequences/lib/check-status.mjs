@@ -21,28 +21,28 @@ const AUTHORED_FACT_FIELDS = Object.freeze(['pre', 'post', 'consumes', 'produces
 export const CHECK_FAMILY_COUNT = 7;
 
 /** One descriptor with every field the evaluator reads. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function check(id, family, { requires, claims, denominator }) {
   return Object.freeze({ id, family, requires: Object.freeze(requires), claims, denominator });
 }
 
 /** The active operations a status or effect surface is measured over. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countActiveOperations(index) {
   return (index.artifact?.operations ?? []).filter((operation) => operation?.disposition === ACTIVE_DISPOSITION).length;
 }
 
 /** The rows of one artifact array. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countRows(rows) {
   return Array.isArray(rows) ? rows.length : 0;
 }
 
 /** The steps that carry a typed (object) contract. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function collectTypedSteps(index) {
   return (index.artifact?.steps ?? []).filter((step) => step?.contract !== null
@@ -51,10 +51,11 @@ function collectTypedSteps(index) {
 }
 
 /** Whether a step carries typed authored facts or an authored prose contract. */
-// [::TICKET::] PX-285, PX-288, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-288|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-288|PX-306) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
-  if (step?.contract?.contract_origin === 'synthesized') return false;
+  if (['synthesized', 'projected'].includes(step?.contract?.contract_origin)) return false;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const authored = step?.contract?.authored;
   if (authored !== null && typeof authored === 'object') {
@@ -66,21 +67,21 @@ function hasAuthoredContract(step) {
 }
 
 /** The steps that carry an authored contract rather than a registry projection. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countAuthoredSteps(index) {
   return (index.artifact?.steps ?? []).filter((step) => hasAuthoredContract(step)).length;
 }
 
 /** The typed steps that declare at least one crossing. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function collectCrossingSteps(index) {
   return collectTypedSteps(index).filter((step) => Object.prototype.hasOwnProperty.call(step.contract, 'crosses'));
 }
 
 /** The distinct boundaries the typed steps cross. */
-// [::TICKET::] PX-285, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countCrossingBoundaries(index) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -92,7 +93,7 @@ function countCrossingBoundaries(index) {
 }
 
 /** The realized sequences with at least two steps. */
-// [::TICKET::] PX-288, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countMultiStepSequences(index) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -107,14 +108,14 @@ function countMultiStepSequences(index) {
 }
 
 /** The realized sequences. */
-// [::TICKET::] PX-288, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countRealizedSequences(index) {
   return (index.artifact?.sequences ?? []).filter((sequence) => sequence?.outcome !== 'notASequence').length;
 }
 
 /** The boundary grounds the artifact records. */
-// [::TICKET::] PX-288, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countBoundaryGrounds(index) {
   return (index.artifact?.boundary_grounds ?? []).length;
@@ -122,6 +123,7 @@ function countBoundaryGrounds(index) {
 
 /** Every check id, in the order the report lists its family. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export const CHECK_REGISTRY = Object.freeze([
   check('S1.duplicate-id', 'enumeration', {
     requires: [SURFACES.OPERATIONS, SURFACES.SEQUENCES, SURFACES.STEPS],
@@ -253,6 +255,21 @@ export const CHECK_REGISTRY = Object.freeze([
     claims: 'spec',
     denominator: countRealizedSequences,
   }),
+  check('S7.distribution-map', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS],
+    claims: 'spec',
+    denominator: (index) => countRows(index.packages),
+  }),
+  check('S7.owner-role-undeclared', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS],
+    claims: 'spec',
+    denominator: (index) => countRows(index.packages),
+  }),
+  check('S7.root-unit-uncovered', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.OPERATIONS],
+    claims: 'spec',
+    denominator: countActiveOperations,
+  }),
   check('S5.crossing-boundary-unknown', 'meshing', {
     requires: [SURFACES.STEP_CROSSINGS],
     claims: 'spec',
@@ -351,21 +368,21 @@ export const CHECK_REGISTRY = Object.freeze([
 ]);
 
 /** A check that executed, with the denominator and the claims it measured. */
-// [::TICKET::] PX-285, PX-289, PX-290, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function buildExecutedEntry(entry, denominator, evaluatedClaims = denominator) {
   return { id: entry.id, family: entry.family, status: 'executed', denominator, evaluatedClaims };
 }
 
 /** A check that could not execute, with the surface and reason. */
-// [::TICKET::] PX-285, PX-289, PX-290, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-289|PX-290) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function buildBlockedEntry(entry, surface, reason) {
   return { id: entry.id, family: entry.family, status: 'blocked', surface, reason, denominator: 0, evaluatedClaims: 0 };
 }
 
 /** A check whose surface is present but whose evaluated claim count is zero. */
-// [::TICKET::] PX-289, PX-290, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function buildVacuousEntry(entry, denominator) {
   return {
@@ -393,7 +410,7 @@ export function classifyCheck({ denominator, evaluatedClaims, required = true })
 }
 
 /** The claims a check actually evaluates, over and above its row denominator. */
-// [::TICKET::] PX-289, PX-290, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function evaluatedClaimsFor(entry, index, denominator) {
   if (entry.id === 'S6.boundary-effect-drift') return countActiveOperations(index);
@@ -401,7 +418,7 @@ function evaluatedClaimsFor(entry, index, denominator) {
 }
 
 /** The first reason a descriptor cannot execute over this index, or null. */
-// [::TICKET::] PX-285, PX-286, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function findBlockingReason(entry, index) {
   for (const surface of entry.requires) {

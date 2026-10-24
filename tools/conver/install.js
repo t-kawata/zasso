@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
- * install.js — install a conver project's `.claude` tree and resolve its environment.
+ * install.js — mirror a conver project's `.claude` tree into a target and resolve its environment.
  *
  * Usage:
- *   install.js                      # install into ./.claude, deciding every file itself
+ *   install.js                      # install into ./.claude
  *   install.js -t /path/to/.claude  # install into an explicit target
  *
  * The script locates itself through import.meta.url, so it runs correctly from
@@ -12,15 +12,14 @@
  * by an automated session, and a user facing several hundred questions answers
  * them wrongly.
  *
- * What to do with a file that already exists is decided by comparing the
- * target, the source and the record of the previous installation — never by
- * asking. A file the user changed is preserved and named; a file that differs
- * only because conver moved on is updated.
+ * The source is the only authority. Every file it holds is written to the target,
+ * and every target file it does not hold is removed. Deciding file by file from a
+ * record of the previous installation was tried and failed silently: one stale file
+ * broke every later invocation while the installer reported the tree up to date.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import installDeps from './install-deps.cjs';
@@ -30,7 +29,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
-const EXCLUDE_PATTERNS = ['.DS_Store', 'node_modules', installDeps.INSTALL_STATE_FILE_NAME];
+/**
+ * Paths the mirror never reads or removes.
+ *
+ * `settings.local.json` accumulates the permissions of the project that holds it, so conver's
+ * copy is a starting point rather than an authority. `node_modules` is written by dependency
+ * resolution, and deleting it would undo that work on every run. `.DS_Store` is Finder metadata.
+ */
+const SYNC_EXCLUDES = Object.freeze(['settings.local.json', 'node_modules', '.DS_Store']);
 const BASELINE_RELATIVE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
 
 // The installer is a command line tool, so stdout is its product rather than a
@@ -87,108 +93,31 @@ function showUsage() {
   print('  --no-install-deps     skip dependency resolution');
 }
 
-/** Collect every file beneath a directory, as paths relative to a base directory. */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function collectFilesWithRelative(dirPath, baseDir) {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    if (EXCLUDE_PATTERNS.includes(entry.name)) {
-      continue;
-    }
-    const fullPath = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...collectFilesWithRelative(fullPath, baseDir));
-    } else {
-      files.push(path.relative(baseDir, fullPath));
-    }
-  }
-
-  return files;
-}
-
-/** SHA-256 of a file's contents, or null when there is no file to read. */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function digestFile(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
-}
-
 /**
- * Load what the previous installation recorded.
+ * Mirror the source tree into the target with rsync.
  *
- * Absent or unreadable, the record is empty: unknown provenance is resolved
- * toward safety rather than toward overwriting.
+ * rsync is what expresses "make the target equal the source" directly; a copy loop would
+ * have to grow its own deletion and exclusion rules, which is the code this replaced.
  *
+ * @param {string} sourceDir
  * @param {string} targetDir
- * @returns {{version: number, files: Record<string, string>, observed: Record<string, string>}}
  */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function loadInstallState(targetDir) {
-  const statePath = path.join(targetDir, installDeps.INSTALL_STATE_FILE_NAME);
-  if (!fs.existsSync(statePath)) {
-    return { version: 1, files: {}, observed: {} };
+function mirrorTree(sourceDir, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  const rsyncArgs = [
+    '--archive',
+    '--delete',
+    ...SYNC_EXCLUDES.map((name) => `--exclude=${name}`),
+    `${sourceDir}${path.sep}`,
+    `${targetDir}${path.sep}`,
+  ];
+  const result = spawnSync('rsync', rsyncArgs, { encoding: 'utf8' });
+
+  if (result.error) {
+    throw new Error(`rsync could not be run (${result.error.message}); install rsync to mirror the .claude tree`);
   }
-  try {
-    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    return { version: 1, files: state.files ?? {}, observed: state.observed ?? {} };
-  } catch {
-    return { version: 1, files: {}, observed: {} };
-  }
-}
-
-/**
- * Install one file, deciding from the target, the source and the record.
- *
- * `observedDigest` is what the target holds now, whoever put it there. The caller records it
- * when it declines to write, which is what turns the next run's identical read into evidence
- * that nothing has changed the file — the only thing a foreign tree can offer in place of a
- * history.
- *
- * @returns {{ action: 'install'|'unchanged'|'update'|'preserve', sourceDigest: string, observedDigest: string|null }}
- */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function installFile({ sourcePath, targetPath, previousSourceDigest, previouslyObservedDigest, isLocalFile }) {
-  const sourceDigest = digestFile(sourcePath);
-  const targetDigest = digestFile(targetPath);
-  const action = installDeps.decideFileAction({
-    targetExists: targetDigest !== null,
-    targetDigest,
-    sourceDigest,
-    previousSourceDigest: previousSourceDigest ?? null,
-    previouslyObservedDigest: previouslyObservedDigest ?? null,
-    isLocalFile,
-  });
-
-  if (action === 'install' || action === 'update') {
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.cpSync(sourcePath, targetPath);
-  }
-
-  return { action, sourceDigest, observedDigest: targetDigest };
-}
-
-/** Report what happened, naming every file that was preserved. */
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-function showSummary({ counts, preservedNames, targetDir }) {
-  const changed = counts.install + counts.update;
-  print('');
-  if (changed === 0 && counts.preserve === 0) {
-    print(`nothing changed: all ${counts.unchanged} files in ${targetDir} already match the source`);
-  } else {
-    print(`installed into ${targetDir}`);
-    print(`  new: ${counts.install}   updated: ${counts.update}   unchanged: ${counts.unchanged}   preserved: ${counts.preserve}`);
-  }
-
-  if (preservedNames.length > 0) {
-    print('');
-    print(`preserved ${preservedNames.length} file(s) you had modified — they were not overwritten:`);
-    for (const name of preservedNames) {
-      print(`  - ${name}`);
-    }
+  if (result.status !== 0) {
+    throw new Error(`rsync exited with status ${result.status}: ${(result.stderr || '').trim()}`);
   }
 }
 
@@ -295,60 +224,20 @@ async function main() {
     process.exit(1);
   }
 
-  const files = collectFilesWithRelative(sourceClaudeDir, sourceClaudeDir);
-  if (files.length === 0) {
-    print('there is nothing to copy');
-    return;
+  print(`mirroring ${sourceClaudeDir} -> ${targetDir}`);
+
+  try {
+    mirrorTree(sourceClaudeDir, targetDir);
+  } catch (error) {
+    printError(`error: ${error.message}`);
+    process.exit(1);
   }
-
-  const previousState = loadInstallState(targetDir);
-  const counts = { install: 0, update: 0, unchanged: 0, preserve: 0 };
-  const preservedNames = [];
-  const nextState = { version: 1, files: {}, observed: {} };
-
-  print(`installing ${sourceClaudeDir} -> ${targetDir} (${files.length} files)`);
-
-  for (const relativePath of files) {
-    const sourcePath = path.join(sourceClaudeDir, relativePath);
-    const targetPath = path.join(targetDir, relativePath);
-    const isLocalFile = installDeps.isLocalFilePath(relativePath);
-
-    const { action, sourceDigest, observedDigest } = installFile({
-      sourcePath,
-      targetPath,
-      previousSourceDigest: previousState.files[relativePath],
-      previouslyObservedDigest: previousState.observed[relativePath],
-      isLocalFile,
-    });
-
-    counts[action]++;
-    if (action !== 'preserve') {
-      nextState.files[relativePath] = sourceDigest;
-      continue;
-    }
-
-    preservedNames.push(relativePath);
-    if (previousState.files[relativePath] !== undefined) {
-      // We installed this path once and the project has changed it since. Keeping the record of
-      // what we installed is what keeps that reading true on every later run; dropping it would
-      // make the file look like one we never wrote, and the run after that would overwrite it.
-      nextState.files[relativePath] = previousState.files[relativePath];
-    } else if (!isLocalFile) {
-      // A path we have never written. Recording what we found is what lets the next run tell a
-      // revision of conver's own file from an edit. A local file is excluded because it is never
-      // advanced, so the observation would be a claim this installer never acts on.
-      nextState.observed[relativePath] = observedDigest;
-    }
-  }
-
-  fs.mkdirSync(targetDir, { recursive: true });
-  fs.writeFileSync(path.join(targetDir, installDeps.INSTALL_STATE_FILE_NAME), `${JSON.stringify(nextState, null, 2)}\n`);
 
   if (!noInstallDeps) {
     await resolveDependenciesForTarget(sourceClaudeDir, targetDir);
   }
 
-  showSummary({ counts, preservedNames, targetDir });
+  print(`mirrored into ${targetDir}`);
 
   const environmentRecord = resolveAndReportEnvironment(__dirname);
   if (environmentRecord && !envManifest.rotationIsReady(environmentRecord, 'forward')) {

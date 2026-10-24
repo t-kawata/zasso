@@ -21,11 +21,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { toHomeRelative } from '../lib/path-utils.js';
 import {
   DEMAND_AXES,
   DEMAND_RELATIONS,
   VERDICT_HOLDS,
   describeRefusedExemption,
+  findUngroundedAdjudications,
   findUngroundedAssignments,
   measureCoverage,
 } from '../sequences-slice/lib/obligation-coverage.mjs';
@@ -145,6 +147,87 @@ function findUnboundAssignments(views) {
     .map((view) => `${view.packageId} — ${view.unboundAssignments.join(', ')}`);
 }
 
+/**
+ * The lines naming each exemption with the route it was recorded on.
+ *
+ * One line per demand rather than one per row. A live workspace carries dozens of exemption rows
+ * that name the same region — four blank-line rows for one line, and so on — and the partition
+ * counts the demand once, so printing the rows would print the same fact repeatedly and bury the
+ * one that differs.
+ */
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderExemptionRouteLines(coverage) {
+  const seen = new Set();
+  const lines = [];
+  for (const row of coverage.allowedExemptions) {
+    const key = `${row.route}:${row.subject}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    lines.push(`exempted (${row.route}): ${row.subject}`);
+  }
+  return lines;
+}
+
+/**
+ * The lines naming every judgment whose ground names nothing the workspace holds.
+ *
+ * Printed as its own family because it is a different defect from an unassigned demand: the
+ * demand was placed, and the evidence for placing it does not resolve. A reviewer repairs it by
+ * reading the specification, not by deciding anything new.
+ */
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderUnresolvedGroundLines(coverage) {
+  return coverage.unresolvedGrounds.map((row) => `unresolved ground: ${row.axis} ${row.subject} — ${row.ground}`);
+}
+
+/**
+ * The lines naming a surface declaration that binds to nothing.
+ *
+ * Two ways to bind to nothing, and they read differently on purpose: a column no operation row
+ * carries cannot reach an operation at all, while a column whose values its declared vocabulary
+ * does not cover is a declaration about something other than what it says it is.
+ */
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderUnboundDeclarationLines(views) {
+  const lines = [];
+  for (const view of views) {
+    for (const unit of view.obligationUnits ?? []) {
+      if (unit?.relation !== 'serves') continue;
+      const { column, operationSet, crossChecked, foreignValues } = unit.coverage ?? {};
+      if (crossChecked === false) {
+        lines.push(`declaration binding nothing: ${view.packageId} ${unit.unitId} — the artifact carries no ${column} column`);
+      } else if (Array.isArray(foreignValues) && foreignValues.length > 0) {
+        const value = foreignValues.length === 1 ? 'value' : 'values';
+        lines.push(`declaration binding nothing: ${view.packageId} ${unit.unitId} — ${foreignValues.length} ${value} of ${column} is not ${operationSet}`);
+      }
+    }
+  }
+  return lines;
+}
+
+/**
+ * What this verdict does and does not guarantee, and where the rest of the chain is measured.
+ *
+ * Printed by the gate rather than left to the reader, because a gate that says only "holds" is
+ * claiming more than it checked. The third line exists because an earlier version of this sentence
+ * claimed traceability to a design node and an implementation header: neither is measured here and
+ * neither exists yet, since the graph, the headers and the tickets are produced after this gate
+ * runs. A claim that cannot be true where it is printed is worse than no claim, because a reader
+ * stops looking, so the sentence states what this stage can establish and names the stage that
+ * measures the rest.
+ */
+// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+export const GUARANTEE_LINES = Object.freeze([
+  'guarantees: every demand is placed by a named package, by a route that resolves, and every placement is traceable to an RFC section anchor and a ledger row',
+  'does not guarantee: that a judgment is the right one, or that the specification names every procedure the project needs',
+  'measured elsewhere: the design node, the implementation header and the ticket are measured by drill-rfc-down Step 5, because they do not exist when this gate runs',
+]);
+
+// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+function renderGuaranteeLines() {
+  return [...GUARANTEE_LINES];
+}
+
 /** The lines naming the judgments that named nothing, and the ones that carried no ground. */
 // [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderAssignmentFindingLines(views) {
@@ -154,11 +237,13 @@ function renderAssignmentFindingLines(views) {
 
   const ungrounded = findUngroundedAssignments(views);
   if (ungrounded.length > 0) lines.push(`ungrounded assignments: ${ungrounded.join(', ')}`);
+  const ungroundedAdjudications = findUngroundedAdjudications(views);
+  if (ungroundedAdjudications.length > 0) lines.push(`ungrounded adjudications: ${ungroundedAdjudications.join(', ')}`);
   return lines;
 }
 
 /** The lines naming every demand that no package owes. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderUnassignedLines(coverage) {
   const lines = [];
   for (const axis of DEMAND_AXES) {
@@ -170,8 +255,38 @@ function renderUnassignedLines(coverage) {
   return lines;
 }
 
+/**
+ * The line stating what each axis is measured against.
+ *
+ * Printed before the partition because it frames it: a count of assigned demands means one thing
+ * against a borrowed census and another against a list the artifact wrote itself. Every axis is
+ * named rather than only the gaps, so a reader sees which axes were stated and by what structure,
+ * and not only which were not.
+ */
+// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderDenominatorLine(coverage) {
+  const stated = DEMAND_AXES.map((axis) => `${axis} ${coverage.denominator[axis].source} ${coverage.denominator[axis].members}`);
+  return `denominator: ${stated.join(', ')}`;
+}
+
+/**
+ * The lines naming every axis whose completeness cannot be judged, with the repair it calls for.
+ *
+ * Kept apart from the unassigned list because it is a different statement: an unassigned demand is
+ * a decision the workspace has not made, while an unstated axis is a question the workspace cannot
+ * answer, and no amount of assigning will answer it.
+ */
+// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+function renderDenominatorGapLines(coverage) {
+  if (coverage.denominatorGaps.length === 0) return [];
+  return [
+    `unstated denominator: ${coverage.denominatorGaps.length}`,
+    ...coverage.denominatorGaps.map((gap) => `  ${gap.axis}: ${gap.why}. repair: ${gap.repair}`),
+  ];
+}
+
 /** The line stating what the workspace holds. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-263) --for-spec --no-implementation-order`.
 function renderVerdictLine(coverage, exemptionCount) {
   const assigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].assigned.length, 0);
   const unassigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].unassigned.length, 0);
@@ -208,11 +323,17 @@ function main(argv = process.argv.slice(2)) {
   const unbound = findDeclarationsThatDidNotBind(views);
   const lines = [
     renderVerdictLine(coverage, DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].exempt.length, 0)),
+    renderDenominatorLine(coverage),
+    ...renderDenominatorGapLines(coverage),
     ...renderAssignedLines(coverage),
     ...renderAssignmentDistribution(coverage),
+    ...renderExemptionRouteLines(coverage),
     ...renderUnassignedLines(coverage),
     ...renderRefusedExemptionLines(coverage),
+    ...renderUnresolvedGroundLines(coverage),
+    ...renderUnboundDeclarationLines(views),
     ...renderAssignmentFindingLines(views),
+    ...renderGuaranteeLines(),
   ];
   if (coverage.unreachedOwnedObjects > 0) {
     lines.push(`objects no operation reaches: ${coverage.unreachedOwnedObjects} (owned by a package the ownership join cannot see)`);
@@ -225,7 +346,9 @@ function main(argv = process.argv.slice(2)) {
   // A refusal here is not a judgment about the design; it is a defect in the record itself — a
   // declaration that bound to nothing, a judgment that named a demand the artifact does not hold,
   // or a judgment with no ground. All three are repairable and none of them is coverage.
-  const defects = unbound.length > 0 || findUnboundAssignments(views).length > 0;
+  const defects = unbound.length > 0
+    || findUnboundAssignments(views).length > 0
+    || renderUnboundDeclarationLines(views).length > 0;
   if (coverage.verdict !== VERDICT_HOLDS || defects) return EXIT_FAILED;
   return EXIT_OK;
 }
@@ -235,4 +358,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   process.exit(main());
 }
 
-export { findDeclarationsThatDidNotBind, main, readViews, renderUnassignedLines };
+export { findArtifact, findDeclarationsThatDidNotBind, main, readJsonOrNull, readViews, renderDenominatorGapLines, renderDenominatorLine, renderGuaranteeLines, renderUnassignedLines };

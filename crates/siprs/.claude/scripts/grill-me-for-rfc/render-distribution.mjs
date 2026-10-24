@@ -22,6 +22,10 @@ import {
 import { isUnitId, normalizeHeading } from '../rfc-graph/lib/unit-ids.mjs';
 
 const LEDGER_TITLE = 'Distribution ledger';
+const STATUS_FILE_NAME = 'Status.json';
+
+/** The generation a package's first recorded distribution is counted as. */
+const FIRST_GENERATION = 1;
 const PRECEDENCE_SENTENCE = 'RFC.md is canonical for this package; the projection is an input, not an authority.';
 const HEADING = /^(#{1,6})\s+(.*\S)\s*$/;
 const ANCHOR_LINE = /^\s*<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->\s*$/;
@@ -355,6 +359,84 @@ export function writeAtomically(targetPath, contents) {
   fs.renameSync(staged, targetPath);
 }
 
+/** The fence the renderer writes its map block behind. */
+const DISTRIBUTION_MAP_FENCE = /^```json\s+distribution-map\s*$/m;
+
+/**
+ * Whether the RFC on disk already carries a rendered distribution map.
+ *
+ * Read before the renderer writes: a package that predates the counter has a map and
+ * no number, and the display treats that map as generation one. The writer must start
+ * from the same number the reader reports, or the first execution after the upgrade
+ * records one and the display never moves.
+ *
+ * @param {string} rfcPath
+ * @returns {boolean}
+ */
+function carriesDistributionMap(rfcPath) {
+  try {
+    return DISTRIBUTION_MAP_FENCE.test(fs.readFileSync(rfcPath, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record the distribution generation this render belongs to.
+ *
+ * A distribution belongs to the grill run that is executing it, so the field mirrors
+ * `grillGeneration` rather than counting executions. Counting made an ordinary repair
+ * — the S7 gate tells a run to render again, and a completion can be retried — open a
+ * new generation, so one run advanced the display by three. Mirroring is idempotent:
+ * every render and every completion inside one run records the same number.
+ *
+ * The two fields stay separate so they can diverge later, when a run can distribute
+ * more than once or not at all; today they agree by construction.
+ *
+ * A record written before `grillGeneration` existed falls back to counting, using the
+ * map the package already carried as generation one — the same baseline the display's
+ * reader reports. Call this before writing the rendered RFC: the pre-render file is
+ * what says whether the package already carried a map.
+ *
+ * A `--check` pass records nothing because it is a reading.
+ *
+ * @param {string} rfcPath — the RFC the renderer is about to write
+ * @param {{digest?: string}|null} map — the map the renderer produced, or null when the
+ *   package has no view and the run distributed nothing
+ * @returns {boolean} whether a generation was recorded
+ */
+// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+export function recordDistributionGeneration(rfcPath, map) {
+  const statusPath = path.join(path.dirname(rfcPath), STATUS_FILE_NAME);
+  if (!fs.existsSync(statusPath)) return false;
+  let status;
+  try {
+    status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+  } catch {
+    return false;
+  }
+
+  const grillGeneration = status.grillGeneration;
+  if (Number.isInteger(grillGeneration) && grillGeneration >= FIRST_GENERATION) {
+    status.distributionGeneration = grillGeneration;
+  } else if (map !== null && map !== undefined) {
+    const recorded = Number.isInteger(status.distributionGeneration) && status.distributionGeneration >= 0
+      ? status.distributionGeneration
+      : carriesDistributionMap(rfcPath)
+        ? FIRST_GENERATION
+        : FIRST_GENERATION - 1;
+    status.distributionGeneration = recorded + FIRST_GENERATION;
+  } else {
+    return false;
+  }
+
+  if (map !== null && map !== undefined && typeof map.digest === 'string') {
+    status.distributionDigest = map.digest;
+  }
+  writeAtomically(statusPath, `${JSON.stringify(status, null, 2)}\n`);
+  return true;
+}
+
 /**
  * The command entry point.
  *
@@ -389,6 +471,9 @@ export function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: false, units: result.map?.units?.length ?? 0 })}\n`);
     return 0;
   }
+  // Recorded before the write: the pre-render file is what says whether the package
+  // already carried a map, and therefore which generation this execution opens.
+  recordDistributionGeneration(rfcPath, result.map);
   if (result.wrote) writeAtomically(rfcPath, result.rfc);
   process.stdout.write(`${JSON.stringify({ ok: true, code: null, wrote: result.wrote, units: result.map?.units?.length ?? 0 })}\n`);
   return 0;

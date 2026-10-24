@@ -29,9 +29,24 @@ export const V3_ASSURANCE_KEYS = Object.freeze([
   'staleReceiptCount',
   'effortCoverage',
   'blindAttackRatio',
+  'staleReaderGenerationCount',
+  'generationMismatchCount',
+  'rereadCount',
+]);
+
+/**
+ * The counters a caller may supply but never owes.
+ *
+ * A null value means the evidence was not measured; it is neither clean nor
+ * dirty. A numeric value is gated exactly like a required counter.
+ */
+export const OPTIONAL_ASSURANCE_KEYS = Object.freeze([
   'discriminatingRatio',
   'rejudgeAgreement',
 ]);
+
+/** The keys that identify a v3 assurance object, including the optional counters. */
+const V3_RECOGNITION_KEYS = Object.freeze([...V3_ASSURANCE_KEYS, ...OPTIONAL_ASSURANCE_KEYS]);
 
 /** The residue every certificate states rather than hides. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -47,12 +62,12 @@ export function isV3Assurance(assurance) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const keys = Object.keys(assurance);
   if (keys.length === 0) return true;
-  return keys.some((key) => V3_ASSURANCE_KEYS.includes(key));
+  return keys.some((key) => V3_RECOGNITION_KEYS.includes(key));
 }
 
 /** The assurance shape used when the caller supplies none. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297, PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-302) --for-spec --no-implementation-order`.
 function normalizeAssurance(assurance) {
   if (isV3Assurance(assurance)) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -68,6 +83,17 @@ function normalizeAssurance(assurance) {
     for (const key of V3_ASSURANCE_KEYS) {
       if (assurance?.[key] !== undefined) result[key] = assurance[key];
     }
+    const notMeasured = [];
+    for (const key of OPTIONAL_ASSURANCE_KEYS) {
+      const value = assurance?.[key];
+      if (value === undefined || value === null) {
+        result[key] = null;
+        notMeasured.push(key);
+      } else {
+        result[key] = value;
+      }
+    }
+    result.notMeasured = notMeasured;
     return result;
   }
   return {
@@ -78,6 +104,7 @@ function normalizeAssurance(assurance) {
     provisionalRecords: assurance?.provisionalRecords ?? 0,
     unattackedTier1: assurance?.unattackedTier1 ?? 0,
     independentAttacks: assurance?.independentAttacks ?? 0,
+    notMeasured: [],
   };
 }
 
@@ -89,7 +116,7 @@ export function missingAssuranceCounters(assurance) {
 
 /** Whether every assurance counter is clean. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297, PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297|PX-302) --for-spec --no-implementation-order`.
 function assuranceIsClean(assurance, v3 = false) {
   if (v3) {
     return missingAssuranceCounters(assurance).length === 0
@@ -101,8 +128,10 @@ function assuranceIsClean(assurance, v3 = false) {
       && assurance.staleReceiptCount === 0
       && assurance.effortCoverage === 1
       && assurance.blindAttackRatio === 1
-      && assurance.discriminatingRatio === 1
-      && assurance.rejudgeAgreement === 1;
+      && (assurance.discriminatingRatio === null || assurance.discriminatingRatio === 1)
+      && (assurance.rejudgeAgreement === null || assurance.rejudgeAgreement === 1)
+      && assurance.staleReaderGenerationCount === 0
+      && assurance.generationMismatchCount === 0;
   }
   return assurance.anchoredRatio >= 1
     && assurance.genericBasis === 0
@@ -130,7 +159,7 @@ export function detectSchemaDowngrade({ status = {}, artifact = {}, baseline = {
 }
 
 /** One open obligation in the certificate. */
-// [::TICKET::] PX-289, PX-291, PX-292, PX-293, PX-297, PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-291|PX-292|PX-293|PX-297|PX-298) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function openEntry(entry, code) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -143,7 +172,7 @@ function openEntry(entry, code) {
  *
  * @param {{ obligations?: Array<object>, decisions?: Array<object>,
  *   checks?: Array<object>, readings?: object, inputs?: object,
- *   assurance?: object }} input
+ *   assurance?: object, closureGates?: Array<{script: string, exitCode: number, reason: string}> }} input
  * @returns {object}
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -156,6 +185,7 @@ export function buildCertificate(options = {}) {
     inputs = {},
     assurance = null,
     receiptDebt = [],
+    closureGates = [],
   } = options;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const byId = new Map();
@@ -210,10 +240,22 @@ export function buildCertificate(options = {}) {
   }
   for (const debt of Array.isArray(receiptDebt) ? receiptDebt : []) {
     open.push({
-      id: `RECEIPT:${debt?.phase ?? 'unknown'}`,
+      id: `RECEIPT:${debt?.path ?? debt?.phase ?? 'unknown'}`,
       code: debt?.code ?? 'STALE_RECEIPT',
       reason: debt?.code ?? 'STALE_RECEIPT',
       subject: Array.isArray(debt?.mismatches) ? debt.mismatches.join(', ') : null,
+    });
+  }
+  // A design-authoring gate that failed leaves the obligation list unproven, so the
+  // certificate cannot call the workspace complete even when every evidence row holds.
+  // The entry names the gate and the refusal it wrote, so the repair is not a guess.
+  for (const gate of Array.isArray(closureGates) ? closureGates : []) {
+    if (gate?.exitCode === 0) continue;
+    open.push({
+      id: `CLOSURE:${gate?.script ?? 'unknown'}`,
+      code: 'GRILL_GATE_FAILED',
+      reason: 'GRILL_GATE_FAILED',
+      subject: gate?.reason ?? null,
     });
   }
 

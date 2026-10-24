@@ -77,7 +77,7 @@ function countOpen(ns) {
  * @param {object} status — the parsed Status.json
  * @returns {boolean}
  */
-// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function materialArrivedAfterCompletion(status) {
   const completedAt = Date.parse(status.completedAt ?? "");
   const materialsAddedAt = Date.parse(status.materialsAddedAt ?? "");
@@ -85,7 +85,7 @@ function materialArrivedAfterCompletion(status) {
   return materialsAddedAt > completedAt;
 }
 
-// [::TICKET::] PX-238, PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-239) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function deriveStep(state, nodes, openCount, loopCount, reentry) {
   switch (state) {
     case "GRILLING":

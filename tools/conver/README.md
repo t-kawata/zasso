@@ -839,11 +839,19 @@ npm run build
 install.js -t /path/to/target/.claude
 ```
 
-ターゲットに同名ファイルが存在する場合、1ファイルごとに上書き確認のプロンプトが表示されます。全ての上書きを自動承認するには `-y` フラグを指定します：
+`install.js` は `rsync --archive --delete` でソースの `.claude` をターゲットへ完全にミラーします。プロンプトは表示されず、`-y` は互換性のために受け付けるだけです：
 
 ```bash
-install.js -y -t /path/to/target/.claude
+install.js -t /path/to/target/.claude
 ```
+
+ソースに無いターゲット側のファイルは削除されます。ただし次の3つは同期対象から除外され、ターゲット側の内容がそのまま残ります。
+
+| 除外対象 | 理由 |
+|---------|------|
+| `settings.local.json` | プロジェクト固有の許可リストを蓄積するファイル |
+| `node_modules` | 依存解決が導入したものを毎回消さないため |
+| `.DS_Store` | Finder のメタデータ |
 
 `install.js` はスクリプト自身の位置（`__dirname`）から相対的に `.claude` ディレクトリを特定するため、どのカレントディレクトリから実行しても正しく動作します。
 

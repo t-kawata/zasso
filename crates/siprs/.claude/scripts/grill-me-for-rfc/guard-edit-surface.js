@@ -65,7 +65,7 @@ const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json]';
  * @param {string} name
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-239, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-239|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-239|PX-260|PX-261) --for-spec --no-implementation-order`.
 function classifyBasename(name) {
   if (GENERATED_BASENAMES.includes(name)) {
     return { allowed: true, rule: 'generated', detail: 'a file this command generates' };
