@@ -25,7 +25,7 @@
 const fs = require("fs");
 const path = require("path");
 const { bulkAddTickets } = require("./bulk-add-tickets.js");
-const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
+const { buildNodeToFileMap } = require("../rfc-graph/validate-phasify.js");
 const { isUnitId, writeUnitIdsToTicket } = require("../rfc-graph/lib/unit-ids.mjs");
 const { ticketIdentity } = require("./lib/ticket-identity.js");
 const {
@@ -56,17 +56,18 @@ const EXIT_FAILURE = 1;
  * Automatically set default_files for each ticket using the Dirs-Tree resolved map via nodeIds.
  *
  * Duplicate file paths (different nodeIds pointing to the same file) are removed and sorted.
- * Tickets with empty nodeIds or no match in nodeToDirMap will not have default_files set.
+ * Tickets with empty nodeIds or no match in nodeToFileMap will not have default_files set.
  *
  * @param {Object[]} tickets — array of ticket data (each must have nodeIds)
- * @param {Object} nodeToDirMap — return value of buildNodeToDirMap() ({ nodeId: filePath, ... })
+ * @param {Object} nodeToFileMap — return value of buildNodeToFileMap() ({ nodeId: filePath, ... })
  */
-function resolveDefaultFiles(tickets, nodeToDirMap) {
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+function resolveDefaultFiles(tickets, nodeToFileMap) {
   for (const ticket of tickets) {
     const paths = new Set();
     if (Array.isArray(ticket.nodeIds)) {
       for (const nodeId of ticket.nodeIds) {
-        const resolvedPath = nodeToDirMap[nodeId];
+        const resolvedPath = nodeToFileMap[nodeId];
         if (resolvedPath) {
           paths.add(resolvedPath);
         }
@@ -299,7 +300,7 @@ function parseCliArguments(argv) {
   return { ticketsJsonPath, dirsTreePath, phaseArg, graphPath, error: null };
 }
 
-// [::TICKET::] PX-306, PX-307, PX-308, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-314, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-314|PX-319) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -355,8 +356,8 @@ async function main() {
     );
     process.exit(EXIT_FAILURE);
   }
-  const nodeToDirMap = buildNodeToDirMap(dirsTreeData);
-  resolveDefaultFiles(ticketsInput, nodeToDirMap);
+  const nodeToFileMap = buildNodeToFileMap(dirsTreeData);
+  resolveDefaultFiles(ticketsInput, nodeToFileMap);
 
   // 3b. Auto-generate referenceSection from GRAPH.json
   let graphData = null;
@@ -850,7 +851,7 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-319) --for-spec --no-implementation-order`.
 function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
   // A step whose operation this phase does not carry belongs to another phase or package.
@@ -870,8 +871,13 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
   // owned/cross-boundary record must be reported rather than silently skipped.
   const obligationSequenceUnits = new Map();
   for (const unit of Array.isArray(view?.obligationUnits) ? view.obligationUnits : []) {
-    if (unit?.kind !== 'sequence' && !String(unit?.unitId ?? '').startsWith('seq-')) continue;
-    const sequenceId = typeof unit.subject === 'string' ? unit.subject : String(unit.unitId).replace(/^seq-/, '');
+    const unitId = String(unit?.unitId ?? '');
+    const isSequence = unit?.kind === 'sequence'
+      || unit?.kind === 'cross-boundary-sequence'
+      || unitId.startsWith('seq-')
+      || unitId.startsWith('xdir-');
+    if (!isSequence) continue;
+    const sequenceId = typeof unit.subject === 'string' ? unit.subject : unitId.replace(/^(seq|xdir)-/, '');
     obligationSequenceUnits.set(sequenceId, unit.unitId);
   }
   if (artifact !== null) {

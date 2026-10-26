@@ -30,3 +30,18 @@ test('C007 boundify and split preflights name the missing/stale receipt', () => 
   assert.match(SPLIT, /MISSING_SMOOTH_RECEIPT/);
   assert.match(SPLIT, /STALE_SMOOTH_VERDICT/);
 });
+
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+test('PX-317 graphify names the artifact denominator and view-digest receipt', () => {
+  assert.match(GRAPHIFY, /MISSING_OPERATION/);
+  assert.match(GRAPHIFY, /MISSING_SEQUENCE/);
+  assert.match(GRAPHIFY, /STEP_IDENTITY_MISMATCH/);
+  assert.match(GRAPHIFY, /OWNER_ROLE_UNDECLARED/);
+  assert.match(GRAPHIFY, /viewDigests/);
+});
+
+test('PX-317 boundify and split name the artifact denominator codes', () => {
+  assert.match(BOUNDIFY, /MISSING_OPERATION/);
+  assert.match(SPLIT, /MISSING_SEQUENCE/);
+  assert.match(SPLIT, /STEP_IDENTITY_MISMATCH/);
+});

@@ -168,3 +168,18 @@ test('C002 the CLI exits 1 and writes nothing when a gate fails', () => {
   ], { encoding: 'utf8', stdio: 'pipe' }));
   assert.equal(fs.readFileSync(rfcPath, 'utf8'), before);
 });
+
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+test('C002 an undecided operation is rendered without a consumer role', () => {
+  const view = fixtureView();
+  view.ownedOperationUnits[0] = {
+    ...view.ownedOperationUnits[0],
+    ownerPackageIds: ['pkg-1', 'pkg-2'],
+    roleCandidate: 'undecided',
+  };
+  const rows = [ROWS[0].replace('pkg-1', '`pkg-1` + `pkg-2`'), ROWS[1]];
+  const result = renderDistribution(fixtureRfc(rows), view);
+  assert.equal(result.ok, true, result.code);
+  const operation = result.map.units.find((unit) => unit.unitId === 'op-Produce');
+  assert.equal(operation.role, undefined);
+});

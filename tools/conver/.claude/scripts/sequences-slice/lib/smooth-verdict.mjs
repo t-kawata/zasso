@@ -18,7 +18,10 @@ const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../../lib/package-artifacts.js');
 
 /** The receipt schema this module writes and reads. */
-export const SMOOTH_VERDICT_SCHEMA_VERSION = 1;
+export const SMOOTH_VERDICT_SCHEMA_VERSION = 2;
+
+/** The tree manifest that names every package path. */
+const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
 /** The receipt filename at the workspace root. */
 export const SMOOTH_VERDICT_RECEIPT_NAME = 'SMOOTH-VERDICT.json';
@@ -74,6 +77,30 @@ export function computeInputDigest(root) {
   const snapshot = snapshotDesignFiles(root);
   const lines = Object.keys(snapshot).sort().map((path) => `${path}\u0000${snapshot[path]}`);
   return createHash('sha256').update(lines.join('\n')).digest('hex');
+}
+
+/**
+ * One digest per package view, keyed by the tree manifest's package id.
+ *
+ * The receipt must bind the object smooth certified, and that object is the package
+ * `SEQUENCES.json`, not the whole design snapshot: graphify may insert headings into
+ * `RFC.md` after the receipt, and a snapshot check would refuse its own edit. A package
+ * whose view is absent records `null`, so a later appearance is a mismatch rather than
+ * a silent pass.
+ *
+ * @param {string} root
+ * @returns {Record<string, string|null>}
+ */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function collectViewDigests(root) {
+  const tree = readJsonOrNull(join(root, TREE_MANIFEST_FILE_NAME));
+  const digests = {};
+  for (const pkg of tree?.workspace?.packages ?? []) {
+    if (typeof pkg?.id !== 'string' || typeof pkg?.path !== 'string') continue;
+    const viewPath = join(root, pkg.path, 'SEQUENCES.json');
+    digests[pkg.id] = existsSync(viewPath) ? sha256File(viewPath) : null;
+  }
+  return digests;
 }
 
 /** The workspace root that owns the package, or null outside a workspacify workspace. */
@@ -144,12 +171,14 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
   }
   const artifactDigest = sha256File(artifactPath);
   const statusDigest = sha256File(statusPath);
+  const viewDigests = collectViewDigests(workspaceRoot);
 
   const existing = readSmoothReceipt(workspaceRoot);
   if (existing !== null
       && existing.schemaVersion === SMOOTH_VERDICT_SCHEMA_VERSION
       && existing.statusDigest === statusDigest
       && existing.artifactDigest === artifactDigest
+      && JSON.stringify(existing.viewDigests) === JSON.stringify(viewDigests)
       && existing.verdictPass === true) {
     return { ok: true, findings: [], receipt: existing };
   }
@@ -187,6 +216,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
     reportDigest: status.reportDigest ?? null,
     generation: status.generation ?? null,
     artifactDigest,
+    viewDigests,
     certificateStatus: certificate?.status ?? null,
     verdictPass: true,
     legacy: certificate === null,
@@ -213,6 +243,9 @@ export function verifySmoothReceipt(packageDir) {
   if (receipt === null) {
     return [finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the workspace receipt is missing or unreadable')];
   }
+  if (receipt.schemaVersion !== SMOOTH_VERDICT_SCHEMA_VERSION) {
+    return [finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the receipt predates package-view binding; rerun graphify Step 0')];
+  }
   const findings = [];
   if (receipt.verdictPass !== true) {
     findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_VERDICT_NOT_PASS, receiptPath, 'the receipt does not record a pass verdict'));
@@ -230,6 +263,17 @@ export function verifySmoothReceipt(packageDir) {
     findings.push(finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_ARTIFACT, workspaceRoot, 'the root *-sequences.json is missing or ambiguous'));
   } else if (receipt.artifactDigest !== sha256File(artifactPath)) {
     findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, artifactPath, 'the root artifact changed after the receipt'));
+  }
+
+  const liveViewDigests = collectViewDigests(workspaceRoot);
+  const recordedViewDigests = receipt.viewDigests ?? {};
+  for (const packageId of new Set([
+    ...Object.keys(recordedViewDigests),
+    ...Object.keys(liveViewDigests),
+  ])) {
+    if (recordedViewDigests[packageId] !== liveViewDigests[packageId]) {
+      findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, packageId, 'the package view changed after the receipt'));
+    }
   }
   return findings;
 }

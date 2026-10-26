@@ -182,8 +182,29 @@ function resolveNodeToDirMap(graph, hierarchy) {
  *   nodeToDir: Node ID → directory path map
  *   files: List of generated files
  */
+/**
+ * The mapped-node entry, carrying the units the generated header must name.
+ *
+ * `unitIds` is omitted when empty so a Dirs-Tree written before the units line keeps
+ * its byte shape; only a node that carries a unit gains the field.
+ */
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+function mappedEntry(node) {
+  const entry = {
+    nodeId: node.id,
+    title: node.title || '',
+  };
+  if (Array.isArray(node.unitIds) && node.unitIds.length > 0) {
+    entry.unitIds = [...node.unitIds];
+  }
+  return entry;
+}
+
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function buildDirectoryTree(graph, lang, helpers) {
   const languageExtensions = helpers.languageExtensions || { rust: '.rs', go: '.go', typescript: '.ts' };
+  /** The leaf file an architecture node uses when it carries a unit. */
+  const designatedEntryFile = helpers.DESIGNATED_ENTRY_FILE || { rust: 'mod.rs', go: 'doc.go', typescript: 'index.ts' };
   const deduplicateFileNames = helpers.deduplicateFileNames;
   const getDeclarationStub = helpers.getDeclarationStub || (() => '');
   const hierarchy = buildDomainHierarchy(graph);
@@ -205,6 +226,7 @@ function buildDirectoryTree(graph, lang, helpers) {
   }
 
     // Build directory tree from root hierarchy
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
   function buildTreeFromRoot(root) {
     if (!root || !root.node) return null;
 
@@ -218,7 +240,7 @@ function buildDirectoryTree(graph, lang, helpers) {
         name: dirName,
         type: 'directory',
         kind,
-        mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
+        mappedNodeIds: [mappedEntry(node)],
         children: [],
       };
 
@@ -245,7 +267,7 @@ function buildDirectoryTree(graph, lang, helpers) {
                     name: fileName,
                     type: 'file',
                     kind: childNode.kind || '',
-                    mappedNodeIds: [{nodeId: childNode.id, title: childNode.title || ''}],
+                    mappedNodeIds: [mappedEntry(childNode)],
                     declarationStub: getDeclarationStub(childNode.kind || '', lang),
                   },
                 });
@@ -281,9 +303,25 @@ function buildDirectoryTree(graph, lang, helpers) {
           name: fileName,
           type: 'file',
           kind: inlineChild.kind || '',
-          mappedNodeIds: [{nodeId: inlineChild.id, title: inlineChild.title || ''}],
+          mappedNodeIds: [mappedEntry(inlineChild)],
           declarationStub: getDeclarationStub(inlineChild.kind || '', lang),
         });
+      }
+
+      // An architecture node that carries a unit must have a leaf file, not only the
+      // directory the unit currently resolves to. The designated entry file is the
+      // smallest deterministic file the implementation can own.
+      if (Array.isArray(node.unitIds) && node.unitIds.length > 0) {
+        const entryName = designatedEntryFile[lang] || 'mod.rs';
+        if (!dirNode.children.some((child) => child.name === entryName)) {
+          dirNode.children.push({
+            name: entryName,
+            type: 'file',
+            kind: node.kind || '',
+            mappedNodeIds: [mappedEntry(node)],
+            declarationStub: getDeclarationStub(node.kind || '', lang),
+          });
+        }
       }
 
       return dirNode;
@@ -318,7 +356,13 @@ function buildDirectoryTree(graph, lang, helpers) {
   const descendantIds = collectDescendantIds(hierarchy.roots);
 
   // Also collect independent nodes matching kind→directory rules (excluding hierarchy descendants)
-  const ruleDrivenNodes = findRuleDrivenNodes(graph, hierarchy, lang, resolveFileName, deduplicateFileNames, getDeclarationStub, descendantIds);
+  const ruleDrivenNodes = findRuleDrivenNodes({
+    graph,
+    hierarchy,
+    naming: { lang, resolveFileNameFn: resolveFileName },
+    getDeclarationStubFn: getDeclarationStub,
+    excludeNodeIds: descendantIds,
+  });
 
   // Merge
   const allTopNodes = mergeTopLevelNodes(topNodes, ruleDrivenNodes);
@@ -384,16 +428,17 @@ function collectDescendantIds(roots) {
 /**
  * Collect root-level nodes that match kind → directory rules
  *
- * @param {object} graph — Graph object
- * @param {object} hierarchy — Return value of buildDomainHierarchy
- * @param {string} lang — Language name
- * @param {Function} resolveFileNameFn — File name resolution function
- * @param {Function} deduplicateFileNames — Deduplication function (unused)
- * @param {Function} getDeclarationStubFn — Declaration stub function
- * @param {Set<string>} [excludeNodeIds] — Set of node IDs to exclude
+ * @param {object} options
+ * @param {object} options.graph — Graph object
+ * @param {object} options.hierarchy — Return value of buildDomainHierarchy
+ * @param {{ lang: string, resolveFileNameFn: Function }} options.naming — Language and file-name resolver
+ * @param {Function} options.getDeclarationStubFn — Declaration stub function
+ * @param {Set<string>} [options.excludeNodeIds] — Set of node IDs to exclude
  * @returns {Array} Array of rule-driven nodes
  */
-function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplicateFileNames, getDeclarationStubFn, excludeNodeIds) {
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+function findRuleDrivenNodes({ graph, hierarchy, naming, getDeclarationStubFn, excludeNodeIds }) {
+  const { lang, resolveFileNameFn } = naming;
   const getStub = getDeclarationStubFn || (() => '');
   const nodes = graph.nodes || [];
   const result = [];
@@ -410,12 +455,12 @@ function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplic
         name: dirName,
         type: 'directory',
         kind: node.kind || '',
-        mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
+        mappedNodeIds: [mappedEntry(node)],
         children: [{
           name: fileName,
           type: 'file',
           kind: node.kind || '',
-          mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
+          mappedNodeIds: [mappedEntry(node)],
           declarationStub: getStub(node.kind || '', lang),
         }],
       });

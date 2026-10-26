@@ -80,6 +80,36 @@ test('C002 a design file changed after smooth is STALE_SMOOTH_VERDICT', () => {
   }
 });
 
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+test('C002 a package view changed after the receipt is STALE_SMOOTH_VERDICT', () => {
+  const fixture = createWorkspace();
+  try {
+    assert.deepEqual(verifySmoothVerdict({ packageDir: fixture.packageDir, writeReceipt: true }).findings, []);
+    const viewPath = join(fixture.packageDir, 'SEQUENCES.json');
+    const view = JSON.parse(readFileSync(viewPath, 'utf8'));
+    writeFileSync(viewPath, JSON.stringify({ ...view, packageId: `${view.packageId}-changed` }));
+    assert.ok(verifySmoothReceipt(fixture.packageDir)
+      .some((finding) => finding.code === 'STALE_SMOOTH_VERDICT'));
+  } finally {
+    rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+test('C002 an RFC-only edit after the receipt is not stale', () => {
+  const fixture = createWorkspace();
+  try {
+    assert.deepEqual(verifySmoothVerdict({ packageDir: fixture.packageDir, writeReceipt: true }).findings, []);
+    const receipt = JSON.parse(readFileSync(join(fixture.workspaceRoot, 'SMOOTH-VERDICT.json'), 'utf8'));
+    assert.equal(receipt.schemaVersion, 2);
+    assert.ok(receipt.viewDigests['pkg-0001']);
+    writeFileSync(join(fixture.packageDir, 'RFC.md'), '# Changed after receipt\n\n### inserted heading\n');
+    assert.deepEqual(verifySmoothReceipt(fixture.packageDir), []);
+  } finally {
+    rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  }
+});
+
 test('C003 the certificate must be complete and bind the live artifact', () => {
   const fixture = createWorkspace();
   try {
@@ -110,7 +140,8 @@ test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     assert.deepEqual(Object.keys(receipt).sort(), [
       'artifactDigest', 'certificateStatus', 'checkedAt', 'generation', 'inputDigest',
-      'legacy', 'reportDigest', 'schemaVersion', 'statusDigest', 'verdictPass', 'workspaceRoot',
+      'legacy', 'reportDigest', 'schemaVersion', 'statusDigest', 'verdictPass',
+      'viewDigests', 'workspaceRoot',
     ]);
     assert.equal(receipt.statusDigest, sha256File(fixture.statusPath));
     const firstBytes = readFileSync(receiptPath, 'utf8');

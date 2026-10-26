@@ -26,8 +26,8 @@ const SECTION_ANCHOR = /<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->/g;
 /** The header's first line, which is what makes a file a generated one. */
 export const HEADER_OPENING = 'Initial Design Artifact — RFC-driven Implementation';
 
-const HEADER_NODE_LINE = /^\s*node:\s*(N[0-9]{4})\b/m;
-const HEADER_UNITS_LINE = /^\s*units:\s*(.+)$/m;
+const HEADER_NODE_LINE = /^\s*(?:\/\/|#|\/\*|\*)?\s*node:\s*(N[0-9]{4})\b/m;
+const HEADER_UNITS_LINE = /^\s*(?:\/\/|#|\/\*|\*)?\s*units:\s*(.+)$/m;
 
 /** Whether a string is a unit id rather than a graph node id or anything else. */
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
@@ -241,6 +241,7 @@ export function unassignedAnchors(graph, rfcText) {
 
 /** The graph node a generated header names, or null when it names none. */
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
 export function readHeaderNodeId(fileText) {
   const match = HEADER_NODE_LINE.exec(String(fileText));
   return match === null ? null : match[1];
@@ -257,6 +258,7 @@ export function readHeaderNodeId(fileText) {
  * @returns {string[]}
  */
 // [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
 export function readHeaderUnitIds(headerText) {
   const text = String(headerText);
   if (!text.includes(HEADER_OPENING)) return [];

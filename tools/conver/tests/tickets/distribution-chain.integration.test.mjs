@@ -18,6 +18,7 @@ import {
   verifyAllTicketCoverage,
   verifyDigestChain,
 } from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';
+import { verifyChain } from '../../.claude/scripts/sequences-slice/verify-chain.mjs';
 import { digestValue } from '../../.claude/scripts/sequences-slice/lib/digest.mjs';
 
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
@@ -170,7 +171,7 @@ function coveragePhase() {
   };
 }
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-317) --for-spec --no-implementation-order`.
 async function runCoverageChain() {
   const { map, attached, dirsTree } = await runChain();
   const withUnits = await appendNodeUnitIds(coveragePhase().tickets, attached.graph);
@@ -193,7 +194,7 @@ async function runCoverageChain() {
     dirs: dirsTree,
     map,
   };
-  return { ticketsData, material, phase };
+  return { ticketsData, material, phase, graph: attached.graph, dirs: dirsTree };
 }
 
 test('C005 C006 the final coverage gate accepts the synthetic package', async () => {
@@ -224,4 +225,57 @@ test('C006 the final coverage gate names a dropped sequence step', async () => {
   const finding = report.unitFindings.find((entry) => entry.code === 'MISSING_SEQUENCE_STEP');
   assert.ok(finding, JSON.stringify(report.unitFindings));
   assert.equal(finding.stepId, 's2');
+});
+
+/** The artifact denominator for the synthetic package. */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+function artifactFixture() {
+  return {
+    operations: [
+      { id: 'Produce', disposition: 'active', result_object_classes: ['Produced'] },
+      { id: 'Consume', disposition: 'active', result_object_classes: ['Consumed'] },
+    ],
+    sequences: [{ id: 'A-1', outcome: 'direct' }],
+    steps: [
+      { id: 's1', sequence: 'A-1', operation: 'Produce', order: 0, line: 12, quote: 'produce', contract: { pre: [], post: [] } },
+      { id: 's2', sequence: 'A-1', operation: 'Consume', order: 1, line: 20, quote: 'consume', contract: { pre: [], post: [] } },
+    ],
+  };
+}
+
+/** The object ownership the artifact denominator needs to scope a package. */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+function treeManifestFixture() {
+  return {
+    inventory: {
+      objects: [
+        { canonical_name: 'Produced', owner_package: 'pkg-1' },
+        { canonical_name: 'Consumed', owner_package: 'pkg-1' },
+        { canonical_name: 'DroppedThing', owner_package: 'pkg-1' },
+      ],
+    },
+  };
+}
+
+test('PX-317 the artifact denominator passes the synthetic package and names a dropped operation', async () => {
+  const { ticketsData, material, graph, dirs } = await runCoverageChain();
+  const artifact = artifactFixture();
+  const treeManifest = treeManifestFixture();
+  const input = {
+    view: material.view,
+    map: material.map,
+    graph,
+    dirsTree: dirs,
+    tickets: ticketsData,
+    registry: [],
+    artifact,
+    treeManifest,
+  };
+  const complete = verifyChain(input);
+  assert.equal(complete.ok, true, JSON.stringify(complete.findings));
+
+  artifact.operations.push({ id: 'Dropped', disposition: 'active', result_object_classes: ['DroppedThing'] });
+  const dropped = verifyChain(input);
+  assert.ok(dropped.findings.some((finding) =>
+    finding.code === 'MISSING_OPERATION' && finding.subject === 'op-Dropped'));
 });

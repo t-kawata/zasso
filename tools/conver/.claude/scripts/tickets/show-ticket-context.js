@@ -526,7 +526,7 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-// [::TICKET::] PX-72, PX-75, PX-87, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -762,15 +762,36 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   }
 
   // Contracts (contract-based pre/post/invariant, from graph edge annotation)
-  if (Array.isArray(ticket.contracts) && ticket.contracts.length > 0) {
+  const edgeContracts = Array.isArray(ticket.contracts)
+    ? ticket.contracts.filter((contract) => typeof contract.stepId !== 'string')
+    : [];
+  if (edgeContracts.length > 0) {
     lines.push('## Contracts — mandatory 100% test coverage in TDD Red phase');
     lines.push('');
-    for (const c of ticket.contracts) {
+    for (const c of edgeContracts) {
       lines.push('### ' + (c.id || '?') + ' — ' + (c.sourceEdge || ''));
       lines.push('');
       lines.push('- **Precondition**: ' + (c.precondition || '(none)'));
       lines.push('- **Postcondition**: ' + (c.postcondition || '(none)'));
       lines.push('- **Invariant**: ' + (c.invariant || '(none)'));
+      lines.push('');
+    }
+  }
+
+  // Operation-boundary contracts (from the artifact step, merged through the sidecar)
+  const stepContracts = Array.isArray(ticket.contracts)
+    ? ticket.contracts.filter((contract) => typeof contract.stepId === 'string')
+    : [];
+  if (stepContracts.length > 0) {
+    lines.push('## Operation-Boundary Contracts — mandatory 100% test coverage in TDD Red phase');
+    lines.push('');
+    for (const c of stepContracts) {
+      lines.push('### ' + c.stepId + ' — sequence ' + (c.sequenceId || '?') + ' — operation ' + (c.operationId || '?'));
+      lines.push('');
+      lines.push('- **Precondition**: ' + (c.precondition || '(none)'));
+      lines.push('- **Postcondition**: ' + (c.postcondition || '(none)'));
+      lines.push('- **Invariant**: ' + (c.invariant || '(none)'));
+      lines.push('- **Contract prose**: ' + (c.contractProse || '(none)'));
       lines.push('');
     }
   }

@@ -776,24 +776,24 @@ describe('findRuleDrivenNodes with excludeNodeIds', () => {
     const descendantIds = collectDescendantIds(hierarchy.roots);
 
     // With excludeNodeIds
-    const filtered = findRuleDrivenNodes(
-      SIMPLE_GRAPH, hierarchy, 'rust',
-      (node) => (node.slug || node.id || 'unnamed') + '.rs',
-      (files) => files,
-      () => '// stub',
-      descendantIds,
-    );
+    const filtered = findRuleDrivenNodes({
+      graph: SIMPLE_GRAPH,
+      hierarchy,
+      naming: { lang: 'rust', resolveFileNameFn: (node) => (node.slug || node.id || 'unnamed') + '.rs' },
+      getDeclarationStubFn: () => '// stub',
+      excludeNodeIds: descendantIds,
+    });
     // config1 and error1 are not in descendantIds, so they remain
     const configEntries = filtered.filter(n => n.name === 'config');
     assert.equal(configEntries.length, 1, 'there should be exactly one config entry');
 
     // Without excludeNodeIds (legacy behavior)
-    const unfiltered = findRuleDrivenNodes(
-      SIMPLE_GRAPH, hierarchy, 'rust',
-      (node) => (node.slug || node.id || 'unnamed') + '.rs',
-      (files) => files,
-      () => '// stub',
-    );
+    const unfiltered = findRuleDrivenNodes({
+      graph: SIMPLE_GRAPH,
+      hierarchy,
+      naming: { lang: 'rust', resolveFileNameFn: (node) => (node.slug || node.id || 'unnamed') + '.rs' },
+      getDeclarationStubFn: () => '// stub',
+    });
     // Without excludeNodeIds, root/child1/child2 are also included but
     // resolveDirForNode returns null for them, so the result is effectively the same
     assert.ok(unfiltered.length >= filtered.length);

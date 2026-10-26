@@ -127,7 +127,7 @@ function indexByUnit(rows) {
 }
 
 /** Build a map from the existing Distribution ledger rows. */
-// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309|PX-317) --for-spec --no-implementation-order`.
 function bootstrapFromLedger(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   const rows = readLedgerRows(rfcText) ?? [];
@@ -170,9 +170,9 @@ function bootstrapFromLedger(rfcText, view) {
       sections: location.sections,
       ground,
     };
-    if (record.kind === 'operation') {
-      unit.role = record.record?.roleCandidate === 'implementer' ? 'implementer' : 'consumer';
-      unit.implementationSections = unit.role === 'implementer' ? [...location.sections] : [];
+    if (record.kind === 'operation' && record.record?.roleCandidate === 'implementer') {
+      unit.role = 'implementer';
+      unit.implementationSections = [...location.sections];
     }
     units.push(unit);
   }

@@ -128,7 +128,7 @@ function codedError(code, message) {
   return error;
 }
 
-// [::TICKET::] PX-306, PX-307, PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-312, PX-313, PX-315, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-312|PX-313|PX-315|PX-319) --for-spec --no-implementation-order`.
 async function main() {
   const argv = process.argv.slice(2);
   const graphPath = argumentFor(argv, 'graph');
@@ -235,11 +235,12 @@ async function main() {
   if (dirsTreePath !== null && map !== null) {
     const {
       buildDistributionIndex,
+      collectNodeFilePaths,
       collectNodePaths,
       verifyDistributionCoverage,
     } = require('./lib/distribution-index.js');
     const dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
-    dirsTree.distribution = buildDistributionIndex(next, collectNodePaths(dirsTree.trees), next.distributionDigest);
+    dirsTree.distribution = buildDistributionIndex(next, collectNodePaths(dirsTree.trees), next.distributionDigest, collectNodeFilePaths(dirsTree.trees));
     const coverage = verifyDistributionCoverage(dirsTree, next);
     if (!coverage.ok) {
       if (coverage.missing.length > 0) console.error(`MISSING_UNIT_AT_LAYER: ${coverage.missing.join(', ')}`);

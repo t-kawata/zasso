@@ -21,7 +21,7 @@ const REGISTRY = [{
   },
 }];
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-317) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',
@@ -87,9 +87,9 @@ function fixture() {
   };
 
   const ticketUnits = [
-    { unitId: 'op-ProduceFact', obligation: { mode: 'implement' } },
-    { unitId: 'seq-A-1', obligation: { mode: 'steps', steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact' }] } },
-    { unitId: 'ctr-boundary-001', obligation: { mode: 'obligation' } },
+    { unitId: 'op-ProduceFact', kind: 'operation', obligation: { mode: 'implement' } },
+    { unitId: 'seq-A-1', kind: 'sequence', obligation: { mode: 'steps', steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }] } },
+    { unitId: 'ctr-boundary-001', kind: 'contract', obligation: { mode: 'obligation' } },
   ];
   const ticketDigest = digestValue({
     sourceMapDigest: map.digest,
@@ -126,11 +126,18 @@ function fixture() {
   };
 
   const artifact = {
+    operations: [{ id: 'ProduceFact', disposition: 'active', result_object_classes: ['Thing'] }],
     sequences: [{ id: 'A-1', outcome: 'singleStep' }],
     steps: [{ id: 'A-1__ProduceFact', sequence: 'A-1', operation: 'ProduceFact', order: 1, line: 1 }],
   };
 
-  return { view, map, graph, dirsTree, tickets, registry: REGISTRY, artifact };
+  const treeManifest = {
+    inventory: {
+      objects: [{ canonical_name: 'Thing', owner_package: 'pkg-0001' }],
+    },
+  };
+
+  return { view, map, graph, dirsTree, tickets, registry: REGISTRY, artifact, treeManifest };
 }
 
 test('a consistent chain has no finding', () => {
@@ -190,4 +197,131 @@ test('a registry-divergent edge contract is BOUNDARY_CONTRACT_MISMATCH', () => {
   input.graph.edges[0].contracts[0].precondition = 'tampered';
   const result = verifyChain(input);
   assert.ok(result.findings.some((finding) => finding.code === 'BOUNDARY_CONTRACT_MISMATCH'));
+});
+
+/** Rebind the map, graph, Dirs-Tree and ticket source digests after a view mutation. */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+function rebindViewAndMap(input) {
+  input.map.sourceViewDigest = viewDigest(input.view);
+  input.map.digest = mapDigest(input.map);
+  input.graph.distributionDigest = input.map.digest;
+  input.dirsTree.distribution.digest = input.map.digest;
+  for (const ticket of input.tickets.phases.flatMap((phase) => phase.tickets)) {
+    if (ticket.distribution === undefined) continue;
+    ticket.distribution.sourceMapDigest = input.map.digest;
+    ticket.distribution.sourceViewDigest = input.map.sourceViewDigest;
+  }
+}
+
+/** Recompute one ticket's distribution digest and the aggregate after a ticket mutation. */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+function rebindTicketDigest(input) {
+  const ticket = input.tickets.phases[0].tickets[0];
+  ticket.distribution.digest = digestValue({
+    sourceMapDigest: ticket.distribution.sourceMapDigest,
+    sourceViewDigest: ticket.distribution.sourceViewDigest,
+    units: ticket.distribution.units,
+  });
+  const ticketDigests = Object.fromEntries(
+    input.tickets.phases.flatMap((phase) => phase.tickets)
+      .map((entry) => [entry.id, entry.distribution.digest]),
+  );
+  input.tickets.distribution.ticketDigests = ticketDigests;
+  input.tickets.distribution.digest = digestValue({ ticketDigests });
+}
+
+test('an active operation absent from the view is MISSING_OPERATION', () => {
+  const input = fixture();
+  input.artifact.operations.push({
+    id: 'Dropped',
+    disposition: 'active',
+    result_object_classes: ['Thing'],
+  });
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) =>
+    finding.code === 'MISSING_OPERATION' && finding.subject === 'op-Dropped'));
+});
+
+test('a sequence absent from the view is MISSING_SEQUENCE', () => {
+  const input = fixture();
+  input.artifact.sequences.push({ id: 'S-dropped', outcome: 'direct' });
+  input.artifact.steps.push({
+    id: 'S-dropped__ProduceFact',
+    sequence: 'S-dropped',
+    operation: 'ProduceFact',
+    order: 0,
+    line: 1,
+  });
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) =>
+    finding.code === 'MISSING_SEQUENCE' && finding.subject === 'seq-S-dropped'));
+});
+
+test('an active operation with no implementing ticket is MISSING_IMPLEMENTER', () => {
+  const input = fixture();
+  input.tickets.phases[0].tickets[0].distribution.units =
+    input.tickets.phases[0].tickets[0].distribution.units.map((unit) =>
+      unit.unitId === 'op-ProduceFact' ? { ...unit, obligation: { mode: 'reference' } } : unit);
+  rebindTicketDigest(input);
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) =>
+    finding.code === 'MISSING_IMPLEMENTER' && finding.subject === 'op-ProduceFact'));
+});
+
+test('a view step whose operationId differs from the artifact is STEP_IDENTITY_MISMATCH', () => {
+  const input = fixture();
+  const step = input.view.ownedSequenceUnits[0].steps[0];
+  input.view.ownedSequenceUnits[0].steps[0] = { ...step, operationId: 'OtherOperation' };
+  rebindViewAndMap(input);
+  rebindTicketDigest(input);
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) =>
+    finding.code === 'STEP_IDENTITY_MISMATCH' && finding.subject === 'A-1__ProduceFact'));
+});
+
+test('a view step whose line or subject differs is STEP_IDENTITY_MISMATCH', () => {
+  const input = fixture();
+  const step = input.view.ownedSequenceUnits[0].steps[0];
+  input.view.ownedSequenceUnits[0].steps[0] = { ...step, line: 99, subject: 'different subject' };
+  rebindViewAndMap(input);
+  rebindTicketDigest(input);
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) => finding.code === 'STEP_IDENTITY_MISMATCH'));
+});
+
+test('a suppliedRule designer_supplied zero-step residual is accepted', () => {
+  const input = fixture();
+  input.artifact.operations = [{
+    id: 'Dropped',
+    disposition: 'active',
+    position: 'suppliedRule',
+    grounding: { classification: 'designer_supplied' },
+    result_object_classes: ['Thing'],
+  }];
+  input.artifact.steps = input.artifact.steps.filter((step) => step.operation !== 'Dropped');
+  rebindViewAndMap(input);
+
+  assert.ok(verifyChain(input).findings.some((finding) =>
+    finding.code === 'MISSING_OPERATION' && finding.subject === 'op-Dropped'));
+
+  input.map.residuals = [{ unit: 'op-Dropped', kind: 'declared-residual', ground: 'reserved by design' }];
+  rebindViewAndMap(input);
+  assert.equal(verifyChain(input).findings.some((finding) =>
+    finding.code === 'MISSING_OPERATION'), false);
+});
+
+test('an active residual with a step is ACTIVE_OPERATION_RESIDUAL', () => {
+  const input = fixture();
+  input.artifact.operations = [{
+    id: 'Dropped',
+    disposition: 'active',
+    position: 'suppliedRule',
+    grounding: { classification: 'designer_supplied' },
+    result_object_classes: ['Thing'],
+  }];
+  input.artifact.steps = [{ id: 'S__Dropped', sequence: 'A-1', operation: 'Dropped', order: 0, line: 1 }];
+  input.map.residuals = [{ unit: 'op-Dropped', kind: 'declared-residual', ground: 'reserved by design' }];
+  rebindViewAndMap(input);
+  const result = verifyChain(input);
+  assert.ok(result.findings.some((finding) => finding.code === 'ACTIVE_OPERATION_RESIDUAL'));
 });

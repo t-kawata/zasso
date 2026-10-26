@@ -86,6 +86,7 @@ export function checkDistributionMap({ view = null, rfc = null } = {}) {
  * @returns {{ ok: boolean, code?: string, unitId?: string, findings?: Array<object> }}
  */
 // [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUnits: activeUnits = null } = {}) {
   const byUnit = new Map();
   for (const map of maps ?? []) {
@@ -99,8 +100,8 @@ export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUn
 
   for (const [unitId, roleEntries] of byUnit) {
     if (activeUnits !== null && !activeUnits.has(unitId)) continue;
-    if (roleCandidates !== null && roleCandidates.get(unitId) === 'undecided') continue;
     const packageIds = roleEntries.map((entry) => entry.packageId);
+    const candidate = roleCandidates?.get(unitId) ?? null;
     const implementerEntries = roleEntries.filter((entry) => entry.role === 'implementer');
     // A single owner is the common case, and the case a wrong role hides best: one
     // consumer leaves the operation with no implementer at all.
@@ -126,7 +127,7 @@ export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUn
       code: 'OWNER_ROLE_UNDECLARED',
       unitId,
       packageIds,
-      findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has ${implementerEntries.length} implementer(s) and no disjoint surface split`)],
+      findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has ${implementerEntries.length} implementer(s) and no disjoint surface split${candidate === 'undecided' ? ' (explicitly undecided)' : ''}`)],
     };
   }
   return { ok: true, findings: [] };
