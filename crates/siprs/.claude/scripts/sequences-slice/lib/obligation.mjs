@@ -454,11 +454,16 @@ export function classifyAssignments(artifact, assignments) {
       unbound.push(assignment.unit);
       continue;
     }
+    const kind = DEMAND_KIND_BY_PREFIX[assignment.unit.slice(0, assignment.unit.indexOf('-') + 1)];
     units.push({
       unitId: assignment.unit,
       relation: ASSIGNMENT_RELATION,
       subject: assignment.unit.slice(assignment.unit.indexOf('-') + 1),
-      kind: DEMAND_KIND_BY_PREFIX[assignment.unit.slice(0, assignment.unit.indexOf('-') + 1)],
+      kind,
+      // An assignment names the package that owes the operation, so that package is the
+      // implementer. A sequence assignment places order, not ownership, and carries no
+      // role candidate because the owner-role gate reads operation units only.
+      ...(kind === 'operation' ? { roleCandidate: 'implementer' } : {}),
       // The ground is normalized here rather than at the reader, so a whitespace-only ground reads
       // as no ground however the assignment reached this module. The coverage layer reads this
       // field to count a demand, so a judgment recorded without a ground places nothing.

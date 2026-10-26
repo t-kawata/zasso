@@ -361,7 +361,15 @@ export const COUNTER_MUTATION_CORPUS = Object.freeze([
     name: 'step-order-preserved-fields-rewritten',
     mutate: ({ artifact, specLines }) => {
       const next = structuredClone(artifact);
-      next.steps = next.steps.map((step) => ({ ...step, contract: `${step.contract} ` }));
+      // v2 carries the contract as prose; v3 carries it as the typed object every check
+      // reads. The counter-case is a rewrite that changes no relation, so a v3 step
+      // rewrites its prose predicate rather than turning the typed contract into the
+      // string a shape gate would refuse.
+      next.steps = next.steps.map((step) => (
+        typeof step.contract === 'string'
+          ? { ...step, contract: `${step.contract} ` }
+          : { ...step, predicate: `${step.predicate} ` }
+      ));
       return { artifact: next, specLines };
     },
   },

@@ -454,7 +454,7 @@ const stepCarriesFourFields = {
   run(context) {
     return context.artifact.steps.flatMap((step) =>
       STEP_FIELDS
-        .filter((field) => step[field] === undefined || step[field] === '')
+        .filter((field) => step[field] === undefined || step[field] === null || step[field] === '')
         .map((field) => ({
           check: 'step-carries-four-fields',
           subject: step.id ?? '(unnamed step)',

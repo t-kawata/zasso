@@ -347,7 +347,12 @@ export function validateArtifactShape(artifact, schema) {
   // asked for a v3 field, which is what lets both generations verify side by side.
   if (artifact.schema_version === 3) {
     for (const [index, step] of artifact.steps.entries()) {
-      if (step.contract === undefined || step.contract === null || typeof step.contract !== 'object' || Array.isArray(step.contract)) {
+      // Absence is the declared check's claim: `step-carries-four-fields` names a step
+      // missing its contract, and shape validation reporting it first would leave the
+      // falsifier unable to attribute the mutation to the check that owns it. Shape still
+      // refuses a contract of the wrong type, because no declared check measures that.
+      if (step.contract === undefined || step.contract === null || step.contract === '') continue;
+      if (typeof step.contract !== 'object' || Array.isArray(step.contract)) {
         problems.push({ pin: `steps[${index}].contract`, reason: `step ${step.id ?? index} has no typed contract`, });
         continue;
       }

@@ -327,6 +327,18 @@ test('C001 an assignment names its demand, carries its ground, and gains the kin
   assert.deepEqual(unbound, []);
 });
 
+test('PX-310 an assigned operation names its assignee as the implementer', () => {
+  const { units } = classifyAssignments(artifactWithSequence(), [
+    { unit: 'op-R-0001', ground: 'the specification states it at section 4.2' },
+    { unit: 'seq-S-0001', ground: 'the specification states it at section 5.1' },
+  ]);
+
+  const operation = units.find((unit) => unit.kind === 'operation');
+  const sequence = units.find((unit) => unit.kind === 'sequence');
+  assert.equal(operation.roleCandidate, 'implementer');
+  assert.equal(sequence.roleCandidate, undefined);
+});
+
 test('C001 an assignment naming nothing the artifact holds is reported and invents no unit', () => {
   const { units, unbound } = classifyAssignments(artifactWithSequence(), [
     { unit: 'op-R-0001', ground: 'stated' },
