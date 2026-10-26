@@ -23,6 +23,7 @@ const {
   boundaryClauseDigest,
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
+const { registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
 const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
@@ -31,13 +32,17 @@ const {
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-314) --for-spec --no-implementation-order`.
 function parseArgs(argv = process.argv.slice(2)) {
-  let ticketsPath, graphPath, registryPath = null;
+  let ticketsPath, graphPath, registryPath = null, viewPath = null;
   for (const a of argv) {
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
     if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
+    if (a.startsWith('--view=')) {
+      const value = a.slice('--view='.length);
+      viewPath = value === '' ? null : path.resolve(value);
+    }
   }
   if (!ticketsPath) {
     console.error('[ERROR] --tickets=<path> is required');
@@ -52,7 +57,11 @@ function parseArgs(argv = process.argv.slice(2)) {
     process.exit(1);
   }
   if (registryPath === null) registryPath = findAllocateManifest(path.dirname(ticketsPath));
-  return { ticketsPath, graphPath, registryPath };
+  if (viewPath === null) {
+    const derivedViewPath = path.join(path.dirname(ticketsPath), 'SEQUENCES.json');
+    viewPath = fs.existsSync(derivedViewPath) ? derivedViewPath : null;
+  }
+  return { ticketsPath, graphPath, registryPath, viewPath };
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
@@ -249,9 +258,9 @@ function verifyClosure(tickets, graph, options = {}) {
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, graphPath, registryPath } = parseArgs();
+  const { ticketsPath, graphPath, registryPath, viewPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -259,6 +268,10 @@ function main() {
   }
   if (!fs.existsSync(graphPath)) {
     console.error('[ERROR] GRAPH.json not found: ' + graphPath);
+    process.exit(1);
+  }
+  if (viewPath !== null && !fs.existsSync(viewPath)) {
+    console.error('[ERROR] MISSING_VIEW: --view was supplied but the package view is not readable: ' + viewPath);
     process.exit(1);
   }
 
@@ -277,9 +290,13 @@ function main() {
   }
 
   const rows = registryContracts(registryPath);
+  const view = viewPath !== null && fs.existsSync(viewPath)
+    ? JSON.parse(fs.readFileSync(viewPath, 'utf8'))
+    : null;
+  const scopedRows = view === null ? rows : registryRowsForPackage(rows, view.packageId);
   const result = verifyClosure(allTickets, graph, {
-    registryBoundaryIds: rows.map((row) => row.boundary_id),
-    registryContracts: rows,
+    registryBoundaryIds: scopedRows.map((row) => row.boundary_id),
+    registryContracts: scopedRows,
   });
 
   if (!result.valid) {
@@ -291,7 +308,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log(JSON.stringify({ ok: true, ticketsChecked: allTickets.length }));
+  process.stdout.write(`${JSON.stringify({ ok: true, ticketsChecked: allTickets.length })}\n`);
   process.exit(0);
 }
 

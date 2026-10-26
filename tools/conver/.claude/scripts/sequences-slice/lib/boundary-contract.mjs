@@ -9,6 +9,7 @@
 import { digestValue } from './digest.mjs';
 
 export const REGISTRY_NOTE_PREFIX = 'registry:';
+export const SIDECAR_NOTE_PREFIX = 'registry:sidecar:';
 export const BOUNDARY_CONTRACT_PREFIX = 'contract-';
 
 /** The canonical text of one clause array; an absent array projects to the empty string. */
@@ -38,6 +39,23 @@ export function boundaryNote(row) {
 }
 
 /**
+ * The digest that binds every row a note names.
+ *
+ * One row keeps its single-row digest; several rows bind the ordered pair of id and
+ * digest so a note cannot name one row and carry another row's digest.
+ */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+export function combinedBoundaryDigest(rows) {
+  const ids = (rows ?? []).map((row) => row.boundary_id).sort();
+  return ids.length === 1
+    ? boundaryClauseDigest(rows[0])
+    : digestValue(ids.map((boundaryId) => ({
+      boundaryId,
+      digest: boundaryClauseDigest((rows ?? []).find((row) => row.boundary_id === boundaryId)),
+    })));
+}
+
+/**
  * The note for every registry row an edge carries.
  *
  * One boundary keeps the single-row digest; several boundaries bind the ordered pair of
@@ -45,26 +63,34 @@ export function boundaryNote(row) {
  */
 export function boundaryNoteForRows(rows) {
   const ids = (rows ?? []).map((row) => row.boundary_id).sort();
-  const digest = ids.length === 1
-    ? boundaryClauseDigest(rows[0])
-    : digestValue(rows.map((row) => ({ boundaryId: row.boundary_id, digest: boundaryClauseDigest(row) })));
-  return `${REGISTRY_NOTE_PREFIX}${ids.join(',')};digest:${digest}`;
+  return `${REGISTRY_NOTE_PREFIX}${ids.join(',')};digest:${combinedBoundaryDigest(rows)}`;
+}
+
+/** The note that points at the sidecar when the inline id list would exceed the limit. */
+export function boundarySidecarNote(sidecarName, rows) {
+  return `${SIDECAR_NOTE_PREFIX}${sidecarName};digest:${combinedBoundaryDigest(rows)}`;
 }
 
 /** The registry ids and digest a graph edge note carries, or null. */
 export function parseBoundaryNoteRows(note) {
   const match = String(note ?? '').match(/registry:([^;]+);digest:([0-9a-f]{64})/);
   if (match === null) return null;
+  const value = match[1].trim();
+  if (value.startsWith('sidecar:')) {
+    return { ids: [], digest: match[2], sidecar: value.slice('sidecar:'.length) };
+  }
   return {
-    ids: match[1].split(',').map((id) => id.trim()).filter(Boolean),
+    ids: value.split(',').map((id) => id.trim()).filter(Boolean),
     digest: match[2],
+    sidecar: null,
   };
 }
 
 /** The registry id and digest a graph edge note carries, or null. */
 export function parseBoundaryNote(note) {
-  const match = String(note ?? '').match(/registry:([^;]+);digest:([0-9a-f]{64})/);
-  return match === null ? null : { boundaryId: match[1], digest: match[2] };
+  const parsed = parseBoundaryNoteRows(note);
+  if (parsed === null) return null;
+  return { boundaryId: parsed.ids[0] ?? null, digest: parsed.digest, sidecar: parsed.sidecar };
 }
 
 /** Whether a projected contract carries the same three fields as the registry row. */

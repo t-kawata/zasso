@@ -263,7 +263,7 @@ node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath
 node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
 node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
 node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1" --view="$viewPath" --registry="$registryPath"
-node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath" --registry="$registryPath"
+node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=graphify --package="$(dirname "$1")" --artifact="$artifactPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup

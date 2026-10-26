@@ -28,6 +28,10 @@ const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
 const { isUnitId, writeUnitIdsToTicket } = require("../rfc-graph/lib/unit-ids.mjs");
 const {
+  artifactStepsForSequences,
+  declaredSequenceIds,
+} = require("../sequences-slice/lib/distribution-map.mjs");
+const {
   deriveDirsTreePathFromTickets,
   deriveGraphPathFromTickets,
 } = require("../lib/package-artifacts");
@@ -274,7 +278,7 @@ function parseCliArguments(argv) {
   return { ticketsJsonPath, dirsTreePath, phaseArg, graphPath, error: null };
 }
 
-// [::TICKET::] PX-306, PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-314) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -366,9 +370,9 @@ async function main() {
 
   // 4. Read Tickets.json and resolve the phase
   const resolvedPath = path.resolve(ticketsJsonPath);
-  let data;
+  let ticketsDocument;
   try {
-    data = JSON.parse(fs.readFileSync(resolvedPath, "utf8"));
+    ticketsDocument = JSON.parse(fs.readFileSync(resolvedPath, "utf8"));
   } catch (err) {
     console.error("Tickets.json read failed: " + err.message);
     process.exit(EXIT_FAILURE);
@@ -377,12 +381,12 @@ async function main() {
   // Phase resolution (same logic as add-ticket.js)
   let phase = null;
   if (phaseArg === "PX") {
-    phase = data.phases.find(function (p) { return p.id === -1; });
+    phase = ticketsDocument.phases.find(function (p) { return p.id === -1; });
   } else {
     const matchResult = phaseArg.match(/^P(-?\d+)$/);
     if (matchResult) {
       const phaseId = parseInt(matchResult[1], 10);
-      phase = data.phases.find(function (p) { return p.id === phaseId; });
+      phase = ticketsDocument.phases.find(function (p) { return p.id === phaseId; });
     }
   }
 
@@ -409,7 +413,7 @@ async function main() {
     },
   ];
 
-  const addResult = bulkAddTickets(data, batch);
+  const addResult = bulkAddTickets(ticketsDocument, batch);
   if (!addResult.success) {
     console.error("Ticket add failed: " + JSON.stringify(addResult));
     process.exit(EXIT_FAILURE);
@@ -478,11 +482,11 @@ async function main() {
       }
       process.exit(EXIT_FAILURE);
     }
-    writeTicketDistributionAggregate(data);
+    writeTicketDistributionAggregate(ticketsDocument);
   }
 
   // 7. Validation passed — write to file
-  writeJsonAtomically(resolvedPath, data);
+  writeJsonAtomically(resolvedPath, ticketsDocument);
 
   // 8. Output results
   const output = {
@@ -826,7 +830,7 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
   const graphUnits = new Set((graph?.nodes ?? []).flatMap((node) => node.unitIds ?? []));
@@ -848,17 +852,19 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
     obligationSequenceUnits.set(sequenceId, unit.unitId);
   }
   if (artifact !== null) {
-    for (const step of artifact.steps ?? []) {
-      const carryingUnit = [...declaredByUnit.entries()]
-        .find(([, steps]) => steps.some((entry) => entry.stepId === step.id));
-      if (carryingUnit !== undefined) continue;
-      findings.push({
-        code: 'SEQUENCE_STEPS_UNDISTRIBUTED',
-        stepId: step.id,
-        unitId: obligationSequenceUnits.get(step.sequence) ?? `seq-${step.sequence}`,
-        layer: 'ticket',
-        message: `sequence ${step.sequence} step ${step.id} has no step-bearing view record`,
-      });
+    for (const [sequenceId, steps] of artifactStepsForSequences(artifact, declaredSequenceIds(view))) {
+      for (const step of steps) {
+        const carried = [...declaredByUnit.values()]
+          .some((declaredSteps) => declaredSteps.some((entry) => entry.stepId === step.id));
+        if (carried) continue;
+        findings.push({
+          code: 'SEQUENCE_STEPS_UNDISTRIBUTED',
+          stepId: step.id,
+          unitId: obligationSequenceUnits.get(sequenceId) ?? `seq-${sequenceId}`,
+          layer: 'ticket',
+          message: `sequence ${sequenceId} step ${step.id} has no step-bearing view record`,
+        });
+      }
     }
   }
 
@@ -868,9 +874,10 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
     for (const unit of ticket?.distribution?.units ?? []) {
       if (unit?.obligation?.mode === 'implement') implementedOperations.add(unit.unitId);
       for (const step of unit?.obligation?.steps ?? []) {
-        const entry = observed.get(step.stepId) ?? { ticketIds: new Set(), steps: [], unitId: unit.unitId };
+        const entry = observed.get(step.stepId) ?? { ticketIds: new Set(), steps: [], occurrences: 0, unitId: unit.unitId };
         entry.ticketIds.add(ticket.id);
         entry.steps.push(step);
+        entry.occurrences += 1;
         observed.set(step.stepId, entry);
       }
     }
@@ -888,8 +895,8 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
         }
         continue;
       }
-      if (hit.ticketIds.size > 1) {
-        findings.push({ code: 'DUPLICATE_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} appears in tickets ${[...hit.ticketIds].join(', ')}` });
+      if (hit.ticketIds.size > 1 || hit.occurrences > 1) {
+        findings.push({ code: 'DUPLICATE_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} appears ${hit.occurrences} time(s) in tickets ${[...hit.ticketIds].join(', ')}` });
       }
       if (isPackageStep && !implementedOperations.has(`op-${step.operationId}`)) {
         findings.push({ code: 'SEQUENCE_STEP_WITHOUT_IMPLEMENTER', stepId: step.stepId, unitId, layer: 'ticket', message: `step ${step.stepId} owes operation op-${step.operationId} and no ticket implements it` });

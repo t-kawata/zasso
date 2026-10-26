@@ -72,6 +72,102 @@ export function collectViewUnits(view) {
   return units;
 }
 
+/**
+ * The sequence ids a view declares, whether or not a record carries steps.
+ *
+ * This is the graph stage's scope predicate. A step-bearing record is not the predicate:
+ * an obligation-only sequence still declares the procedure and must keep its steps checked.
+ *
+ * @param {object} view
+ * @returns {Set<string>}
+ */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+export function declaredSequenceIds(view) {
+  const sequenceIds = new Set();
+  for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
+    for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
+      if (typeof unit?.sequenceId === 'string') sequenceIds.add(unit.sequenceId);
+    }
+  }
+  for (const unit of Array.isArray(view?.obligationUnits) ? view.obligationUnits : []) {
+    const unitId = String(unit?.unitId ?? '');
+    const isSequence = unit?.kind === 'sequence'
+      || unit?.kind === 'cross-boundary-sequence'
+      || unitId.startsWith('seq-')
+      || unitId.startsWith('xdir-');
+    if (!isSequence) continue;
+    const sequenceId = typeof unit?.subject === 'string'
+      ? unit.subject
+      : unitId.replace(/^(seq|xdir)-/, '');
+    if (sequenceId.length > 0) sequenceIds.add(sequenceId);
+  }
+  return sequenceIds;
+}
+
+/** The step-bearing records of a view, grouped by sequence id. */
+export function stepBearingRecords(view) {
+  const bySequence = new Map();
+  for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
+    for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
+      if (typeof unit?.sequenceId !== 'string') continue;
+      const records = bySequence.get(unit.sequenceId) ?? [];
+      records.push({ unitId: unit.unitId, steps: Array.isArray(unit.steps) ? unit.steps : [] });
+      bySequence.set(unit.sequenceId, records);
+    }
+  }
+  return bySequence;
+}
+
+/** The steps of one step-bearing record in artifact order. */
+export function sequenceStepsOf(record) {
+  return [...(record?.steps ?? [])]
+    .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0));
+}
+
+/** The artifact steps for the sequences a view declares. */
+export function artifactStepsForSequences(artifact, sequenceIds) {
+  const bySequence = new Map();
+  for (const step of Array.isArray(artifact?.steps) ? artifact.steps : []) {
+    if (!sequenceIds.has(step?.sequence)) continue;
+    const steps = bySequence.get(step.sequence) ?? [];
+    steps.push({
+      id: step.id,
+      operationId: step.operation,
+      order: step.order ?? step.line ?? 0,
+      record: step,
+    });
+    bySequence.set(step.sequence, steps);
+  }
+  for (const steps of bySequence.values()) steps.sort((left, right) => left.order - right.order);
+  return bySequence;
+}
+
+/**
+ * The registry rows whose provider or consumer is this package.
+ *
+ * A legacy row carries no side; it keeps the presence check rather than disappearing.
+ */
+export function registryRowsForPackage(registry, packageId) {
+  return (registry ?? []).filter((row) => {
+    const hasSides = typeof row?.provider_package === 'string' || typeof row?.consumer_package === 'string';
+    if (!hasSides) return true;
+    return row.provider_package === packageId || row.consumer_package === packageId;
+  });
+}
+
+/** The canonical contract a step carries, independent of artifact/view field spelling. */
+export function canonicalStepContract(step) {
+  return normalizeDeep({
+    contract: step?.contract ?? null,
+    prose: step?.contractProse ?? step?.contract_prose ?? '',
+  });
+}
+
+/** Whether two step records carry the same contract and prose. */
+export function stepContractMatches(left, right) {
+  return JSON.stringify(canonicalStepContract(left)) === JSON.stringify(canonicalStepContract(right));
+}
+
 /** The stable projection of a view that the map's source digest binds. */
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function canonicalViewProjection(view) {

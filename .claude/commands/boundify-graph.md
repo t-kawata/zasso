@@ -101,7 +101,7 @@ RUN_ID="$(date +%s%N)-$$"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" begin-run --run-id="$RUN_ID"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 0
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --dry-run
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="$(dirname "$graphPath")"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --preflight --package="$(dirname "$graphPath")"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 0
 ```
 

@@ -20,7 +20,15 @@ const { pathToFileURL } = require('node:url');
 
 const LIBRARY = pathToFileURL(path.join(__dirname, 'lib', 'unit-ids.mjs')).href;
 const LEDGER_LIBRARY = pathToFileURL(path.join(__dirname, '..', 'sequences-slice', 'lib', 'distribution-ledger.mjs')).href;
-const { collectViewUnits, mapDigest, viewDigest } = require('../sequences-slice/lib/distribution-map.mjs');
+const {
+  artifactStepsForSequences,
+  collectViewUnits,
+  declaredSequenceIds,
+  mapDigest,
+  registryRowsForPackage,
+  stepBearingRecords,
+  viewDigest,
+} = require('../sequences-slice/lib/distribution-map.mjs');
 
 /**
  * The admission checks graphify runs before it attaches a single unit.
@@ -33,7 +41,7 @@ const { collectViewUnits, mapDigest, viewDigest } = require('../sequences-slice/
  * @param {{ view: object, map: object, artifact?: object|null, registry?: Array<object> }} input
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function verifyViewAgainstMap({ view, map, artifact = null, registry = [] } = {}) {
   const findings = [];
   if (map?.sourceViewDigest !== viewDigest(view)) {
@@ -43,35 +51,32 @@ function verifyViewAgainstMap({ view, map, artifact = null, registry = [] } = {}
     findings.push({ code: 'DISTRIBUTION_DIGEST_MISMATCH', subject: 'map', message: 'map.digest does not equal mapDigest(map)' });
   }
 
-  const viewUnits = new Set(collectViewUnits(view).keys());
+  const viewUnitIds = new Set(collectViewUnits(view).keys());
   const mapUnits = new Set((map?.units ?? []).map((unit) => unit.unitId));
   const residualUnits = new Set((map?.residuals ?? []).map((residual) => residual.unit));
-  const missing = [...viewUnits].filter((unitId) => !mapUnits.has(unitId) && !residualUnits.has(unitId));
-  const invented = [...mapUnits].filter((unitId) => !viewUnits.has(unitId));
+  const missing = [...viewUnitIds].filter((unitId) => !mapUnits.has(unitId) && !residualUnits.has(unitId));
+  const invented = [...mapUnits].filter((unitId) => !viewUnitIds.has(unitId));
   if (missing.length > 0 || invented.length > 0) {
     findings.push({ code: 'UNIT_SET_MISMATCH', subject: null, message: `missing=${missing.join(',') || 'none'}; invented=${invented.join(',') || 'none'}` });
   }
 
   if (artifact !== null) {
-    const stepBearing = new Map();
-    for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
-      for (const unit of view?.[field] ?? []) {
-        const carried = stepBearing.get(unit.sequenceId) ?? new Set();
-        for (const step of unit.steps ?? []) carried.add(step.stepId);
-        stepBearing.set(unit.sequenceId, carried);
-      }
-    }
-    for (const step of artifact.steps ?? []) {
-      const carried = stepBearing.get(step.sequence);
-      if (carried === undefined || !carried.has(step.id)) {
-        findings.push({ code: 'SEQUENCE_STEPS_UNDISTRIBUTED', subject: step.id, message: `step ${step.id} has no step-bearing view record` });
+    const stepBearing = stepBearingRecords(view);
+    for (const [sequenceId, steps] of artifactStepsForSequences(artifact, declaredSequenceIds(view))) {
+      const carried = new Set(
+        (stepBearing.get(sequenceId) ?? []).flatMap((record) => record.steps.map((step) => step.stepId)),
+      );
+      for (const step of steps) {
+        if (!carried.has(step.id)) {
+          findings.push({ code: 'SEQUENCE_STEPS_UNDISTRIBUTED', subject: step.id, message: `step ${step.id} has no step-bearing view record` });
+        }
       }
     }
   }
 
-  for (const row of registry ?? []) {
+  for (const row of registryRowsForPackage(registry, view?.packageId)) {
     const ctrUnit = `ctr-${row.boundary_id}`;
-    if (!viewUnits.has(ctrUnit)) {
+    if (!viewUnitIds.has(ctrUnit)) {
       findings.push({ code: 'MISSING_BOUNDARY_CONTRACT', subject: ctrUnit, message: `registry boundary ${row.boundary_id} has no ctr unit in the view` });
     }
   }

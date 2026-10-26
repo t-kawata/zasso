@@ -400,7 +400,7 @@ function formatReport(report) {
 // Main Entry Point
 // ============================================================
 
-// [::TICKET::] PX-306, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-308, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-308|PX-314) --for-spec --no-implementation-order`.
 function main() {
   const ticketsJsonPath = process.argv[2];
 
@@ -421,7 +421,15 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  const report = verifyAllTicketCoverage(ticketsData, readUnitMaterial(process.argv.slice(2)));
+  const material = readUnitMaterial(process.argv.slice(2));
+  const workspaceManifest = findAllocateManifest(path.dirname(path.resolve(ticketsJsonPath)));
+  if (workspaceManifest !== null && material.artifact === undefined) {
+    console.error('[ERROR] MISSING_SIDECAR: the workspace has an allocate manifest, and the root *-sequences.json is missing or unreadable');
+    console.error('Cause: the step-vs-artifact check cannot run without the root artifact');
+    console.error('Action: restore the root *-sequences.json or pass --artifact=<path>');
+    process.exit(EXIT_FAILURE);
+  }
+  const report = verifyAllTicketCoverage(ticketsData, material);
   const output = formatReport(report);
 
   // Output human-readable report to stdout

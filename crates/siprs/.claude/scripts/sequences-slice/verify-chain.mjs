@@ -7,7 +7,16 @@
  * by split before and after ticket authoring. A layer that copies a digest but drops a
  * unit, a step, a boundary contract or a direction is named, not silently accepted.
  */
-import { collectViewUnits, mapDigest, viewDigest } from './lib/distribution-map.mjs';
+import {
+  artifactStepsForSequences,
+  collectViewUnits,
+  declaredSequenceIds,
+  mapDigest,
+  registryRowsForPackage,
+  stepBearingRecords,
+  stepContractMatches,
+  viewDigest,
+} from './lib/distribution-map.mjs';
 import { digestValue } from './lib/digest.mjs';
 import { readDistributionMap } from '../rfc-graph/lib/unit-ids.mjs';
 import { createRequire } from 'node:module';
@@ -19,7 +28,7 @@ const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../lib/package-artifacts.js');
 import {
   boundaryClauseDigest,
-  boundaryNoteForRows,
+  combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } from './lib/boundary-contract.mjs';
@@ -35,6 +44,7 @@ export const CHAIN_CODES = Object.freeze({
   MISSING_BOUNDARY_CONTRACT: 'MISSING_BOUNDARY_CONTRACT',
   BOUNDARY_CONTRACT_MISMATCH: 'BOUNDARY_CONTRACT_MISMATCH',
   BOUNDARY_DIRECTION_MISMATCH: 'BOUNDARY_DIRECTION_MISMATCH',
+  STEP_CONTRACT_MISMATCH: 'STEP_CONTRACT_MISMATCH',
   ACTIVE_OPERATION_RESIDUAL: 'ACTIVE_OPERATION_RESIDUAL',
 });
 
@@ -57,33 +67,15 @@ function allTickets(tickets) {
 }
 
 /** The step-bearing records a view carries, keyed by sequence id. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function viewStepBearing(view) {
-  const bySequence = new Map();
-  for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
-    for (const unit of view?.[field] ?? []) {
-      if (typeof unit?.sequenceId !== 'string') continue;
-      const records = bySequence.get(unit.sequenceId) ?? [];
-      records.push({ unitId: unit.unitId, steps: Array.isArray(unit.steps) ? unit.steps : [] });
-      bySequence.set(unit.sequenceId, records);
-    }
-  }
-  return bySequence;
+  return stepBearingRecords(view);
 }
 
-/** The ordered artifact steps of one sequence. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function artifactStepsBySequence(artifact) {
-  const bySequence = new Map();
-  for (const step of artifact?.steps ?? []) {
-    const steps = bySequence.get(step.sequence) ?? [];
-    steps.push({ id: step.id, operationId: step.operation, order: step.order ?? step.line ?? 0 });
-    bySequence.set(step.sequence, steps);
-  }
-  for (const steps of bySequence.values()) {
-    steps.sort((left, right) => left.order - right.order);
-  }
-  return bySequence;
+/** The ordered artifact steps of the sequences this view declares. */
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+function artifactStepsBySequence(artifact, sequenceIds) {
+  return artifactStepsForSequences(artifact, sequenceIds);
 }
 
 /** The step ids a sequence declares when no root artifact is supplied. */
@@ -116,10 +108,47 @@ function compareUnitSets(actual, expected, layer, findings) {
   }
 }
 
-/** The graph edge that touches one node, or undefined. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function edgeTouching(graph, nodeId) {
-  return (graph?.edges ?? []).find((edge) => edge.from === nodeId || edge.to === nodeId);
+/**
+ * The edge that carries a boundary projection, or the first edge touching its ctr node.
+ *
+ * The projection, note and direction checks must read the same edge. The first touching
+ * edge can be an unrelated reference edge, especially after an authorial pass.
+ */
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+function carryingEdgeFor(graph, ctrNodes, row) {
+  const touching = (graph?.edges ?? [])
+    .filter((edge) => ctrNodes.some((node) => edge.from === node.id || edge.to === node.id));
+  return touching.find((edge) => (edge.contracts ?? []).some((contract) => projectionMatches(contract, row)))
+    ?? touching[0];
+}
+
+/** The registry rows a note resolves to, including a sidecar note, or null. */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+function boundaryRowsFromNote(note, registry, sidecarPath, edgeKey = null) {
+  if (note.sidecar === null) {
+    const rows = note.ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
+    return rows.some((row) => row === undefined) ? null : rows;
+  }
+  const resolvedPath = sidecarPath ?? note.sidecar;
+  if (resolvedPath === null || !existsSync(resolvedPath)) return null;
+  let sidecar;
+  try {
+    sidecar = JSON.parse(readFileSync(resolvedPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  const ids = sidecar.edges !== undefined && edgeKey !== null
+    ? (sidecar.edges[edgeKey] ?? [])
+    : Object.keys(sidecar.boundaries ?? {}).sort();
+  if (ids.length === 0) return null;
+  const rows = ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
+  if (rows.some((row) => row === undefined)) return null;
+  for (const row of rows) {
+    const sidecarRow = sidecar.boundaries[row.boundary_id];
+    if (sidecarRow.clauseDigest !== boundaryClauseDigest(row)) return null;
+    if (JSON.stringify(sidecarRow.clauses) !== JSON.stringify(row.clauses)) return null;
+  }
+  return rows;
 }
 
 /** The registry boundary contract a ticket carries, or undefined. */
@@ -138,9 +167,21 @@ function ticketBoundaryContract(ticket, row) {
  * @param {{ view: object, map: object, graph: object, dirsTree: object, tickets: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {{ ok: boolean, findings: Array<{ code: string, subject: string|null, message: string }> }}
  */
-export function verifyChain({ view, map, graph, dirsTree, tickets, registry = [], artifact = null, stage = 'split' } = {}) {
+export function verifyChain(input = {}) {
+  const {
+    view,
+    map,
+    graph,
+    dirsTree,
+    tickets,
+    registry = [],
+    artifact = null,
+    stage = 'split',
+    preflight = false,
+    sidecarPath = null,
+  } = input;
   const findings = [];
-  const checkDirs = stage !== 'graphify' && dirsTree !== undefined && dirsTree !== null;
+  const checkDirs = stage !== 'graphify' && !preflight && dirsTree !== undefined && dirsTree !== null;
   const checkTickets = stage === 'split' && tickets !== undefined && tickets !== null;
 
   const computedViewDigest = viewDigest(view);
@@ -184,16 +225,27 @@ export function verifyChain({ view, map, graph, dirsTree, tickets, registry = []
     compareUnitSets(ticketUnits, graphUnits, 'tickets', findings);
   }
 
-  const declared = artifact === null ? declaredStepsFromView(view) : artifactStepsBySequence(artifact);
+  const declared = artifact === null
+    ? declaredStepsFromView(view)
+    : artifactStepsBySequence(artifact, declaredSequenceIds(view));
   const stepBearing = viewStepBearing(view);
+  const viewSteps = new Map();
+  for (const records of stepBearing.values()) {
+    for (const record of records) {
+      for (const step of record.steps) {
+        if (!viewSteps.has(step.stepId)) viewSteps.set(step.stepId, step);
+      }
+    }
+  }
   const observedTickets = new Map();
   if (checkTickets) {
     for (const ticket of allTickets(tickets)) {
       for (const unit of ticket?.distribution?.units ?? []) {
         for (const step of unit?.obligation?.steps ?? []) {
-          const entry = observedTickets.get(step.stepId) ?? { ticketIds: new Set(), steps: [] };
+          const entry = observedTickets.get(step.stepId) ?? { ticketIds: new Set(), steps: [], occurrences: 0 };
           entry.ticketIds.add(ticket.id);
           entry.steps.push(step);
+          entry.occurrences += 1;
           observedTickets.set(step.stepId, entry);
         }
       }
@@ -208,6 +260,10 @@ export function verifyChain({ view, map, graph, dirsTree, tickets, registry = []
         if (!carried.has(step.id)) {
           findings.push(finding(CHAIN_CODES.SEQUENCE_STEPS_UNDISTRIBUTED, step.id, `sequence ${sequenceId} step ${step.id} has no step-bearing view record`));
         }
+        const viewStep = viewSteps.get(step.id);
+        if (step.record !== undefined && viewStep !== undefined && !stepContractMatches(step.record, viewStep)) {
+          findings.push(finding(CHAIN_CODES.STEP_CONTRACT_MISMATCH, step.id, `sequence ${sequenceId} artifact step contract differs from the view step`));
+        }
       }
     }
     if (!checkTickets) continue;
@@ -217,8 +273,21 @@ export function verifyChain({ view, map, graph, dirsTree, tickets, registry = []
         findings.push(finding(CHAIN_CODES.TICKET_STEP_MISSING, step.id, `sequence ${sequenceId} step ${step.id} reaches no ticket`));
         continue;
       }
-      if (observed.ticketIds.size > 1) {
-        findings.push(finding(CHAIN_CODES.DUPLICATE_SEQUENCE_STEP, step.id, `step ${step.id} appears in tickets ${[...observed.ticketIds].join(',')}`));
+      if (observed.ticketIds.size > 1 || observed.occurrences > 1) {
+        findings.push(finding(CHAIN_CODES.DUPLICATE_SEQUENCE_STEP, step.id, `step ${step.id} appears ${observed.occurrences} time(s) in tickets ${[...observed.ticketIds].join(',')}`));
+      }
+    }
+  }
+
+  if (checkTickets) {
+    const reported = new Set();
+    for (const [stepId, observed] of observedTickets) {
+      const viewStep = viewSteps.get(stepId);
+      if (viewStep === undefined) continue;
+      for (const ticketStep of observed.steps) {
+        if (stepContractMatches(ticketStep, viewStep) || reported.has(stepId)) continue;
+        reported.add(stepId);
+        findings.push(finding(CHAIN_CODES.STEP_CONTRACT_MISMATCH, stepId, `ticket step contract differs from the view step`));
       }
     }
   }
@@ -240,7 +309,7 @@ export function verifyChain({ view, map, graph, dirsTree, tickets, registry = []
   }
 
   const viewUnitRecords = collectViewUnits(view);
-  for (const row of registry ?? []) {
+  for (const row of registryRowsForPackage(registry, view?.packageId)) {
     const ctrUnit = `ctr-${row.boundary_id}`;
     const viewRecord = viewUnitRecords.get(ctrUnit)?.record;
     if (viewRecord === undefined) {
@@ -252,26 +321,25 @@ export function verifyChain({ view, map, graph, dirsTree, tickets, registry = []
       findings.push(finding(CHAIN_CODES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph node`));
       continue;
     }
-    const edge = ctrNodes.map((node) => edgeTouching(graph, node.id)).find((candidate) => candidate !== undefined);
+    const edge = carryingEdgeFor(graph, ctrNodes, row);
     if (edge === undefined) {
       findings.push(finding(CHAIN_CODES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
       continue;
     }
     const note = parseBoundaryNoteRows(edge.attributes?.note);
-    const namedRows = note === null
-      ? []
-      : note.ids.map((boundaryId) => (registry ?? []).find((candidate) => candidate.boundary_id === boundaryId));
+    const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
+    const namedRows = note === null ? [] : boundaryRowsFromNote(note, registry, sidecarPath, edgeKey);
     const noteResolves = note !== null
-      && note.ids.includes(row.boundary_id)
-      && namedRows.every((candidate) => candidate !== undefined);
-    if (!noteResolves || note.digest !== boundaryNoteForRows(namedRows).split('digest:')[1]) {
+      && namedRows !== null
+      && namedRows.some((candidate) => candidate.boundary_id === row.boundary_id);
+    if (!noteResolves || note.digest !== combinedBoundaryDigest(namedRows)) {
       findings.push(finding(CHAIN_CODES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `graph edge note does not carry the registry id and clause digest for ${row.boundary_id}`));
     }
     if (!(edge.contracts ?? []).some((contract) => projectionMatches(contract, row))) {
       findings.push(finding(CHAIN_CODES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `graph edge contract does not match the registry projection for ${row.boundary_id}`));
     }
     const direction = viewRecord.direction;
-    if (edge.attributes?.bidirectional !== true && direction !== undefined) {
+    if (direction !== undefined) {
       const ctrOnFrom = ctrNodes.some((node) => node.id === edge.from);
       if (direction === 'provides' && !ctrOnFrom) {
         findings.push(finding(CHAIN_CODES.BOUNDARY_DIRECTION_MISMATCH, ctrUnit, `boundary ${row.boundary_id} is provided but the ctr node is not the edge source`));
@@ -342,14 +410,27 @@ export function main(argv = process.argv.slice(2)) {
     console.error('[ERROR] --package=<package-directory> is required');
     return 2;
   }
+  const preflight = argv.includes('--preflight');
   const viewPath = argumentFor(argv, 'view') ?? join(packagePath, 'SEQUENCES.json');
   const rfcPath = argumentFor(argv, 'map') ?? join(packagePath, 'RFC.md');
   const graphPath = argumentFor(argv, 'graph') ?? findSingleSiblingPath(packagePath, '-GRAPH.json');
   const dirsPath = argumentFor(argv, 'dirs-tree') ?? findSingleSiblingPath(packagePath, '-Dirs-Tree.json');
   const ticketsPath = argumentFor(argv, 'tickets') ?? join(packagePath, 'Tickets.json');
+  const sidecarPath = argumentFor(argv, 'sidecar')
+    ?? (graphPath === null ? null : join(dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json'));
+  const inWorkspace = findAllocateManifest(packagePath) !== null;
   const registryPath = argumentFor(argv, 'registry') ?? findAllocateManifest(packagePath);
   const artifactPath = argumentFor(argv, 'artifact') ?? findRootArtifact(packagePath);
   const requireTickets = argv.includes('--require-tickets');
+
+  if (inWorkspace && (artifactPath === null || artifactPath === '' || !existsSync(artifactPath))) {
+    console.error('[ERROR] MISSING_SIDECAR: the workspace has an allocate manifest, and the root *-sequences.json is missing, empty or unreadable');
+    return 1;
+  }
+  if (inWorkspace && (registryPath === null || registryPath === '' || !existsSync(registryPath))) {
+    console.error('[ERROR] MISSING_REGISTRY: the workspace has an allocate manifest, and the contract_registry is missing, empty or unreadable');
+    return 1;
+  }
 
   const view = readJson(viewPath);
   const rfcText = rfcPath !== null && existsSync(rfcPath) ? readFileSync(rfcPath, 'utf8') : null;
@@ -364,7 +445,7 @@ export function main(argv = process.argv.slice(2)) {
     console.error('[ERROR] MISSING_LAYER: view, map and graph are required');
     return 1;
   }
-  if (stage !== 'graphify' && dirsTree === null) {
+  if (stage !== 'graphify' && !preflight && dirsTree === null) {
     console.error('[ERROR] MISSING_LAYER: Dirs-Tree is required for this stage');
     return 1;
   }
@@ -373,7 +454,7 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
 
-  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, stage });
+  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, stage, preflight, sidecarPath });
   for (const entry of result.findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
   process.stdout.write(`${JSON.stringify(result)}\n`);
   return result.ok ? 0 : 1;

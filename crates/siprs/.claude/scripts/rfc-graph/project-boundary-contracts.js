@@ -20,6 +20,8 @@ const {
   boundaryClauseDigest,
   boundaryContractProjection,
   boundaryNoteForRows,
+  boundarySidecarNote,
+  combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
@@ -61,24 +63,55 @@ function noteForRows(rows) {
   return boundaryNoteForRows(rows);
 }
 
-/** The rows a note names, in registry order. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function rowsOfNote(note, registry) {
-  const parsed = parseBoundaryNoteRows(note);
-  if (parsed === null) return null;
-  const rows = parsed.ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
+/** The registry rows a parsed note resolves to, or null when one does not resolve. */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+function rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey = null) {
+  if (parsed.sidecar === null) {
+    const rows = parsed.ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
+    return rows.some((row) => row === undefined) ? null : rows;
+  }
+  const sidecar = readBoundarySidecar(sidecarPath ?? parsed.sidecar);
+  if (sidecar === null || sidecar.boundaries === undefined) return null;
+  const ids = sidecar.edges !== undefined && edgeKey !== null
+    ? (sidecar.edges[edgeKey] ?? [])
+    : Object.keys(sidecar.boundaries).sort();
+  if (ids.length === 0) return null;
+  const rows = ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
   if (rows.some((row) => row === undefined)) return null;
-  return { rows, digest: parsed.digest };
+  for (const row of rows) {
+    const sidecarRow = sidecar.boundaries[row.boundary_id];
+    if (sidecarRow === undefined
+        || sidecarRow.clauseDigest !== boundaryClauseDigest(row)
+        || JSON.stringify(sidecarRow.clauses) !== JSON.stringify(row.clauses)) {
+      return null;
+    }
+  }
+  return rows;
+}
+
+/** Write the full clause table that a too-long note can no longer carry inline. */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+function writeBoundarySidecar(sidecarPath, registry, rowsByEdge) {
+  const boundaries = Object.fromEntries((registry ?? []).map((row, index) => [row.boundary_id, {
+    contractId: contractIdFor(index),
+    clauseDigest: boundaryClauseDigest(row),
+    clauses: row.clauses,
+  }]));
+  const edges = Object.fromEntries([...rowsByEdge.entries()].map(([edgeKey, rows]) => [
+    edgeKey,
+    (rows ?? []).map((row) => row.boundary_id),
+  ]));
+  fs.writeFileSync(sidecarPath, `${JSON.stringify({ schemaVersion: 1, boundaries, edges }, null, 2)}\n`);
 }
 
 /**
  * Project the registry onto the graph without mutating the input.
  *
- * @param {{ graph: object, registry: Array<object> }} input
+ * @param {{ graph: object, registry: Array<object>, sidecarPath?: string|null }} input
  * @returns {object} the projected graph
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function projectBoundaryContracts({ graph, registry = [] }) {
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+function projectBoundaryContracts({ graph, registry = [], sidecarPath = null }) {
   const next = JSON.parse(JSON.stringify(graph));
   const rowsByEdge = new Map();
   for (const edge of next.edges ?? []) {
@@ -111,9 +144,14 @@ function projectBoundaryContracts({ graph, registry = [] }) {
     if (rows.length === 0) continue;
     const note = noteForRows(rows);
     if (note.length > NOTE_LIMIT) {
-      const error = new Error(`${MESSAGES.BOUNDARY_NOTE_TOO_LONG}: ${edge.from}→${edge.to} carries ${rows.length} boundaries; write the sidecar and shorten the note`);
-      error.code = MESSAGES.BOUNDARY_NOTE_TOO_LONG;
-      throw error;
+      if (sidecarPath === null) {
+        const error = new Error(`${MESSAGES.BOUNDARY_NOTE_TOO_LONG}: ${edge.from}→${edge.to} carries ${rows.length} boundaries and no sidecar path was supplied`);
+        error.code = MESSAGES.BOUNDARY_NOTE_TOO_LONG;
+        throw error;
+      }
+      writeBoundarySidecar(sidecarPath, registry, rowsByEdge);
+      edge.attributes = { ...(edge.attributes ?? {}), note: boundarySidecarNote(path.basename(sidecarPath), rows) };
+      continue;
     }
     edge.attributes = { ...(edge.attributes ?? {}), note };
   }
@@ -121,15 +159,27 @@ function projectBoundaryContracts({ graph, registry = [] }) {
   return next;
 }
 
+/** The sidecar document, or null when it is absent or unreadable. */
+// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+function readBoundarySidecar(sidecarPath) {
+  if (sidecarPath === null || !fs.existsSync(sidecarPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(sidecarPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Verify every registry boundary against the projected graph.
  *
  * @param {object} graph
  * @param {Array<object>} registry
+ * @param {{ sidecarPath?: string|null }} [options]
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function verifyBoundaryContracts(graph, registry = []) {
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null } = {}) {
   const findings = [];
   for (const row of registry) {
     const ctrUnit = `ctr-${row.boundary_id}`;
@@ -143,12 +193,14 @@ function verifyBoundaryContracts(graph, registry = []) {
       findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
       continue;
     }
-    const parsed = rowsOfNote(edge.attributes?.note, registry);
-    if (parsed === null || !parsed.rows.some((candidate) => candidate.boundary_id === row.boundary_id)) {
+    const parsed = parseBoundaryNoteRows(edge.attributes?.note);
+    const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
+    const noteRows = parsed === null ? null : rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey);
+    if (noteRows === null || !noteRows.some((candidate) => candidate.boundary_id === row.boundary_id)) {
       findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note does not name ${row.boundary_id}`));
       continue;
     }
-    if (parsed.digest !== noteForRows(parsed.rows).split('digest:')[1]) {
+    if (parsed.digest !== combinedBoundaryDigest(noteRows)) {
       findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note digest does not match the named registry rows`));
     }
     if (!(edge.contracts ?? []).some((contract) => projectionMatches(contract, row))) {
@@ -159,7 +211,7 @@ function verifyBoundaryContracts(graph, registry = []) {
 }
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -168,10 +220,10 @@ function argumentFor(argv, name) {
 }
 
 /** Apply the projection through crud.js, one edge at a time. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function attachThroughCrud(graphPath, graph, registry) {
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+function attachThroughCrud(graphPath, graph, registry, sidecarPath = null) {
   const before = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-  const projected = projectBoundaryContracts({ graph: before, registry });
+  const projected = projectBoundaryContracts({ graph: before, registry, sidecarPath });
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'boundary-contracts-'));
   const crudPath = path.join(__dirname, 'crud.js');
   try {
@@ -194,39 +246,31 @@ function attachThroughCrud(graphPath, graph, registry) {
   return projected;
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphPath = argumentFor(argv, 'graph');
   const registryPath = argumentFor(argv, 'registry');
   const mode = argumentFor(argv, 'mode') ?? 'attach';
-  const sidecarPath = argumentFor(argv, 'sidecar');
   if (graphPath === null || registryPath === null) {
     console.error('[ERROR] --graph=<GRAPH.json> and --registry=<ALLOCATE-MANIFEST.json> are required');
     console.error('Cause: missing argument');
     console.error('Action: supply both paths');
     return EXIT_FAILURE;
   }
+  const sidecarPath = argumentFor(argv, 'sidecar') ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   const registry = Array.isArray(manifest) ? manifest : manifest.contract_registry ?? [];
 
   if (mode === 'verify') {
-    const findings = verifyBoundaryContracts(graph, registry);
+    const findings = verifyBoundaryContracts(graph, registry, { sidecarPath });
     for (const entry of findings) console.error(`${entry.code}: ${entry.subject}: ${entry.message}`);
-    console.log(JSON.stringify({ ok: findings.length === 0, findings }));
+    process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
     return findings.length === 0 ? EXIT_OK : EXIT_FAILURE;
   }
 
-  const projected = attachThroughCrud(graphPath, graph, registry);
-  if (sidecarPath !== null) {
-    const table = Object.fromEntries(registry.map((row, index) => [row.boundary_id, {
-      contractId: contractIdFor(index),
-      clauseDigest: boundaryClauseDigest(row),
-      clauses: row.clauses,
-    }]));
-    fs.writeFileSync(sidecarPath, `${JSON.stringify({ schemaVersion: 1, boundaries: table }, null, 2)}\n`);
-  }
-  console.log(JSON.stringify({ ok: true, projectedEdges: (projected.edges ?? []).length, boundaries: registry.length }));
+  const projected = attachThroughCrud(graphPath, graph, registry, sidecarPath);
+  process.stdout.write(`${JSON.stringify({ ok: true, projectedEdges: (projected.edges ?? []).length, boundaries: registry.length, sidecar: fs.existsSync(sidecarPath) ? sidecarPath : null })}\n`);
   return EXIT_OK;
 }
 
@@ -239,4 +283,6 @@ module.exports = {
   verifyBoundaryContracts,
   contractIdFor,
   noteForRows,
+  rowsFromBoundaryNote,
+  readBoundarySidecar,
 };

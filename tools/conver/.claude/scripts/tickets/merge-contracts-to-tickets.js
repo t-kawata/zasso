@@ -71,10 +71,10 @@ function registryContracts(registryPath) {
 /**
  * Atomic write using temp file + rename
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
-function atomicWrite(targetPath, data) {
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-314) --for-spec --no-implementation-order`.
+function atomicWrite(targetPath, serializedTickets) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
-  fs.writeFileSync(tmpPath, data, 'utf8');
+  fs.writeFileSync(tmpPath, serializedTickets, 'utf8');
   fs.renameSync(tmpPath, targetPath);
 }
 
@@ -251,7 +251,7 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = []) {
   return findings;
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath } = parseArgs();
 
@@ -261,6 +261,12 @@ function main() {
   }
   if (!fs.existsSync(graphPath)) {
     console.error('[ERROR] GRAPH.json not found: ' + graphPath);
+    process.exit(1);
+  }
+  if (registryPath !== null && !fs.existsSync(registryPath)) {
+    console.error('[ERROR] MISSING_REGISTRY: the allocate manifest was discovered but is not readable: ' + registryPath);
+    console.error('Cause: a workspacify workspace must not merge an empty registry');
+    console.error('Action: restore WORKSPACIFY-ALLOCATE-MANIFEST.json or pass --registry=<path>');
     process.exit(1);
   }
 
@@ -300,7 +306,7 @@ function main() {
       }
     }
   }
-  console.log(JSON.stringify({ ok: true, ticketCount: ticketsData.phases.reduce((s, p) => s + (p.tickets ? p.tickets.length : 0), 0), totalContracts }));
+  process.stdout.write(`${JSON.stringify({ ok: true, ticketCount: ticketsData.phases.reduce((s, p) => s + (p.tickets ? p.tickets.length : 0), 0), totalContracts })}\n`);
 }
 
 if (require.main === module) main();

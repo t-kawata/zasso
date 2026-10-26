@@ -20,10 +20,12 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  boundaryNoteForRows,
+  combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
+const { rowsFromBoundaryNote } = require('../rfc-graph/project-boundary-contracts.js');
+const { registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 
 /** Edge types that require non-empty contracts */
@@ -32,14 +34,27 @@ const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with']
 /** Edge types that are optional (no contract requirement) */
 const TYPES_OPTIONAL = ['references', 'refines', 'extends', 'supersedes', 'triggers', 'precedes', 'part_of', 'validates', 'implements'];
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-314) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let graphPath = null;
   let registryPath = null;
+  let viewPath = null;
+  let sidecarPath = null;
   for (const a of args) {
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
-    if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
+    if (a.startsWith('--registry=')) {
+      const value = a.slice('--registry='.length);
+      registryPath = value === '' ? '' : path.resolve(value);
+    }
+    if (a.startsWith('--view=')) {
+      const value = a.slice('--view='.length);
+      viewPath = value === '' ? null : path.resolve(value);
+    }
+    if (a.startsWith('--sidecar=')) {
+      const value = a.slice('--sidecar='.length);
+      sidecarPath = value === '' ? null : path.resolve(value);
+    }
   }
   if (graphPath === null) {
     console.error('[ERROR] --graph=<path> is required');
@@ -47,7 +62,7 @@ function parseArgs() {
     console.error('Action: Re-run with --graph=<path-to-GRAPH.json>');
     process.exit(1);
   }
-  return { graphPath, registryPath };
+  return { graphPath, registryPath, viewPath, sidecarPath };
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
@@ -87,7 +102,7 @@ function resolveRegistryPath(graphPath, registryPath) {
  * @param {object} graph — Parsed GRAPH.json
  * @returns {Array<{edge: string, detail: string}>} — Errors (empty array = pass)
  */
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function verifyGraphContracts(graph, options = {}) {
   const errors = [];
   const seenIds = {};
@@ -171,13 +186,14 @@ function verifyGraphContracts(graph, options = {}) {
       continue;
     }
     const note = parseBoundaryNoteRows(edge.attributes?.note);
+    const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
     const namedRows = note === null
-      ? []
-      : note.ids.map((boundaryId) => (options.registryContracts ?? []).find((candidate) => candidate.boundary_id === boundaryId));
+      ? null
+      : rowsFromBoundaryNote(note, options.registryContracts ?? [], options.sidecarPath ?? null, edgeKey);
     const noteResolves = note !== null
-      && note.ids.includes(row.boundary_id)
-      && namedRows.every((candidate) => candidate !== undefined);
-    if (!noteResolves || note.digest !== boundaryNoteForRows(namedRows).split('digest:')[1]) {
+      && namedRows !== null
+      && namedRows.some((candidate) => candidate.boundary_id === row.boundary_id);
+    if (!noteResolves || note.digest !== combinedBoundaryDigest(namedRows)) {
       errors.push({ edge: row.boundary_id, code: 'BOUNDARY_CONTRACT_MISMATCH', detail: 'edge note does not carry the registry id and clause digest' });
     }
     if (!(edge.contracts || []).some((contract) => projectionMatches(contract, row))) {
@@ -188,9 +204,14 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function main() {
-  const { graphPath, registryPath } = parseArgs();
+  const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath } = parseArgs();
+  const sidecarPath = explicitSidecarPath ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
+  if (viewPath !== null && !fs.existsSync(viewPath)) {
+    console.error('[ERROR] MISSING_VIEW: --view was supplied but the package view is not readable: ' + viewPath);
+    process.exit(1);
+  }
   if (!fs.existsSync(graphPath)) {
     console.error('[ERROR] Graph file not found: ' + graphPath);
     process.exit(1);
@@ -203,9 +224,22 @@ function main() {
   }
   const registryPathResolved = resolveRegistryPath(graphPath, registryPath);
   const rows = registryContracts(registryPathResolved);
+  let scopedRows = rows;
+  if (rows.length > 0) {
+    if (viewPath !== null) {
+      const view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+      scopedRows = registryRowsForPackage(rows, view.packageId);
+    } else if (registryPath === null && findAllocateManifest(path.dirname(graphPath)) !== null) {
+      console.error('[ERROR] MISSING_VIEW: a package graph inside a workspacify workspace needs --view=<SEQUENCES.json> to scope the registry rows');
+      console.error('Cause: the workspace registry is global, and the graph carries only its package slice');
+      console.error('Action: pass --view=<package>/SEQUENCES.json, or use a workspace-level graph');
+      process.exit(1);
+    }
+  }
   const errors = verifyGraphContracts(graph, {
-    registryBoundaryIds: rows.map((row) => row.boundary_id),
-    registryContracts: rows,
+    registryBoundaryIds: scopedRows.map((row) => row.boundary_id),
+    registryContracts: scopedRows,
+    sidecarPath,
   });
   if (errors.length > 0) {
     for (const err of errors) {
@@ -216,7 +250,7 @@ function main() {
     process.exit(1);
   }
   const graphEdges = graph.edges || [];
-  console.log(JSON.stringify({ ok: true, edgeCount: graphEdges.length }));
+  process.stdout.write(`${JSON.stringify({ ok: true, edgeCount: graphEdges.length })}\n`);
   process.exit(0);
 }
 

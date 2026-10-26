@@ -47765,6 +47765,198 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-26"
+        },
+        {
+          "id": 314,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Scope the distribution chain per package and close the admission gaps",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-314.md",
+          "background": "### Goal\nMake every graph-stage verifier check the package-local slice of the workspace-wide distribution inputs, so the chain mechanically guarantees all declared sequences, operations, steps and boundary contracts without false findings, and close the fail-open, contract-fidelity, direction and sidecar gaps.\n\n### Purpose\nPX-311/312/313 introduced the mechanical chain, but attach-unit-ids, verify-chain, verify-graph-contracts, verify-ticket-closure and add-tickets-for-phase compare the workspace-wide root *-sequences.json and the 84-row contract_registry against every per-package SEQUENCES.json. Measured on gaia: 0 of 29 package views pass admission. boundify Step 0 also requires a Dirs-Tree before generation. The next stage is /graphify-rfc -> /boundify-graph -> /split-to-tickets per crate, so the first command stops every package.\n\n### Motivation\nThe acceptance standard is all sequences, all operations and all boundary contracts with no omission, contradiction, deficiency or danger. A false stop at admission is not a guarantee, and a silent skip is worse. The fix must land in conver and reach gaia through make install-to-projects.\n\n### Constraints\nOnly tools/conver is edited; gaia is not edited. No public edge/node/graph schema change. Do not weaken the 48-check registry, the 84-boundary registry or the four closure gates. Keep the command step structures and their docs tests. Use TDD Red-Green-Refactor and the impact-set node --test; do not run full make test. The installer copies conver to zasso root, crates/siprs, gaia and ~/shyme/conver.",
+          "default_files": [
+            ".claude/scripts/rfc-graph/attach-unit-ids.js",
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/scripts/sequences-slice/lib/distribution-map.mjs",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/verify-all-ticket-coverage.js",
+            ".claude/scripts/tickets/verify-graph-contracts.js",
+            ".claude/scripts/tickets/verify-ticket-closure.js",
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            ".claude/scripts/rfc-graph/project-boundary-contracts.js",
+            ".claude/commands/graphify-rfc.md",
+            ".claude/commands/boundify-graph.md",
+            ".claude/commands/split-to-tickets.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a two-package fixture passes admission and verify-chain at graphify, boundify and split with zero findings while a foreign step and a foreign boundary are present; the corrected-scope simulation on gaia reports 29/29 clean.",
+            "Error case: a declared step missing from the step-bearing view record, a stale map, a missing ctr contract, a contract drift, an inverted boundary direction, a missing artifact or registry inside a workspace exits non-zero with the named code.",
+            "Edge case: boundify Step 0 passes with no Dirs-Tree; a boundary edge marked bidirectional is still direction-checked; a note over 240 characters writes and verifies RFC-BOUNDARY-CONTRACTS.json; a step repeated inside one ticket is detected."
+          ],
+          "notes": "- [Implementation steps] P1: add declaredSequenceIds, stepBearingRecords and sequenceStepsOf; switch the five verifiers to the shared predicate; add --view to verify-graph-contracts. P2: split the boundify preflight stage. P3: fail closed on missing sidecars. P4: canonical step-contract comparison. P5: direction on the carrying edge and duplicate detection inside a ticket. P6: sidecar fallback.\n- [Risks] The predicate must be declaredSequenceIds(view), not step-bearing, or the six obligation-only gaia steps disappear. P1 is the only change that can mask a real omission; the multi-package fixture and the 29/29 gaia simulation are the guard.\n- [Caveats] The installer writes four destinations (zasso root, crates/siprs, gaia, ~/shyme/conver); gaia's .claude/scripts is byte-identical to conver today and its data files are outside .claude, so no local work is lost. Do not run full make test; use the impact set.\n- [Open items] None blocking. The sidecar path (P6) is dormant while each edge carries one boundary; it is implemented because the PX-312 contract names it.\n- [Future improvements] Add typed registryContractId and clauseDigest to the edge schema; add a workspace-level aggregate command if the 29-package corpus ever needs a single mechanical gate.\nImplementation summary (PX-314):\n- P1 package scope: distribution-map.mjs now owns declaredSequenceIds, stepBearingRecords, sequenceStepsOf, artifactStepsForSequences, registryRowsForPackage, canonicalStepContract and stepContractMatches. attach-unit-ids, verify-chain, add-tickets-for-phase, verify-graph-contracts and verify-ticket-closure consume them.\n- P2 boundify Step 0 uses verify-chain --stage=boundify --preflight; Step 2 keeps the Dirs-Tree digest check.\n- P3 fail-closed: verify-chain emits MISSING_SIDECAR/MISSING_REGISTRY inside a workspacify workspace; verify-graph-contracts emits MISSING_VIEW; verify-ticket-closure and merge-contracts-to-tickets reject a discovered-but-unreadable registry; verify-all-ticket-coverage rejects a missing root artifact.\n- P4 step-contract fidelity: STEP_CONTRACT_MISMATCH compares artifact, view and ticket step contracts canonically without a schema change.\n- P5 direction is checked on the edge carrying the projection, even when bidirectional is true; a step repeated inside one ticket is DUPLICATE_SEQUENCE_STEP.\n- P6 sidecar: a note over 240 characters writes RFC-BOUNDARY-CONTRACTS.json; verify reads and binds it by clause digest.\n- Validation: broad impact-area suite 1713 passed, 0 failed, 1 skipped (tests/tickets, tests/sequences-slice, tests/rfc-graph, tests/smooth-sequences, command-files). Quality checks: 0 issues. Read-only gaia admission: 29/29 packages clean.\n- No gaia file was modified. The install step is `cd tools/conver && make install-to-projects`.\nReview report:\n- Static quality check: passed.\n- Translatability: no issues; the plan greps found no generic data/info/tmp locals in the changed scripts.\n- Dependencies: consistency verified; the four installed copies match and gaia admission is 29/29.\n- Issues found and fixed during review:\n  1. Multi-edge sidecar digest: the sidecar now stores an edges map, and each note digest is verified against its own edge rows.\n  2. Cross-boundary obligation-only sequence: declaredSequenceIds now recognizes xdir-/cross-boundary-sequence rows.\n  3. Explicit missing view: verify-graph-contracts and verify-ticket-closure fail with MISSING_VIEW instead of falling back.\n  4. Boy Scout: renamed the generic ticketsDocument and serializedTickets locals; CLI JSON output uses process.stdout.write.\n- No unresolved crime, unmarked stub or AMBIGUOUS marker.",
+          "invariants": "- [Normal establishment] Every artifact step whose sequence a package view declares must be carried by a step-bearing owned/cross record and exactly one ticket; every registry row whose ctr unit the view declares must reach a graph node, a projected edge contract, the note digest and a ticket contract.\n- [Error invariant] A stale map, missing unit, missing step, duplicate or reordered step, missing implementer, registry divergence, contract drift or direction mismatch exits non-zero with the named code; no silent fallback to obligationUnits, an empty registry or a view-only step set is allowed inside a workspacify workspace.\n- [Internal state invariant] verify-chain remains the single read-only verifier; it derives every digest from the same libraries as the producers and never writes an artifact. The scope predicate is declaredSequenceIds(view) and collectViewUnits(view), defined once in distribution-map.mjs.\n- [Boundary invariant] Global coverage stays smooth's responsibility: tree boundaries and contract_registry are 84==84 with identical ids, S4 checks both provider and consumer sides, and S7 checks every drawn sequence step. Graph-stage scoping removes only foreign rows, not local findings.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - .claude/scripts/rfc-graph/attach-unit-ids.js: scope the artifact-step loop and registry loop to the sequences and ctr units the view declares; reuse the shared predicate.\n  - .claude/scripts/sequences-slice/verify-chain.mjs: filter artifact steps to view-declared sequences and registry rows to view-declared ctr units; compare step contracts; remove the bidirectional bypass on the carrying edge; fail closed on missing sidecars; detect a duplicate inside one ticket.\n  - .claude/scripts/sequences-slice/lib/distribution-map.mjs: add declaredSequenceIds, stepBearingRecords and sequenceStepsOf as the single scope definition.\n  - .claude/scripts/tickets/add-tickets-for-phase.js: apply the declared-sequence filter to verifySequenceSteps and keep the isPackageStep guard at :884.\n  - .claude/scripts/tickets/verify-all-ticket-coverage.js: pass the package view and artifact through the scoped verifier.\n  - .claude/scripts/tickets/verify-graph-contracts.js: add --view and check only registry rows the package view declares.\n  - .claude/scripts/tickets/verify-ticket-closure.js: scope registry rows to the package view and emit BOUNDARY_DIRECTION_MISMATCH where the ticket must carry direction.\n  - .claude/scripts/tickets/merge-contracts-to-tickets.js: keep the registry merge scoped to the ticket's own ctr units and share the projection.\n  - .claude/scripts/rfc-graph/project-boundary-contracts.js: write RFC-BOUNDARY-CONTRACTS.json on note overflow and verify it.\n  - .claude/commands/graphify-rfc.md, boundify-graph.md, split-to-tickets.md: wire --view, the pre-generation preflight stage and the scoped verdict; keep the step structure.\n  - Tests: multi-package fixture, boundify preflight, fail-closed sidecars, contract fidelity, direction, sidecar, duplicate-within-ticket.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - gaia authored-data repair: already present in the uncommitted gaia workspace and outside the conver code change.\n  - Public edge/node/graph schema extension: not needed; the contract projection keeps attributes.note and the ticket fields.\n  - smooth-sequences check registry changes: S4 and S7 already provide the global coverage this ticket relies on.\n  - Full make test: the project memory requires the impact set; the full suite is long and not an acceptance gate for this ticket.\n  - C9xx id range expansion: 84 rows fit C900-C983; more than 100 boundaries is a future ticket.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - graphify-rfc: admission and the Step 2 chain verdict now pass per package; foreign rows no longer appear.\n  - boundify-graph: Step 0 can run before the Dirs-Tree exists; Step 2 keeps the digest check.\n  - split-to-tickets: coverage, closure and verify-chain check the package slice; the global guarantee remains smooth's.\n  - gaia after make install-to-projects: the 29 package admission runs become clean; gaia data files are untouched.\n  - No runtime service, database or network change."
+          ],
+          "testUnit": [
+            "UT: [Normal] A two-package fixture whose view declares sequence A-1 and ctr-boundary-001 passes admission with zero findings while the artifact also carries foreign sequence B-1 and the registry also carries foreign boundary-002.",
+            "UT: [Normal] A declared sequence with a step-bearing owned record passes S7 and verify-chain; every step id, operationId and order matches the artifact.",
+            "UT: [Normal] A declared obligation-only sequence reports its artifact steps as SEQUENCE_STEPS_UNDISTRIBUTED, proving the scope predicate is view-declared, not step-bearing.",
+            "UT: [Normal] verifyChain at graphify, boundify and split exits 0 on a consistent two-package fixture; foreign steps and boundaries produce no finding.",
+            "UT: [Normal] A registry row whose ctr unit the view declares and whose graph node, edge note, projection and ticket contract are present produces no finding.",
+            "UT: [Normal] An artifact step whose contract or contract_prose differs from the view step yields a contract-fidelity finding; a ticket step that differs from the view yields the same finding.",
+            "UT: [Normal] boundify Step 0 passes when the graph exists and the Dirs-Tree does not; Step 2 after generation fails on a stale dirs distribution digest.",
+            "UT: [Normal] A note over 240 characters writes RFC-BOUNDARY-CONTRACTS.json, keeps a sidecar reference and a combined digest, and verify accepts it; a tampered sidecar fails.",
+            "UT: [Error] A stale sourceViewDigest is STALE_DISTRIBUTION_MAP; a map unit missing from the view is UNIT_SET_MISMATCH; a graph, dirs or ticket digest mismatch is DISTRIBUTION_DIGEST_MISMATCH.",
+            "UT: [Error] A declared step missing from tickets is TICKET_STEP_MISSING; a step in two tickets is DUPLICATE_SEQUENCE_STEP; a step repeated inside one ticket is DUPLICATE_SEQUENCE_STEP; a reordered step is SEQUENCE_ORDER_MISMATCH; a step whose operation has no implementer is SEQUENCE_STEP_WITHOUT_IMPLEMENTER.",
+            "UT: [Error] A declared ctr unit with no graph node, edge, projection, note digest or ticket contract is MISSING_BOUNDARY_CONTRACT or BOUNDARY_CONTRACT_MISMATCH; a foreign row is ignored.",
+            "UT: [Error] Inside a workspacify workspace a missing or ambiguous artifact is MISSING_SIDECAR and a missing registry is MISSING_REGISTRY; outside a workspace the same absence is skipped.",
+            "UT: [Boundary] A package view with zero ctr units ignores all 84 registry rows; a view with one ctr unit checks exactly that row; an empty registry is not a pass inside a workspace.",
+            "UT: [Boundary] A note of exactly 240 characters stays inline; 241 writes the sidecar; multiple boundaries on one edge keep the combined digest bound to the named rows.",
+            "UT: [Invariant] The global counts remain 300 distinct artifact steps, 84 registry rows, 84 tree boundaries and 8 framework operations in steps; the 48-check registry is unchanged.",
+            "UT: [Invariant] The scope predicate is imported from distribution-map.mjs by every verifier; a local mutation of the predicate fails the shared-helper test.",
+            "UT: [Invariant] verifyChain never writes a file; a directory snapshot before and after is identical."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] graphify admission over a two-package workspace: both packages pass; corrupt one package's step-bearing record and only that package fails.",
+            "IT: [Verification] split-to-tickets runs merge-contracts, verify-ticket-closure, verify-all-ticket-coverage and verify-chain from a package directory; foreign steps and boundaries are absent and local ones are enforced.",
+            "IT: [Prerequisites] A synthetic workspace with WORKSPACIFY-ALLOCATE-MANIFEST.json, WORKSPACIFY-TREE-MANIFEST.json, a root *-sequences.json and two package RFC.md, SEQUENCES.json, GRAPH, Dirs-Tree and Tickets fixtures; node --test; no gaia dependency.",
+            "IT: [Related tickets] PX-311 (digest recomputation), PX-312 (chain and boundary projection), PX-313 (counters, unaffected); smooth S4 and S7 remain the global coverage source."
+          ],
+          "testExceptions": [
+            "IT: the live gaia 29-package corpus is not a hermetic unit fixture because it is an external uncommitted workspace; this cannot test hermetically, and it is not a design defect: the synthetic two-package fixture covers the scope predicate and a read-only admission run against gaia is the alternative verification."
+          ],
+          "instrumentation": "- [Logging] Each finding prints <CODE>: <subject> <message> on stderr; stdout keeps the {ok, findings} JSON. No new log level or log line format.\n- [Metrics] No runtime metrics. The stage report continues to print unit, step and boundary counts; the new scope filter reports the local counts, not the global counts.\n- [Error tracking] Exit 1 for findings, 2 for missing arguments or missing layers; every caught error is re-emitted as a named finding or a three-line error, never swallowed.\n- [Health check] verify-chain --stage=graphify|boundify|split is the health check; exit 0 is the only pass, and the admission command is the pre-node health check.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (generic locals renamed; CLI output uses process.stdout.write)\nTests: 1718 total, 1717 passed, 0 failed, 1 skipped\nInstalled copies: zasso root, crates/siprs, gaia and ~/shyme/conver match tools/conver\nGaia read-only admission after install: 29/29 packages clean",
+          "investigation": "- Scope defect measured on the live gaia workspace (read-only): 29 package views; the root GaiaSekkeiShiyousho_v32-sequences.json carries 300 distinct steps and 119 step-bearing sequences; the views carry 659 step records; the contract_registry has 84 rows; WORKSPACIFY-TREE-MANIFEST.dependencies.boundaries has 84 rows with identical ids; 84 distinct ctr units occur 168 times (provider + consumer).\n- PX-312 admission against all 29 views: 0 pass, 29 fail. gaia-foundation: 298 SEQUENCE_STEPS_UNDISTRIBUTED + 65 MISSING_BOUNDARY_CONTRACT = 363 findings. Worst gaia-cli: 300 + 83 = 383. The counts equal (300 - the view's step-bearing steps) and (84 - the view's ctr units), proving a global-vs-package scope error, not a data error.\n- .claude/scripts/rfc-graph/attach-unit-ids.js:64-69 loops every artifact step; :72-77 loops every registry row. .claude/scripts/sequences-slice/verify-chain.mjs:187,203-223 declares every artifact step and reports TICKET_STEP_MISSING for foreign steps; :242-296 loops every registry row. .claude/scripts/tickets/add-tickets-for-phase.js:850-862 lacks the isPackageStep = graphUnits.has('op-' + operationId) guard that the adjacent loop uses at :884. .claude/scripts/tickets/verify-graph-contracts.js:142-156,160-186 and .claude/scripts/tickets/verify-ticket-closure.js:181-227 loop every registry row.\n- The correct package scope already exists in .claude/scripts/tickets/show-phase-distribution.js:115-120 (skip a registry row unless the view or a phase node carries its ctr unit) and in smooth: .claude/scripts/smooth-sequences/lib/checks-layer-a.mjs:306-341 checks both sides of every boundary across all packages; :462-530 checks every drawn sequence step with the global index.\n- Corrected-scope simulation (filter artifact steps to sequences the view declares in ownedSequenceUnits, crossBoundarySequenceUnits or obligationUnits; filter registry rows to ctr units the view declares): 29/29 packages clean; 659 local step records, 0 missing; 168 local ctr sides.\n- Artifact-to-view fidelity: 659/659 step records carry identical contract and contract_prose/contractProse; a strict canonical comparison passes today, so the new check needs no schema change.\n- All 8 framework operations appear in artifact steps, so S7.step-operation-missing covers them; checkDistributionCoverage covers the 150 active operations. The 84 tree boundaries and 84 registry rows are identical id sets, so smooth S4 remains the global sidedness gate.\n- .claude/commands/boundify-graph.md:100-105 runs verify-chain --stage=boundify at Step 0; .claude/scripts/sequences-slice/verify-chain.mjs:367-370 requires a Dirs-Tree for every non-graphify stage; .claude/scripts/rfc-graph/boundify-graph-to-dirs.js:532-533 writes nothing in --dry-run and :550-551 writes the Dirs-Tree in Step 2. The first boundify run therefore exits MISSING_LAYER at Step 0.\n- Fail-open: verify-chain.mjs:350-361 resolves a missing artifact to null and skips the step-versus-artifact check; verify-graph-contracts.js:55-58, verify-ticket-closure.js:60-63 and merge-contracts-to-tickets.js:65-69 turn a missing registry into an empty array. The commands pass --artifact=\"$ARTIFACT_PATH\" even when that variable is empty.\n- Direction bypass: verify-chain.mjs:273-282 skips the direction check when edge.attributes.bidirectional === true; no other graph-stage script checks direction. The registry rows carry provider_package and consumer_package, and the view ctr records carry direction provides/consumes.\n- Sidecar gap: project-boundary-contracts.js:109-118 throws BOUNDARY_NOTE_TOO_LONG; the sidecar is written only when --sidecar is passed at :220-228, and the commands do not pass it. The PX-312 contract requires RFC-BOUNDARY-CONTRACTS.json beside the graph on overflow.\n- Duplicate detection: verify-chain.mjs:220 uses observed.ticketIds.size > 1, so a step repeated inside one ticket is not DUPLICATE_SEQUENCE_STEP. Contract C001 requires exactly once.\n- Install: tools/conver/Makefile:159-163 runs node install.js -y -t for zasso root, crates/siprs, gaia and ~/shyme/conver. gaia's .claude/scripts is byte-identical to conver's today (diff only node_modules), so the install loses no local hotfix; gaia's data files are outside .claude and are untouched.",
+          "boyScoutPlan": "- Add sequenceStepsOf(record), stepBearingRecords(view) and declaredSequenceIds(view) to .claude/scripts/sequences-slice/lib/distribution-map.mjs; import them from attach-unit-ids, verify-chain, add-tickets-for-phase and verify-all-ticket-coverage so the scope predicate has one definition.\n- Add canonicalStepContract(step) and stepContractMatches(left, right) beside boundary-contract.mjs; the artifact, view and ticket comparison share them.\n- Add named constants for finding codes, layer names and the 240-character note limit; remove literal code strings from the touched paths.\n- Split verifyChain into verb-named checks (verifyDigests, verifyUnitSets, verifySteps, verifyBoundaries, verifyResiduals) without changing its exported signature.\n- Rename generic locals (record, unit, entry) to domain names (viewRecord, registryRow, ticketUnit) in the touched functions.\n- Add tests for every extracted helper before moving call sites.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "root *-sequences.json -> SEQUENCES.json (graphify admission)",
+              "precondition": "The root artifact declares steps for many sequences, and a package view declares a subset in ownedSequenceUnits, crossBoundarySequenceUnits or obligationUnits.",
+              "postcondition": "verifyViewAgainstMap reports SEQUENCE_STEPS_UNDISTRIBUTED only for a step whose sequence the view declares and no step-bearing record carries; a foreign sequence produces no finding.",
+              "invariant": "The scope predicate is the view-declared sequence, never the step-bearing record, so an obligation-only sequence keeps its steps checked."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "WORKSPACIFY-ALLOCATE-MANIFEST.contract_registry -> ctr units",
+              "precondition": "The registry has 84 rows and the workspace has 29 package views, each declaring the ctr units for its provider or consumer side.",
+              "postcondition": "Every boundary verifier checks only rows whose ctr unit the layer declares; a declared ctr missing its graph node, edge contract, ticket contract or digest is a named finding; a foreign row produces no finding.",
+              "invariant": "Global coverage remains smooth S4's job: the tree boundaries and registry rows are 84==84 with identical ids, and S4.boundary-side-mismatch requires both sides."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "SEQUENCES.json -> RFC distribution map -> GRAPH.json -> Dirs-Tree.json -> Tickets.json",
+              "precondition": "A consistent package fixture carries sourceViewDigest, map digest, graph distributionDigest, dirs distribution digest and ticket aggregate digest.",
+              "postcondition": "verifyChain exits 0 with zero findings; a stale map, unit-set mismatch or digest mismatch exits non-zero with STALE_DISTRIBUTION_MAP, UNIT_SET_MISMATCH or DISTRIBUTION_DIGEST_MISMATCH.",
+              "invariant": "Package scoping does not relax the digest equality at any layer."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "artifact steps[].contract/contract_prose -> view steps[].contract/contractProse -> ticket obligation.steps",
+              "precondition": "An artifact step belongs to a sequence the package view declares, and the view and ticket carry a projected step record.",
+              "postcondition": "The view step and the ticket step carry the same canonical contract and prose; a drift yields a named contract-fidelity finding.",
+              "invariant": "No schema change is introduced; the comparison is canonical and the view remains the projection of the artifact."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "graphify output -> boundify Step 0 -> boundify Step 2",
+              "precondition": "The graph exists and the Dirs-Tree does not yet exist on the first boundify run.",
+              "postcondition": "Step 0 runs a preflight that needs view, map and graph only and passes; Step 2 after generation checks the dirs distribution digest and fails on a stale or missing digest.",
+              "invariant": "A missing Dirs-Tree is not an admission failure before generation and is a failure after generation."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "WORKSPACIFY-ALLOCATE-MANIFEST.json -> root *-sequences.json -> contract_registry",
+              "precondition": "findAllocateManifest returns a manifest, so the run is inside a workspacify workspace.",
+              "postcondition": "A missing, ambiguous or unreadable artifact or registry exits non-zero with MISSING_SIDECAR or MISSING_REGISTRY; outside a workspace the same absence is skipped as documented.",
+              "invariant": "There is no silent fallback to a view-only step set or an empty registry inside a workspace."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "registry provider_package/consumer_package -> graph boundary edge -> view direction",
+              "precondition": "An edge carries a projected boundary contract and the view declares provides or consumes.",
+              "postcondition": "A ctr node on the wrong end of the carrying edge yields BOUNDARY_DIRECTION_MISMATCH even when attributes.bidirectional is true; an unrelated bidirectional edge is not rejected.",
+              "invariant": "The direction check is bound to the edge that carries the boundary contract, not to the first edge touching the ctr node."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "contract_registry rows -> graph edge attributes.note",
+              "precondition": "The combined note for the boundaries an edge carries exceeds 240 characters.",
+              "postcondition": "project-boundary-contracts writes RFC-BOUNDARY-CONTRACTS.json, keeps a note that names the sidecar and a combined digest, and verify reads it; it does not throw without a remedy.",
+              "invariant": "The note digest binds exactly the rows the sidecar names, and a tampered sidecar or note fails."
+            }
+          ],
+          "created_at": "2026-10-26",
+          "updated_at": "2026-10-26",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 Normal] Foreign artifact steps are ignored; a declared obligation-only sequence still reports its step.\n```js\nconst view = {\n  packageId: 'pkg-0001',\n  ownedSequenceUnits: [],\n  crossBoundarySequenceUnits: [],\n  obligationUnits: [{ unitId: 'seq-A-2', kind: 'sequence', subject: 'A-2' }],\n};\nconst artifact = {\n  sequences: [{ id: 'A-1' }, { id: 'A-2' }, { id: 'B-1' }],\n  steps: [\n    { id: 'A-1__1', sequence: 'A-1', operation: 'OpA' },\n    { id: 'A-2__1', sequence: 'A-2', operation: 'OpB' },\n    { id: 'B-1__1', sequence: 'B-1', operation: 'OpC' },\n  ],\n};\nconst findings = verifyViewAgainstMap({ view, map: consistentMap(view), artifact, registry: [] });\nassert.deepEqual(findings.filter((entry) => entry.code === 'SEQUENCE_STEPS_UNDISTRIBUTED').map((entry) => entry.subject), ['A-2__1']);\nassert.equal(findings.some((entry) => entry.subject === 'B-1__1'), false);\n```",
+            "UT: [C002 Normal] Registry rows are scoped by provider_package/consumer_package.\n```js\nconst registry = [\n  { boundary_id: 'boundary-001', provider_package: 'pkg-0001', consumer_package: 'pkg-0002', clauses: { preconditions: ['p'], postconditions: ['q'], invariants: ['r'] } },\n  { boundary_id: 'boundary-002', provider_package: 'pkg-0002', consumer_package: 'pkg-0003', clauses: { preconditions: ['s'], postconditions: ['t'], invariants: ['u'] } },\n];\nconst fixture = consistentFixture({ packageId: 'pkg-0001', registry });\nconst result = verifyChain(fixture);\nassert.equal(result.findings.some((entry) => String(entry.subject).includes('boundary-002')), false);\nassert.deepEqual(result.findings.filter((entry) => entry.code === 'MISSING_BOUNDARY_CONTRACT'), []);\n```",
+            "UT: [C003 Error] A stale map keeps its named code and the chain stays red.\n```js\nconst input = consistentFixture();\ninput.map.sourceViewDigest = '0'.repeat(64);\ninput.map.digest = mapDigest(input.map);\nconst result = verifyChain(input);\nassert.ok(result.findings.some((entry) => entry.code === 'STALE_DISTRIBUTION_MAP'));\nassert.equal(result.ok, false);\n```",
+            "UT: [C004 Error] A changed step contract is STEP_CONTRACT_MISMATCH at the view and ticket levels.\n```js\nconst input = consistentFixture();\ninput.artifact.steps[0].contract.pre[0].text = 'tampered';\nconst result = verifyChain(input);\nassert.ok(result.findings.some((entry) => entry.code === 'STEP_CONTRACT_MISMATCH' && entry.subject === 'A-1__ProduceFact'));\n```",
+            "UT: [C005 Normal] Boundify preflight passes without a Dirs-Tree; a stale Dirs-Tree fails after Step 2.\n```js\nconst preflight = verifyChain({ ...consistentFixture(), dirsTree: null, stage: 'boundify', preflight: true });\nassert.deepEqual(preflight.findings, []);\nconst stale = verifyChain({ ...consistentFixture(), dirsTree: { distribution: { digest: '0'.repeat(64) } }, stage: 'boundify' });\nassert.ok(stale.findings.some((entry) => entry.code === 'DISTRIBUTION_DIGEST_MISMATCH' && entry.subject === 'dirs'));\n```",
+            "UT: [C006 Error] A workspacify workspace with a missing registry or artifact fails closed.\n```js\nconst packageDir = mkdtempSync(join(tmpdir(), 'px314-'));\nwriteFileSync(join(packageDir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ contract_registry: [] }));\nwriteFileSync(join(packageDir, 'SEQUENCES.json'), JSON.stringify({ packageId: 'pkg-0001' }));\nassert.throws(\n  () => execFileSync(process.execPath, [verifyChainPath, '--stage=graphify', `--package=${packageDir}`], { stdio: 'pipe' }),\n  /MISSING_REGISTRY|MISSING_SIDECAR/,\n);\n```",
+            "UT: [C007 Normal] A bidirectional boundary edge is still direction-checked.\n```js\nconst input = consistentFixture();\nconst edge = input.graph.edges.find((candidate) => candidate.contracts.some((contract) => contract.id === 'C900'));\nedge.attributes.bidirectional = true;\nedge.from = 'N0002';\nedge.to = 'N0001';\nconst result = verifyChain(input);\nassert.ok(result.findings.some((entry) => entry.code === 'BOUNDARY_DIRECTION_MISMATCH'));\n```",
+            "UT: [C008 Boundary] A note over 240 characters writes a sidecar and verify reads it.\n```js\nconst graph = {\n  nodes: [\n    { id: 'N0001', unitIds: ['ctr-boundary-001'] },\n    { id: 'N0002', unitIds: ['op-ProduceFact'] },\n  ],\n  edges: [{ from: 'N0001', to: 'N0002', type: 'depends_on', attributes: {}, contracts: [] }],\n};\nconst registry = Array.from({ length: 20 }, (_, index) => ({\n  boundary_id: `boundary-${String(index + 1).padStart(3, '0')}`,\n  clauses: { preconditions: ['p'], postconditions: ['q'], invariants: ['r'] },\n}));\nconst sidecarPath = join(tmpdir(), 'RFC-BOUNDARY-CONTRACTS.json');\nconst projected = projectBoundaryContracts({ graph, registry, sidecarPath });\nconst note = parseBoundaryNoteRows(projected.edges[0].attributes.note);\nassert.ok(note.sidecar.endsWith('RFC-BOUNDARY-CONTRACTS.json'));\nassert.ok(existsSync(sidecarPath));\n```"
+          ],
+          "startedAt": "2026-10-26",
+          "changes": [
+            {
+              "before": "admission scanned every root artifact step and every registry row",
+              "after": "admission scans only the view-declared sequences and provider/consumer registry rows",
+              "description": ".claude/scripts/rfc-graph/attach-unit-ids.js uses declaredSequenceIds, artifactStepsForSequences, stepBearingRecords and registryRowsForPackage"
+            },
+            {
+              "before": "verify-chain treated the global artifact and registry as local and required a Dirs-Tree at boundify Step 0",
+              "after": "verify-chain is package-scoped, supports --preflight, fails closed on a missing sidecar, compares step contracts, checks direction on the carrying edge and counts duplicates inside one ticket",
+              "description": ".claude/scripts/sequences-slice/verify-chain.mjs"
+            },
+            {
+              "before": "the scope predicate was duplicated in four call sites",
+              "after": "one predicate lives in distribution-map.mjs",
+              "description": "declaredSequenceIds, stepBearingRecords, sequenceStepsOf, artifactStepsForSequences, registryRowsForPackage, canonicalStepContract and stepContractMatches added"
+            },
+            {
+              "before": "a note over 240 characters threw BOUNDARY_NOTE_TOO_LONG with no remedy",
+              "after": "the projection writes RFC-BOUNDARY-CONTRACTS.json and the verifiers read it",
+              "description": ".claude/scripts/rfc-graph/project-boundary-contracts.js and sequences-slice/lib/boundary-contract.mjs"
+            },
+            {
+              "before": "add-tickets-for-phase reported every global artifact step",
+              "after": "it reports only the view-declared steps and detects a duplicate inside one ticket",
+              "description": ".claude/scripts/tickets/add-tickets-for-phase.js"
+            },
+            {
+              "before": "verify-graph-contracts and verify-ticket-closure checked all 84 registry rows in every package",
+              "after": "both scope rows by provider/consumer package and accept --view",
+              "description": ".claude/scripts/tickets/verify-graph-contracts.js and verify-ticket-closure.js"
+            },
+            {
+              "before": "a missing registry or root artifact was silently read as empty",
+              "after": "MISSING_REGISTRY and MISSING_SIDECAR stop the stage inside a workspacify workspace",
+              "description": "verify-chain, verify-graph-contracts, verify-ticket-closure, merge-contracts-to-tickets and verify-all-ticket-coverage"
+            },
+            {
+              "before": "boundify Step 0 always required a Dirs-Tree that did not exist yet",
+              "after": "Step 0 runs verify-chain --stage=boundify --preflight; Step 2 keeps the dirs digest check",
+              "description": ".claude/commands/boundify-graph.md"
+            },
+            {
+              "before": "graphify verified graph contracts without the package view",
+              "after": "the command passes --view=\"$viewPath\"",
+              "description": ".claude/commands/graphify-rfc.md"
+            },
+            {
+              "before": "no multi-package coverage",
+              "after": "six new test files cover scope, preflight, fail-closed, contract fidelity, direction, duplicate, sidecar, graph and closure scoping",
+              "description": "tests/sequences-slice/verify-chain-scope.test.mjs, fail-closed.test.mjs, helpers/multi-package-fixture.mjs; tests/rfc-graph/graphify-admission-scope.test.cjs, boundify-cmd.test.cjs; tests/tickets/scoped-verifiers.test.mjs"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-26"
         }
       ]
     },
