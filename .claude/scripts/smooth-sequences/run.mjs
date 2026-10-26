@@ -36,6 +36,7 @@ import { attackReaderForGeneration, readerForGeneration } from '../shared-obliga
 import { deriveObligations } from '../shared-obligations/registry.mjs';
 import { summarizeInstrument } from '../shared-obligations/instrument.mjs';
 import { readPinnedCensus } from '../shared-obligations/source-census.mjs';
+import { riskFieldForClass } from '../shared-obligations/risk-fields.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { compareFindingSets, computeFindingKey, readWaivers } from './lib/evidence-ledger.mjs';
 import { computeFindingKeysDigest, MODE_VERIFICATION, readStatus, writeGeneration } from './lib/generation.mjs';
@@ -377,7 +378,7 @@ function boundaryIdOf(subject) {
 /** The anchors a judgment basis may cite for one obligation. */
 // [::TICKET::] PX-291, PX-292, PX-293, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293|PX-297) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-function anchorSetFor(obligation) {
+export function anchorSetFor(obligation) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const anchorSet = { spec: [], contract: [], artifact: [], view: [], ledger: [] };
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -393,7 +394,11 @@ function anchorSetFor(obligation) {
     const separator = subject.indexOf('/');
     if (separator > 0) anchorSet.view.push({ packageId: subject.slice(0, separator), unitId: subject.slice(separator + 1) });
   } else if (id.startsWith('RISK:') || id.startsWith('PROP:')) {
-    const [, operationId, field] = id.split(':');
+    const [, operationId, riskClass] = id.split(':');
+    // The id names the risk class; the artifact row names the field that carries it.
+    // Citing the class as a field put every risk judgment out of scope and left the
+    // obligation open even when the cited value was the one the mapping selects.
+    const field = riskFieldForClass(riskClass) ?? riskClass;
     anchorSet.artifact.push({ id: operationId, field });
   }
   return anchorSet;
@@ -567,7 +572,10 @@ export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const strictEvidence = parsed.requireEffort === true || parsed.strictFreshness === true;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const rfcByPackage = strictEvidence ? readRfcByPackage(loaded) : undefined;
+      // A judgment may cite an RFC line whatever the effort gate is. Reading the RFCs
+      // only in strict mode refused every distribution-fidelity basis with
+      // BASIS_QUOTE_MISSING, which is a false open rather than a missing reading.
+      const rfcByPackage = readRfcByPackage(loaded);
       // The claim anchor may be a specification line or a package RFC line; both must be
       // available to the searched-quote resolver, or a correct RFC citation is refused.
       const searchableSources = { ...specLines };
@@ -645,13 +653,17 @@ export function runCommand(argv, io = {}) {
         linesByPath: specLines,
         staleReceipts: receiptDebt,
         generation,
-        ...(strictEvidence ? {
-          artifact: loaded.artifact,
-          contractRegistry: loaded.allocateManifest.contract_registry ?? [],
-          rfcByPackage,
-          sources: searchableSources,
-          requireAnchor: true,
-        } : {}),
+        // The evidence surfaces a judgment may cite are validated in every run, not
+        // only under the effort gate. Withholding them turned a correct RFC or artifact
+        // basis into BASIS_QUOTE_MISSING/BASIS_OUT_OF_SCOPE and left the obligation open.
+        artifact: loaded.artifact,
+        contractRegistry: loaded.allocateManifest.contract_registry ?? [],
+        rfcByPackage,
+        sources: searchableSources,
+        // The anchor closure is the effort gate's promise. A reading obligation may carry
+        // no anchor at all, so requiring one in the default run would reopen 543 readings
+        // that have nothing to anchor to. The surfaces above still validate every basis.
+        requireAnchor: strictEvidence,
       });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const openIds = new Set(

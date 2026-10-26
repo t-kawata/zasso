@@ -187,8 +187,14 @@ export function buildWorklist(obligations = [], contextByObligation = {}, option
       };
     });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-  const worklistDigest = contextDigest(prepared.map((entry) => [entry.obligationId, entry.contextDigest]));
-  return prepared.map((entry) => ({ ...entry, worklistDigest }));
+  // The digest binds one item, not the batch. A batch digest changes whenever any other
+  // obligation opens or closes, which invalidates every record already written and makes
+  // a workspace oscillate between two open sets; the per-item contextDigest is the proof
+  // that the record answers this question, and this digest names the pair being answered.
+  return prepared.map((entry) => ({
+    ...entry,
+    worklistDigest: contextDigest([entry.obligationId, entry.contextDigest]),
+  }));
 }
 
 /** The anchor list a basis source is checked against. */

@@ -53,6 +53,22 @@ test('the worklist context digest changes when the cited evidence changes', () =
   assert.equal(first.worklistDigest, repeated.worklistDigest);
 });
 
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+test('PX-310 a shared item keeps its worklist digest when another obligation opens or closes', () => {
+  const shared = { id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', kind: 'judgment', subject: 'bd-1', claim: 'translation holds' };
+  const other = { id: 'JUDGE:TRANSLATION:bd-2', class: 'semantic', state: 'open', kind: 'judgment', subject: 'bd-2', claim: 'translation holds' };
+  const contexts = {
+    'JUDGE:TRANSLATION:bd-1': { obligationId: shared.id, anchorSet: { spec: [{ path: 'spec.md', line: 2 }] } },
+    'JUDGE:TRANSLATION:bd-2': { obligationId: other.id, anchorSet: { spec: [{ path: 'spec.md', line: 3 }] } },
+  };
+  const alone = buildWorklist([shared], contexts, { artifactDigest: 'artifact-1' })
+    .find((entry) => entry.obligationId === shared.id);
+  const together = buildWorklist([shared, other], contexts, { artifactDigest: 'artifact-1' })
+    .find((entry) => entry.obligationId === shared.id);
+
+  assert.equal(alone.worklistDigest, together.worklistDigest);
+});
+
 // @verifies C004
 // [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a basis quote must occur on the cited line', () => {
