@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { checkAll } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
 import { readArtifactSchema, validateArtifactShape } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { minimalV2Artifact, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
@@ -12,9 +13,24 @@ test('a v3 artifact with every typed step fields validates', () => {
   assert.deepEqual(validateArtifactShape(minimalV3Artifact(), schema), []);
 });
 
-test('a v3 step without a contract is refused by step id', () => {
+// Absence belongs to the declared check, not the shape gate: `step-carries-four-fields`
+// names the step that carries no contract, and a shape problem reported first would make
+// the mutation unattributable to that check (PX-310). The shape gate still owns a
+// contract of the wrong type, because no declared check measures that.
+test('a v3 step without a contract is left to the declared check', () => {
   const artifact = minimalV3Artifact();
   delete artifact.steps[0].contract;
+  assert.deepEqual(validateArtifactShape(artifact, schema), []);
+
+  const { verdicts } = checkAll({ specLines: [], artifact, recorded: {} });
+  assert.ok(verdicts.some((verdict) => verdict.check === 'step-carries-four-fields'
+    && verdict.subject === artifact.steps[0].id
+    && verdict.reason === 'step carries no contract'));
+});
+
+test('a v3 step whose contract is not an object is refused by step id', () => {
+  const artifact = minimalV3Artifact();
+  artifact.steps[0].contract = 42;
   const problems = validateArtifactShape(artifact, schema);
   assert.ok(problems.some((problem) => problem.pin === 'steps[0].contract'));
 });
