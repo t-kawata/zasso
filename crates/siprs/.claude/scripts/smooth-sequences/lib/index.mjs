@@ -135,6 +135,7 @@ export function sequenceOwners(index) {
  * @returns {object} the frozen index
  */
 // [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
 export function indexArtifact(loaded) {
   const duplicates = [];
   const artifact = loaded.artifact;
@@ -144,6 +145,7 @@ export function indexArtifact(loaded) {
     artifactPath: loaded.artifactPath,
     treeManifest: loaded.treeManifest,
     allocateManifest: loaded.allocateManifest,
+    contractRegistry: loaded.allocateManifest?.contract_registry ?? [],
     packages: loaded.packages,
     schemaVersion: artifact.schema_version,
     vocabulary: loaded.vocabulary,

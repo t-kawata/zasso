@@ -11,7 +11,7 @@
  */
 import { finding } from './index.mjs';
 import { buildFamilySubChecks } from './check-status.mjs';
-import { isFactTextSupported } from './migrate-v3.mjs';
+import { isFactTextSupported, resolveFactOrigin, typedFactSupports } from './fact-origin.mjs';
 import { routeForOperation, routeForSpecRow, routeForStep } from './repair-route.mjs';
 
 const V3 = 3;
@@ -152,29 +152,15 @@ function normalizeQuote(text) {
   return String(text ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** Whether the typed row a fact names carries its text. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function typedFactSupports(fact, index) {
-  const field = fact?.source?.field;
-  if (typeof field !== 'string' || field.trim() === '') return false;
-  const text = normalizeQuote(fact.text);
-  if (fact.origin === 'contract_registry') {
-    const contract = index?.contractsByBoundary?.get(fact?.source?.boundaryId);
-    const clause = contract?.clauses?.[field];
-    const values = Array.isArray(clause) ? clause : [clause];
-    return values.some((value) => typeof value === 'string' && normalizeQuote(value).includes(text));
-  }
-  if (fact.origin === 'operation' || fact.origin === 'artifact') {
-    const operation = (index?.artifact?.operations ?? []).find((row) => row?.id === fact?.source?.operationId);
-    const value = operation?.[field];
-    if (value === undefined || value === null) return false;
-    return normalizeQuote(typeof value === 'string' ? value : JSON.stringify(value)).includes(text);
-  }
-  return false;
+/** The operation row a fact cites, or the step's own operation. */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function operationForFact(index, fact, step) {
+  const operationId = fact?.source?.operationId ?? step?.operation;
+  return (index?.artifact?.operations ?? []).find((row) => row?.id === operationId);
 }
 
 /** Whether a fact cites the step line and a quote the step actually carries. */
-// [::TICKET::] PX-286, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306|PX-310) --for-spec --no-implementation-order`.
 function isCitedFact(fact, step, index) {
   if (fact === null || typeof fact !== 'object' || Array.isArray(fact)) return false;
   const source = fact.source;
@@ -182,7 +168,13 @@ function isCitedFact(fact, step, index) {
   if (source.step !== step.id || source.line !== step.line) return false;
   const quote = normalizeQuote(source.quote);
   if (quote === '' || !normalizeQuote(step.quote).includes(quote)) return false;
-  if (typeof fact.origin === 'string' && fact.origin !== 'authored') return typedFactSupports(fact, index);
+  const options = {
+    operation: operationForFact(index, fact, step),
+    contractRegistry: index?.contractRegistry ?? [],
+    step,
+  };
+  const origin = resolveFactOrigin(fact, options);
+  if (origin !== null && origin !== 'authored') return typedFactSupports(fact, origin, options);
   return isFactTextSupported(fact.text, step.quote);
 }
 

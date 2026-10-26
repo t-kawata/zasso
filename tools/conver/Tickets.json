@@ -47110,6 +47110,223 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-23"
+        },
+        {
+          "id": 310,
+          "phaseId": -1,
+          "status": "planned",
+          "title": "Evidence-currency transaction: artifact-changing repairs re-open educe evidence and converge before /smooth-sequences",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-310.md",
+          "background": "### Goal\nMake every repair that changes a *-sequences.json artifact reopen an educe reader generation before the workspace can be verified, so the artifact digest, the evidence manifest's artifact sha, and every reading's artifactDigest are the same value. The prescribed sequence /educe-sequences -> /grill-me-for-rfc -> /smooth-sequences must reach a committed, fresh-evidence workspace without hand-editing tracked evidence.\n\n### Purpose\nClose the gaia generation-16 regression measured on 2026-10-25. smooth-sequences generation 91 exits 4 with certificate open 6,342: STALE_EVIDENCE 4,419, WORKLIST_MISMATCH 1,570, ATTACK_MISMATCH 353. The artifact is 35f478c7..., every reading answers 8c78ba6b..., and EVIDENCE-MANIFEST.json was hand-edited from 8c78ba6b... to 35f478c7.... The previous pass (HEAD, generation 88) was complete with artifact 8c78ba6b..., but tooling v0.0.232 / PX-306 changed authored-fact support.\n\n### Motivation\nMeasured on the gaia workspace:\n- The transaction's readArtifactCurrency checks only the spec sha; an annotations-only transaction is classified current, so educe begin is skipped and migrate-v3 changes the artifact without any reader generation.\n- debtOfDetectorReport counts STALE_RECEIPT/VACUOUS/unheld judgments but not STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH, so stale evidence is not debt.\n- smooth-sequences/run.mjs:557 takes artifactDigest from the mutable manifest instead of the artifact file.\n- The transaction does not rerun render-distribution, so artifact changes leave distribution maps stale.\n- Under PX-306, 4,484 of 5,586 authored facts in the HEAD artifact are supported by an operation/contract_registry row or the step quote, but checks-layer-b's isCitedFact does not infer the origin; it produces 5,330 S5 findings. The previous repair deleted 828 boolean operation prerequisites (session_binding, remote_time_handshake, pre_state_checkpoint) and moved 274 prose facts to contract_prose, shrinking the typed contract.\n\n### Constraints\n- No hand-edited evidence: EVIDENCE-MANIFEST.json, educe-sequences/status.json, smooth-sequences/* are generated.\n- No live artifact edits outside a regeneration transaction.\n- TDD strict: failing tests first; no test weakening; no stubs.\n- Preserve public command contracts and exit codes; add named refusals only.\n- Do not run the final live /smooth-sequences: the user runs it. The ticket stops at a committed transaction with refreshed maps.\n- Do not use --advisory-readings to bypass.\n\n\n### Install workflow\nAll program changes are authored in ~/shyme/zasso/tools/conver/.claude/scripts and its tests. They are reflected to ~/shyme/gaia only by `make install-to-projects` (Makefile:159-163 runs `node install.js -y -t ~/shyme/gaia/.claude`). Direct edits under ~/shyme/gaia/.claude are prohibited: they are overwritten by the next install and cannot be the source of truth. The three gaia-only uncommitted fixes (render-distribution anchor, repair-route workspace, checks-distribution-map role gating) must be ported into tools/conver with tests before the install.",
+          "scope": [
+            "[W1 file/module] .claude/scripts/smooth-sequences/lib/fact-origin.mjs (new), .claude/scripts/smooth-sequences/lib/migrate-v3.mjs, .claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            "[W1 action] Extract a shared resolveFactOrigin/typedFactSupports; map the fixed boolean fact families (session_binding -> requires_session_binding, remote_time_handshake -> requires_remote_time_handshake, pre_state_checkpoint -> required_pre_state_checkpoint) and the existing operation/contract_registry fields; isCitedFact uses the shared inference when fact.origin is absent.",
+            "[W1 detail] A legacy v3 fact with no origin is accepted only when its typed row or the step quote supports it; an unsupported fact remains S5.authored-source-missing. No artifact mutation is needed for the 4,484 typed-supported facts.",
+            "[W1 before -> after] Before: 5,330 S5 findings on the HEAD artifact. After: at most 1,102 (the 828 boolean prerequisites plus 274 prose facts), and the 828 remain in contract.pre when the annotation candidate types them.",
+            "[W2 file/module] .claude/scripts/regeneration/lib/transaction.mjs, .claude/scripts/regeneration/lib/debt.mjs, .claude/scripts/regeneration/lib/staging.mjs",
+            "[W2 action] readArtifactCurrency returns evidence currency; artifacts whose manifest artifact sha differs from the actual sha are evidence-stale; runPipelineProducer migrates annotations before opening a generation and returns educe-pending when the artifact digest changes; verify/commit never advance the manifest unless every reading artifactDigest equals the artifact sha.",
+            "[W2 detail] Add a bounded convergence loop: after each educe handoff, compare M(A') with the readings digest; derive only on equality; otherwise hand off again up to N times, then derive-failed with EDUCE_CONVERGENCE_EXCEEDED.",
+            "[W2 before -> after] Before: a transaction can derive/commit a 35f4 artifact with 8c78 readings and 6,342 open obligations. After: it refuses with EVIDENCE_STALE/EDUCE_HANDOFF_REQUIRED and requires the read phases.",
+            "[W3 file/module] .claude/scripts/regeneration/lib/debt.mjs, .claude/scripts/smooth-sequences/run.mjs, .claude/scripts/shared-obligations/predicates.mjs, .claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs",
+            "[W3 action] Count STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH/READER_GENERATION_STALE/READING_NOT_REREAD as debt; compute artifactDigest from the artifact file and report ARTIFACT_DIGEST_MISMATCH; make a missing generationStartedAt fail closed with LEGACY_GENERATION; judge an absent roleCandidate instead of skipping it.",
+            "[W4 file/module] .claude/scripts/regeneration/lib/transaction.mjs, .claude/scripts/grill-me-for-rfc/render-distribution.mjs, .claude/scripts/smooth-sequences/lib/repair-route.mjs",
+            "[W4 action] Run render-distribution.mjs per package after runPackageViews and before grounds; port the anchor-under-heading fix and the routeForWorkspaceFinding fix with their tests; include Status.json/RFC.md in the verified snapshot.",
+            "[Affected areas] gaia workspace: restore HEAD generated/evidence files, correct the annotations candidate (restore 828 boolean facts, preserve 274 prose, remove 96 statement placeholders), open the transaction, run /educe-sequences in staging, continue to commit, run /grill-me-for-rfc in all crates, then stop before live /smooth-sequences.",
+            "[Install workflow] Program fixes land in ~/shyme/zasso/tools/conver/.claude/scripts with tests; `make install-to-projects` reflects them to ~/shyme/gaia/.claude. Port the three gaia-only uncommitted fixes (render-distribution anchor, repair-route workspace, checks-distribution-map role gating) upstream first. No direct gaia script edit is part of the change."
+          ],
+          "testUnit": [
+            "UT: [Normal] A legacy v3 fact with no origin and factId session_binding is accepted when the operation row requires_session_binding is true and the fixed mapping supports its text.",
+            "UT: [Normal] A legacy boundary fact with no origin is accepted when the contract_registry clause carries its text.",
+            "UT: [Normal] A transaction whose artifactDigest equals the manifest artifact sha and every reading artifactDigest derives and commits without an educe handoff.",
+            "UT: [Normal] runPackageViews followed by render-distribution produces zero S7.distribution-map findings for a changed view.",
+            "UT: [Normal] smooth-sequences/run.mjs computes artifactDigest from the artifact file and accepts a matching manifest.",
+            "UT: [Normal] A missing generationStartedAt is reported as READING_NOT_REREAD, not silently accepted.",
+            "UT: [Normal] A sole owner with explicit roleCandidate implementer passes; a sole owner with explicit undecided is skipped.",
+            "UT: [Error] migrate-v3 changes the artifact digest without a new generation and runPipelineProducer returns educe-pending, not derived.",
+            "UT: [Error] A hand-edited manifest artifact sha that points at the current artifact while readings answer the old digest yields exit 4 with STALE_EVIDENCE.",
+            "UT: [Error] A certificate with open STALE_EVIDENCE, WORKLIST_MISMATCH or ATTACK_MISMATCH makes computeDebtIncrease return increased true and verifyGeneration return unverified.",
+            "UT: [Error] A missing generationStartedAt with a non-null generation yields LEGACY_GENERATION or READING_NOT_REREAD and never a fabricated timestamp.",
+            "UT: [Error] A sole owner with absent roleCandidate yields S7.owner-role-undeclared.",
+            "UT: [Error] A render-distribution refusal returns derive-failed with the package and code.",
+            "UT: [Boundary] An unchanged artifact digest after migrate-v3 derives without a handoff.",
+            "UT: [Boundary] M(A') equal to the readings digest derives; M(A') different hands off again; the Nth failure returns EDUCE_CONVERGENCE_EXCEEDED.",
+            "UT: [Boundary] An empty ledger and zero unit ids pass; a non-empty ledger with zero unit ids is a finding.",
+            "UT: [Boundary] A v2 artifact without typed fields remains readable.",
+            "UT: [Invariant] manifest artifact sha is never advanced unless the readings artifactDigest equals the artifact sha.",
+            "UT: [Invariant] a transaction never commits when artifactDigest, manifest artifact sha and readings artifactDigest differ.",
+            "UT: [Invariant] no ticket step writes live smooth-sequences/status.json; the live /smooth-sequences remains unexecuted.",
+            "UT: [Normal] make install-to-projects is the only propagation step; tools/conver is the source of truth and gaia is a target.",
+            "UT: [Invariant] the installed gaia copy is byte-identical to tools/conver after make install-to-projects; no direct gaia script edit is accepted.",
+            "UT: [Error] a program fix present only in gaia and absent from tools/conver is rejected by the install-parity check."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] regeneration transaction + educe rail in a synthetic workspace: artifact A, annotations candidate, migrate-v3, phase.mjs begin, read phases, phase 9, M(A'), views, render-distribution.",
+            "IT: [Verification] the committed staged snapshot satisfies artifactDigest == manifest artifact sha == every readings artifactDigest and the detector on staging reports zero STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH.",
+            "IT: [Prerequisites] a synthetic tree/allocate manifest pair, a v3 artifact, an annotations document that changes the artifact digest, and a fake detector/reader fixture that writes signed readings.",
+            "IT: [Related tickets] PX-306 (authored fact support), PX-290/PX-293 (evidence migration), PX-279/PX-280 (transaction), PX-287 (staging), PX-307/PX-309 (distribution map/roles).",
+            "IT: [Install parity] after make install-to-projects, ~/shyme/gaia/.claude/scripts/smooth-sequences, regeneration, shared-obligations and grill-me-for-rfc are byte-identical to tools/conver, and the installed px310 tests run from the gaia tree."
+          ],
+          "testExceptions": [
+            "The real gaia educe read phases cannot test in CI: running 3,768 inquest and 1,570 judgment readers is non-deterministic and environment-bound; it is not a design defect. Alternative verification: synthetic staging workspace plus one recorded gaia run before the user's live /smooth-sequences.",
+            "The 274 prose fact re-citations cannot test as a pure unit because they depend on specification content; it is not a design defect. Alternative verification: count preservation, content diff, and zero deletion of the 828 boolean facts.",
+            "The final live /smooth-sequences pass cannot test in this ticket because the user executes it; it is not a design defect. Alternative verification: committed workspace invariants, transaction commit receipt, and node .claude/scripts/regeneration/run.mjs status state committed."
+          ],
+          "default_files": [
+            ".claude/scripts/smooth-sequences/lib/fact-origin.mjs",
+            ".claude/scripts/smooth-sequences/lib/migrate-v3.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs",
+            ".claude/scripts/smooth-sequences/lib/repair-route.mjs",
+            ".claude/scripts/smooth-sequences/run.mjs",
+            ".claude/scripts/regeneration/lib/transaction.mjs",
+            ".claude/scripts/regeneration/lib/debt.mjs",
+            ".claude/scripts/regeneration/lib/staging.mjs",
+            ".claude/scripts/shared-obligations/predicates.mjs",
+            ".claude/scripts/grill-me-for-rfc/render-distribution.mjs",
+            ".claude/scripts/tickets/lib/install-parity.mjs",
+            "tests/regeneration/px310-evidence-currency.test.mjs",
+            "tests/regeneration/px310-transaction-handoff.test.mjs",
+            "tests/regeneration/px310-debt.test.mjs",
+            "tests/regeneration/px310-distribution-refresh.test.mjs",
+            "tests/regeneration/px310-stop-before-live-smooth.test.mjs",
+            "tests/regeneration/px310-install-parity.test.mjs",
+            "tests/smooth-sequences/px310-fact-origin.test.mjs",
+            "tests/smooth-sequences/px310-owner-roles.test.mjs",
+            "tests/shared-obligations/px310-generation-freshness.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] A synthetic workspace with an annotation-changing artifact commits only after a new educe generation; artifactDigest, manifest artifact sha and every readings artifactDigest are equal; distribution maps are refreshed; the live /smooth-sequences is not executed. `make install-to-projects` writes the same bytes to ~/shyme/gaia/.claude.",
+            "[Error case] A hand-edited manifest or an artifact change without a new generation is refused with EVIDENCE_STALE/EDUCE_HANDOFF_REQUIRED and cannot commit. A fix that exists only in gaia and not in tools/conver fails the install-parity check.",
+            "[Edge case] An unchanged artifact derives without a handoff; a convergence limit returns EDUCE_CONVERGENCE_EXCEEDED; a legacy status without generationStartedAt fails closed."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "regeneration derive -> verify -> commit / evidence manifest",
+              "precondition": "The staged workspace holds an artifact file, an EVIDENCE-MANIFEST.json, and reading rows that carry artifactDigest.",
+              "postcondition": "The transaction returns derived only when artifactDigest, manifest artifact sha, and every reading artifactDigest are equal; otherwise it returns educe-pending or EVIDENCE_STALE.",
+              "invariant": "No transaction commit advances the manifest artifact sha unless the readings were produced against that digest."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "educe authored fact -> smooth-sequences layer B check",
+              "precondition": "A legacy v3 authored fact has no origin field and a factId from a fixed operation family.",
+              "postcondition": "The checker accepts it when the operation row or contract_registry clause carries its text; otherwise it reports S5.authored-source-missing.",
+              "invariant": "A fact is accepted only by a typed row or a step quote that supports its text; no fact is accepted because origin is absent."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "regeneration runSetup -> runPipelineProducer -> educe rail",
+              "precondition": "migrate-v3 changes the artifact digest in a transaction whose spec did not change.",
+              "postcondition": "The transaction calls phase.mjs begin, archives the inherited readings, and returns educe-pending with the staging spec path.",
+              "invariant": "An artifact-changing transaction never reaches derived without a new reader generation when the artifact digest and readings digest differ."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "smooth-sequences detector -> regeneration debt gate",
+              "precondition": "The staging detector certificate carries open entries with code STALE_EVIDENCE, WORKLIST_MISMATCH, or ATTACK_MISMATCH.",
+              "postcondition": "computeDebtIncrease returns increased true and verifyGeneration returns unverified with the named code.",
+              "invariant": "Stale evidence is debt even when the artifact input changed and no Yes answer was added."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "sequences-slice view -> RFC distribution map",
+              "precondition": "runPackageViews writes a view whose units differ from the RFC distribution map.",
+              "postcondition": "The transaction runs render-distribution per package and the staged checkDistributionMap returns zero S7.distribution-map findings.",
+              "invariant": "An artifact-changing commit never leaves a package map stale relative to its view."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "educe status -> generation freshness predicate",
+              "precondition": "educe-sequences/status.json records a generation without generationStartedAt.",
+              "postcondition": "generationFreshness returns READING_NOT_REREAD or LEGACY_GENERATION; it never invents a timestamp.",
+              "invariant": "A reading passes freshness only with a recorded generation start no later than its readAt."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "package view roleCandidate -> S7 owner-role check",
+              "precondition": "A package map has a sole operation owner and the view has no roleCandidate.",
+              "postcondition": "checkOwnerRoles reports S7.owner-role-undeclared; only an explicit undecided candidate is skipped.",
+              "invariant": "An absent role candidate is never read as a non-claim."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "ticket completion -> live /smooth-sequences handoff",
+              "precondition": "The implementation reaches a committed transaction and refreshed maps.",
+              "postcondition": "The ticket leaves the live /smooth-sequences unexecuted and records the exact command for the user.",
+              "invariant": "No ticket step writes smooth-sequences/status.json in the live workspace."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "tools/conver/.claude -> make install-to-projects -> gaia/.claude",
+              "precondition": "Program changes and their tests exist in ~/shyme/zasso/tools/conver/.claude/scripts.",
+              "postcondition": "make install-to-projects writes the same bytes to ~/shyme/gaia/.claude and the installed tests pass from the gaia tree.",
+              "invariant": "No program fix is applied directly to ~/shyme/gaia/.claude."
+            }
+          ],
+          "notes": "- [Implementation steps] 1) Add failing tests in tools/conver. 2) Implement shared fact-origin inference. 3) Add evidence currency, educe handoff, debt codes, actual artifact digest, legacy fail-closed, render-distribution and roleCandidate. 4) Port the three gaia-only fixes upstream with tests. 5) Run make install-to-projects. 6) Verify install parity. 7) Restore gaia generated/evidence files to HEAD. 8) Correct the annotations candidate (restore 828 boolean facts, preserve 274 prose, remove 96 statement placeholders). 9) open --annotations, continue, run /educe-sequences in staging, continue to commit. 10) run /grill-me-for-rfc in all crates. 11) stop before live /smooth-sequences.\n- [Risks] The educe re-read is expensive and may change the artifact again; the convergence loop must be bounded. The 274 prose facts may need content work; do not delete them to pass.\n- [Caveats] Never edit ~/shyme/gaia/.claude directly; install from tools/conver. Never hand-edit EVIDENCE-MANIFEST.json or educe-sequences/status.json. Never delete the 828 boolean facts. Do not use --advisory-readings.\n- [Open items] Exact re-citation of the 274 prose facts; whether step evidence.spec_lines may be a valid citation source; the user's live /smooth-sequences result.\n- [Future improvements] Make annotations an input to the educe artifact producer so no post-hoc migrate-v3 mutation is needed.\n2026-10-26 update: restore gaia generated/evidence files from e6dd029 (v0.0.232), because HEAD v0.0.233 is the broken repaired state. The corrected annotations document carries contract_prose for prose facts and typed operation origins for the 828 boolean prerequisites.\nImplementation progress 2026-10-26: W1-W5 implemented and 27 PX-310 tests pass. Installed to gaia with make install-to-projects (install parity 693 files). Gaia data restored to e6dd029 (artifact 8c78ba6b..., readings 8c78ba6b...). Corrected candidates generated: S5.authored-source-missing-ANNOTATIONS-REPAIRED.json and -REPAIRED2.json.\nRemaining blockers, not complete: (1) the educe rail runs phase 16 on a v3 artifact and the step-loses-its-contract mutation reddens artifact-shape first; the transaction needs either educe-on-v2 with migration.source_digest evidence binding, or a v2/v3 shape-attribution fix. (2) The corrected candidate leaves 96 steps with all-typed contracts, so S5 blocks at authored 204/300; those steps need a genuine authored prose fact, not a statement placeholder. (3) S7.owner-role-undeclared op-CreateAuthorityDelegation remains. (4) S6 graph checks block until the operation/contract surfaces are complete. The gaia transaction was aborted to leave the live tree safe. live /smooth-sequences remains for the user and is not yet passable.",
+          "invariants": "- [Normal establishment] Every successful transaction has one digest D such that sha256(artifact) = D, EVIDENCE-MANIFEST.artifact.sha256 = D, and every reading row's artifactDigest = D.\n- [Error invariant] A transaction never returns derived or commits when the artifact, manifest and readings digests differ; it returns educe-pending or EVIDENCE_STALE with a named code.\n- [Internal state invariant] tools/conver is the source of truth and gaia/.claude is an installed copy. The live workspace's evidence files are written only by their producers; no ticket step hand-edits EVIDENCE-MANIFEST.json, educe-sequences/status.json, or smooth-sequences/*.\n- [Boundary invariant] An unchanged artifact digest derives without a handoff; a legacy generation without generationStartedAt fails closed; an absent roleCandidate is judged, not skipped; an install that leaves gaia different from tools/conver is refused.",
+          "instrumentation": "- [Logging] Log each transaction state transition and educe handoff with artifact sha, manifest sha, readings digest, generation and convergence iteration in English; log install parity per target.\n- [Metrics] Count open STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH, educe handoff count, convergence iterations, S5 findings by support class, S7 findings and install-parity mismatches.\n- [Error tracking] Emit named codes ARTIFACT_DIGEST_MISMATCH, EVIDENCE_STALE, EDUCE_HANDOFF_REQUIRED, EDUCE_CONVERGENCE_EXCEEDED, LEGACY_GENERATION, UNJUDGED_ROLE_CANDIDATE and INSTALL_PARITY_MISMATCH.\n- [Health check] `node .claude/scripts/regeneration/run.mjs status` reports committed/educe-pending; `node .claude/scripts/smooth-sequences/run.mjs --audit` on staging reports the open evidence counts; the install-parity test compares the installed byte digests.",
+          "investigation": "Investigation performed on 2026-10-25 in ~/shyme/gaia and ~/shyme/zasso/tools/conver.\n\n- HEAD state: artifact sha256 8c78ba6b0730e9e4dea2c6a05962a0161dc609b2d982b2fcf6c2d0a2ba640a7d, EVIDENCE-MANIFEST artifact sha the same, every reading artifactDigest the same, smooth-sequences status generation 88 exit 0, certificate complete, open 0.\n- Current working tree: artifact 35f478c7a65dc467ebeb0fb3621f8ae9c7dcf3ee3021be8363de4083d3f4c900, manifest hand-edited to 35f478c7..., readings still 8c78ba6b..., smooth-sequences generation 91 exit 4, certificate open 6,342 = STALE_EVIDENCE 4,419 + WORKLIST_MISMATCH 1,570 + ATTACK_MISMATCH 353.\n- educe-sequences/status.json generationStartedAt 2026-10-22T06:13:39.597Z was added by hand; the earliest reading readAt is 2026-10-22T06:13:44.548Z. The field is absent at HEAD.\n- regeneration/lib/transaction.mjs:304 readArtifactCurrency compares only artifact.spec.sha256; :337-341 calls phase.mjs begin only when the artifact is not current; :400-415 runs migrate-v3 after the artifact is already current; :554-579 verifies debt through debtOfDetectorReport.\n- regeneration/lib/debt.mjs:15-33 counts STALE_RECEIPT/VACUOUS/unheld judgments but not STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH.\n- smooth-sequences/run.mjs:557 reads artifactDigest from EVIDENCE-MANIFEST instead of the artifact file.\n- smooth-sequences/lib/checks-layer-b.mjs:178-187 checks fact.origin or text support but does not infer a typed origin; smooth-sequences/lib/migrate-v3.mjs already has resolveFactOrigin/typedOriginSupports for the migration path.\n- Classification of the HEAD artifact's 5,586 authored facts: 4,484 are supported by an operation row, a contract_registry clause or the step quote; 1,102 are unsupported = 275 session_binding + 279 remote_time_handshake + 274 pre_state_checkpoint + 274 prose. The previous annotations candidate drops the 828 boolean prerequisites and moves 274 prose facts to contract_prose.\n- regeneration/lib/transaction.mjs:348-356 runPackageViews writes SEQUENCES.json but never runs grill-me-for-rfc/render-distribution.mjs.\n- smooth-sequences/lib/checks-distribution-map.mjs:137 skips a unit whose roleCandidate is absent; the current 29 views carry roleCandidate for 233 units (193 implementer, 40 undecided), but a stale view would be silently skipped.\n- The upstream source is ~/shyme/zasso/tools/conver/.claude/scripts. Makefile:159-163 install-to-projects runs node install.js -y -t ~/shyme/gaia/.claude. The gaia tree currently carries three uncommitted program fixes that are not in tools/conver; they must be ported upstream with tests before the install.\n- The prescribed sequence for the workspace is: fix tools/conver and install; restore gaia generated/evidence files to HEAD; correct the annotations candidate; open a regeneration transaction with --annotations; continue to educe-pending; run /educe-sequences in staging; continue to commit; run /grill-me-for-rfc in all crates; stop before the live /smooth-sequences, which the user runs.\n2026-10-26 update: gaia HEAD advanced to v0.0.233 (e0d3409) and is clean; it carries the previous repair artifact 35f478c7..., manifest 35f478c7..., readings 8c78ba6b.... The pre-repair pass artifact 8c78ba6b... is at e6dd029 (v0.0.232). The convergence restores artifact and evidence from e6dd029, not from the current HEAD.",
+          "boyScoutPlan": "- Extract the typed-origin inference into .claude/scripts/smooth-sequences/lib/fact-origin.mjs and name the exports resolveFactOrigin and typedFactSupports; migrate-v3 and checks-layer-b call the same implementation.\n- Rename transaction helpers to domain verbs: readArtifactAndEvidenceCurrency, requiresEduceHandoff, advanceManifestArtifactIfFresh, describeConvergenceFailure; one responsibility per helper.\n- Replace hardcoded code strings with named constants in one codes module so the transaction, debt gate and detector cannot drift.\n- Split runPipelineProducer into setup, annotations migration, evidence-currency check, views and distribution refresh; each step returns a named failure and never swallows stderr.\n- Keep install-to-projects as the only propagation path; add an install-parity test that compares source and installed bytes.",
+          "created_at": "2026-10-25",
+          "updated_at": "2026-10-25",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 precondition+postcondition+invariant — tests/regeneration/px310-evidence-currency.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { readArtifactAndEvidenceCurrency } from '../../.claude/scripts/regeneration/lib/transaction.mjs';\n\ntest('C001 a manifest older than the artifact is evidence-stale', () => {\n  const root = mkdtempSync(join(tmpdir(), 'px310-c001-'));\n  try {\n    mkdirSync(join(root, 'educe-sequences'), { recursive: true });\n    writeFileSync(join(root, 'spec.md'), 'spec');\n    writeFileSync(join(root, 'Gaia-sequences.json'), JSON.stringify({ spec: { sha256: 'spec-digest' } }));\n    writeFileSync(join(root, 'educe-sequences/EVIDENCE-MANIFEST.json'), JSON.stringify({ artifact: { sha256: 'old' } }));\n    const result = readArtifactAndEvidenceCurrency({ stagingRoot: root, specPath: join(root, 'spec.md') });\n    assert.equal(result.state, 'evidence-stale');\n    assert.notEqual(result.artifactDigest, result.manifestArtifactDigest);\n  } finally {\n    rmSync(root, { recursive: true, force: true });\n  }\n});\n```",
+            "C002 precondition+postcondition+invariant — tests/smooth-sequences/px310-fact-origin.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { resolveFactOrigin, typedFactSupports } from '../../.claude/scripts/smooth-sequences/lib/fact-origin.mjs';\n\ntest('C002 a legacy session_binding fact is an operation projection', () => {\n  const fact = { factId: 'session_binding', text: 'a session binding is required' };\n  const operation = { requires_session_binding: true };\n  const origin = resolveFactOrigin(fact, { operation });\n  assert.equal(origin, 'operation');\n  assert.equal(typedFactSupports(fact, origin, { operation, field: 'requires_session_binding' }), true);\n});\n```",
+            "C003 precondition+postcondition+invariant — tests/regeneration/px310-transaction-handoff.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { decideDeriveState } from '../../.claude/scripts/regeneration/lib/transaction.mjs';\n\ntest('C003 an artifact changed by migrate-v3 without a new reading hands off', () => {\n  const result = decideDeriveState({\n    artifactDigest: 'new',\n    manifestArtifactDigest: 'old',\n    readingsDigest: 'old',\n    generation: 16,\n  });\n  assert.equal(result.state, 'educe-pending');\n  assert.equal(result.code, 'EDUCE_HANDOFF_REQUIRED');\n});\n```",
+            "C004 precondition+postcondition+invariant — tests/regeneration/px310-debt.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { computeDebtIncrease, debtOfDetectorReport } from '../../.claude/scripts/regeneration/lib/debt.mjs';\n\ntest('C004 STALE_EVIDENCE is debt even when the artifact input changed', () => {\n  const staging = debtOfDetectorReport({\n    certificate: {\n      inputs: { artifact: 'new' },\n      open: [{ id: 'READ:1', code: 'STALE_EVIDENCE' }],\n    },\n  });\n  const increase = computeDebtIncrease({\n    baseline: { obligations: { inputDigest: 'old', closed: ['READ:1'], open: [] } },\n    staging,\n  });\n  assert.equal(increase.increased, true);\n  assert.equal(increase.staleEvidence, 1);\n});\n```",
+            "C005 precondition+postcondition+invariant — tests/regeneration/px310-distribution-refresh.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nimport { checkDistributionMap } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';\n\ntest('C005 the staged RFC carries the rendered anchor and the map resolves', () => {\n  const staged = createStagedPackage({ viewUnits: ['op-1'], rfc: '# Package\\n' });\n  assert.match(readFileSync(join(staged, 'pkg/RFC.md'), 'utf8'), /<!-- unit: op-1 -->/);\n  assert.deepEqual(checkDistributionMap({ view: readView(staged), rfc: readRfc(staged) }), []);\n});\n```",
+            "C006 precondition+postcondition+invariant — tests/shared-obligations/px310-generation-freshness.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { generationFreshness } from '../../.claude/scripts/shared-obligations/predicates.mjs';\n\ntest('C006 a legacy generation without a start cannot pass freshness', () => {\n  const result = generationFreshness(\n    { readerGeneration: 16, readAt: '2026-10-22T06:15:32.033Z' },\n    16,\n    null,\n  );\n  assert.equal(result.ok, false);\n  assert.equal(result.code, 'LEGACY_GENERATION');\n});\n```",
+            "C007 precondition+postcondition+invariant — tests/smooth-sequences/px310-owner-roles.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { checkOwnerRoles } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';\n\ntest('C007 an absent roleCandidate is judged, not skipped', () => {\n  const maps = [{ packageId: 'pkg-1', units: [{ unitId: 'op-1', kind: 'operation', role: 'consumer' }] }];\n  const result = checkOwnerRoles(maps, {\n    roleCandidates: new Map(),\n    activeOperationUnits: new Set(['op-1']),\n  });\n  assert.equal(result.ok, false);\n  assert.equal(result.code, 'OWNER_ROLE_UNDECLARED');\n});\n```",
+            "C008 precondition+postcondition+invariant — tests/regeneration/px310-stop-before-live-smooth.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\n\ntest('C008 the ticket leaves live smooth-sequences untouched', () => {\n  const before = readFileSync(join(liveRoot, 'smooth-sequences/status.json'), 'utf8');\n  runTicketToCommittedTransaction({ liveRoot, stagingRoot });\n  assert.equal(readFileSync(join(liveRoot, 'smooth-sequences/status.json'), 'utf8'), before);\n  assert.match(readFileSync(join(repo, 'specs/PX-310.md'), 'utf8'), /stop before live \\/smooth-sequences/);\n});\n```",
+            "C009 precondition+postcondition+invariant — tests/regeneration/px310-install-parity.test.mjs\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { assertInstallParity } from '../../.claude/scripts/tickets/lib/install-parity.mjs';\n\ntest('C009 installed bytes equal source bytes', () => {\n  const root = mkdtempSync(join(tmpdir(), 'px310-c009-'));\n  try {\n    mkdirSync(join(root, 'source/.claude/scripts/regeneration/lib'), { recursive: true });\n    mkdirSync(join(root, 'target/.claude/scripts/regeneration/lib'), { recursive: true });\n    const relative = 'regeneration/lib/transaction.mjs';\n    writeFileSync(join(root, 'source/.claude/scripts', relative), 'export const x = 1;\\n');\n    writeFileSync(join(root, 'target/.claude/scripts', relative), 'export const x = 1;\\n');\n    assert.doesNotThrow(() => assertInstallParity({ sourceRoot: join(root, 'source'), targetRoot: join(root, 'target') }));\n    writeFileSync(join(root, 'target/.claude/scripts', relative), 'export const x = 2;\\n');\n    assert.throws(\n      () => assertInstallParity({ sourceRoot: join(root, 'source'), targetRoot: join(root, 'target') }),\n      /INSTALL_PARITY_MISMATCH/,\n    );\n  } finally {\n    rmSync(root, { recursive: true, force: true });\n  }\n});\n```"
+          ],
+          "startedAt": "2026-10-26",
+          "changes": [
+            {
+              "before": "authored facts had no typed-origin inference outside migrate-v3",
+              "after": "fact-origin.mjs is shared by migrate-v3 and checks-layer-b; 5,052 of 5,586 HEAD facts resolve as typed",
+              "description": "W1 typed-origin inference"
+            },
+            {
+              "before": "annotations could not preserve unsupported prose",
+              "after": "annotations.contracts[step].contract_prose is written to the step",
+              "description": "W1b contract_prose passthrough"
+            },
+            {
+              "before": "transaction treated an artifact as current from spec sha alone",
+              "after": "readArtifactAndEvidenceCurrency returns evidence-stale and runPipelineProducer returns educe-pending",
+              "description": "W2 evidence currency and handoff"
+            },
+            {
+              "before": "debt gate ignored stale evidence codes",
+              "after": "debtOfDetectorReport counts STALE_EVIDENCE/WORKLIST_MISMATCH/ATTACK_MISMATCH/READER_GENERATION_STALE/READING_NOT_REREAD",
+              "description": "W3 debt gate"
+            },
+            {
+              "before": "detector read artifactDigest from the mutable manifest",
+              "after": "detector hashes the artifact file and reports ARTIFACT_DIGEST_MISMATCH in strict mode",
+              "description": "W3 detector digest"
+            },
+            {
+              "before": "a stale distribution map refused the renderer",
+              "after": "renderDistribution re-renders STALE_DISTRIBUTION_MAP and the transaction refreshes existing maps",
+              "description": "W4 distribution refresh"
+            },
+            {
+              "before": "roleCandidate absence was skipped",
+              "after": "only an explicit undecided candidate is skipped",
+              "description": "W3 role gating"
+            },
+            {
+              "before": "program changes had no install parity check",
+              "after": "assertInstallParity compares tools/conver and gaia .claude/scripts",
+              "description": "W5 install parity"
+            }
+          ]
         }
       ]
     },

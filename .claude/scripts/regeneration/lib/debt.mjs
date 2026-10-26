@@ -31,7 +31,16 @@ export function debtOfDetectorReport(report) {
     vacuousChecks: Array.isArray(certificate.open) ? certificate.open.filter((entry) => entry.code === 'VACUOUS').length : 0,
     unheldJudgments: certificate.judged === undefined ? 0 : (certificate.judged.broken ?? 0) + (certificate.judged.unresolved ?? 0),
   };
-  return { findings, blocked, obligations };
+  const staleEvidenceCodes = new Set([
+    'STALE_EVIDENCE',
+    'WORKLIST_MISMATCH',
+    'ATTACK_MISMATCH',
+    'READER_GENERATION_STALE',
+    'READING_NOT_REREAD',
+  ]);
+  const openEntries = Array.isArray(certificate?.open) ? certificate.open : [];
+  const staleEvidence = openEntries.filter((entry) => staleEvidenceCodes.has(entry.code)).length;
+  return { findings, blocked, obligations, staleEvidence };
 }
 
 /** The debt a readings summary names. */
@@ -97,6 +106,7 @@ export function computeDebtIncrease({ baseline = {}, staging = {} }) {
   const staleReceipts = Number.isInteger(stagingObligations.staleReceipts) ? stagingObligations.staleReceipts : 0;
   const vacuousChecks = Number.isInteger(stagingObligations.vacuousChecks) ? stagingObligations.vacuousChecks : 0;
   const unheldJudgments = Number.isInteger(stagingObligations.unheldJudgments) ? stagingObligations.unheldJudgments : 0;
+  const staleEvidence = Number.isInteger(staging.staleEvidence) ? staging.staleEvidence : 0;
   const increased = newFindings.length > 0
     || newBlocked.length > 0
     || newReadingSubjects.length > 0
@@ -108,7 +118,8 @@ export function computeDebtIncrease({ baseline = {}, staging = {} }) {
     || stuckObligations.length > 0
     || staleReceipts > 0
     || vacuousChecks > 0
-    || unheldJudgments > 0;
+    || unheldJudgments > 0
+    || staleEvidence > 0;
   const code = obligationRegressions.length > 0
     ? 'EVIDENCE_REGRESSION'
     : stuckObligations.length > 0
@@ -127,6 +138,7 @@ export function computeDebtIncrease({ baseline = {}, staging = {} }) {
     staleReceipts,
     vacuousChecks,
     unheldJudgments,
+    staleEvidence,
     increased,
     code,
   };
@@ -146,7 +158,7 @@ export function summarizeDebt(debt = {}) {
 
 /** One line naming the first new identity of each kind. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-287, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-287|PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287, PX-289, PX-290, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-287|PX-289|PX-290|PX-310) --for-spec --no-implementation-order`.
 function increaseDetail(increase) {
   const parts = [];
   if (increase.newFindings.length > 0) parts.push(`finding ${increase.newFindings[0].replace(IDENTITY_SEPARATOR, ' ')}`);
@@ -160,6 +172,7 @@ function increaseDetail(increase) {
   if (increase.staleReceipts > 0) parts.push(`stale receipts ${increase.staleReceipts}`);
   if (increase.vacuousChecks > 0) parts.push(`vacuous checks ${increase.vacuousChecks}`);
   if (increase.unheldJudgments > 0) parts.push(`unheld judgments ${increase.unheldJudgments}`);
+  if (increase.staleEvidence > 0) parts.push(`stale evidence ${increase.staleEvidence}`);
   return parts.join(', ');
 }
 

@@ -164,7 +164,7 @@ function printUnverified(receipt) {
 }
 
 /** Run one command and print its outcome. */
-// [::TICKET::] PX-278, PX-279, PX-280, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-287, PX-290, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287|PX-290|PX-310) --for-spec --no-implementation-order`.
 function run(argv) {
   const root = cwd();
   const { command, options } = parseArguments(argv);
@@ -182,6 +182,7 @@ function run(argv) {
       candidateTreeDecisions: options.treeDecisions,
       candidateAnnotations: options.annotations,
       candidateEvidence: options.evidence,
+      requireEvidenceCurrency: true,
       reason: options.reason,
     });
     process.stdout.write(`opened ${opened.transactionId}\n`);

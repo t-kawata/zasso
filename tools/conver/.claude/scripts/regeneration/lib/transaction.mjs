@@ -8,13 +8,15 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { digestOf } from '../../educe-sequences/rail/load.mjs';
 import { readDebtBaseline } from '../../smooth-sequences/lib/report.mjs';
 import { readUnresolvedReadingSubjects } from '../../smooth-sequences/lib/readings-summary.mjs';
+import { parseDistributionMap } from '../../sequences-slice/lib/distribution-map.mjs';
+import { readManifestAt, writeManifestAt } from '../../shared-obligations/evidence.mjs';
 import { ARTIFACT_SUFFIX, verifyChain } from './chain.mjs';
 import { commitGeneration, recoverCommit } from './commit.mjs';
 import { computeDebtIncrease, debtOfDetectorReport, debtOfReadings, summarizeDebt } from './debt.mjs';
@@ -192,7 +194,7 @@ function resolveCandidateInputs(input) {
  * @returns {{ transactionId: string, stagingRoot: string, stagingSpecPath: string }}
  */
 export function openTransaction(input) {
-  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence, reason } = input;
+  const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence, reason, requireEvidenceCurrency = false } = input;
   assertThawable({ root, reason });
   const candidates = resolveCandidateInputs({ root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence });
   const transactionId = newTransactionId();
@@ -214,6 +216,7 @@ export function openTransaction(input) {
     candidateEvidence: candidateEvidence ?? null,
     changedInputs: candidates.changedInputs,
     specRelativePath: candidates.specRelativePath,
+    requireEvidenceCurrency,
     stagingRoot,
     archiveRoot: join(root, 'regeneration', 'archive', transactionId),
     base,
@@ -317,6 +320,228 @@ export function readArtifactCurrency({ stagingRoot, specPath }) {
     : { state: 'stale', artifactPath };
 }
 
+/** How many artifact/evidence handoffs one transaction may take before it fails. */
+export const MAX_EDUCE_HANDOFFS = 5;
+const HANDOFF_FILE = '.educe-handoff.json';
+const READINGS_PREFIX = 'readings-';
+const READINGS_SUFFIX = '.jsonl';
+const READ_PHASE_TAG = 'read';
+const READ_PHASE_DONE = 'done';
+const EVIDENCE_DIRECTORY = 'educe-sequences';
+
+/** The one artifact digest every reading row carries, or null when they disagree. */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function readingsArtifactDigest(stagingRoot) {
+  const directory = join(stagingRoot, EVIDENCE_DIRECTORY);
+  if (!existsSync(directory)) return null;
+  const digests = new Set();
+  for (const name of readdirSync(directory)) {
+    if (!name.startsWith(READINGS_PREFIX) || !name.endsWith(READINGS_SUFFIX)) continue;
+    const lines = readFileSync(join(directory, name), 'utf8').split('\n').filter((line) => line.trim() !== '');
+    for (const line of lines) {
+      let row;
+      try {
+        row = JSON.parse(line);
+      } catch (error) {
+        throw new RegenerationError(`readings file ${name} is not valid JSONL: ${error.message}`, {
+          code: 'UNREADABLE_READINGS',
+          path: join(directory, name),
+          repair: 'Restore the readings file from the generation archive and rerun.',
+        });
+      }
+      if (typeof row?.artifactDigest === 'string' && row.artifactDigest !== '') digests.add(row.artifactDigest);
+    }
+  }
+  if (digests.size === 0) return null;
+  return digests.size === 1 ? [...digests][0] : null;
+}
+
+/** Whether an educe generation still has a reader phase open. */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function hasOpenReadPhases(stagingRoot) {
+  const statusPath = join(stagingRoot, EVIDENCE_DIRECTORY, 'status.json');
+  if (!existsSync(statusPath)) return false;
+  let status;
+  try {
+    status = JSON.parse(readFileSync(statusPath, 'utf8'));
+  } catch (error) {
+    throw new RegenerationError(`educe status is unreadable: ${error.message}`, {
+      code: 'UNREADABLE_STATUS',
+      path: statusPath,
+      repair: 'Restore the status file from the generation archive and rerun.',
+    });
+  }
+  return (status.phases ?? []).some((phase) => phase?.tag === READ_PHASE_TAG && phase?.status !== READ_PHASE_DONE);
+}
+
+/**
+ * The artifact currency plus the evidence currency.
+ *
+ * A manifest that lags the artifact is safe to advance only when the readings already
+ * answer the artifact; otherwise the artifact has no reader generation and the
+ * transaction must hand off.
+ */
+export function readArtifactAndEvidenceCurrency({ stagingRoot, specPath }) {
+  const names = readdirSync(stagingRoot).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
+  if (names.length === 0) {
+    return { state: 'missing', evidenceApplicable: false, artifactPath: null, artifactDigest: null, manifestArtifactDigest: null, readingsDigest: null, manifestStale: false };
+  }
+  if (names.length > 1) {
+    return { state: 'ambiguous', reason: `multiple artifacts: ${names.sort().join(', ')}`, evidenceApplicable: false, artifactPath: null, artifactDigest: null, manifestArtifactDigest: null, readingsDigest: null, manifestStale: false };
+  }
+  const artifactPath = join(stagingRoot, names[0]);
+  let artifact;
+  try {
+    artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+  } catch (error) {
+    return { state: 'stale', reason: `${names[0]} is not valid JSON: ${error.message}`, evidenceApplicable: false, artifactPath, artifactDigest: null, manifestArtifactDigest: null, readingsDigest: null, manifestStale: false };
+  }
+  if (artifact?.spec?.sha256 !== digestOf(specPath)) {
+    return { state: 'stale', evidenceApplicable: false, artifactPath, artifactDigest: null, manifestArtifactDigest: null, readingsDigest: null, manifestStale: false };
+  }
+
+  const artifactDigest = digestOf(artifactPath);
+  const manifest = readManifestAt(join(stagingRoot, EVIDENCE_DIRECTORY));
+  const manifestArtifactDigest = manifest?.artifact?.sha256 ?? null;
+  const readingsDigest = readingsArtifactDigest(stagingRoot);
+  // A manifest stamped by `begin` is evidence even before the readers answer; a manifest
+  // copied beside an artifact it does not name is not.
+  const evidenceApplicable = readingsDigest !== null
+    || (manifestArtifactDigest !== null && manifestArtifactDigest === artifactDigest);
+  if (!evidenceApplicable) {
+    return { state: 'current', evidenceApplicable: false, artifactPath, artifactDigest, manifestArtifactDigest, readingsDigest, manifestStale: false };
+  }
+  if (readingsDigest !== null && readingsDigest !== artifactDigest) {
+    return { state: 'evidence-stale', evidenceApplicable: true, artifactPath, artifactDigest, manifestArtifactDigest, readingsDigest, manifestStale: false };
+  }
+  if (manifestArtifactDigest !== null && manifestArtifactDigest !== artifactDigest) {
+    const manifestStale = readingsDigest === artifactDigest;
+    return {
+      state: manifestStale ? 'current' : 'evidence-stale',
+      evidenceApplicable: true,
+      artifactPath,
+      artifactDigest,
+      manifestArtifactDigest,
+      readingsDigest,
+      manifestStale,
+    };
+  }
+  return { state: 'current', evidenceApplicable: true, artifactPath, artifactDigest, manifestArtifactDigest, readingsDigest, manifestStale: false };
+}
+
+/**
+ * Whether a derived transaction must hand off to educe.
+ *
+ * Equality is the only proof: the artifact bytes, the manifest entry and every reading
+ * must name the same digest. An open read phase is a handoff even when the digests agree,
+ * because the reader has not answered the current generation yet.
+ */
+export function decideDeriveState(currency = {}) {
+  const {
+    artifactDigest,
+    manifestArtifactDigest,
+    readingsDigest,
+    generation = null,
+    readPhasesOpen = false,
+  } = currency;
+  if (readPhasesOpen) return { state: 'educe-pending', code: 'EDUCE_HANDOFF_REQUIRED', generation };
+  const hasArtifact = typeof artifactDigest === 'string' && artifactDigest !== '';
+  if (!hasArtifact) return { state: 'derived', code: null, generation };
+  if (typeof manifestArtifactDigest === 'string' && manifestArtifactDigest !== ''
+    && manifestArtifactDigest !== artifactDigest) {
+    return { state: 'educe-pending', code: 'EDUCE_HANDOFF_REQUIRED', generation };
+  }
+  if (typeof readingsDigest === 'string' && readingsDigest !== ''
+    && readingsDigest !== artifactDigest) {
+    return { state: 'educe-pending', code: 'EDUCE_HANDOFF_REQUIRED', generation };
+  }
+  return { state: 'derived', code: null, generation };
+}
+
+/** Count one educe handoff and refuse the budget overflow. */
+export function recordEduceHandoff({ stagingRoot }) {
+  const path = join(stagingRoot, HANDOFF_FILE);
+  let count = 0;
+  if (existsSync(path)) {
+    try {
+      count = JSON.parse(readFileSync(path, 'utf8')).count ?? 0;
+    } catch (error) {
+      throw new RegenerationError(`the educe handoff counter is unreadable: ${error.message}`, {
+        code: 'UNREADABLE_HANDOFF_COUNTER',
+        path,
+        repair: 'Remove the staging tree and open a new transaction.',
+      });
+    }
+  }
+  const next = count + 1;
+  if (next > MAX_EDUCE_HANDOFFS) {
+    return { ok: false, code: 'EDUCE_CONVERGENCE_EXCEEDED', count: next };
+  }
+  writeFileSync(path, JSON.stringify({ count: next }));
+  return { ok: true, code: null, count: next };
+}
+
+/**
+ * Advance the manifest artifact digest only when the readings answer that digest.
+ *
+ * This is the one place a manifest may follow an artifact. A producer that changes the
+ * artifact without a reader generation changes the digest but not this proof, so the
+ * manifest stays behind and the transaction hands off.
+ */
+export function advanceManifestArtifactIfFresh({ manifestDirectory, artifactDigest, readingsDigest }) {
+  if (typeof artifactDigest !== 'string' || artifactDigest === '') return false;
+  if (readingsDigest !== artifactDigest) return false;
+  const manifest = readManifestAt(manifestDirectory);
+  if (manifest === null) return false;
+  if (manifest.artifact?.sha256 === artifactDigest) return false;
+  writeManifestAt(manifestDirectory, {
+    ...manifest,
+    artifact: { ...(manifest.artifact ?? {}), sha256: artifactDigest },
+  });
+  return true;
+}
+
+/** Apply the staged annotations, returning whether the artifact bytes changed. */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function applyAnnotations({ stagingRoot }) {
+  const annotationsPath = join(stagingRoot, ANNOTATIONS_FILE_NAME);
+  if (!existsSync(annotationsPath)) return { ok: true, changed: false };
+  const artifactNames = readdirSync(stagingRoot).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
+  if (artifactNames.length !== 1) return { ok: true, changed: false };
+  const artifactPath = join(stagingRoot, artifactNames[0]);
+  const before = digestOf(artifactPath);
+  const migration = runNode(stagingRoot, 'smooth-sequences/migrate-v3.mjs', [stagingRoot, `--annotations=${annotationsPath}`]);
+  if (!migration.ok) return { ok: false, changed: false, stderr: migration.stderr };
+  const after = digestOf(artifactPath);
+  return { ok: true, changed: before !== after };
+}
+
+/**
+ * Refresh every staged package's RFC distribution map from its projected view.
+ *
+ * A transaction refreshes maps a package already carries; it does not adopt the feature
+ * for a package that never had one. The standalone renderer can bootstrap a first map,
+ * which is why the caller chooses.
+ */
+export function renderDistributionRefresh({ stagingRoot, treeManifest, onlyExistingMaps = false }) {
+  let rendered = 0;
+  for (const pkg of treeManifest?.workspace?.packages ?? []) {
+    const rfcPath = join(stagingRoot, pkg.path, 'RFC.md');
+    const viewPath = join(stagingRoot, pkg.path, 'SEQUENCES.json');
+    if (!existsSync(rfcPath) || !existsSync(viewPath)) continue;
+    if (onlyExistingMaps && !parseDistributionMap(readFileSync(rfcPath, 'utf8')).ok) continue;
+    const result = runNode(stagingRoot, 'grill-me-for-rfc/render-distribution.mjs', [
+      `--rfc=${rfcPath}`,
+      `--view=${viewPath}`,
+    ]);
+    if (!result.ok) {
+      return { ok: false, rendered, failedStep: `render-distribution:${pkg.id}`, stderr: result.stderr };
+    }
+    rendered += 1;
+  }
+  return { ok: true, rendered };
+}
+
 /**
  * Run the one-time setup: tree, allocate, educe begin and the authored-document merge.
  *
@@ -362,7 +587,7 @@ function runPackageViews({ stagingRoot, treeManifest, artifactPath }) {
  * a verify failure, skips it because the staging manifests now exist and the
  * producers would refuse to publish over them.
  */
-export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume = false }) {
+export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume = false, requireEvidenceCurrency = false }) {
   let treeManifest;
   if (resume) {
     const treeManifestPath = join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -376,12 +601,51 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
     treeManifest = setup.treeManifest;
   }
 
-  let artifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+  if (!requireEvidenceCurrency) {
+    let legacyArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+    if (legacyArtifact.state === 'missing' || legacyArtifact.state === 'stale') {
+      const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through', candidateSpec]);
+      legacyArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+      if (legacyArtifact.state === 'missing' || legacyArtifact.state === 'stale') {
+        return {
+          state: 'educe-pending',
+          setupDone: true,
+          stagingSpecPath: candidateSpec,
+          next: through.ok
+            ? `phase.mjs through completed without an artifact; ${educeCommandFor(candidateSpec)}`
+            : describeThroughHandoff(through, candidateSpec),
+        };
+      }
+    }
+    if (legacyArtifact.state === 'ambiguous') {
+      return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'artifact', stderr: legacyArtifact.reason };
+    }
+    const migration = applyAnnotations({ stagingRoot });
+    if (!migration.ok) {
+      return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'migrate-v3', stderr: migration.stderr };
+    }
+    legacyArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+    if (legacyArtifact.state !== 'current') {
+      return {
+        state: STATES.DERIVE_FAILED,
+        setupDone: true,
+        failedStep: 'migrate-v3',
+        stderr: legacyArtifact.reason ?? 'the migrated artifact is not current',
+      };
+    }
+    const legacyViews = runPackageViews({ stagingRoot, treeManifest, artifactPath: legacyArtifact.artifactPath });
+    if (!legacyViews.ok) {
+      return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: legacyViews.failedStep, stderr: legacyViews.stderr };
+    }
+    return { state: STATES.DERIVED, setupDone: true };
+  }
+
+  let artifact = readArtifactAndEvidenceCurrency({ stagingRoot, specPath: candidateSpec });
   if (artifact.state === 'missing' || artifact.state === 'stale') {
     // The rail performs every deterministic phase and stops at the first read
     // phase; a non-zero exit is therefore the handoff, not a producer failure.
     const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through', candidateSpec]);
-    artifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
+    artifact = readArtifactAndEvidenceCurrency({ stagingRoot, specPath: candidateSpec });
     if (artifact.state === 'missing' || artifact.state === 'stale') {
       return {
         state: 'educe-pending',
@@ -397,25 +661,68 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
     return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'artifact', stderr: artifact.reason };
   }
 
-  const annotationsPath = join(stagingRoot, ANNOTATIONS_FILE_NAME);
-  if (existsSync(annotationsPath)) {
-    const migration = runNode(stagingRoot, 'smooth-sequences/migrate-v3.mjs', [stagingRoot, `--annotations=${annotationsPath}`]);
-    if (!migration.ok) {
-      return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'migrate-v3', stderr: migration.stderr };
-    }
-    artifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
-    if (artifact.state !== 'current') {
-      return {
-        state: STATES.DERIVE_FAILED,
-        setupDone: true,
-        failedStep: 'migrate-v3',
-        stderr: artifact.reason ?? 'the migrated artifact is not current',
-      };
-    }
+  // Phase 9 writes the artifact from the declaration, so the authored rows must be
+  // merged again before the evidence currency is judged.
+  const reapplied = applyAnnotations({ stagingRoot });
+  if (!reapplied.ok) {
+    return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'migrate-v3', stderr: reapplied.stderr };
   }
+  artifact = readArtifactAndEvidenceCurrency({ stagingRoot, specPath: candidateSpec });
+  if (artifact.state === 'missing' || artifact.state === 'stale' || artifact.state === 'ambiguous') {
+    return {
+      state: STATES.DERIVE_FAILED,
+      setupDone: true,
+      failedStep: 'migrate-v3',
+      stderr: artifact.reason ?? 'the migrated artifact is not current',
+    };
+  }
+
+  if (artifact.manifestStale) {
+    advanceManifestArtifactIfFresh({
+      manifestDirectory: join(stagingRoot, EVIDENCE_DIRECTORY),
+      artifactDigest: artifact.artifactDigest,
+      readingsDigest: artifact.readingsDigest,
+    });
+    artifact = { ...artifact, manifestArtifactDigest: artifact.artifactDigest, manifestStale: false };
+  }
+
+  const decision = decideDeriveState({
+    artifactDigest: artifact.artifactDigest,
+    manifestArtifactDigest: artifact.manifestArtifactDigest,
+    readingsDigest: artifact.readingsDigest,
+    readPhasesOpen: artifact.evidenceApplicable && hasOpenReadPhases(stagingRoot),
+  });
+  if (decision.state === 'educe-pending') {
+    if (!artifact.evidenceApplicable || !hasOpenReadPhases(stagingRoot)) {
+      const begun = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
+      if (!begun.ok) {
+        return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'educe-sequences', stderr: begun.stderr };
+      }
+      const handoff = recordEduceHandoff({ stagingRoot });
+      if (!handoff.ok) {
+        return {
+          state: STATES.DERIVE_FAILED,
+          setupDone: true,
+          failedStep: 'educe-convergence',
+          stderr: `${handoff.code}: ${MAX_EDUCE_HANDOFFS} handoffs did not converge`,
+        };
+      }
+    }
+    return { state: 'educe-pending', setupDone: true, stagingSpecPath: candidateSpec, next: educeCommandFor(candidateSpec) };
+  }
+
+  advanceManifestArtifactIfFresh({
+    manifestDirectory: join(stagingRoot, EVIDENCE_DIRECTORY),
+    artifactDigest: artifact.artifactDigest,
+    readingsDigest: artifact.readingsDigest,
+  });
 
   const views = runPackageViews({ stagingRoot, treeManifest, artifactPath: artifact.artifactPath });
   if (!views.ok) return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: views.failedStep, stderr: views.stderr };
+  const distribution = renderDistributionRefresh({ stagingRoot, treeManifest, onlyExistingMaps: true });
+  if (!distribution.ok) {
+    return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: distribution.failedStep, stderr: distribution.stderr };
+  }
   return { state: STATES.DERIVED, setupDone: true };
 }
 
@@ -473,6 +780,7 @@ export function deriveGeneration({ root, transactionId, runProducer = runPipelin
       stagingRoot: entry.stagingRoot,
       candidateSpec: join(entry.stagingRoot, entry.specRelativePath ?? liveSpecPath(root)),
       resume: entry.setupDone === true,
+      requireEvidenceCurrency: entry.requireEvidenceCurrency === true,
     });
     const setupDone = result.setupDone ?? (result.state !== STATES.DERIVE_FAILED);
     if (setupDone === true) transition(root, transactionId, entry.state, { setupDone: true });

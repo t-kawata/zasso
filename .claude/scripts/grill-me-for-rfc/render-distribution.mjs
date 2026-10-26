@@ -246,8 +246,15 @@ function removeManagedAnchors(lines, managedUnitIds) {
   });
 }
 
-/** Insert one anchor at the end of each section a unit names. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+/**
+ * Insert one anchor immediately under each heading a unit names.
+ *
+ * The anchor belongs to the nearest heading above it: the reader that attributes anchors
+ * to sections walks headings and collects the lines between them. An anchor written at
+ * the end of a section body would be read as belonging to that section's last subsection,
+ * so the unit would read as undistributed under the heading the map cites.
+ */
+// [::TICKET::] PX-307, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-310) --for-spec --no-implementation-order`.
 function insertManagedAnchors(lines, map) {
   const headings = [];
   lines.forEach((line, index) => {
@@ -255,24 +262,23 @@ function insertManagedAnchors(lines, map) {
     if (match !== null) headings.push({ index, level: match[1].length, text: match[2].trim() });
   });
 
-  const byPosition = new Map();
+  const byHeading = new Map();
   for (const unit of map.units) {
     for (const section of unit.sections) {
-      const index = headings.findIndex((heading) => normalizeHeading(heading.text) === normalizeHeading(section));
-      if (index === -1) continue;
-      const heading = headings[index];
-      const next = headings.slice(index + 1).find((candidate) => candidate.level <= heading.level);
-      const at = next === undefined ? lines.length : next.index;
-      if (!byPosition.has(at)) byPosition.set(at, new Set());
-      byPosition.get(at).add(unit.unitId);
+      const heading = headings.find((candidate) => normalizeHeading(candidate.text) === normalizeHeading(section));
+      if (heading === undefined) continue;
+      const at = heading.index;
+      if (!byHeading.has(at)) byHeading.set(at, new Set());
+      byHeading.get(at).add(unit.unitId);
     }
   }
 
   const result = [...lines];
-  for (const at of [...byPosition.keys()].sort((left, right) => right - left)) {
-    const anchors = [...byPosition.get(at)].sort().map((unitId) => `<!-- unit: ${unitId} -->`);
-    const needsBlankLine = at > 0 && result[at - 1].trim() !== '';
-    result.splice(at, 0, ...(needsBlankLine ? [''] : []), ...anchors);
+  for (const at of [...byHeading.keys()].sort((left, right) => right - left)) {
+    const anchors = [...byHeading.get(at)].sort().map((unitId) => `<!-- unit: ${unitId} -->`);
+    const after = at + anchors.length + 1;
+    const needsBlankLine = after < result.length && result[after].trim() !== '';
+    result.splice(at + 1, 0, ...anchors, ...(needsBlankLine ? [''] : []));
   }
   return result;
 }
@@ -308,8 +314,26 @@ export function renderDistribution(rfcText, view) {
   let map;
   if (parsed.ok) {
     const valid = validateExistingMap(rfcText, parsed.map, view);
-    if (!valid.ok) return refuse(valid.code, { missing: valid.missing, invented: valid.invented, ambiguous: valid.ambiguous });
-    map = parsed.map;
+    if (!valid.ok && valid.code !== 'STALE_DISTRIBUTION_MAP') {
+      return refuse(valid.code, { missing: valid.missing, invented: valid.invented, ambiguous: valid.ambiguous });
+    }
+    if (!valid.ok) {
+      // The map's digest follows the view. A view the transaction just reprojected is
+      // exactly the case the digest is meant to change under, so render the map again
+      // rather than refusing the producer that owns the repair.
+      const refreshed = bootstrapFromLedger(rfcText, view);
+      if (!refreshed.ok) {
+        return refuse(refreshed.code, {
+          missing: refreshed.missing,
+          invented: refreshed.invented,
+          units: refreshed.units,
+          ambiguous: refreshed.ambiguous,
+        });
+      }
+      map = refreshed.map;
+    } else {
+      map = parsed.map;
+    }
   } else if (parsed.code === 'DISTRIBUTION_MAPPING_MISSING') {
     const bootstrapped = bootstrapFromLedger(rfcText, view);
     if (!bootstrapped.ok) return refuse(bootstrapped.code, {

@@ -427,6 +427,7 @@ function readSpecLines(root, artifact) {
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -554,7 +555,13 @@ export function runCommand(argv, io = {}) {
         allocateManifest: loaded.allocateManifest,
       });
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const artifactDigest = evidenceManifest?.artifact?.sha256 ?? null;
+      const manifestArtifactDigest = evidenceManifest?.artifact?.sha256 ?? null;
+      const artifactDigest = typeof loaded.artifactPath === 'string' && existsSync(loaded.artifactPath)
+        ? sha256File(loaded.artifactPath)
+        : manifestArtifactDigest;
+      const artifactDigestMismatch = manifestArtifactDigest !== null
+        && artifactDigest !== null
+        && manifestArtifactDigest !== artifactDigest;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const specLines = readSpecLines(root, loaded.artifact);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -582,7 +589,13 @@ export function runCommand(argv, io = {}) {
           generation,
         }).stale
         : [];
-      const receiptDebt = [...phaseReceiptDebt, ...writeReceiptDebt];
+      const artifactReceiptDebt = strictEvidence && artifactDigestMismatch
+        ? [{
+          code: 'ARTIFACT_DIGEST_MISMATCH',
+          reason: `manifest artifact sha ${manifestArtifactDigest} does not name the artifact ${artifactDigest}`,
+        }]
+        : [];
+      const receiptDebt = [...phaseReceiptDebt, ...writeReceiptDebt, ...artifactReceiptDebt];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const effortRecords = strictEvidence
         ? readJsonLinesIfPresent(join(root, 'educe-sequences', 'readings-effort.jsonl'))

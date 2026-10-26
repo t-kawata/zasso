@@ -8,9 +8,10 @@ import {
   validateMapAgainstView,
 } from '../../sequences-slice/lib/distribution-map.mjs';
 import { readLedgerRows } from '../../sequences-slice/lib/distribution-ledger.mjs';
+import { classifyOperationOwnership, resolveOwningPackages } from '../../sequences-slice/lib/ownership.mjs';
 import { normalizeHeading, readSectionUnitAnchors } from '../../rfc-graph/lib/unit-ids.mjs';
 import { finding } from './index.mjs';
-import { routeForPackage } from './repair-route.mjs';
+import { routeForPackage, routeForWorkspaceFinding } from './repair-route.mjs';
 
 /** One high-severity finding in the shape the smooth report already renders. */
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
@@ -85,7 +86,7 @@ export function checkDistributionMap({ view = null, rfc = null } = {}) {
  * @returns {{ ok: boolean, code?: string, unitId?: string, findings?: Array<object> }}
  */
 // [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
-export function checkOwnerRoles(maps) {
+export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUnits: activeUnits = null } = {}) {
   const byUnit = new Map();
   for (const map of maps ?? []) {
     for (const unit of map?.units ?? []) {
@@ -97,6 +98,9 @@ export function checkOwnerRoles(maps) {
   }
 
   for (const [unitId, roleEntries] of byUnit) {
+    if (activeUnits !== null && !activeUnits.has(unitId)) continue;
+    if (roleCandidates !== null && roleCandidates.get(unitId) === 'undecided') continue;
+    const packageIds = roleEntries.map((entry) => entry.packageId);
     const implementerEntries = roleEntries.filter((entry) => entry.role === 'implementer');
     // A single owner is the common case, and the case a wrong role hides best: one
     // consumer leaves the operation with no implementer at all.
@@ -106,6 +110,7 @@ export function checkOwnerRoles(maps) {
         ok: false,
         code: 'OWNER_ROLE_UNDECLARED',
         unitId,
+        packageIds,
         findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has a sole owner that does not declare itself the implementer`)],
       };
     }
@@ -120,10 +125,62 @@ export function checkOwnerRoles(maps) {
       ok: false,
       code: 'OWNER_ROLE_UNDECLARED',
       unitId,
+      packageIds,
       findings: [distributionFinding('OWNER_ROLE_UNDECLARED', unitId, `operation ${unitId} has ${implementerEntries.length} implementer(s) and no disjoint surface split`)],
     };
   }
   return { ok: true, findings: [] };
+}
+
+/**
+ * The role candidate each view declares, keyed by unit id.
+ *
+ * A view generated before the role declaration carries none. Its map was rendered with
+ * `consumer` as the only answer the renderer had, so that row is not a claim an author
+ * made and cannot be judged as one.
+ */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function declaredRoleCandidates(packages) {
+  const candidates = new Map();
+  for (const pkg of packages ?? []) {
+    for (const unit of pkg?.view?.ownedOperationUnits ?? []) {
+      if (typeof unit?.unitId !== 'string') continue;
+      if (unit.roleCandidate === undefined || unit.roleCandidate === null) continue;
+      candidates.set(unit.unitId, unit.roleCandidate);
+    }
+  }
+  return candidates;
+}
+
+/** The operation units the artifact marks active: only those order an act an implementer owes. */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function activeOperationUnits(artifact) {
+  const active = new Set();
+  for (const operation of artifact?.operations ?? []) {
+    if (operation?.disposition !== 'active') continue;
+    active.add(`op-${operation.id}`);
+  }
+  return active;
+}
+
+/**
+ * The packages that own an operation's result objects.
+ *
+ * The root coverage check runs before any view distributes the operation, so the views
+ * cannot answer which package it belongs to; the tree inventory can, because it names
+ * the package that owns each object type the operation produces.
+ */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+function operationOwnerPackages(index) {
+  const objects = Array.isArray(index?.treeManifest?.inventory?.objects)
+    ? index.treeManifest.inventory.objects
+    : [];
+  const ownership = resolveOwningPackages(objects);
+  const owners = new Map();
+  for (const operation of index?.artifact?.operations ?? []) {
+    owners.set(operation.id, classifyOperationOwnership(operation, ownership).ownerPackageIds);
+  }
+  return owners;
 }
 
 /**
@@ -150,11 +207,14 @@ export function collectDistributionMap(index) {
     if (parsed.ok) maps.push({ packageId: pkg.id, units: parsed.map.units });
   }
 
-  const roles = checkOwnerRoles(maps);
+  const roles = checkOwnerRoles(maps, {
+    roleCandidates: declaredRoleCandidates(index?.packages),
+    activeOperationUnits: activeOperationUnits(index?.artifact),
+  });
   if (!roles.ok) {
     for (const entry of roles.findings) {
       findings.push(finding('S7.owner-role-undeclared', 'deficiency', entry.unitId, {
-        ...routeForPackage('S7.owner-role-undeclared', index, 'workspace'),
+        ...routeForWorkspaceFinding('S7.owner-role-undeclared', index, roles.packageIds),
         why: entry.message,
         fix: 'declare one implementer or a disjoint surface split in the package distribution maps',
       }));
@@ -166,11 +226,12 @@ export function collectDistributionMap(index) {
     for (const pkg of index?.packages ?? []) {
       for (const unitId of collectViewUnits(pkg.view).keys()) viewUnitIds.add(unitId);
     }
+    const ownersByOperation = operationOwnerPackages(index);
     for (const operation of index?.artifact?.operations ?? []) {
       const unitId = `op-${operation.id}`;
       if (!viewUnitIds.has(unitId)) {
         findings.push(finding('S7.root-unit-uncovered', 'omission', unitId, {
-          ...routeForPackage('S7.root-unit-uncovered', index, 'workspace'),
+          ...routeForWorkspaceFinding('S7.root-unit-uncovered', index, ownersByOperation.get(operation.id)),
           why: `operation ${operation.id} is in the artifact and no package view distributes it`,
           fix: 'project the operation into the owning package view before distributing',
         }));

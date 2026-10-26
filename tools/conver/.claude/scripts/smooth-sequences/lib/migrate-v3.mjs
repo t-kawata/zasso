@@ -16,7 +16,18 @@
 import { createHash } from 'node:crypto';
 
 import { SmoothSequencesError } from './errors.mjs';
+import {
+  contentTokens,
+  isFactTextSupported,
+  MIN_FACT_SUPPORT_RATIO,
+  normalizeFactText,
+  registryOriginOf,
+  resolveFactOrigin,
+  typedFactSupports,
+} from './fact-origin.mjs';
 import { SURFACES } from './surfaces.mjs';
+
+export { contentTokens, isFactTextSupported, MIN_FACT_SUPPORT_RATIO } from './fact-origin.mjs';
 
 export const SCHEMA_V2 = 2;
 export const SCHEMA_V3 = 3;
@@ -27,13 +38,6 @@ export const UNKNOWN_ANNOTATION_TARGET = 'UNKNOWN_ANNOTATION_TARGET';
 const AUTHORSHIP_KEY = 'authorship';
 const ANNOTATIONS_DIGEST_KEY = 'annotations_digest';
 const CITED_FIELDS = Object.freeze(['pre', 'post', 'invariants']);
-/** The share of a fact's content terms a quote must support before the fact is authored prose. */
-export const MIN_FACT_SUPPORT_RATIO = 0.5;
-const FACT_STOPWORDS = new Set([
-  'the', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'of', 'to', 'and', 'or', 'in',
-  'on', 'for', 'with', 'by', 'as', 'that', 'this', 'it', 'its', 'from', 'at', 'not',
-  'no', 'must', 'shall', 'may', 'will', 'can', 'has', 'have', 'had', 'when', 'then',
-]);
 const FACT_LIST_FIELDS = Object.freeze(['pre', 'post', 'invariants', 'consumes', 'produces', 'errors']);
 const ACTIVE_DISPOSITION = 'active';
 const BOUNDARY_EFFECT_DIRECTIONS = Object.freeze(['provides', 'consumes']);
@@ -340,97 +344,7 @@ export function digestOfAnnotations(annotations) {
   return createHash('sha256').update(canonicalJson(annotations)).digest('hex');
 }
 
-/** Whitespace-normalized text for a quote comparison. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
-function normalizeQuote(text) {
-  return String(text ?? '').replace(/\s+/g, ' ').trim();
-}
-
-/** The content terms a fact and a quote are compared on. */
-export function contentTokens(text) {
-  return String(text ?? '')
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length >= 3 && !FACT_STOPWORDS.has(token))
-    .map((token) => token.replace(/(ing|ed|es|s)$/u, ''))
-    .filter((token) => token.length >= 3);
-}
-
-/**
- * Whether a quote supports a fact's text.
- *
- * A reader may paraphrase the line; what it may not do is state a clause the line never
- * mentions. The rule accepts a literal substring or a majority of the fact's content
- * terms, with the s/ed/ing suffix folded so "derived" and "derives" meet.
- */
-export function isFactTextSupported(text, quote) {
-  const normalizedText = normalizeQuote(text).toLowerCase();
-  const normalizedQuote = normalizeQuote(quote).toLowerCase();
-  if (normalizedText === '') return false;
-  if (normalizedQuote.includes(normalizedText)) return true;
-  const factTokens = contentTokens(text);
-  if (factTokens.length === 0) return false;
-  const quoteTokens = new Set(contentTokens(quote));
-  const supported = factTokens.filter((token) => quoteTokens.has(token)).length;
-  return supported / factTokens.length >= MIN_FACT_SUPPORT_RATIO;
-}
-
-/** The registry row and clause a fact's text reproduces, or null. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function registryOriginOf(text, contractRegistry) {
-  const value = normalizeQuote(text);
-  if (value === '') return null;
-  for (const contract of Array.isArray(contractRegistry) ? contractRegistry : []) {
-    for (const [field, clause] of Object.entries(contract?.clauses ?? {})) {
-      const values = Array.isArray(clause) ? clause : [clause];
-      const matches = values.some((entry) => typeof entry === 'string'
-        && (normalizeQuote(entry).includes(value) || value.includes(normalizeQuote(entry))));
-      if (matches) return { boundaryId: contract.boundary_id ?? contract.contract_id, field };
-    }
-  }
-  return null;
-}
-
-/** The typed origin a fact carries or reproduces, or null when it is prose. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function resolveFactOrigin(entry, options) {
-  if (typeof entry?.origin === 'string' && entry.origin.trim() !== '') return entry.origin;
-  const declaredBoundary = entry?.source?.boundaryId;
-  const declaredField = entry?.source?.field;
-  if (typeof declaredBoundary === 'string' && typeof declaredField === 'string') return 'contract_registry';
-  // A text the step quote supports is authored prose even when it also matches a registry
-  // clause; only a text the quote cannot support is a projection and needs the typed row.
-  if (options?.step !== undefined && isFactTextSupported(entry?.text, options.step.quote)) return null;
-  const projected = registryOriginOf(entry?.text, options?.contractRegistry);
-  if (projected !== null) return 'contract_registry';
-  return null;
-}
-
-/** Whether the typed row a fact names actually carries its text. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function typedOriginSupports(entry, origin, options) {
-  const field = entry?.source?.field;
-  if (typeof field !== 'string' || field.trim() === '') return false;
-  if (origin === 'contract_registry') {
-    const boundaryId = entry?.source?.boundaryId;
-    const contract = (Array.isArray(options?.contractRegistry) ? options.contractRegistry : [])
-      .find((row) => row?.boundary_id === boundaryId || row?.contract_id === boundaryId);
-    if (contract === undefined) return false;
-    const clause = contract?.clauses?.[field];
-    const values = Array.isArray(clause) ? clause : [clause];
-    return values.some((value) => typeof value === 'string'
-      && normalizeQuote(value).includes(normalizeQuote(entry.text)));
-  }
-  if (origin === 'operation' || origin === 'artifact') {
-    const operation = options?.operation;
-    if (operation === null || operation === undefined) return false;
-    const value = operation[field];
-    if (value === undefined || value === null) return false;
-    return normalizeQuote(typeof value === 'string' ? value : JSON.stringify(value))
-      .includes(normalizeQuote(entry.text));
-  }
-  return false;
-}
+const normalizeQuote = normalizeFactText;
 
 /** Whether an annotations document carries any authored input. */
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
@@ -467,7 +381,7 @@ export function assertCitedFact(entry, step, field, options = {}) {
     }
     return;
   }
-  if (!typedOriginSupports(entry, origin, options)) {
+  if (!typedFactSupports(entry, origin, options)) {
     refuse(`the ${origin} row it cites does not carry its text`);
   }
 }
@@ -592,7 +506,7 @@ function synthesizedSurfacesOf(authorship) {
 }
 
 /** Build the v3 artifact from a v2 artifact and an annotations document. */
-// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
 function migrateV2ToV3(input) {
   const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
   const boundaries = treeManifest.dependencies?.boundaries ?? [];
@@ -608,9 +522,12 @@ function migrateV2ToV3(input) {
     const owners = ownersByOperation.get(step.operation) ?? new Set();
     const annotation = stepAnnotations[step.id] ?? stepAnnotations[`${step.sequence}/${step.operation}`];
     const authored = contractAnnotations[step.id] ?? contractAnnotations[`${step.sequence}/${step.operation}`];
-    const contractProse = typeof step.contract === 'string' && step.contract.trim() !== ''
+    const annotatedProse = typeof authored?.contract_prose === 'string' && authored.contract_prose.trim() !== ''
+      ? authored.contract_prose
+      : null;
+    const contractProse = annotatedProse ?? (typeof step.contract === 'string' && step.contract.trim() !== ''
       ? step.contract
-      : (typeof step.contract_prose === 'string' && step.contract_prose.trim() !== '' ? step.contract_prose : null);
+      : (typeof step.contract_prose === 'string' && step.contract_prose.trim() !== '' ? step.contract_prose : null));
     const derived = typedContractFor({ step, operation, owners, sequenceUnits, boundaries, contractsByBoundary });
     const contract = authored === undefined
       ? derived
@@ -721,7 +638,7 @@ function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
 }
 
 /** Merge a new annotations document into an existing v3 artifact. */
-// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
 function mergeAnnotationsIntoV3(input) {
   const { artifact, treeManifest, allocateManifest = null, annotations = {} } = input;
   const next = JSON.parse(JSON.stringify(artifact));
@@ -749,6 +666,9 @@ function mergeAnnotationsIntoV3(input) {
       operation,
     });
     step.contract = { ...authored, authored: { ...authored }, contract_origin: classifyContractOrigin(authored, derived) };
+    if (typeof contract.contract_prose === 'string' && contract.contract_prose.trim() !== '') {
+      step.contract_prose = contract.contract_prose;
+    }
   }
 
   for (const [operationId, annotation] of Object.entries(operationAnnotations)) {

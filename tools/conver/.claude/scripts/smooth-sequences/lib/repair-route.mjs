@@ -261,6 +261,25 @@ export function routeForSpecRow(checkId, index, locator) {
   return repairRouteFor(checkId, { artifact: index.artifact, artifactPath: index.artifactPath, locator });
 }
 
+/**
+ * The route for a finding a root check raises, which may name several packages or none.
+ *
+ * A root check sees every package at once, so the row it names belongs to whichever
+ * package the finding carries first. When it carries no known package, no view is the
+ * place to repair: the artifact's generating input is.
+ */
+// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+export function routeForWorkspaceFinding(checkId, index, packageIds = []) {
+  const known = (Array.isArray(packageIds) ? packageIds : [])
+    .find((packageId) => index?.packagesById?.has(packageId));
+  if (known !== undefined) return routeForPackage(checkId, index, known);
+  return repairRouteFor(checkId, {
+    artifact: index?.artifact,
+    artifactPath: index?.artifactPath,
+    surface: SURFACE.SPEC,
+  });
+}
+
 /** The route for a finding about a package's authored RFC or view. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function routeForPackage(checkId, index, packageId, locator) {
