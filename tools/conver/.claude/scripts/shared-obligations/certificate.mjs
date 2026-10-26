@@ -55,6 +55,17 @@ const DEFAULT_RESIDUE = Object.freeze([
   { claim: 'enumeration completeness relative to the world', falsifier: 'Name an operation the specification states and the census does not carry.' },
 ]);
 
+/** The id prefix a receipt entry carries so a consumer can tell it from an obligation. */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+const RECEIPT_ID_PREFIX = 'RECEIPT:';
+
+/** The receipt codes the certificate reports apart. */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+const RECEIPT_CODES = Object.freeze({
+  stale: Object.freeze(['STALE_RECEIPT', 'STALE_WRITE_RECEIPT']),
+  missingWrite: 'MISSING_WRITE_RECEIPT',
+});
+
 /** Whether the caller supplied the v3 assurance shape. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function isV3Assurance(assurance) {
@@ -238,13 +249,19 @@ export function buildCertificate(options = {}) {
       if (!open.some((existing) => existing.id === entry.id)) open.push(openEntry(entry, entry.code));
     }
   }
+  // Receipt debt blocks completion but is not an obligation. Keeping the entries in a
+  // side list is what lets the summary count obligations and receipts apart without
+  // changing the open[] shape a reader already consumes.
+  const receiptEntries = [];
   for (const debt of Array.isArray(receiptDebt) ? receiptDebt : []) {
-    open.push({
-      id: `RECEIPT:${debt?.path ?? debt?.phase ?? 'unknown'}`,
+    const entry = {
+      id: `${RECEIPT_ID_PREFIX}${debt?.path ?? debt?.phase ?? 'unknown'}`,
       code: debt?.code ?? 'STALE_RECEIPT',
       reason: debt?.code ?? 'STALE_RECEIPT',
       subject: Array.isArray(debt?.mismatches) ? debt.mismatches.join(', ') : null,
-    });
+    };
+    open.push(entry);
+    receiptEntries.push(entry);
   }
   // A design-authoring gate that failed leaves the obligation list unproven, so the
   // certificate cannot call the workspace complete even when every evidence row holds.
@@ -285,6 +302,20 @@ export function buildCertificate(options = {}) {
   }
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+  // An obligation is open when its decision does not close it. Counting the obligations
+  // directly, rather than the open[] length, keeps total = closed + open + stuck even when
+  // receipt, closure-gate or reading entries share the array.
+  const openObligations = obligations.filter((entry) => {
+    const decision = byId.get(entry.id);
+    if (decision === undefined) return true;
+    return !['held', 'proven', 'not_applicable', 'stuck'].includes(decision.state);
+  }).length;
+  const receiptSummary = {
+    open: receiptEntries.length,
+    stale: receiptEntries.filter((entry) => RECEIPT_CODES.stale.includes(entry.code)).length,
+    missingWrite: receiptEntries.filter((entry) => entry.code === RECEIPT_CODES.missingWrite).length,
+  };
+
   const complete = open.length === 0
     && stuck.length === 0
     && vacuous.length === 0
@@ -299,10 +330,11 @@ export function buildCertificate(options = {}) {
     obligations: {
       total: obligations.length,
       closed: closedMechanical + closedSemantic,
-      open: open.length,
+      open: openObligations,
       stuck: stuck.length,
       notApplicable,
     },
+    receipts: receiptSummary,
     proven: { mechanical: closedMechanical, claims },
     judged: {
       total: judgedDecisions.length,

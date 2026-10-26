@@ -262,7 +262,8 @@ function projectWithheld(blocked) {
 export function buildReport(input) {
   const {
     workspace, findings, withheld, blocked, waived, downgrade,
-    checks, provenance, readings, denominator, instrument, verdict, wouldExit,
+    checks, provenance, readings, denominator, instrument, verdict, evidencePolicy,
+    wouldExit,
   } = input;
   const sorted = [...findings]
     .map((finding) => ({ ...finding, persisted: finding.persisted ?? false, repairClass: finding.repairClass ?? 'in-place' }))
@@ -291,6 +292,7 @@ export function buildReport(input) {
     readings: readings ?? emptyReadings(),
     instrument: instrument ?? emptyInstrument(),
     denominator: denominator ?? emptyDenominator(),
+    evidencePolicy: evidencePolicy ?? 'legacy',
     verdict: verdict ?? defaultVerdict,
     wouldExit: wouldExit ?? null,
     downgrade: downgrade ?? null,
@@ -390,13 +392,14 @@ function formatInstrumentLine(instrument = emptyInstrument()) {
 
 /** The lines every console block opens with after its finding count. */
 // [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285, PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-302) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-302, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-302|PX-311) --for-spec --no-implementation-order`.
 function buildSummaryLines(report) {
   const readingsLine = report.readings?.policy === 'advisory'
     ? `${formatReadingsLine(report.readings)} (advisory; not blocking)`
     : formatReadingsLine(report.readings);
   const lines = [
     `provenance: ${formatProvenanceLine(report.provenance)}`,
+    `evidence: ${report.evidencePolicy ?? 'legacy'}`,
     `readings: ${readingsLine}`,
     formatInstrumentLine(report.instrument),
   ];

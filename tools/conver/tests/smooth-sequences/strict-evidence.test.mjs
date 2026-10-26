@@ -304,3 +304,119 @@ test('a held FALSIFY attack does not owe an effort trace', () => {
   assert.equal(result.decisions[0].state, 'held');
   assert.equal(result.metrics.effortCoverage, 1);
 });
+
+// PX-311 @verifies C004
+// Two obligations that searched the same rows are one effort, however different the
+// subjects are. The strict gate must name the second one instead of holding both.
+const SECOND_ARTIFACT = {
+  operations: [{
+    id: 'OpA',
+    purpose: 'the purpose text',
+    cancellation_rule: 'cancellable before the first external action',
+  }],
+};
+
+const secondObligation = {
+  id: 'PROP:OpA:cancellation',
+  class: 'semantic',
+  state: 'open',
+  kind: 'property',
+  subject: 'OpA:cancellation',
+  claim: 'the cancellation rule is present for OpA',
+};
+
+const secondContext = {
+  obligationId: secondObligation.id,
+  subject: secondObligation.subject,
+  anchorSet: { artifact: [{ id: 'OpA', field: 'cancellation_rule' }] },
+};
+
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function strictItems() {
+  return buildWorklist([obligation, secondObligation], {
+    [obligation.id]: context,
+    [secondObligation.id]: secondContext,
+  }, {
+    artifactDigest: ARTIFACT_DIGEST,
+    reader: 'reader-1',
+    attackReader: 'reader-1/attack',
+    requireRecordId: false,
+    requireEffort: true,
+  });
+}
+
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function secondRecord(worklistItem) {
+  return {
+    ...record(worklistItem),
+    obligationId: secondObligation.id,
+    basis: [{ source: 'artifact', id: 'OpA', field: 'cancellation_rule', quote: 'cancellable before the first external action' }],
+  };
+}
+
+test('C004 a searched set shared by two subjects fails E1', () => {
+  const items = strictItems();
+  const result = decideAll({
+    obligations: [obligation, secondObligation],
+    worklist: items,
+    judgments: [record(items[0]), secondRecord(items[1])],
+    effort: [effort, { ...effort, obligationId: secondObligation.id }],
+    artifactDigest: ARTIFACT_DIGEST,
+    artifact: SECOND_ARTIFACT,
+  });
+  const second = result.decisions.find((entry) => entry.obligationId === secondObligation.id);
+  assert.equal(second.reason, 'EFFORT_NOT_SUBJECT_SPECIFIC');
+  assert.equal(second.state, 'open');
+});
+
+test('C004 distinct searched sets hold both subjects and cover the effort gate', () => {
+  const items = strictItems();
+  const distinctEffort = {
+    ...effort,
+    obligationId: secondObligation.id,
+    searched: [
+      { source: 'artifact', path: 'artifact.json', line: 3, quote: 'cancellable before the first external action' },
+      { source: 'spec', path: 'spec.md', line: 4, quote: 'the cancellation clause' },
+    ],
+  };
+  const result = decideAll({
+    obligations: [obligation, secondObligation],
+    worklist: items,
+    judgments: [record(items[0]), secondRecord(items[1])],
+    effort: [effort, distinctEffort],
+    artifactDigest: ARTIFACT_DIGEST,
+    artifact: SECOND_ARTIFACT,
+  });
+  assert.equal(result.decisions.every((entry) => entry.state === 'held'), true);
+  assert.equal(result.metrics.effortCoverage, 1);
+});
+
+test('C004 an attack that only swaps ids is measured as a reused template', () => {
+  const shared = decideAll({
+    obligations: [],
+    worklist: [],
+    judgments: [],
+    attacks: [
+      { obligationId: 'FALSIFY:A', attack: 'Probe whether the accepted transition handshake completes for JUDGE:TRANSLATION:bd-2' },
+      { obligationId: 'FALSIFY:B', attack: 'Probe whether the accepted transition handshake completes for JUDGE:TRANSLATION:bd-3' },
+    ],
+    requireEffort: true,
+    artifactDigest: ARTIFACT_DIGEST,
+  });
+  assert.equal(shared.metrics.templateAttackRatio, 1);
+});
+
+test('C004 subject-specific attack wording keeps the template ratio at zero', () => {
+  const distinct = decideAll({
+    obligations: [],
+    worklist: [],
+    judgments: [],
+    attacks: [
+      { obligationId: 'FALSIFY:A', attack: 'Probe whether ProduceFact returns a rejected status when the result object carries no boundary resolution' },
+      { obligationId: 'FALSIFY:B', attack: 'Probe whether ConsumeFact writes the accepted status before the external handshake settles' },
+    ],
+    requireEffort: true,
+    artifactDigest: ARTIFACT_DIGEST,
+  });
+  assert.equal(distinct.metrics.templateAttackRatio, 0);
+});

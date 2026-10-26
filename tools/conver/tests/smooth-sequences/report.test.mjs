@@ -109,6 +109,7 @@ test('the console block groups findings under route headers and ends with next',
 // @verifies C003
 // [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('a clean console block prints next: none and no finding line', () => {
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -119,6 +120,7 @@ test('a clean console block prints next: none and no finding line', () => {
   assert.deepEqual(renderConsoleReport(report), [
     'smooth-sequences: 0 finding(s)',
     'provenance: not-recorded (no migration field; prose total 0: typed 0, legacy 0, absent 0)',
+    'evidence: legacy',
     'readings: absent; required readings are open',
     'instrument: inquest yes=0/0 attack broken=0/0 basis quotes=0/0 effort alternatives=0/0 (non-discriminating)',
     'next: none. verdict: pass.',

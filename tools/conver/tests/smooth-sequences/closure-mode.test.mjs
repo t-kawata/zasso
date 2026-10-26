@@ -17,9 +17,12 @@ function capture() {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-311) --for-spec --no-implementation-order`.
 function worklistOf(workspace) {
-  return JSON.parse(readFileSync(join(workspace.root, 'smooth-sequences', 'JUDGMENT-WORKLIST.json'), 'utf8'));
+  const body = JSON.parse(readFileSync(join(workspace.root, 'smooth-sequences', 'JUDGMENT-WORKLIST.json'), 'utf8'));
+  // A strict run writes the versioned object; --legacy writes the bare array it always
+  // wrote. Both carry the same items, so the test reads either without changing its claim.
+  return Array.isArray(body) ? body : body.items;
 }
 
 // @verifies C003
