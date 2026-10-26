@@ -20,6 +20,64 @@ const { pathToFileURL } = require('node:url');
 
 const LIBRARY = pathToFileURL(path.join(__dirname, 'lib', 'unit-ids.mjs')).href;
 const LEDGER_LIBRARY = pathToFileURL(path.join(__dirname, '..', 'sequences-slice', 'lib', 'distribution-ledger.mjs')).href;
+const { collectViewUnits, mapDigest, viewDigest } = require('../sequences-slice/lib/distribution-map.mjs');
+
+/**
+ * The admission checks graphify runs before it attaches a single unit.
+ *
+ * The map is the bridge between the smooth-sequences view and the graph. A map that was
+ * rendered from an older view, a view unit the map never carried, a step the view dropped
+ * or a registry boundary with no ctr unit must stop graphify before node splitting, not
+ * after the graph is written. The checks are read-only and return named codes.
+ *
+ * @param {{ view: object, map: object, artifact?: object|null, registry?: Array<object> }} input
+ * @returns {Array<{ code: string, subject: string|null, message: string }>}
+ */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+function verifyViewAgainstMap({ view, map, artifact = null, registry = [] } = {}) {
+  const findings = [];
+  if (map?.sourceViewDigest !== viewDigest(view)) {
+    findings.push({ code: 'STALE_DISTRIBUTION_MAP', subject: map?.packageId ?? null, message: 'map.sourceViewDigest does not equal viewDigest(view)' });
+  }
+  if (map?.digest !== mapDigest(map)) {
+    findings.push({ code: 'DISTRIBUTION_DIGEST_MISMATCH', subject: 'map', message: 'map.digest does not equal mapDigest(map)' });
+  }
+
+  const viewUnits = new Set(collectViewUnits(view).keys());
+  const mapUnits = new Set((map?.units ?? []).map((unit) => unit.unitId));
+  const residualUnits = new Set((map?.residuals ?? []).map((residual) => residual.unit));
+  const missing = [...viewUnits].filter((unitId) => !mapUnits.has(unitId) && !residualUnits.has(unitId));
+  const invented = [...mapUnits].filter((unitId) => !viewUnits.has(unitId));
+  if (missing.length > 0 || invented.length > 0) {
+    findings.push({ code: 'UNIT_SET_MISMATCH', subject: null, message: `missing=${missing.join(',') || 'none'}; invented=${invented.join(',') || 'none'}` });
+  }
+
+  if (artifact !== null) {
+    const stepBearing = new Map();
+    for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
+      for (const unit of view?.[field] ?? []) {
+        const carried = stepBearing.get(unit.sequenceId) ?? new Set();
+        for (const step of unit.steps ?? []) carried.add(step.stepId);
+        stepBearing.set(unit.sequenceId, carried);
+      }
+    }
+    for (const step of artifact.steps ?? []) {
+      const carried = stepBearing.get(step.sequence);
+      if (carried === undefined || !carried.has(step.id)) {
+        findings.push({ code: 'SEQUENCE_STEPS_UNDISTRIBUTED', subject: step.id, message: `step ${step.id} has no step-bearing view record` });
+      }
+    }
+  }
+
+  for (const row of registry ?? []) {
+    const ctrUnit = `ctr-${row.boundary_id}`;
+    if (!viewUnits.has(ctrUnit)) {
+      findings.push({ code: 'MISSING_BOUNDARY_CONTRACT', subject: ctrUnit, message: `registry boundary ${row.boundary_id} has no ctr unit in the view` });
+    }
+  }
+
+  return findings;
+}
 
 // [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
@@ -49,15 +107,24 @@ async function ledgerUnitsOf(ledgerPath, collectLedgerUnitIds) {
   return collectLedgerUnitIds(rows);
 }
 
-// [::TICKET::] PX-306, PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-312|PX-313) --for-spec --no-implementation-order`.
 async function main() {
   const argv = process.argv.slice(2);
   const graphPath = argumentFor(argv, 'graph');
   const rfcPath = argumentFor(argv, 'rfc');
   const ledgerPath = argumentFor(argv, 'ledger');
   const dirsTreePath = argumentFor(argv, 'dirs-tree');
-  if (graphPath === null || rfcPath === null) {
-    console.error('usage: node attach-unit-ids.js --graph=<GRAPH.json> --rfc=<RFC.md> [--ledger=<RFC.md|ledger.json>] [--dirs-tree=<Dirs-Tree.json>]');
+  const viewPath = argumentFor(argv, 'view');
+  const registryPath = argumentFor(argv, 'registry');
+  const artifactPath = argumentFor(argv, 'artifact');
+  const admit = argv.includes('--admit');
+  if (admit) {
+    if (rfcPath === null || viewPath === null) {
+      console.error('usage: node attach-unit-ids.js --admit --rfc=<RFC.md> --view=<SEQUENCES.json> [--registry=<ALLOCATE-MANIFEST.json>] [--artifact=<root *-sequences.json>]');
+      return 2;
+    }
+  } else if (graphPath === null || rfcPath === null) {
+    console.error('usage: node attach-unit-ids.js --graph=<GRAPH.json> --rfc=<RFC.md> [--ledger=<RFC.md|ledger.json>] [--dirs-tree=<Dirs-Tree.json>] [--view=<SEQUENCES.json>] [--registry=<ALLOCATE-MANIFEST.json>]');
     return 2;
   }
 
@@ -69,9 +136,19 @@ async function main() {
     unassignedAnchors,
   } = await import(LIBRARY);
 
-  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const rfcText = fs.readFileSync(rfcPath, 'utf8');
   const map = readDistributionMap(rfcText);
+  if (admit) {
+    const view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+    const registry = registryPath === null ? [] : (JSON.parse(fs.readFileSync(registryPath, 'utf8')).contract_registry ?? []);
+    const artifact = artifactPath === null ? null : JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    const findings = verifyViewAgainstMap({ view, map, artifact, registry });
+    for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
+    process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
+    return findings.length === 0 ? 0 : 1;
+  }
+
+  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
 
   let next;
   let unassigned = [];
@@ -130,4 +207,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main };
+module.exports = { main, verifyViewAgainstMap };

@@ -125,6 +125,7 @@ function countBoundaryGrounds(index) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export const CHECK_REGISTRY = Object.freeze([
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
   check('S1.duplicate-id', 'enumeration', {
     requires: [SURFACES.OPERATIONS, SURFACES.SEQUENCES, SURFACES.STEPS],
     claims: 'spec',
@@ -254,6 +255,26 @@ export const CHECK_REGISTRY = Object.freeze([
     requires: [SURFACES.PACKAGE_VIEWS, SURFACES.SEQUENCES],
     claims: 'spec',
     denominator: countRealizedSequences,
+  }),
+  check('S7.sequence-steps-undistributed', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.SEQUENCES, SURFACES.STEPS],
+    claims: 'spec',
+    denominator: countRealizedSequences,
+  }),
+  check('S7.sequence-step-order', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.SEQUENCES, SURFACES.STEPS],
+    claims: 'spec',
+    denominator: countRealizedSequences,
+  }),
+  check('S7.step-operation-missing', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.OPERATIONS, SURFACES.STEPS],
+    claims: 'spec',
+    denominator: (index) => countRows(index.artifact?.steps),
+  }),
+  check('S7.active-operation-residual', 'consistency', {
+    requires: [SURFACES.PACKAGE_VIEWS, SURFACES.OPERATIONS],
+    claims: 'spec',
+    denominator: countActiveOperations,
   }),
   check('S7.distribution-map', 'consistency', {
     requires: [SURFACES.PACKAGE_VIEWS],

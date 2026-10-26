@@ -20,6 +20,10 @@
 const fs = require('fs');
 const path = require('path');
 const {
+  boundaryClauseDigest,
+  projectionMatches,
+} = require('../sequences-slice/lib/boundary-contract.mjs');
+const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
 } = require('../lib/package-artifacts');
@@ -51,12 +55,18 @@ function parseArgs(argv = process.argv.slice(2)) {
   return { ticketsPath, graphPath, registryPath };
 }
 
-/** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function registryBoundaryIds(registryPath) {
+/** The contract rows an allocate manifest declares, or an empty list without a manifest. */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+function registryContracts(registryPath) {
   if (registryPath === null || !fs.existsSync(registryPath)) return [];
   const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-  return (document.contract_registry || []).map((row) => row.boundary_id).filter(Boolean);
+  return (document.contract_registry || []).filter((row) => typeof row?.boundary_id === 'string');
+}
+
+/** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
+// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+function registryBoundaryIds(registryPath) {
+  return registryContracts(registryPath).map((row) => row.boundary_id);
 }
 
 /**
@@ -106,7 +116,7 @@ function edgeLabelOf(contract) {
   return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
 function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
@@ -186,8 +196,41 @@ function verifyClosure(tickets, graph, options = {}) {
     }
   }
 
+  // Strict registry rows: a ticket carrying ctr-B must carry the registry projection,
+  // not merely any contract. Legacy boundary ids without clauses keep the presence check.
+  const strictRows = (options.registryContracts ?? []).filter((row) => row?.clauses !== null && row?.clauses !== undefined);
+  for (const row of strictRows) {
+    const ctrUnit = `ctr-${row.boundary_id}`;
+    const ticket = tickets.find((candidate) => [
+      ...(candidate.nodeIds ?? []),
+      ...(candidate.distribution?.units ?? []).map((unit) => unit.unitId),
+    ].includes(ctrUnit));
+    if (ticket === undefined) continue;
+    const contract = (ticket.contracts ?? []).find((entry) => entry.boundaryId === row.boundary_id
+      || entry.registryContractId === `contract-${row.boundary_id}`
+      || entry.id === `contract-${row.boundary_id}`);
+    if (contract === undefined) {
+      errors.push({
+        ticket: ticketKeyOf(ticket),
+        code: 'MISSING_BOUNDARY_CONTRACT',
+        detail: `ticket carries ${ctrUnit} without the registry contract`,
+      });
+      continue;
+    }
+    if (contract.clauseDigest !== boundaryClauseDigest(row) || !projectionMatches(contract, row)) {
+      errors.push({
+        ticket: ticketKeyOf(ticket),
+        code: 'BOUNDARY_CONTRACT_MISMATCH',
+        detail: `ticket contract for ${row.boundary_id} does not match the registry projection`,
+      });
+    }
+  }
+
   const edgeLabels = new Set(edges.map((edge) => edge.from + '→' + edge.to));
-  const registrySet = new Set(registry);
+  const registrySet = new Set([
+    ...registry,
+    ...(options.registryContracts ?? []).map((row) => row.boundary_id),
+  ]);
   for (const ticket of tickets) {
     for (const contract of Array.isArray(ticket.contracts) ? ticket.contracts : []) {
       const edgeResolves = edgeLabels.has(edgeLabelOf(contract));
@@ -206,7 +249,7 @@ function verifyClosure(tickets, graph, options = {}) {
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath } = parseArgs();
 
@@ -233,7 +276,11 @@ function main() {
     }
   }
 
-  const result = verifyClosure(allTickets, graph, { registryBoundaryIds: registryBoundaryIds(registryPath) });
+  const rows = registryContracts(registryPath);
+  const result = verifyClosure(allTickets, graph, {
+    registryBoundaryIds: rows.map((row) => row.boundary_id),
+    registryContracts: rows,
+  });
 
   if (!result.valid) {
     for (const err of result.errors) {

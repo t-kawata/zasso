@@ -73,6 +73,7 @@ export function producerForBlockedSurface(surface) {
 // [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const SPEC_CHECK_IDS = Object.freeze([
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
   'S.evidence-withdrawn',
   'S1.duplicate-id',
   'S1.not-a-sequence-ground-missing',
@@ -111,6 +112,10 @@ const SPEC_CHECK_IDS = Object.freeze([
   'S6.unreachable-operation',
   'S7.operation-distribution-missing',
   'S7.sequence-distribution-missing',
+  'S7.sequence-steps-undistributed',
+  'S7.sequence-step-order',
+  'S7.step-operation-missing',
+  'S7.active-operation-residual',
 ]);
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // PX-309 @verifies C004
 // The display counters are read beside the record that owns them. A record written before
 // the generation fields existed still answers a documented lower bound rather than zero.
@@ -7,8 +8,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  readBoundifyGeneration,
   readDistributionGeneration,
+  readGraphGeneration,
   readGrillGeneration,
+  readSplitGeneration,
 } from '../../../.claude/scripts/workspacify-order/lib/counters.mjs';
 import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
@@ -58,4 +62,30 @@ test('C004 a record without the field falls back to one when the RFC carries a m
 
   writeFileSync(join(directory, 'RFC.md'), '```json distribution-map\n{}\n```\n');
   assert.equal(readDistributionGeneration(directory), 1);
+});
+
+test('C005 a recorded downstream generation is read as written', (t) => {
+  const directory = packageDirectory(t);
+  writeFileSync(join(directory, 'RFC-GRAPHIFY-Status.json'), JSON.stringify({ generation: 3 }));
+  writeFileSync(join(directory, 'RFC-BOUNDIFY-Status.json'), JSON.stringify({ generation: 2 }));
+  writeFileSync(join(directory, 'RFC-SPLIT-Status.json'), JSON.stringify({ generation: 1 }));
+  assert.equal(readGraphGeneration(directory, 'RFC'), 3);
+  assert.equal(readBoundifyGeneration(directory, 'RFC'), 2);
+  assert.equal(readSplitGeneration(directory, 'RFC'), 1);
+});
+
+test('C005 a downstream status without a generation is unknown', (t) => {
+  const directory = packageDirectory(t);
+  writeFileSync(join(directory, 'RFC-GRAPHIFY-Status.json'), JSON.stringify({ runs: 4 }));
+  writeFileSync(join(directory, 'RFC-BOUNDIFY-Status.json'), '{not json');
+  assert.equal(readGraphGeneration(directory, 'RFC'), null);
+  assert.equal(readBoundifyGeneration(directory, 'RFC'), null);
+  assert.equal(readSplitGeneration(directory, 'RFC'), null);
+});
+
+test('C005 a zero or absent stem is unknown, never generation zero', (t) => {
+  const directory = packageDirectory(t);
+  writeFileSync(join(directory, 'RFC-SPLIT-Status.json'), JSON.stringify({ generation: 0 }));
+  assert.equal(readSplitGeneration(directory, 'RFC'), null);
+  assert.equal(readSplitGeneration(directory, null), null);
 });

@@ -262,6 +262,7 @@ export function defaultAllocateManifest(contractRegistry = defaultContractRegist
 
 /** A package view with one owned operation and the provider or consumer side of boundary-001. */
 export function packageView(input) {
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
   const {
     packageId,
     operationId,
@@ -269,6 +270,7 @@ export function packageView(input) {
     counterpart,
     sequenceIds = [],
     crossSequences = [],
+    sequenceSteps = [],
     operationObligations = [],
     sequenceObligations = [],
   } = input;
@@ -285,12 +287,14 @@ export function packageView(input) {
       unitId: `seq-${sequenceId}`,
       sequenceId,
       ownerPackageIds: [packageId],
+      steps: [...sequenceSteps],
     })),
     crossBoundarySequenceUnits: crossSequences.map(({ sequenceId, ownerPackageIds }) => ({
       unitId: `xdir-${sequenceId}`,
       sequenceId,
       outcome: 'direct',
       ownerPackageIds,
+      steps: [...sequenceSteps],
     })),
     obligationUnits: [
       {
@@ -369,9 +373,11 @@ export function rfcBody(input) {
 /** The two package views the clean fixture carries. */
 export function defaultViews() {
   const crossSequences = [{ sequenceId: 'A-1', ownerPackageIds: [PROVIDER, CONSUMER] }];
+  const steps = defaultSteps().map(({ id, operation, line }) => ({ order: line, stepId: id, operationId: operation, line }));
+  const stepsOf = (operationId) => steps.filter((step) => step.operationId === operationId);
   return {
-    [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences }),
-    [CONSUMER]: packageView({ packageId: CONSUMER, operationId: 'ConsumeFact', direction: 'consumes', counterpart: PROVIDER, crossSequences }),
+    [PROVIDER]: packageView({ packageId: PROVIDER, operationId: 'ProduceFact', direction: 'provides', counterpart: CONSUMER, sequenceIds: ['A-1'], crossSequences, sequenceSteps: stepsOf('ProduceFact') }),
+    [CONSUMER]: packageView({ packageId: CONSUMER, operationId: 'ConsumeFact', direction: 'consumes', counterpart: PROVIDER, crossSequences, sequenceSteps: stepsOf('ConsumeFact') }),
   };
 }
 

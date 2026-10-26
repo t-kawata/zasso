@@ -125,9 +125,10 @@ function generationCell(generation, glyph, label) {
     : { glyph, text: `${label}:${generation}` };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function artifactCell(present, glyph, text) {
-  return present ? { glyph, text } : null;
+// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+function artifactCell(present, glyph, label, generation) {
+  if (!present) return null;
+  return generationCell(generation, glyph, label) ?? { glyph, text: `${label}:${UNKNOWN_COUNT}` };
 }
 
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
@@ -163,7 +164,7 @@ function smoothCell(model) {
   return generationCell(model.rootCounters.smo, SMOOTH_GLYPH, 'SMO');
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function cellFor(model, id, key) {
   switch (key) {
     case 'edu': return educationCell(model);
@@ -171,9 +172,9 @@ function cellFor(model, id, key) {
     case 'gri': return grillCell(model, id);
     case 'seq': return sequenceCell(model, id);
     case 'smo': return smoothCell(model);
-    case 'gra': return artifactCell(model.graphifiedIds.has(id), GRAPH_GLYPH, GRAPH_TEXT);
-    case 'bou': return artifactCell(model.boundifiedIds.has(id), BOUNDIFY_GLYPH, BOUNDIFY_TEXT);
-    case 'spl': return artifactCell(model.splitIds.has(id), SPLIT_GLYPH, SPLIT_TEXT);
+    case 'gra': return artifactCell(model.graphifiedIds.has(id), GRAPH_GLYPH, GRAPH_TEXT, model.graphGenerations.get(id));
+    case 'bou': return artifactCell(model.boundifiedIds.has(id), BOUNDIFY_GLYPH, BOUNDIFY_TEXT, model.boundifyGenerations.get(id));
+    case 'spl': return artifactCell(model.splitIds.has(id), SPLIT_GLYPH, SPLIT_TEXT, model.splitGenerations.get(id));
     default: return null;
   }
 }

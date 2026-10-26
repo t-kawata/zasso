@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 /**
  * graphify-cmd.test.cjs — Integration tests for graphify-rfc.md slash command
@@ -439,6 +440,17 @@ describe('graphify-rfc.md slash command integration tests', () => {
         assert.ok(hasCodeBlock || hasCommentSteps,
           `Step ${i} should have command instructions`);
       }
+    });
+
+    it('should carry the distribution admission and chain commands', () => {
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+      assert.match(commandContent, /attach-unit-ids\.js --admit/);
+      assert.match(commandContent, /project-boundary-contracts\.js/);
+      assert.match(commandContent, /verify-chain\.mjs --stage=graphify/);
+      assert.match(commandContent, /STALE_DISTRIBUTION_MAP/);
+      assert.match(commandContent, /SEQUENCE_STEPS_UNDISTRIBUTED/);
+      assert.match(commandContent, /begin-run/);
+      assert.match(commandContent, /--audit/);
     });
   });
 });

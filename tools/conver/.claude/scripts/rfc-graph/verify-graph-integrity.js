@@ -206,6 +206,47 @@ function checkWithVerifyjs(graphPath, sourcePath) {
 }
 
 // ============================================================
+// Check 6: distribution digest and unit set
+// ============================================================
+
+/**
+ * Verify that the distribution digest and the attached unit set did not move.
+ *
+ * A graph repair may legitimately change edges; it may not silently change the digest
+ * the view/map chain bound or drop a unit the view distributed. The check is additive to
+ * the five structural axes.
+ */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+function checkDistributionIntegrity(graphAfter, graphBefore) {
+  const errors = [];
+  const remedies = [];
+  if (!graphAfter || !graphBefore) return { errors, remedies };
+
+  if (graphAfter.distributionDigest !== graphBefore.distributionDigest) {
+    errors.push(formatError(
+      'distributionDigest changed',
+      `before=${graphBefore.distributionDigest ?? 'absent'}; after=${graphAfter.distributionDigest ?? 'absent'}`,
+      'Restore the graph from the graphify output or rerun graphify admission; do not hand-edit the digest.'
+    ));
+    remedies.push('Restore the distributionDigest or regenerate the graph.');
+  }
+
+  const beforeUnits = new Set((graphBefore.nodes || []).flatMap((node) => node.unitIds || []));
+  const afterUnits = new Set((graphAfter.nodes || []).flatMap((node) => node.unitIds || []));
+  const missing = [...beforeUnits].filter((unitId) => !afterUnits.has(unitId));
+  const invented = [...afterUnits].filter((unitId) => !beforeUnits.has(unitId));
+  if (missing.length > 0 || invented.length > 0) {
+    errors.push(formatError(
+      'unit set changed',
+      `missing=${missing.join(',') || 'none'}; invented=${invented.join(',') || 'none'}`,
+      'Restore the unitIds from the graphify output or rerun graphify admission.'
+    ));
+    remedies.push('Restore the unitIds set or regenerate the graph.');
+  }
+  return { errors, remedies };
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -214,6 +255,7 @@ function checkWithVerifyjs(graphPath, sourcePath) {
  *
  * @param {string[]} [testArgs] — argument array for testing
  */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function main(testArgs) {
   const args = testArgs || process.argv.slice(2);
   const { graphAfter, graphBefore, sourcePath } = parseArgs(args);
@@ -238,6 +280,11 @@ function main(testArgs) {
   const edgesResult = checkEdgesIntegrity(graphAfterData, graphBeforeData);
   allErrors.push(...edgesResult.errors);
   allRemedies.push(...edgesResult.remedies);
+
+  // Axis 6: distribution digest and unit set
+  const distributionResult = checkDistributionIntegrity(graphAfterData, graphBeforeData);
+  allErrors.push(...distributionResult.errors);
+  allRemedies.push(...distributionResult.remedies);
 
   // Axes 3-5: via verify.js (headingRefs resolvability, orphan nodes, uncovered headings)
   if (graphAfter && sourcePath) {
@@ -265,4 +312,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { main, parseArgs, checkNodesIntegrity, checkEdgesIntegrity, checkWithVerifyjs };
+module.exports = { main, parseArgs, checkNodesIntegrity, checkEdgesIntegrity, checkWithVerifyjs, checkDistributionIntegrity };

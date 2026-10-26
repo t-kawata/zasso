@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
 /**
@@ -64,6 +65,7 @@ import { producerForBlockedSurface } from './lib/repair-route.mjs';
 import { writeWorklist } from './lib/worklist.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 import { snapshotDesignFiles } from '../regeneration/lib/staging.mjs';
+import { calibrationVerdict, readCalibration } from './calibrate.mjs';
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const AUDIT_FLAG = '--audit';
@@ -511,6 +513,20 @@ export function runCommand(argv, io = {}) {
         producer: gate.script,
         repairClass: 'regeneration',
       }));
+    const calibration = readCalibration(root);
+    const calibrationCheck = calibrationVerdict(calibration);
+    const calibrationBlocked = closureMode && !calibrationCheck.ok
+      ? [{
+        checkId: calibrationCheck.code,
+        family: 'assurance',
+        surface: 'smooth-sequences/CALIBRATION.json',
+        reason: calibrationCheck.code === 'CALIBRATION_MISSING'
+          ? 'the closure run has no CALIBRATION.json; run smooth-sequences/calibrate.mjs'
+          : 'the calibration did not detect every seeded defect',
+        producer: 'smooth-sequences/calibrate.mjs',
+        repairClass: 'in-place',
+      }]
+      : [];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const blocked = [
       ...evaluation.blocked.map((entry) => ({
@@ -519,6 +535,7 @@ export function runCommand(argv, io = {}) {
         repairClass: 'regeneration',
       })),
       ...closureBlocked,
+      ...calibrationBlocked,
     ];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const waivers = readWaivers(root);
@@ -771,6 +788,12 @@ export function runCommand(argv, io = {}) {
       wouldExit: parsed.audit ? wouldExit : null,
     });
     if (certificate !== null) report.certificate = certificate;
+    report.calibration = {
+      digest: calibration?.digest ?? null,
+      digestValid: calibration?.digestValid ?? false,
+      seeds: calibration?.seeds ?? [],
+      verdict: calibrationCheck,
+    };
     if (closureMode) {
       report.remainingOpen = worklist.length;
       report.effortDebt = certificate?.open?.length ?? 0;
@@ -783,6 +806,7 @@ export function runCommand(argv, io = {}) {
       exitCode,
       findingKeysDigest: computeFindingKeysDigest(findings),
       schemaHistory: provenance.schemaHistory,
+      calibrationDigest: calibration?.digest ?? null,
     });
     if (closureMode) {
       writeCertificate(root, certificate);

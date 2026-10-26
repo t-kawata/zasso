@@ -83,8 +83,15 @@ DOC_DIR="$(dirname "$DOC_PATH")"
 BASENAME="$(basename "$DOC_PATH" .md)"
 TICKETS_PATH="${DOC_DIR}/Tickets.json"
 STATUS_PATH="${DOC_DIR}/${BASENAME}-SPLIT-Status.json"
+ARTIFACT_PATH="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$DOC_DIR');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
+RUN_ID="$(date +%s%N)-$$"
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" begin-run --run-id="$RUN_ID"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH"
 ```
+
+Fail-closed preflight: `STALE_DISTRIBUTION_MAP`, `UNIT_SET_MISMATCH`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `MISSING_BOUNDARY_CONTRACT` ⇒ stop; do not create tickets. A missing `Tickets.json` is allowed at Step 0; the post-5-2 gate requires it.
+`begin-run` counts one invocation; `end-step 6` advances `generation` only when the Tickets.json digest changes. Audit mode appends `--audit` to the final `end-step 6`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
 From 0-1, status commands:
 
@@ -267,9 +274,10 @@ Phase-order contract:
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
 node .claude/scripts/rfc-graph/show-phase-nodes.js --tickets="$TICKETS_PATH" --phase="P{n}"
+node .claude/scripts/tickets/show-phase-distribution.js --tickets="$TICKETS_PATH" --phase="P{n}" --artifact="$ARTIFACT_PATH"
 ```
 
-Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path.
+Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-1"
@@ -327,12 +335,13 @@ node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH"
 node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH"
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 node .claude/scripts/tickets/show-ticket-distribution.js "$TICKETS_PATH"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH" --require-tickets
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
 Every split-stage script derives the graph, Dirs-Tree, RFC and view from the directory holding `$TICKETS_PATH`. The pipeline fixes those names, so the command line does not repeat them; the scripts keep their explicit-path arguments only as overrides for a non-standard layout. `verify-ticket-closure.js` and `merge-contracts-to-tickets.js` also discover the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the registry chain runs whenever the split is inside a workspacify workspace and is skipped otherwise.
 
-Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, `INVENTED_TICKET_CONTRACT`, `DUPLICATE_UNIT_AT_TICKET`, `MISSING_SEQUENCE_STEP`, `DUPLICATE_SEQUENCE_STEP`, `SEQUENCE_STEP_WITHOUT_IMPLEMENTER`, `SEQUENCE_ORDER_MISMATCH`, `UNASSIGNED_SEQUENCE_STEP`, `SPEC_REF_MISSING`, and `DISTRIBUTION_DIGEST_MISMATCH`. The ticket's unit ids are appended by `add-tickets-for-phase.js`; the author never copies them.
+Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, `BOUNDARY_CONTRACT_MISMATCH`, `BOUNDARY_DIRECTION_MISMATCH`, `INVENTED_TICKET_CONTRACT`, `DUPLICATE_UNIT_AT_TICKET`, `MISSING_SEQUENCE_STEP`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `DUPLICATE_SEQUENCE_STEP`, `SEQUENCE_STEP_WITHOUT_IMPLEMENTER`, `SEQUENCE_ORDER_MISMATCH`, `UNASSIGNED_SEQUENCE_STEP`, `SPEC_REF_MISSING`, and `DISTRIBUTION_DIGEST_MISMATCH`. The ticket's unit ids are appended by `add-tickets-for-phase.js`; the author never copies them.
 
 ### Resuming from an Error
 
@@ -348,6 +357,7 @@ Sequence: guard → validation → backward merge → ID re-index → `relatedTi
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
 node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH" --require-tickets
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```
 
@@ -368,6 +378,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ```
 
 Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.
+Stage counters: `end-step 6` records `runs` and advances `generation` only when the Tickets.json digest changes; `--audit` on that step writes no generation.
 
 ### Resuming from an Error
 

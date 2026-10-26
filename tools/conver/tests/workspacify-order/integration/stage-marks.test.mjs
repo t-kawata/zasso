@@ -12,7 +12,7 @@ import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const RUN = join(PROJECT_ROOT, '.claude/scripts/workspacify-order/run.mjs');
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function workspace(t, { artifacts }) {
   const materialized = materializeOrderWorkspace({
     packages: ['pkg-0001'],
@@ -32,6 +32,9 @@ function workspace(t, { artifacts }) {
     writeFileSync(join(directory, 'RFC-GRAPH.json'), '{}');
     writeFileSync(join(directory, 'RFC-Dirs-Tree.json'), '{}');
     writeFileSync(join(directory, 'Tickets.json'), '{}');
+    writeFileSync(join(directory, 'RFC-GRAPHIFY-Status.json'), JSON.stringify({ generation: 3 }));
+    writeFileSync(join(directory, 'RFC-BOUNDIFY-Status.json'), JSON.stringify({ generation: 2 }));
+    writeFileSync(join(directory, 'RFC-SPLIT-Status.json'), JSON.stringify({ generation: 1 }));
   }
   return materialized;
 }
@@ -39,7 +42,7 @@ function workspace(t, { artifacts }) {
 test('C006 run.mjs prints both generations and the three downstream marks', (t) => {
   const materialized = workspace(t, { artifacts: true });
   const output = execFileSync(process.execPath, [RUN], { cwd: materialized.root, encoding: 'utf8' });
-  assert.match(output, /🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4 🔵 GRA 🟣 BOU ⚫️ SPL/);
+  assert.match(output, /🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1/);
 });
 
 test('C006 run.mjs omits the downstream marks when the artifacts are absent', (t) => {

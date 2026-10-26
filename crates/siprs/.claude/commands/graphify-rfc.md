@@ -138,6 +138,8 @@ The unit anchor — a section written for a distributed unit records the unit's 
 G0 heading-dedup: same-level/same-text headings cannot resolve uniquely; mechanically append A-Z.
 
 ```bash
+RUN_ID="$(date +%s%N)-$$"
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" begin-run --run-id="$RUN_ID"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 0
 node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
@@ -146,6 +148,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 - changed source → overwrite + change log.
 - unchanged source → report unchanged.
 - fail → read error; `reset-to-step 0`; re-run Step 0 from start.
+- `begin-run` counts one invocation; `end-step 5` advances `generation` only when the graph digest changes. Audit mode appends `--audit` to the final `end-step 5`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 0
@@ -167,6 +170,23 @@ Use:
 - natural boundaries `B1`, `B2`, … → Axis 1 material.
 - boundary attributes → node-kind / edge-type reference.
 - caution dependencies → identify cycles before Step 2.
+
+### Pre-Reference: Distribution Admission
+
+Fail closed before splitting. No node, edge or contract is authored until this passes. `SEQUENCES.json`, the RFC distribution-map and the allocate manifest are read as digest-bound sidecars, not as a second design.
+
+```bash
+viewPath="$(dirname "$1")/SEQUENCES.json"
+registryPath="$(node -e "process.stdout.write(require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")')||'')")"
+artifactPath="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
+node .claude/scripts/rfc-graph/attach-unit-ids.js --admit --rfc="$1" --view="$viewPath" --registry="$registryPath" --artifact="$artifactPath"
+```
+
+- `STALE_DISTRIBUTION_MAP` → rerun `/smooth-sequences` and `render-distribution`; never split a stale view.
+- `UNIT_SET_MISMATCH` → view and map disagree; fix authored input, re-project, rerun.
+- `SEQUENCE_STEPS_UNDISTRIBUTED` → a drawn sequence is only an `obligationUnits` row; move it to `ownedSequenceUnits`/`crossBoundarySequenceUnits` with its steps.
+- `MISSING_BOUNDARY_CONTRACT` → a registry boundary has no `ctr-*` unit in the view.
+- Nonzero → stop; do not author nodes.
 
 ### Node Splitting Procedure
 
@@ -239,10 +259,12 @@ G2 edge-assign:
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
+node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath" --registry="$registryPath" --mode=attach
 node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
 node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
-node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1"
-node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath"
+node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1" --view="$viewPath" --registry="$registryPath"
+node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath" --registry="$registryPath"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=graphify --package="$(dirname "$1")" --artifact="$artifactPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
@@ -250,7 +272,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}`.
 
-`attach-unit-ids.js` reads the `distribution-map` block from `$1` when present, matches each unit's section against a node heading exactly, attaches the unit, and writes `distributionDigest`. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`. `/graphify-rfc` still reads only `RFC.md`; no sidecar is passed.
+`attach-unit-ids.js` reads the `distribution-map` block from `$1` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
 
 `verify-graph-contracts.js` discovers the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the boundary contract-edge check (check 4) runs whenever the graph is inside a workspacify workspace and is skipped outside one. Pass `--registry=<path>` only to override that discovery.
 
@@ -387,6 +409,8 @@ out:
 - edge count: graph `edges.length`.
 - headingRefs resolution: all N confirmed by `test-query-all.js`.
 - final `verify.js`: coverage + orphan result.
+- chain verdict: `verify-chain --stage=graphify` 0 findings; report view/map/graph/dirs/ticket unit counts and the 84-boundary projection count.
+- stage counters: `runs` and `generation` from `statusPath`; an unchanged graph digest is a verification, not a new generation.
 - G5 adequacy: sufficient/reinforcement history.
 - graph summary: kind-organized node list + edge relationships.
 

@@ -26,6 +26,12 @@ export const STATUS_FILE_NAME = 'status.json';
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const PACKAGE_STATUS_FILE_NAME = 'Status.json';
 
+/** The status suffix each downstream stage writes beside its artifact stem. */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+export const GRAPHIFY_STATUS_SUFFIX = '-GRAPHIFY-Status.json';
+export const BOUNDIFY_STATUS_SUFFIX = '-BOUNDIFY-Status.json';
+export const SPLIT_STATUS_SUFFIX = '-SPLIT-Status.json';
+
 /** The generation a grill opens on every new run. */
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const FIRST_GENERATION = 1;
@@ -156,4 +162,52 @@ export function readDistributionGeneration(packageDirectory) {
 // [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readPackageDistribution(packageDirectory) {
   return readDistributionRecord(packageDirectory);
+}
+
+/** One downstream stage generation, or null when the status is absent or unknown. */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+export function readStageGeneration(packageDirectory, stem, suffix) {
+  if (typeof stem !== 'string' || stem.length === 0) return null;
+  const status = readJsonFile(join(packageDirectory, `${stem}${suffix}`)).value;
+  const generation = status?.generation;
+  return Number.isInteger(generation) && generation > 0 ? generation : null;
+}
+
+/** One downstream stage run count, or null when the status is absent or unknown. */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+export function readStageRuns(packageDirectory, stem, suffix) {
+  if (typeof stem !== 'string' || stem.length === 0) return null;
+  const status = readJsonFile(join(packageDirectory, `${stem}${suffix}`)).value;
+  const runs = status?.runs;
+  return Number.isInteger(runs) && runs >= 0 ? runs : null;
+}
+
+/** The graphify generation a package records, or null. */
+export function readGraphGeneration(packageDirectory, stem) {
+  return readStageGeneration(packageDirectory, stem, GRAPHIFY_STATUS_SUFFIX);
+}
+
+/** The boundify generation a package records, or null. */
+export function readBoundifyGeneration(packageDirectory, stem) {
+  return readStageGeneration(packageDirectory, stem, BOUNDIFY_STATUS_SUFFIX);
+}
+
+/** The split generation a package records, or null. */
+export function readSplitGeneration(packageDirectory, stem) {
+  return readStageGeneration(packageDirectory, stem, SPLIT_STATUS_SUFFIX);
+}
+
+/** The graphify run count a package records, or null. */
+export function readGraphRuns(packageDirectory, stem) {
+  return readStageRuns(packageDirectory, stem, GRAPHIFY_STATUS_SUFFIX);
+}
+
+/** The boundify run count a package records, or null. */
+export function readBoundifyRuns(packageDirectory, stem) {
+  return readStageRuns(packageDirectory, stem, BOUNDIFY_STATUS_SUFFIX);
+}
+
+/** The split run count a package records, or null. */
+export function readSplitRuns(packageDirectory, stem) {
+  return readStageRuns(packageDirectory, stem, SPLIT_STATUS_SUFFIX);
 }

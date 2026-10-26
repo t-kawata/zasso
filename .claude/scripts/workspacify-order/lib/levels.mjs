@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 /**
  * Derive the implementation order from the edge records, and read one package out of it.
  *
@@ -17,13 +18,17 @@ import {
   holdsGraphArtifact,
   holdsRfc,
   holdsSplitArtifact,
+  artifactStem,
   SEED_FILE_NAME,
 } from './workspace.mjs';
 import {
+  readBoundifyGeneration,
   readDistributionGeneration,
+  readGraphGeneration,
   readGrillGeneration,
   readRootEduceGeneration,
   readRootSmoothGeneration,
+  readSplitGeneration,
 } from './counters.mjs';
 import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
@@ -369,6 +374,18 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   const splitIds = new Set(
     packages.filter((pkg) => holdsSplitArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
   );
+  const graphGenerations = new Map(packages.map((pkg) => [pkg.id, readGraphGeneration(
+    join(root, pkg.path),
+    artifactStem({ root, packagePath: pkg.path }),
+  )]));
+  const boundifyGenerations = new Map(packages.map((pkg) => [pkg.id, readBoundifyGeneration(
+    join(root, pkg.path),
+    artifactStem({ root, packagePath: pkg.path }),
+  )]));
+  const splitGenerations = new Map(packages.map((pkg) => [pkg.id, readSplitGeneration(
+    join(root, pkg.path),
+    artifactStem({ root, packagePath: pkg.path }),
+  )]));
   const pathWidth = Math.max(...packages.map((pkg) => displayWidth(pkg.path)));
 
   return {
@@ -383,6 +400,9 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     graphifiedIds,
     boundifiedIds,
     splitIds,
+    graphGenerations,
+    boundifyGenerations,
+    splitGenerations,
     levels,
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 /**
  * update-step-status.test.cjs — Tests for update-step-status.js
  *
@@ -90,8 +91,9 @@ describe('Constants', () => {
     assert.strictEqual(MAX_STEP, 5);
   });
 
-  it('ALLOWED_SUBCOMMANDS should contain 7 subcommand names', () => {
+  it('ALLOWED_SUBCOMMANDS should contain 8 subcommand names', () => {
     assert.deepStrictEqual(ALLOWED_SUBCOMMANDS, [
+      'begin-run',
       'start-step',
       'end-step',
       'fail-step',

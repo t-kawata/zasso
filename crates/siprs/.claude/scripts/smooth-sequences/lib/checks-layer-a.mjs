@@ -457,6 +457,80 @@ export function checkContributionCompleteness(index) {
 /** The artifact, the per-package view and the package RFC agree on the unit set. */
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-288) --for-spec --no-implementation-order`.
+/**
+ * Every drawn sequence step must reach a step-bearing view record.
+ *
+ * A unit-set check proves the sequence unit exists somewhere; it does not prove its steps
+ * do. An obligationUnits row names a sequence but carries no steps, so it can satisfy the
+ * unit check while dropping the procedure. This check compares the artifact's step set
+ * with the union of ownedSequenceUnits and crossBoundarySequenceUnits records and reports
+ * the missing ids and any order disagreement.
+ */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+function collectSequenceStepDistribution(index, findings) {
+  for (const sequence of index.artifact.sequences ?? []) {
+    if (!DRAWN_OUTCOMES.has(sequence.outcome)) continue;
+    const artifactSteps = (index.stepsBySequence.get(sequence.id) ?? [])
+      .slice()
+      .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0));
+    if (artifactSteps.length === 0) continue;
+    const records = index.stepBearingSequences?.get(sequence.id) ?? [];
+    const declared = new Map();
+    for (const record of records) {
+      for (const step of record.steps) {
+        if (typeof step?.stepId === 'string') declared.set(step.stepId, step);
+      }
+    }
+    const missing = artifactSteps.filter((step) => !declared.has(step.id));
+    if (missing.length > 0) {
+      const owners = [...(index.sequenceOwners?.get(sequence.id) ?? [])];
+      const route = owners.length > 0
+        ? routeForPackage('S7.sequence-steps-undistributed', index, owners[0], sequence.id)
+        : repairRouteFor('S7.sequence-steps-undistributed', {
+          artifact: index.artifact,
+          artifactPath: index.artifactPath,
+          locator: sequence.id,
+          surface: SURFACE.SPEC,
+        });
+      addFinding(findings, 'S7.sequence-steps-undistributed', sequence.id, {
+        className: 'omission',
+        route,
+        why: `realized sequence ${sequence.id} carries no step-bearing view record for ${missing.map((step) => step.id).join(', ')}`,
+        fix: `move ${sequence.id} to ownedSequenceUnits or crossBoundarySequenceUnits with its steps and rerun sequences-slice`,
+      });
+    }
+
+    for (const record of records) {
+      const observed = record.steps
+        .filter((step) => typeof step?.stepId === 'string')
+        .slice()
+        .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0))
+        .map((step) => step.stepId);
+      const recordIds = new Set(observed);
+      const expected = artifactSteps.filter((step) => recordIds.has(step.id)).map((step) => step.id);
+      if (observed.length > 0 && observed.join(',') !== expected.join(',')) {
+        addFinding(findings, 'S7.sequence-step-order', `${record.packageId}/${record.unitId}`, {
+          className: 'contradiction',
+          route: routeForPackage('S7.sequence-step-order', index, record.packageId),
+          why: `sequence ${sequence.id} is recorded as ${observed.join(' -> ')} and the artifact orders it ${expected.join(' -> ')}`,
+          fix: `re-project ${record.unitId} from the artifact so its steps keep the artifact order`,
+        });
+      }
+    }
+  }
+
+  for (const step of index.artifact.steps ?? []) {
+    if (!index.operationsById.has(step.operation)) continue;
+    if (index.operationOwners?.has(step.operation)) continue;
+    addFinding(findings, 'S7.step-operation-missing', step.id, {
+      className: 'omission',
+      route: routeForStep('S7.step-operation-missing', index, step),
+      why: `step ${step.id} names operation ${step.operation}, and no package view carries an operation unit for it`,
+      fix: `distribute op-${step.operation} into the owning package view and rerun sequences-slice`,
+    });
+  }
+}
+
 /** Every active operation and realized sequence must be owned by some package. */
 // [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function checkDistributionCoverage(index, findings) {
@@ -486,6 +560,7 @@ function checkDistributionCoverage(index, findings) {
 
 export function collectArtifactViewConsistency(index) {
   const findings = [];
+  collectSequenceStepDistribution(index, findings);
   checkDistributionCoverage(index, findings);
   if (index.packages.length === 0) {
     return { findings, subChecks: buildFamilySubChecks('consistency', index) };

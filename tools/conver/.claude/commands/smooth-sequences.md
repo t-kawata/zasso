@@ -76,6 +76,7 @@ Closure mode runs the strict evidence path automatically: it resolves the workli
 cmd (once, workspace root):
 
 ```bash
+node .claude/scripts/smooth-sequences/calibrate.mjs
 node .claude/scripts/smooth-sequences/run.mjs
 node .claude/scripts/smooth-sequences/run.mjs --audit
 node .claude/scripts/smooth-sequences/run.mjs --advisory-readings
@@ -83,6 +84,7 @@ node .claude/scripts/smooth-sequences/run.mjs --advisory-readings
 
 Judge current directory; no parent search.
 Before design read: resolve interrupted regeneration commit; refuse while a transaction owns workspace; verify hash chain.
+Calibration writes `smooth-sequences/CALIBRATION.json`: one seeded defect per check family, each detected by the real detector. No design file is written; only the calibration report is written to the live workspace.
 
 `--audit` runs every check family and reports every finding and blocked surface, but exits `0` and records `verdict: audit` with `wouldExit` (0, 1 or 4). It changes no finding and writes no repair action. Use it to observe a workspace that is expected to be red or unproven; the enforce path is the invocation without the flag. `--advisory-readings` is the only way to keep unresolved educe readings out of the verdict; the report prints `(advisory; not blocking)`.
 
@@ -181,6 +183,7 @@ Editable surfaces:
 ### Step 3 — In-place repair
 
 1. Open `where`; fragment identifies row. Generated `SEQUENCES.json` → edit package `RFC.md` or `OBLIGATION.json`, never view.
+   - `S7.sequence-steps-undistributed`: the sequence is only an `obligationUnits` row. Move it to `ownedSequenceUnits` or `crossBoundarySequenceUnits` with its ordered steps in `OBLIGATION.json`, or declare a grounded no-act residual; rerun `sequences-slice/run.mjs` and this command. An obligation row alone never satisfies step distribution.
 2. Apply `fix`.
 3. Run route's complete `rerun:` command; `<artifact>`/`<package>` already filled. Producer = detector → that run is Step 1.
 4. Return to Step 1.
@@ -351,7 +354,7 @@ In-place staged-candidate edit → `CANDIDATE_CHANGED`.
 
 ### Step 6 — Complete
 
-Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed.
+Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed. **Calibration.** Closure mode also requires `smooth-sequences/CALIBRATION.json` with a matching digest and `detected: true` for every seed; a missing or failed calibration is `CALIBRATION_MISSING`/`CALIBRATION_FAILED` and the run is `unproven` (exit 4).
 
 **Closure mode.** A v3 workspace enters closure mode by default; `--legacy` keeps the old report path. When the workspace carries `educe-sequences/EVIDENCE-MANIFEST.json`, pass is the `smooth-sequences/COMPLETION-CERTIFICATE.json` status `complete`, not a zero-finding count. An absent or empty readings file is an open obligation (`MISSING_EVIDENCE`); a phase receipt whose input digest no longer matches is `STALE_RECEIPT`; a check that evaluated zero claims is `vacuous`. In closure mode the effort gate is always on; `--require-effort` and `--strict-freshness` are compatibility flags and are implied. `complete` requires `basisResolvedRatio`, `quoteGroundedRatio`, `effortCoverage` and `blindAttackRatio` to be 1, and `templateAttackRatio`, `inheritedRatio`, `escapeActConflictCount` and `staleReceiptCount` to be 0. A closure run that has not produced this evidence is `unproven`: structural validity alone is never reported as `complete` or `pass`. `discriminatingRatio` and `rejudgeAgreement` are optional: a `null` value means the evidence was not measured and is listed in `assurance.notMeasured`; a numeric value is gated when it is present. Open semantic obligations are written to `smooth-sequences/JUDGMENT-WORKLIST.json` and close only through a held decision. A workspace without the manifest keeps the legacy path so an old report stays readable, but it cannot claim the closure guarantee.
 The console and JSON report carry an `instrument:` line with the inquest Yes ratio, the attack broken ratio, basis-quote discrimination and effort distinctness. It is a diagnostic: it never changes the verdict, and a zero-finding run whose instrument has never fired is reported as non-discriminating.
@@ -394,7 +397,7 @@ Every check id is listed once in `lib/check-status.mjs` with `requires`, `claims
 - S4 boundary clauses: required/extra `stage2_contract_scope` clauses; provider/consumer direction + counterpart; contribution completeness. v3 operation: `registry_contribution` ∈ `required`/`not_required`; `not_required` requires `registry_contribution_ground`; owner distribution ledger requires `op-<operationId>` row. Ledger `Kind` does not map to contribution value. An active operation reachable only through `obligationUnits` is `S4.contribution-unowned`, not skipped.
 - S5 contract meshing: precondition implication; produced/consumed closure; error-set agreement; crossing-boundary resolution. Meshing reads `contract.authored` (or a step's authored `contract_prose`); a step with only a registry projection is `S5.projection-only` and is never reported as meshed. An authored assertion must cite its step line and a quote the step carries; `S5.authored-source-missing` reports an uncited assertion. A declared boundary no step crosses and no `boundary_grounds` entry covers is `S5.boundary-uncovered`; a ground also covers a one-sided crossing. The whole family is blocked when the typed contract or authored surface is absent.
 - S6 danger: operation-dependency cycle; active operation unreachable from steps and uncovered by grounded escape; orphan object fact; repeated operation lacking `loop`/`retry`/`exception` annotation; step depending on later step; an operation `boundary_effects` entry no step crosses and no `boundary_grounds` entry covers (`S6.boundary-effect-drift`). The graph checks read typed step contracts and are blocked when the surface is absent or migration-synthesized. The drift check is a projection claim: it may read migration-synthesized effects but is blocked when `boundary_effects` is absent. A finding whose check later becomes blocked is re-emitted as `S.evidence-withdrawn` from the most recent report that carried findings, current or archived; it leaves the blocking set only through resolution or a grounded waiver.
-- S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC; an `obligationUnits` operation/sequence subject the artifact does not declare (`S7.obligation-unit-unknown`).
+- S7 artifact/view/RFC consistency: missing view; package-id mismatch; owned unit mismatch; boundary absent from RFC; an `obligationUnits` operation/sequence subject the artifact does not declare (`S7.obligation-unit-unknown`); an obligation-only sequence whose steps have no `ownedSequenceUnits`/`crossBoundarySequenceUnits` record (`S7.sequence-steps-undistributed`); a step order that disagrees with the artifact (`S7.sequence-step-order`); a step whose operation no view carries (`S7.step-operation-missing`); an active operation parked as a residual without `position: suppliedRule`, `grounding.classification: designer_supplied` and zero steps (`S7.active-operation-residual`).
 
 ## Appendix B — Frozen inputs and the chain
 

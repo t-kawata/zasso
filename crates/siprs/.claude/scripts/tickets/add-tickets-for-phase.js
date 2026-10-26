@@ -826,8 +826,8 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
-function verifySequenceSteps(phase, view, graph) {
+// [::TICKET::] PX-308, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313) --for-spec --no-implementation-order`.
+function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
   const graphUnits = new Set((graph?.nodes ?? []).flatMap((node) => node.unitIds ?? []));
   const declaredByUnit = new Map();
@@ -835,6 +835,30 @@ function verifySequenceSteps(phase, view, graph) {
     for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
       if (typeof unit?.unitId !== 'string') continue;
       declaredByUnit.set(unit.unitId, [...(unit.steps ?? [])].sort((left, right) => (left.order ?? 0) - (right.order ?? 0)));
+    }
+  }
+
+  // An obligationUnits row names a sequence but carries no steps. It is not a
+  // step-bearing distribution, so every artifact step whose sequence has no
+  // owned/cross-boundary record must be reported rather than silently skipped.
+  const obligationSequenceUnits = new Map();
+  for (const unit of Array.isArray(view?.obligationUnits) ? view.obligationUnits : []) {
+    if (unit?.kind !== 'sequence' && !String(unit?.unitId ?? '').startsWith('seq-')) continue;
+    const sequenceId = typeof unit.subject === 'string' ? unit.subject : String(unit.unitId).replace(/^seq-/, '');
+    obligationSequenceUnits.set(sequenceId, unit.unitId);
+  }
+  if (artifact !== null) {
+    for (const step of artifact.steps ?? []) {
+      const carryingUnit = [...declaredByUnit.entries()]
+        .find(([, steps]) => steps.some((entry) => entry.stepId === step.id));
+      if (carryingUnit !== undefined) continue;
+      findings.push({
+        code: 'SEQUENCE_STEPS_UNDISTRIBUTED',
+        stepId: step.id,
+        unitId: obligationSequenceUnits.get(step.sequence) ?? `seq-${step.sequence}`,
+        layer: 'ticket',
+        message: `sequence ${step.sequence} step ${step.id} has no step-bearing view record`,
+      });
     }
   }
 

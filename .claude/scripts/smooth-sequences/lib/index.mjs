@@ -129,6 +129,39 @@ export function sequenceOwners(index) {
 }
 
 /**
+ * The sequence records that actually carry steps.
+ *
+ * A sequence may be named by an obligationUnits row, but an obligation carries a relation
+ * and a subject, not the ordered steps the sequence implements. Only ownedSequenceUnits and
+ * crossBoundarySequenceUnits carry steps, so they are the records a step-level check may
+ * read. Keeping this map separate from sequenceOwners is what makes an obligation-only
+ * sequence visible instead of silently satisfying distribution.
+ *
+ * @param {Array<object>} packages
+ * @returns {Map<string, Array<{ packageId: string, unitId: string, field: string, steps: Array<object> }>>}
+ */
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+export function buildStepBearingSequenceRecords(packages) {
+  const bySequence = new Map();
+  for (const pkg of packages ?? []) {
+    for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
+      for (const unit of pkg.view?.[field] ?? []) {
+        if (typeof unit?.sequenceId !== 'string' || unit.sequenceId.length === 0) continue;
+        const records = bySequence.get(unit.sequenceId) ?? [];
+        records.push({
+          packageId: pkg.id,
+          unitId: unit.unitId,
+          field,
+          steps: Array.isArray(unit.steps) ? unit.steps : [],
+        });
+        bySequence.set(unit.sequenceId, records);
+      }
+    }
+  }
+  return bySequence;
+}
+
+/**
  * Index a loaded workspace.
  *
  * @param {object} loaded — the value `loadWorkspace` returns
@@ -157,6 +190,7 @@ export function indexArtifact(loaded) {
     ...buildPackageMaps(loaded.packages),
     operationOwners: operationOwners(loaded.packages),
     sequenceOwners: buildSequenceOwners(loaded.packages),
+    stepBearingSequences: buildStepBearingSequenceRecords(loaded.packages),
     duplicates,
   });
 }

@@ -184,6 +184,47 @@ function operationOwnerPackages(index) {
 }
 
 /**
+ * The active operations a package map parks as declared residuals.
+ *
+ * A residual is the one route that removes a unit from distribution. It is allowed for an
+ * active operation only when the artifact itself records that the operation is a supplied
+ * rule with no ordered procedure: `position: suppliedRule`, `grounding.classification:
+ * designer_supplied`, and no step. Any other active residual is an active operation that
+ * no ticket will implement, so it is reported instead of counted as distributed.
+ *
+ * @param {object} index
+ * @param {Array<{ packageId: string, units: Array<object>, residuals?: Array<object> }>} maps
+ * @returns {Array<{ checkId: string, subject: string, className: string, why: string, fix: string }>}
+ */
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+export function checkActiveOperationResiduals(index, maps) {
+  const residuals = new Set();
+  for (const map of maps ?? []) {
+    for (const residual of map?.residuals ?? []) {
+      if (typeof residual?.unit === 'string') residuals.add(residual.unit);
+    }
+  }
+
+  const findings = [];
+  for (const operation of index?.artifact?.operations ?? []) {
+    if (operation?.disposition !== 'active') continue;
+    const unitId = `op-${operation.id}`;
+    if (!residuals.has(unitId)) continue;
+    const suppliedRule = operation.position === 'suppliedRule'
+      && operation.grounding?.classification === 'designer_supplied'
+      && (index.stepsByOperation?.get(operation.id) ?? []).length === 0;
+    if (suppliedRule) continue;
+    findings.push(finding('S7.active-operation-residual', 'danger', unitId, {
+      where: 'artifact.operations',
+      why: `active operation ${unitId} is a declared residual without position suppliedRule, grounding designer_supplied and zero steps`,
+      fix: 'distribute the operation or reclassify it with a no-act ground before the split',
+      producer: 'smooth-sequences/run.mjs',
+    }));
+  }
+  return findings;
+}
+
+/**
  * The root collector for the S7 distribution family.
  *
  * The root coverage finding fires only when at least one package carries a map: a workspace
@@ -204,7 +245,7 @@ export function collectDistributionMap(index) {
       }));
     }
     const parsed = pkg.rfc === null || pkg.rfc === undefined ? { ok: false } : parseDistributionMap(pkg.rfc);
-    if (parsed.ok) maps.push({ packageId: pkg.id, units: parsed.map.units });
+    if (parsed.ok) maps.push({ packageId: pkg.id, units: parsed.map.units, residuals: parsed.map.residuals ?? [] });
   }
 
   const roles = checkOwnerRoles(maps, {
@@ -221,12 +262,19 @@ export function collectDistributionMap(index) {
     }
   }
 
+  const ownersByOperation = operationOwnerPackages(index);
+  for (const entry of checkActiveOperationResiduals(index, maps)) {
+    findings.push({
+      ...entry,
+      ...routeForWorkspaceFinding(entry.checkId, index, ownersByOperation.get(entry.subject.slice('op-'.length))),
+    });
+  }
+
   if (maps.length > 0) {
     const viewUnitIds = new Set();
     for (const pkg of index?.packages ?? []) {
       for (const unitId of collectViewUnits(pkg.view).keys()) viewUnitIds.add(unitId);
     }
-    const ownersByOperation = operationOwnerPackages(index);
     for (const operation of index?.artifact?.operations ?? []) {
       const unitId = `op-${operation.id}`;
       if (!viewUnitIds.has(unitId)) {

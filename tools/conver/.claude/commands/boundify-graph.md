@@ -97,10 +97,15 @@ Root: `.claude/scripts/rfc-graph/`.
 Confirm valid graph; collect all node `language` fields.
 
 ```bash
+RUN_ID="$(date +%s%N)-$$"
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" begin-run --run-id="$RUN_ID"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 0
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --dry-run
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="$(dirname "$graphPath")"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 0
 ```
+
+`begin-run` counts one invocation; `end-step 3` advances `generation` only when the Dirs-Tree digest changes. Audit mode appends `--audit` to the final `end-step 3`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
 ### Recovery on Error
 
@@ -185,6 +190,7 @@ test -f "$dirsTreePath" && echo "Dirs-Tree.json: OK" || echo "Dirs-Tree.json: MI
 node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
   --dirs-tree="$dirsTreePath" \
   --graph="$graphPath"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="$(dirname "$graphPath")"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
 ```
 
@@ -259,6 +265,8 @@ Report:
 - node count; edge count; cyclic dependencies detected/not detected.
 - final schema validation result.
 - final graph-integrity regression result.
+- chain verdict: `verify-chain --stage=boundify` 0 findings; view/map/graph/dirs unit counts and digest equality.
+- stage counters: `runs` and `generation` from `statusPath`; an unchanged Dirs-Tree digest is a verification.
 - generated file count across languages.
 - resolved prose-node/cross-reference count.
 - prune: empty-directory removals / flattenings.

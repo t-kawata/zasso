@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
@@ -98,6 +99,7 @@ test('Step 5 routes judgment-required to the owning AI command', () => {
 // @verifies C006
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the command makes a fresh exit 0 the loop sole exit and exit 1 not completion', () => {
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
   assert.match(command, /exit 0 only when/i);
   assert.match(command, /exit 1 is an input|not completion/i);
@@ -110,6 +112,12 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   assert.match(command, /UNCITED_AUTHORED_FACT/);
   assert.match(command, /UNCITED_BOUNDARY_GROUND/);
   assert.match(command, /S5\.authored-source-missing/);
+  assert.match(command, /S7\.sequence-steps-undistributed/);
+  assert.match(command, /S7\.active-operation-residual/);
+  assert.match(command, /obligation row alone never satisfies step distribution/);
+  assert.match(command, /calibrate\.mjs/);
+  assert.match(command, /CALIBRATION\.json/);
+  assert.match(command, /CALIBRATION_FAILED/);
   assert.match(command, /reader phases/);
   assert.doesNotMatch(command, /restore the authored surface with its producer, or record a grounded waiver/);
   assert.doesNotMatch(command, /Step 2b/);

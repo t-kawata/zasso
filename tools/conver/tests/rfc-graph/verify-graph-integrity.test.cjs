@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 const {
   checkNodesIntegrity,
   checkEdgesIntegrity,
+  checkDistributionIntegrity,
 } = require('../../.claude/scripts/rfc-graph/verify-graph-integrity.js');
 
 // ============================================================
@@ -100,5 +101,34 @@ describe('checkEdgesIntegrity', () => {
   it('should handle null graphs gracefully', () => {
     const result = checkEdgesIntegrity(null, BASE_GRAPH);
     assert.strictEqual(result.errors.length, 0);
+  });
+});
+
+// ============================================================
+// checkDistributionIntegrity
+// ============================================================
+
+describe('checkDistributionIntegrity', () => {
+// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+  const base = {
+    distributionDigest: 'a'.repeat(64),
+    nodes: [{ id: 'N0001', unitIds: ['op-A', 'seq-A'] }],
+    edges: [],
+  };
+
+  it('passes an unchanged digest and unit set', () => {
+    assert.deepEqual(checkDistributionIntegrity(base, base), { errors: [], remedies: [] });
+  });
+
+  it('detects a changed digest', () => {
+    const after = { ...base, distributionDigest: 'b'.repeat(64) };
+    const result = checkDistributionIntegrity(after, base);
+    assert.ok(result.errors.some((error) => error.includes('distributionDigest changed')));
+  });
+
+  it('detects a dropped unit', () => {
+    const after = { ...base, nodes: [{ id: 'N0001', unitIds: ['op-A'] }] };
+    const result = checkDistributionIntegrity(after, base);
+    assert.ok(result.errors.some((error) => error.includes('unit set changed')));
   });
 });

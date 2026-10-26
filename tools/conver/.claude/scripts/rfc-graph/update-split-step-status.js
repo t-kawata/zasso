@@ -22,7 +22,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { toHomeRelative } = require('../lib/path-utils');
+const { fromHomeRelative, toHomeRelative } = require('../lib/path-utils');
+const {
+  beginRun,
+  completeGeneration,
+  coverageFor,
+  outputDigest,
+} = require('./lib/status-generation');
 
 // ============================================================
 // Constants
@@ -45,6 +51,7 @@ const STEP_ORDER = [
 
 /** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
+  'begin-run',
   'start-step',
   'end-step',
   'fail-step',
@@ -98,6 +105,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string, subcommand: string, stepId: string|null }}
  * @throws {Error} If arguments are invalid
  */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function parseArguments() {
   const args = process.argv.slice(2);
 
@@ -139,10 +147,10 @@ function parseArguments() {
     );
   }
 
-  // Read step-id (required except for status/cleanup/backup/prune-phases/renumber-phases)
+  // Read step-id (required except for status/cleanup/backup/prune-phases/renumber-phases/begin-run)
   let stepId = null;
   if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup'
-      && subcommand !== 'prune-phases' && subcommand !== 'renumber-phases') {
+      && subcommand !== 'prune-phases' && subcommand !== 'renumber-phases' && subcommand !== 'begin-run') {
     if (args.length < 3) {
       throw new Error(
         `Subcommand "${subcommand}" requires a Step ID.`
@@ -156,7 +164,11 @@ function parseArguments() {
     }
   }
 
-  return { statusPath, subcommand, stepId };
+  const audit = args.includes('--audit');
+  const runIdFlag = args.find((entry) => entry.startsWith('--run-id='));
+  const runId = runIdFlag === undefined ? null : runIdFlag.slice('--run-id='.length);
+
+  return { statusPath, subcommand, stepId, audit, runId };
 }
 
 /**
@@ -194,6 +206,7 @@ function readStatus(statusPath) {
  * @param {string} statusPath — Path to the status file
  * @returns {StatusData} Default status
  */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
   const filename = path.basename(statusPath);
@@ -222,6 +235,11 @@ function createDefaultStatus(statusPath) {
     graphFile,
     currentStep: STEP_ORDER[0],
     steps,
+    generation: 0,
+    runs: 0,
+    runId: null,
+    lastOutputDigest: null,
+    coverage: null,
   };
 }
 
@@ -256,9 +274,30 @@ function executeStartStep(status, stepId) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID to finish
  */
-function executeEndStep(status, stepId) {
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+function executeBeginRun(status, runId) {
+  const next = beginRun(status, runId ?? `${Date.now()}-${process.pid}`);
+  Object.assign(status, next);
+  console.log(JSON.stringify({ runs: status.runs, runId: status.runId }));
+}
+
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+function executeEndStep(status, stepId, { audit = false } = {}) {
   status.steps[stepId] = STATUS_DONE;
   const idx = STEP_ORDER.indexOf(stepId);
+  if (stepId === '6' && status.runId !== null && status.runId !== undefined) {
+    const graphPath = fromHomeRelative(status.graphFile);
+    const ticketsPath = path.join(path.dirname(graphPath), 'Tickets.json');
+    const result = completeGeneration(status, {
+      outputDigest: outputDigest(ticketsPath),
+      coverage: coverageFor('split', ticketsPath),
+      audit,
+    });
+    if (!result.ok) {
+      throw new Error(`${result.code}: the stage generation was not written`);
+    }
+    Object.assign(status, result.status);
+  }
   if (idx === STEP_ORDER.length - 1) {
     status.currentStep = stepId;
     console.log(`[${stepId}]  completed. All steps completed.`);
@@ -570,6 +609,7 @@ Step IDs (definition order): ${STEP_ORDER.join(', ')}
 /**
  * Main processing: parse arguments, dispatch subcommand, write file
  */
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
 
@@ -584,7 +624,7 @@ function main() {
     );
   }
 
-  const { statusPath, subcommand, stepId } = parsed;
+  const { statusPath, subcommand, stepId, audit, runId } = parsed;
 
   // Step 2: Read status file (or default state if not found)
   let status;
@@ -601,6 +641,10 @@ function main() {
   // Step 3: Execute subcommand
   try {
     switch (subcommand) {
+      case 'begin-run':
+        executeBeginRun(status, runId);
+        break;
+
       case 'start-step':
         if (!validateStepId(stepId)) {
           exitWithError(
@@ -620,7 +664,7 @@ function main() {
             'Specify a valid Step ID and re-run.'
           );
         }
-        executeEndStep(status, stepId);
+        executeEndStep(status, stepId, { audit });
         break;
 
       case 'fail-step':
@@ -704,6 +748,7 @@ module.exports = {
   validateStepId,
   executeStartStep,
   executeEndStep,
+  executeBeginRun,
   executeFailStep,
   executeResetToStep,
   executeStatus,

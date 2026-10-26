@@ -1,3 +1,4 @@
+// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
 /**
@@ -123,6 +124,7 @@ export function writeGeneration(input) {
     exitCode,
     findingKeysDigest = null,
     schemaHistory = [],
+    calibrationDigest = null,
     now = new Date().toISOString(),
   } = input;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -182,6 +184,7 @@ export function writeGeneration(input) {
     reportDigest,
     findingKeysDigest,
     schemaHistory,
+    calibrationDigest,
     verdict,
     remainingOpen: Number.isInteger(report.remainingOpen) ? report.remainingOpen : null,
     effortDebt: report.effortDebt ?? null,

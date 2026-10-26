@@ -18,8 +18,16 @@ const path = require("path");
 
 const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
 const { collectLedgerResidualUnitIds, collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
-const { findSingleSiblingPath } = require("../lib/package-artifacts");
+const { findSingleSiblingPath, findAllocateManifest } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
+
+/** The single root `*-sequences.json` the split's step gate reads, or null. */
+// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+function findRootSequencesArtifact(ticketsJsonPath) {
+  const allocateManifest = findAllocateManifest(path.dirname(path.resolve(ticketsJsonPath)));
+  if (allocateManifest === null) return null;
+  return findSingleSiblingPath(path.dirname(allocateManifest), "-sequences.json");
+}
 
 /** Read `--name=value` or `--name value`, returning null when absent. */
 // [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
@@ -80,7 +88,7 @@ function derivePackagePaths(ticketsJsonPath) {
 }
 
 /** The unit material the CLI supplied, or derived from the Tickets.json beside it. */
-// [::TICKET::] PX-306, PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-309, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-309|PX-312|PX-313) --for-spec --no-implementation-order`.
 function readUnitMaterial(argv) {
   const ticketsJsonPath = argv.find((entry) => !entry.startsWith("--")) ?? null;
   const derived = ticketsJsonPath === null ? {} : derivePackagePaths(ticketsJsonPath);
@@ -116,6 +124,10 @@ function readUnitMaterial(argv) {
       material.ledgerUnitIds = collectLedgerUnitIds(rows);
       material.residualUnitIds = collectLedgerResidualUnitIds(rows);
     }
+  }
+  const artifactPath = argumentFor(argv, "artifact") ?? (ticketsJsonPath === null ? null : findRootSequencesArtifact(ticketsJsonPath));
+  if (artifactPath !== null && fs.existsSync(path.resolve(artifactPath))) {
+    material.artifact = JSON.parse(fs.readFileSync(path.resolve(artifactPath), "utf8"));
   }
   return material;
 }
@@ -265,7 +277,7 @@ function verifyDistributionDigests(phase) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307, PX-308, PX-309, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309|PX-311) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-309, PX-311, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309|PX-311|PX-312|PX-313) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
@@ -317,7 +329,7 @@ function verifyAllTicketCoverage(ticketsData, material) {
     for (const phase of phases) {
       distributionFindings.push(...verifyDistributionDigests(phase));
       distributionFindings.push(...verifyTicketDistribution(phase, material.view, material.graph, material.dirs));
-      distributionFindings.push(...verifySequenceSteps(phase, material.view, material.graph));
+      distributionFindings.push(...verifySequenceSteps(phase, material.view, material.graph, material.artifact ?? null));
     }
   }
   const findings = [...unitFindings, ...digestFindings, ...distributionFindings];
