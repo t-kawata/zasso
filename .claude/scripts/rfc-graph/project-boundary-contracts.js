@@ -21,10 +21,12 @@ const {
   boundaryContractProjection,
   boundaryNoteForRows,
   boundarySidecarNote,
+  carryingEdgeFor,
   combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
+const { collectViewUnits } = require('../sequences-slice/lib/distribution-map.mjs');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -33,10 +35,14 @@ const CONTRACT_ID_BASE = 900;
 
 const MESSAGES = Object.freeze({
   MISSING_BOUNDARY_EDGE: 'MISSING_BOUNDARY_EDGE',
+  AMBIGUOUS_BOUNDARY_EDGE: 'AMBIGUOUS_BOUNDARY_EDGE',
   CONTRACT_ID_COLLISION: 'CONTRACT_ID_COLLISION',
   BOUNDARY_NOTE_TOO_LONG: 'BOUNDARY_NOTE_TOO_LONG',
   MISSING_BOUNDARY_CONTRACT: 'MISSING_BOUNDARY_CONTRACT',
   BOUNDARY_CONTRACT_MISMATCH: 'BOUNDARY_CONTRACT_MISMATCH',
+  MISSING_GRAPH: 'MISSING_GRAPH',
+  MISSING_VIEW: 'MISSING_VIEW',
+  MISSING_REGISTRY: 'MISSING_REGISTRY',
 });
 
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
@@ -55,6 +61,35 @@ function rowsOfEdge(edge, graph, registry) {
   const endpointNodeIds = new Set([edge.from, edge.to]);
   return (registry ?? []).filter((row) => (graph.nodes ?? []).some((node) => endpointNodeIds.has(node.id)
     && (node.unitIds ?? []).includes(`ctr-${row.boundary_id}`)));
+}
+
+/**
+ * The registry rows this package graph can carry.
+ *
+ * The workspace registry is shared by every package. A package graph carries only the ctr
+ * units its own nodes hold, so a foreign row has no edge here and must be skipped rather
+ * than projected or refused.
+ */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function localRegistryRows(graph, registry) {
+  return (registry ?? []).filter((row) => (graph?.nodes ?? []).some(
+    (node) => (node.unitIds ?? []).includes(`ctr-${row.boundary_id}`),
+  ));
+}
+
+/** The local rows with their global registry index, so a C9xx id is stable across packages. */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function indexedLocalRows(graph, registry) {
+  const local = new Set(localRegistryRows(graph, registry));
+  return (registry ?? [])
+    .map((row, index) => ({ row, index }))
+    .filter((entry) => local.has(entry.row));
+}
+
+/** The view direction for a ctr unit, or null when the view does not declare one. */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function directionFor(view, ctrUnit) {
+  return collectViewUnits(view).get(ctrUnit)?.record?.direction ?? null;
 }
 
 /** The note that binds every boundary the edge carries. */
@@ -90,9 +125,9 @@ function rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey = null) {
 }
 
 /** Write the full clause table that a too-long note can no longer carry inline. */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
-function writeBoundarySidecar(sidecarPath, registry, rowsByEdge) {
-  const boundaries = Object.fromEntries((registry ?? []).map((row, index) => [row.boundary_id, {
+// [::TICKET::] PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-314|PX-315) --for-spec --no-implementation-order`.
+function writeBoundarySidecar(sidecarPath, indexedRows, rowsByEdge) {
+  const boundaries = Object.fromEntries((indexedRows ?? []).map(({ row, index }) => [row.boundary_id, {
     contractId: contractIdFor(index),
     clauseDigest: boundaryClauseDigest(row),
     clauses: row.clauses,
@@ -110,23 +145,32 @@ function writeBoundarySidecar(sidecarPath, registry, rowsByEdge) {
  * @param {{ graph: object, registry: Array<object>, sidecarPath?: string|null }} input
  * @returns {object} the projected graph
  */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
-function projectBoundaryContracts({ graph, registry = [], sidecarPath = null }) {
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPath = null }) {
   const next = JSON.parse(JSON.stringify(graph));
+  const indexedLocal = indexedLocalRows(next, registry);
+  const localRows = indexedLocal.map((entry) => entry.row);
   const rowsByEdge = new Map();
   for (const edge of next.edges ?? []) {
-    rowsByEdge.set(`${edge.from}→${edge.to}(${edge.type})`, rowsOfEdge(edge, next, registry));
+    rowsByEdge.set(`${edge.from}→${edge.to}(${edge.type})`, rowsOfEdge(edge, next, localRows));
   }
 
-  for (const [index, row] of registry.entries()) {
+  for (const { row, index } of indexedLocal) {
     const ctrUnit = `ctr-${row.boundary_id}`;
     const ctrNodes = (next.nodes ?? []).filter((node) => (node.unitIds ?? []).includes(ctrUnit));
-    const edge = (next.edges ?? []).find((candidate) => ctrNodes.some((node) => candidate.from === node.id || candidate.to === node.id));
+    const direction = directionFor(view, ctrUnit);
+    const edge = carryingEdgeFor(next, ctrNodes, row, { direction });
     if (edge === undefined) {
       const error = new Error(`${MESSAGES.MISSING_BOUNDARY_EDGE}: ${row.boundary_id} has no edge touching its ctr node`);
       error.code = MESSAGES.MISSING_BOUNDARY_EDGE;
       throw error;
     }
+    if (edge === null) {
+      const error = new Error(`${MESSAGES.AMBIGUOUS_BOUNDARY_EDGE}: ${row.boundary_id} has more than one candidate edge`);
+      error.code = MESSAGES.AMBIGUOUS_BOUNDARY_EDGE;
+      throw error;
+    }
+    if (!Array.isArray(edge.contracts)) edge.contracts = [];
     const contractId = contractIdFor(index);
     const projected = boundaryContractProjection(row, contractId);
     const existing = edge.contracts.findIndex((contract) => contract.id === contractId);
@@ -149,7 +193,7 @@ function projectBoundaryContracts({ graph, registry = [], sidecarPath = null }) 
         error.code = MESSAGES.BOUNDARY_NOTE_TOO_LONG;
         throw error;
       }
-      writeBoundarySidecar(sidecarPath, registry, rowsByEdge);
+      writeBoundarySidecar(sidecarPath, indexedLocal, rowsByEdge);
       edge.attributes = { ...(edge.attributes ?? {}), note: boundarySidecarNote(path.basename(sidecarPath), rows) };
       continue;
     }
@@ -178,19 +222,24 @@ function readBoundarySidecar(sidecarPath) {
  * @param {{ sidecarPath?: string|null }} [options]
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
-function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null } = {}) {
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null, view = null } = {}) {
   const findings = [];
-  for (const row of registry) {
+  for (const row of localRegistryRows(graph, registry)) {
     const ctrUnit = `ctr-${row.boundary_id}`;
     const ctrNodes = (graph?.nodes ?? []).filter((node) => (node.unitIds ?? []).includes(ctrUnit));
     if (ctrNodes.length === 0) {
       findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph node`));
       continue;
     }
-    const edge = (graph?.edges ?? []).find((candidate) => ctrNodes.some((node) => candidate.from === node.id || candidate.to === node.id));
+    const direction = directionFor(view, ctrUnit);
+    const edge = carryingEdgeFor(graph, ctrNodes, row, { direction });
     if (edge === undefined) {
       findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
+      continue;
+    }
+    if (edge === null) {
+      findings.push(finding(MESSAGES.AMBIGUOUS_BOUNDARY_EDGE, ctrUnit, `registry boundary ${row.boundary_id} has more than one candidate edge`));
       continue;
     }
     const parsed = parseBoundaryNoteRows(edge.attributes?.note);
@@ -220,10 +269,10 @@ function argumentFor(argv, name) {
 }
 
 /** Apply the projection through crud.js, one edge at a time. */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
-function attachThroughCrud(graphPath, graph, registry, sidecarPath = null) {
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+function attachThroughCrud(graphPath, graph, registry, sidecarPath = null, view = null) {
   const before = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-  const projected = projectBoundaryContracts({ graph: before, registry, sidecarPath });
+  const projected = projectBoundaryContracts({ graph: before, registry, view, sidecarPath });
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'boundary-contracts-'));
   const crudPath = path.join(__dirname, 'crud.js');
   try {
@@ -246,32 +295,62 @@ function attachThroughCrud(graphPath, graph, registry, sidecarPath = null) {
   return projected;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+function refusal(error) {
+  const code = error.code ?? 'BOUNDARY_PROJECTION_FAILED';
+  console.error(`[ERROR] ${code}: ${error.message}`);
+  console.error(`Cause: ${error.message}`);
+  console.error('Action: repair the package graph, registry or view, then re-run this step');
+  return EXIT_FAILURE;
+}
+
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphPath = argumentFor(argv, 'graph');
   const registryPath = argumentFor(argv, 'registry');
+  const viewPath = argumentFor(argv, 'view');
   const mode = argumentFor(argv, 'mode') ?? 'attach';
-  if (graphPath === null || registryPath === null) {
+  if (graphPath === null || graphPath === '' || registryPath === null || registryPath === '') {
     console.error('[ERROR] --graph=<GRAPH.json> and --registry=<ALLOCATE-MANIFEST.json> are required');
     console.error('Cause: missing argument');
     console.error('Action: supply both paths');
     return EXIT_FAILURE;
   }
   const sidecarPath = argumentFor(argv, 'sidecar') ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
-  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-  const manifest = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-  const registry = Array.isArray(manifest) ? manifest : manifest.contract_registry ?? [];
 
-  if (mode === 'verify') {
-    const findings = verifyBoundaryContracts(graph, registry, { sidecarPath });
-    for (const entry of findings) console.error(`${entry.code}: ${entry.subject}: ${entry.message}`);
-    process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
-    return findings.length === 0 ? EXIT_OK : EXIT_FAILURE;
+  try {
+    if (!fs.existsSync(graphPath)) throw codedError(MESSAGES.MISSING_GRAPH, `graph is not readable: ${graphPath}`);
+    if (!fs.existsSync(registryPath)) throw codedError(MESSAGES.MISSING_REGISTRY, `registry is not readable: ${registryPath}`);
+    let view = null;
+    if (viewPath !== null && viewPath !== '') {
+      if (!fs.existsSync(viewPath)) throw codedError(MESSAGES.MISSING_VIEW, `view is not readable: ${viewPath}`);
+      view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+    }
+    const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    const manifest = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    const registry = Array.isArray(manifest) ? manifest : manifest.contract_registry ?? [];
+
+    if (mode === 'verify') {
+      const findings = verifyBoundaryContracts(graph, registry, { sidecarPath, view });
+      for (const entry of findings) console.error(`${entry.code}: ${entry.subject}: ${entry.message}`);
+      process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
+      return findings.length === 0 ? EXIT_OK : EXIT_FAILURE;
+    }
+
+    const projected = attachThroughCrud(graphPath, graph, registry, sidecarPath, view);
+    const localCount = localRegistryRows(projected, registry).length;
+    process.stdout.write(`${JSON.stringify({ ok: true, projectedEdges: (projected.edges ?? []).length, boundaries: localCount, sidecar: fs.existsSync(sidecarPath) ? sidecarPath : null })}\n`);
+    return EXIT_OK;
+  } catch (error) {
+    return refusal(error);
   }
-
-  const projected = attachThroughCrud(graphPath, graph, registry, sidecarPath);
-  process.stdout.write(`${JSON.stringify({ ok: true, projectedEdges: (projected.edges ?? []).length, boundaries: registry.length, sidecar: fs.existsSync(sidecarPath) ? sidecarPath : null })}\n`);
-  return EXIT_OK;
 }
 
 if (require.main === module) {
@@ -281,6 +360,7 @@ if (require.main === module) {
 module.exports = {
   projectBoundaryContracts,
   verifyBoundaryContracts,
+  localRegistryRows,
   contractIdFor,
   noteForRows,
   rowsFromBoundaryNote,

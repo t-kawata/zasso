@@ -58,11 +58,11 @@ function fixtureDirsTree() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 function fixturePhase() {
   return {
     id: -1,
-    nodeIds: ['op-Produce', 'op-Consume', 'seq-A-1'],
+    nodeIds: ['N0001', 'N0002', 'N0003'],
     tickets: [
       { id: 1, phaseId: -1, status: 'todo', title: 'produce', nodeIds: ['N0001'], specPath: 'SPEC.md' },
       { id: 2, phaseId: -1, status: 'todo', title: 'consume', nodeIds: ['N0002'], specPath: 'SPEC.md' },

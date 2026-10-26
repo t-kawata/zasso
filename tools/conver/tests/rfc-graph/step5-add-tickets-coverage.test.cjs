@@ -123,9 +123,10 @@ describe('verifyNodeCoverage', () => {
 // verifyTicketUnits (PX-306 @verifies C002)
 // ============================================================
 
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-315 --for-spec --no-implementation-order`.
 describe('verifyTicketUnits', () => {
   it('reports a graph unit no ticket carries', () => {
-    const phase = { tickets: [{ nodeIds: ['N0001'] }] };
+    const phase = { nodeIds: ['N0001'], tickets: [{ nodeIds: ['N0001'] }] };
     const graph = { nodes: [{ id: 'N0001', unitIds: ['op-A'] }] };
     const result = verifyTicketUnits(phase, graph);
     assert.equal(result.valid, false);
@@ -133,7 +134,7 @@ describe('verifyTicketUnits', () => {
   });
 
   it('reports a ticket unit the graph does not carry', () => {
-    const phase = { tickets: [{ nodeIds: ['N0001', 'op-Ghost'] }] };
+    const phase = { nodeIds: ['N0001'], tickets: [{ nodeIds: ['N0001', 'op-Ghost'] }] };
     const graph = { nodes: [{ id: 'N0001', unitIds: [] }] };
     const result = verifyTicketUnits(phase, graph);
     assert.equal(result.valid, false);
@@ -141,7 +142,7 @@ describe('verifyTicketUnits', () => {
   });
 
   it('accepts tickets carrying every graph unit and nothing else', () => {
-    const phase = { tickets: [{ nodeIds: ['N0001', 'op-A', 'ctr-boundary-005'] }] };
+    const phase = { nodeIds: ['N0001'], tickets: [{ nodeIds: ['N0001', 'op-A', 'ctr-boundary-005'] }] };
     const graph = { nodes: [{ id: 'N0001', unitIds: ['op-A', 'ctr-boundary-005'] }] };
     assert.equal(verifyTicketUnits(phase, graph).valid, true);
   });

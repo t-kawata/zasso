@@ -90,7 +90,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH"
 ```
 
-Fail-closed preflight: `STALE_DISTRIBUTION_MAP`, `UNIT_SET_MISMATCH`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `MISSING_BOUNDARY_CONTRACT` ⇒ stop; do not create tickets. A missing `Tickets.json` is allowed at Step 0; the post-5-2 gate requires it.
+Fail-closed preflight: `STALE_DISTRIBUTION_MAP`, `UNIT_SET_MISMATCH`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `MISSING_BOUNDARY_CONTRACT` ⇒ stop; do not create tickets. The same preflight requires the workspace-level `SMOOTH-VERDICT.json`: `MISSING_SMOOTH_RECEIPT` → run graphify first; `STALE_SMOOTH_VERDICT` → smooth or the root artifact moved after the receipt, so rerun graphify, boundify, then split. A missing `Tickets.json` is allowed at Step 0; the post-5-2 gate requires it.
 `begin-run` counts one invocation; `end-step 6` advances `generation` only when the Tickets.json digest changes. Audit mode appends `--audit` to the final `end-step 6`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
 From 0-1, status commands:
@@ -294,6 +294,8 @@ echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase
 
 When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
 
+A phase owns its own nodes. The 5-2 gate checks the units and steps reachable from `phase.nodeIds`, so a unit implemented in P1 is not a P0 omission. The package-global guarantee is the final `verify-chain`: every graph unit reaches a ticket, every owned sequence step reaches exactly one ticket, and an operation has exactly one implementing ticket across all phases. The aggregate keys a ticket by `PX-{id}` in the PX phase and `P{phaseId}-{id}` otherwise, never by the numeric id alone.
+
 Fields: schema `tickets-schema.json#/definitions/ticket`; auto only `id`, `phaseId`, `status`; `additionalProperties: true`; `default_files` is script-set from the Dirs-Tree derived beside `Tickets.json`; AI must not input; `contracts` required input `[]`, auto-populated after 5-2.
 
 | Field | Minimum contract |
@@ -341,7 +343,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 
 Every split-stage script derives the graph, Dirs-Tree, RFC and view from the directory holding `$TICKETS_PATH`. The pipeline fixes those names, so the command line does not repeat them; the scripts keep their explicit-path arguments only as overrides for a non-standard layout. `verify-ticket-closure.js` and `merge-contracts-to-tickets.js` also discover the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the registry chain runs whenever the split is inside a workspacify workspace and is skipped otherwise.
 
-Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, `BOUNDARY_CONTRACT_MISMATCH`, `BOUNDARY_DIRECTION_MISMATCH`, `INVENTED_TICKET_CONTRACT`, `DUPLICATE_UNIT_AT_TICKET`, `MISSING_SEQUENCE_STEP`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `DUPLICATE_SEQUENCE_STEP`, `SEQUENCE_STEP_WITHOUT_IMPLEMENTER`, `SEQUENCE_ORDER_MISMATCH`, `UNASSIGNED_SEQUENCE_STEP`, `SPEC_REF_MISSING`, and `DISTRIBUTION_DIGEST_MISMATCH`. The ticket's unit ids are appended by `add-tickets-for-phase.js`; the author never copies them.
+Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT_CHAIN_OPEN`, `INTER_TICKET_CLOSURE_OPEN`, `MISSING_UNIT_AT_LAYER`, `INVENTED_UNIT`, `MISSING_BOUNDARY_CONTRACT`, `BOUNDARY_CONTRACT_MISMATCH`, `BOUNDARY_DIRECTION_MISMATCH`, `INVENTED_TICKET_CONTRACT`, `DUPLICATE_UNIT_AT_TICKET`, `MISSING_IMPLEMENTER`, `AMBIGUOUS_BOUNDARY_EDGE`, `MISSING_SEQUENCE_STEP`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `DUPLICATE_SEQUENCE_STEP`, `SEQUENCE_STEP_WITHOUT_IMPLEMENTER`, `SEQUENCE_ORDER_MISMATCH`, `UNASSIGNED_SEQUENCE_STEP`, `SPEC_REF_MISSING`, and `DISTRIBUTION_DIGEST_MISMATCH`. The ticket's unit ids are appended by `add-tickets-for-phase.js`; the author never copies them.
 
 ### Resuming from an Error
 

@@ -21,17 +21,20 @@ import { digestValue } from './lib/digest.mjs';
 import { readDistributionMap } from '../rfc-graph/lib/unit-ids.mjs';
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../lib/package-artifacts.js');
+const { ticketIdentity } = require('../tickets/lib/ticket-identity.js');
 import {
   boundaryClauseDigest,
+  carryingEdgeFor,
   combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } from './lib/boundary-contract.mjs';
+import { verifySmoothReceipt } from './lib/smooth-verdict.mjs';
 
 export const CHAIN_CODES = Object.freeze({
   STALE_DISTRIBUTION_MAP: 'STALE_DISTRIBUTION_MAP',
@@ -44,6 +47,9 @@ export const CHAIN_CODES = Object.freeze({
   MISSING_BOUNDARY_CONTRACT: 'MISSING_BOUNDARY_CONTRACT',
   BOUNDARY_CONTRACT_MISMATCH: 'BOUNDARY_CONTRACT_MISMATCH',
   BOUNDARY_DIRECTION_MISMATCH: 'BOUNDARY_DIRECTION_MISMATCH',
+  AMBIGUOUS_BOUNDARY_EDGE: 'AMBIGUOUS_BOUNDARY_EDGE',
+  DUPLICATE_UNIT_AT_TICKET: 'DUPLICATE_UNIT_AT_TICKET',
+  MISSING_IMPLEMENTER: 'MISSING_IMPLEMENTER',
   STEP_CONTRACT_MISMATCH: 'STEP_CONTRACT_MISMATCH',
   ACTIVE_OPERATION_RESIDUAL: 'ACTIVE_OPERATION_RESIDUAL',
 });
@@ -108,18 +114,12 @@ function compareUnitSets(actual, expected, layer, findings) {
   }
 }
 
-/**
- * The edge that carries a boundary projection, or the first edge touching its ctr node.
- *
- * The projection, note and direction checks must read the same edge. The first touching
- * edge can be an unrelated reference edge, especially after an authorial pass.
- */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
-function carryingEdgeFor(graph, ctrNodes, row) {
-  const touching = (graph?.edges ?? [])
-    .filter((edge) => ctrNodes.some((node) => edge.from === node.id || edge.to === node.id));
-  return touching.find((edge) => (edge.contracts ?? []).some((contract) => projectionMatches(contract, row)))
-    ?? touching[0];
+/** The direction records a ctr unit carries in the view, in view order. */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-315 --for-spec --no-implementation-order`.
+function directionsFor(view, ctrUnit) {
+  return (collectViewUnits(view).get(ctrUnit)?.records ?? [])
+    .map((record) => record.direction)
+    .filter((direction) => typeof direction === 'string');
 }
 
 /** The registry rows a note resolves to, including a sidecar note, or null. */
@@ -167,6 +167,7 @@ function ticketBoundaryContract(ticket, row) {
  * @param {{ view: object, map: object, graph: object, dirsTree: object, tickets: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {{ ok: boolean, findings: Array<{ code: string, subject: string|null, message: string }> }}
  */
+// [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 export function verifyChain(input = {}) {
   const {
     view,
@@ -223,6 +224,33 @@ export function verifyChain(input = {}) {
   if (checkTickets) {
     const ticketUnits = new Set(allTickets(tickets).flatMap((ticket) => ticketUnitIds(ticket)));
     compareUnitSets(ticketUnits, graphUnits, 'tickets', findings);
+
+    // Exactly one ticket implements an operation, across every phase. The per-phase check
+    // cannot see a unit carried by nodes in two phases, so the package-global pass owns this.
+    const implementersByUnit = new Map();
+    for (const ticket of allTickets(tickets)) {
+      for (const unit of ticket?.distribution?.units ?? []) {
+        if (unit?.kind !== 'operation' || unit?.obligation?.mode !== 'implement') continue;
+        const identities = implementersByUnit.get(unit.unitId) ?? [];
+        identities.push(ticketIdentity(ticket));
+        implementersByUnit.set(unit.unitId, identities);
+      }
+    }
+    for (const [unitId, identities] of implementersByUnit) {
+      if (identities.length > 1) {
+        findings.push(finding(CHAIN_CODES.DUPLICATE_UNIT_AT_TICKET, unitId, `unit ${unitId} is implemented by ${identities.join(', ')}`));
+      }
+    }
+    const viewUnitRecords = collectViewUnits(view);
+    for (const unitId of graphUnits) {
+      if (!unitId.startsWith('op-')) continue;
+      const mapRole = (map?.units ?? []).find((unit) => unit.unitId === unitId)?.role ?? null;
+      const viewRole = viewUnitRecords.get(unitId)?.record?.roleCandidate ?? null;
+      if ((mapRole ?? viewRole) !== 'implementer') continue;
+      if (!implementersByUnit.has(unitId)) {
+        findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `unit ${unitId} is an implementer and no ticket implements it`));
+      }
+    }
   }
 
   const declared = artifact === null
@@ -270,7 +298,11 @@ export function verifyChain(input = {}) {
     for (const step of steps) {
       const observed = observedTickets.get(step.id);
       if (observed === undefined) {
-        findings.push(finding(CHAIN_CODES.TICKET_STEP_MISSING, step.id, `sequence ${sequenceId} step ${step.id} reaches no ticket`));
+        // A cross-boundary sequence carries the other package's steps too. Only the
+        // operation this package's graph owns can be owed by this package's tickets.
+        if (graphUnits.has(`op-${step.operationId}`)) {
+          findings.push(finding(CHAIN_CODES.TICKET_STEP_MISSING, step.id, `sequence ${sequenceId} step ${step.id} reaches no ticket`));
+        }
         continue;
       }
       if (observed.ticketIds.size > 1 || observed.occurrences > 1) {
@@ -321,9 +353,14 @@ export function verifyChain(input = {}) {
       findings.push(finding(CHAIN_CODES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph node`));
       continue;
     }
-    const edge = carryingEdgeFor(graph, ctrNodes, row);
+    const directions = directionsFor(view, ctrUnit);
+    const edge = carryingEdgeFor(graph, ctrNodes, row, { direction: directions[0] ?? null });
     if (edge === undefined) {
       findings.push(finding(CHAIN_CODES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
+      continue;
+    }
+    if (edge === null) {
+      findings.push(finding(CHAIN_CODES.AMBIGUOUS_BOUNDARY_EDGE, ctrUnit, `boundary ${row.boundary_id} has more than one candidate edge`));
       continue;
     }
     const note = parseBoundaryNoteRows(edge.attributes?.note);
@@ -338,9 +375,13 @@ export function verifyChain(input = {}) {
     if (!(edge.contracts ?? []).some((contract) => projectionMatches(contract, row))) {
       findings.push(finding(CHAIN_CODES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `graph edge contract does not match the registry projection for ${row.boundary_id}`));
     }
-    const direction = viewRecord.direction;
-    if (direction !== undefined) {
-      const ctrOnFrom = ctrNodes.some((node) => node.id === edge.from);
+    for (const direction of directions) {
+      const directionEdge = carryingEdgeFor(graph, ctrNodes, row, { direction });
+      if (directionEdge === undefined || directionEdge === null) {
+        findings.push(finding(CHAIN_CODES.BOUNDARY_DIRECTION_MISMATCH, ctrUnit, `boundary ${row.boundary_id} has no unambiguous edge for direction ${direction}`));
+        continue;
+      }
+      const ctrOnFrom = ctrNodes.some((node) => node.id === directionEdge.from);
       if (direction === 'provides' && !ctrOnFrom) {
         findings.push(finding(CHAIN_CODES.BOUNDARY_DIRECTION_MISMATCH, ctrUnit, `boundary ${row.boundary_id} is provided but the ctr node is not the edge source`));
       }
@@ -403,6 +444,7 @@ function findRootArtifact(packagePath) {
  * graph, boundify adds the Dirs-Tree, split adds the tickets. `--require-tickets` turns a
  * missing Tickets.json into a failure at the post-5-2 gate.
  */
+// [::TICKET::] PX-312, PX-313, PX-315, PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-316) --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const stage = argumentFor(argv, 'stage') ?? 'split';
   const packagePath = argumentFor(argv, 'package');
@@ -412,7 +454,6 @@ export function main(argv = process.argv.slice(2)) {
   }
   const preflight = argv.includes('--preflight');
   const viewPath = argumentFor(argv, 'view') ?? join(packagePath, 'SEQUENCES.json');
-  const rfcPath = argumentFor(argv, 'map') ?? join(packagePath, 'RFC.md');
   const graphPath = argumentFor(argv, 'graph') ?? findSingleSiblingPath(packagePath, '-GRAPH.json');
   const dirsPath = argumentFor(argv, 'dirs-tree') ?? findSingleSiblingPath(packagePath, '-Dirs-Tree.json');
   const ticketsPath = argumentFor(argv, 'tickets') ?? join(packagePath, 'Tickets.json');
@@ -433,9 +474,24 @@ export function main(argv = process.argv.slice(2)) {
   }
 
   const view = readJson(viewPath);
+  const graph = readJson(graphPath);
+  // The graph names its source. A package whose RFC is not literally RFC.md must still
+  // resolve the distribution map without the caller repeating the path.
+  const sourceFile = typeof graph?.sourceFile === 'string' && graph.sourceFile.length > 0 ? graph.sourceFile : null;
+  // The sourceFile may be absolute, package-relative, or relative to the directory the
+  // command was invoked from. Choose the first candidate that exists; the package-local
+  // RFC.md remains the final legacy fallback.
+  const mapCandidates = [];
+  if (sourceFile !== null) {
+    if (isAbsolute(sourceFile)) mapCandidates.push(sourceFile);
+    mapCandidates.push(resolve(packagePath, sourceFile));
+    if (graphPath !== null) mapCandidates.push(resolve(dirname(graphPath), basename(sourceFile)));
+  }
+  mapCandidates.push(join(packagePath, 'RFC.md'));
+  const defaultMapPath = mapCandidates.find((candidate) => existsSync(candidate)) ?? mapCandidates[mapCandidates.length - 1];
+  const rfcPath = argumentFor(argv, 'map') ?? defaultMapPath;
   const rfcText = rfcPath !== null && existsSync(rfcPath) ? readFileSync(rfcPath, 'utf8') : null;
   const map = rfcText === null ? null : readDistributionMap(rfcText);
-  const graph = readJson(graphPath);
   const dirsTree = readJson(dirsPath);
   const tickets = readJson(ticketsPath);
   const registry = registryPath === null ? [] : (readJson(registryPath)?.contract_registry ?? []);
@@ -454,10 +510,15 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
 
+  // The view is only as complete as the smooth verdict that proved it. The receipt is
+  // workspace-level, so a package graphify's Step 0 heading dedup does not invalidate the
+  // next package's gate; a smooth rerun changes the status digest and does.
+  const smoothFindings = inWorkspace ? verifySmoothReceipt(packagePath) : [];
   const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, stage, preflight, sidecarPath });
-  for (const entry of result.findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
-  process.stdout.write(`${JSON.stringify(result)}\n`);
-  return result.ok ? 0 : 1;
+  const findings = [...smoothFindings, ...result.findings];
+  for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
+  process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
+  return findings.length === 0 ? 0 : 1;
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

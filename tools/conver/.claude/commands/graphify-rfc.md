@@ -18,7 +18,7 @@ Consumers: `/split-to-tickets`, `/boundify-graph`; reference pipeline: `/make-ti
 
 Invariants:
 - graph granularity: finer than downstream ticket/directory allocation; downstream may aggregate, never need to split coarse nodes.
-- graph write: `crud.js` only.
+- graph write: `crud.js` for nodes and edges; `attach-unit-ids.js` atomically writes only the `unitIds` / `distributionDigest` projection after the map digest check. No other script writes the graph.
 - status transition: `update-step-status.js --graphify-status="$statusPath"` only.
 - graph/query/verify args: `--graph="$graphPath" --source="$1"`.
 - script/pre-write schema failure: stderr `[ERROR]` / `Cause:` / `Action:`; exit 1.
@@ -141,10 +141,14 @@ G0 heading-dedup: same-level/same-text headings cannot resolve uniquely; mechani
 RUN_ID="$(date +%s%N)-$$"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" begin-run --run-id="$RUN_ID"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 0
+node .claude/scripts/rfc-graph/verify-smooth-verdict.mjs --package="$(dirname "$1")" --write
 node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
 ```
 
+- The verdict gate runs before heading deduplication can change the source. It verifies `smooth-sequences/status.json`, the closure certificate and the frozen design snapshot, then writes the workspace-level `SMOOTH-VERDICT.json`.
+- `MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` → stop; repair the smooth run or the workspace, then `reset-to-step 0` and rerun.
+- Outside a workspacify workspace the gate is skipped and reports `skipped:outside-workspace`.
 - changed source → overwrite + change log.
 - unchanged source → report unchanged.
 - fail → read error; `reset-to-step 0`; re-run Step 0 from start.
@@ -179,13 +183,18 @@ Fail closed before splitting. No node, edge or contract is authored until this p
 viewPath="$(dirname "$1")/SEQUENCES.json"
 registryPath="$(node -e "process.stdout.write(require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")')||'')")"
 artifactPath="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
-node .claude/scripts/rfc-graph/attach-unit-ids.js --admit --rfc="$1" --view="$viewPath" --registry="$registryPath" --artifact="$artifactPath"
+if [ -n "$registryPath" ]; then
+  node .claude/scripts/rfc-graph/attach-unit-ids.js --admit --rfc="$1" --view="$viewPath" --registry="$registryPath" --artifact="$artifactPath"
+else
+  echo "(not a workspacify workspace: distribution admission skipped)"
+fi
 ```
 
 - `STALE_DISTRIBUTION_MAP` → rerun `/smooth-sequences` and `render-distribution`; never split a stale view.
 - `UNIT_SET_MISMATCH` → view and map disagree; fix authored input, re-project, rerun.
 - `SEQUENCE_STEPS_UNDISTRIBUTED` → a drawn sequence is only an `obligationUnits` row; move it to `ownedSequenceUnits`/`crossBoundarySequenceUnits` with its steps.
 - `MISSING_BOUNDARY_CONTRACT` → a registry boundary has no `ctr-*` unit in the view.
+- `MISSING_VIEW` / `MISSING_SIDECAR` / `MISSING_REGISTRY` → inside a workspace, the named file is missing; restore it or pass the explicit path. Outside a workspace the admission is skipped.
 - Nonzero → stop; do not author nodes.
 
 ### Node Splitting Procedure
@@ -259,10 +268,10 @@ G2 edge-assign:
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
-node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath" --registry="$registryPath" --mode=attach
-node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
-node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
 node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1" --view="$viewPath" --registry="$registryPath"
+node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
+node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath" --mode=attach
+node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
 node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=graphify --package="$(dirname "$1")" --artifact="$artifactPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
@@ -270,9 +279,11 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 ```
 
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
-Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}`.
+Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$1` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
+
+`project-boundary-contracts.js` projects only the registry rows whose `ctr-*` unit this package graph carries; a foreign row is skipped, not projected and not refused. It uses the view direction and prefers a `depends_on` / `constrains` / `conflicts_with` edge; more than one candidate is `AMBIGUOUS_BOUNDARY_EDGE`, and a missing edge is `MISSING_BOUNDARY_EDGE`. `verify-graph-contracts.js` reads the same carrying edge, never the first edge touching the ctr node.
 
 `verify-graph-contracts.js` discovers the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the boundary contract-edge check (check 4) runs whenever the graph is inside a workspacify workspace and is skipped outside one. Pass `--registry=<path>` only to override that discovery.
 

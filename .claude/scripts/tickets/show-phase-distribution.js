@@ -70,7 +70,7 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
@@ -84,6 +84,11 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   }
 
   const units = collectViewUnits(view);
+  // The 5-1 judgment groups one phase. Printing every package unit would let a sequence
+  // owned by a later phase look like work this phase must place.
+  const phaseUnitIds = new Set(phaseNodes(phase, graph).flatMap((node) => node.unitIds ?? []));
+  const touchesPhase = (record, unitId) => phaseUnitIds.has(unitId)
+    || (record.steps ?? []).some((step) => phaseUnitIds.has(`op-${step.operationId}`));
   const artifactSteps = new Map();
   for (const step of artifact?.steps ?? []) {
     const steps = artifactSteps.get(step.sequence) ?? [];
@@ -95,6 +100,7 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   for (const [unitId, unit] of units) {
     if (unit.kind !== 'sequence' && unit.kind !== 'cross-boundary-sequence') continue;
     const record = unit.record;
+    if (!touchesPhase(record, unitId)) continue;
     const steps = formatSteps(record);
     const artifactForSequence = artifactSteps.get(record.sequenceId ?? record.subject ?? '') ?? [];
     const missing = record.steps === undefined || record.steps.length === 0
@@ -107,6 +113,7 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   lines.push('', '## Operations');
   for (const [unitId, unit] of units) {
     if (unit.kind !== 'operation') continue;
+    if (!phaseUnitIds.has(unitId)) continue;
     const record = unit.record;
     lines.push(`- ${unitId}: role=${record.roleCandidate ?? 'undecided'} owner=${(record.ownerPackageIds ?? []).join(',') || '?'} obligation=${record.obligation?.kind ?? 'none'}`);
   }

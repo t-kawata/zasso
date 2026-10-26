@@ -28,6 +28,7 @@ const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
 } = require('../lib/package-artifacts');
+const { ticketIdentity } = require('./lib/ticket-identity.js');
 
 /**
  * Parse CLI arguments
@@ -114,9 +115,9 @@ function contractsOf(edge) {
 }
 
 /** The ticket key a flat ticket is reported under. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-315) --for-spec --no-implementation-order`.
 function ticketKeyOf(ticket) {
-  return 'P' + (ticket.phaseId !== undefined ? ticket.phaseId : -1) + '-' + ticket.id;
+  return ticketIdentity(ticket);
 }
 
 /** The edge label a ticket contract records, without the merge suffix. */
@@ -125,14 +126,17 @@ function edgeLabelOf(contract) {
   return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
 
-// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
 
-  const nodeToTicket = {};
+  // Key by the ticket object, not by its numeric id: ids are numbered inside a phase, so
+  // P0-1 and P1-1 would otherwise be mistaken for the same ticket and the crossing edge
+  // would be skipped as intra-ticket.
+  const nodeToTicket = new Map();
   for (const ticket of tickets) {
-    for (const nodeId of ticket.nodeIds || []) nodeToTicket[nodeId] = ticket.id;
+    for (const nodeId of ticket.nodeIds || []) nodeToTicket.set(nodeId, ticket);
   }
 
   for (const ticket of tickets) {
@@ -164,11 +168,9 @@ function verifyClosure(tickets, graph, options = {}) {
   // Inter-ticket: a crossing edge's source ticket must provide what the target ticket
   // requires. The target's contracts record the precondition it was written against.
   for (const edge of edges) {
-    const fromTicketId = nodeToTicket[edge.from];
-    const toTicketId = nodeToTicket[edge.to];
-    if (fromTicketId === undefined || toTicketId === undefined || fromTicketId === toTicketId) continue;
-    const sourceTicket = tickets.find((ticket) => ticket.id === fromTicketId);
-    const targetTicket = tickets.find((ticket) => ticket.id === toTicketId);
+    const sourceTicket = nodeToTicket.get(edge.from);
+    const targetTicket = nodeToTicket.get(edge.to);
+    if (sourceTicket === undefined || targetTicket === undefined || sourceTicket === targetTicket) continue;
     const label = edge.from + '→' + edge.to;
     const sourceContracts = (sourceTicket && Array.isArray(sourceTicket.contracts) ? sourceTicket.contracts : [])
       .filter((contract) => edgeLabelOf(contract) === label && contract.postcondition);
@@ -210,28 +212,32 @@ function verifyClosure(tickets, graph, options = {}) {
   const strictRows = (options.registryContracts ?? []).filter((row) => row?.clauses !== null && row?.clauses !== undefined);
   for (const row of strictRows) {
     const ctrUnit = `ctr-${row.boundary_id}`;
-    const ticket = tickets.find((candidate) => [
-      ...(candidate.nodeIds ?? []),
-      ...(candidate.distribution?.units ?? []).map((unit) => unit.unitId),
-    ].includes(ctrUnit));
-    if (ticket === undefined) continue;
-    const contract = (ticket.contracts ?? []).find((entry) => entry.boundaryId === row.boundary_id
-      || entry.registryContractId === `contract-${row.boundary_id}`
-      || entry.id === `contract-${row.boundary_id}`);
-    if (contract === undefined) {
-      errors.push({
-        ticket: ticketKeyOf(ticket),
-        code: 'MISSING_BOUNDARY_CONTRACT',
-        detail: `ticket carries ${ctrUnit} without the registry contract`,
-      });
-      continue;
-    }
-    if (contract.clauseDigest !== boundaryClauseDigest(row) || !projectionMatches(contract, row)) {
-      errors.push({
-        ticket: ticketKeyOf(ticket),
-        code: 'BOUNDARY_CONTRACT_MISMATCH',
-        detail: `ticket contract for ${row.boundary_id} does not match the registry projection`,
-      });
+    // Every ticket that carries the unit owes the contract. Reading only the first one
+    // would let a second ticket carrying the same ctr unit pass without its projection.
+    for (const ticket of tickets) {
+      const carriedUnits = new Set([
+        ...(ticket.nodeIds ?? []),
+        ...(ticket.distribution?.units ?? []).map((unit) => unit.unitId),
+      ]);
+      if (!carriedUnits.has(ctrUnit)) continue;
+      const contract = (ticket.contracts ?? []).find((entry) => entry.boundaryId === row.boundary_id
+        || entry.registryContractId === `contract-${row.boundary_id}`
+        || entry.id === `contract-${row.boundary_id}`);
+      if (contract === undefined) {
+        errors.push({
+          ticket: ticketKeyOf(ticket),
+          code: 'MISSING_BOUNDARY_CONTRACT',
+          detail: `ticket carries ${ctrUnit} without the registry contract`,
+        });
+        continue;
+      }
+      if (contract.clauseDigest !== boundaryClauseDigest(row) || !projectionMatches(contract, row)) {
+        errors.push({
+          ticket: ticketKeyOf(ticket),
+          code: 'BOUNDARY_CONTRACT_MISMATCH',
+          detail: `ticket contract for ${row.boundary_id} does not match the registry projection`,
+        });
+      }
     }
   }
 

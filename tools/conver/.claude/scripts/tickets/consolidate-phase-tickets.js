@@ -573,6 +573,7 @@ function parseCliArgs(argv) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
@@ -672,6 +673,15 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Write to Tickets.json
   // ============================================================
   ticketsData.phases = phases;
+
+  // Renumbering changes the phase-qualified identity of every moved ticket. The aggregate
+  // is derived from those identities, so it must be recomputed before the write; otherwise
+  // verify-chain compares a fresh per-ticket set against a stale file-level digest.
+  const carriesDistribution = phases.some((phase) => (phase.tickets ?? []).some((ticket) => ticket.distribution !== undefined));
+  if (carriesDistribution) {
+    const { writeTicketDistributionAggregate } = require('./add-tickets-for-phase.js');
+    writeTicketDistributionAggregate(ticketsData);
+  }
 
   if (dryRun) {
     console.log('\n[--dry-run mode] Change summary:');

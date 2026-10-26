@@ -20,6 +20,7 @@ const { pathToFileURL } = require('node:url');
 
 const LIBRARY = pathToFileURL(path.join(__dirname, 'lib', 'unit-ids.mjs')).href;
 const LEDGER_LIBRARY = pathToFileURL(path.join(__dirname, '..', 'sequences-slice', 'lib', 'distribution-ledger.mjs')).href;
+const { findAllocateManifest } = require('../lib/package-artifacts');
 const {
   artifactStepsForSequences,
   collectViewUnits,
@@ -112,7 +113,22 @@ async function ledgerUnitsOf(ledgerPath, collectLedgerUnitIds) {
   return collectLedgerUnitIds(rows);
 }
 
-// [::TICKET::] PX-306, PX-307, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function refuse(code, message, action) {
+  console.error(`[ERROR] ${code}: ${message}`);
+  console.error(`Cause: ${message}`);
+  console.error(`Action: ${action}`);
+  return 1;
+}
+
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+// [::TICKET::] PX-306, PX-307, PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 async function main() {
   const argv = process.argv.slice(2);
   const graphPath = argumentFor(argv, 'graph');
@@ -141,17 +157,50 @@ async function main() {
     unassignedAnchors,
   } = await import(LIBRARY);
 
-  const rfcText = fs.readFileSync(rfcPath, 'utf8');
-  const map = readDistributionMap(rfcText);
   if (admit) {
-    const view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
-    const registry = registryPath === null ? [] : (JSON.parse(fs.readFileSync(registryPath, 'utf8')).contract_registry ?? []);
-    const artifact = artifactPath === null ? null : JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
-    const findings = verifyViewAgainstMap({ view, map, artifact, registry });
-    for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
-    process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
-    return findings.length === 0 ? 0 : 1;
+    if (viewPath === null || viewPath === '' || !fs.existsSync(viewPath)) {
+      return refuse('MISSING_VIEW', `view is not readable: ${viewPath ?? '(missing)'}`, 'pass --view=<SEQUENCES.json>');
+    }
+    if (rfcPath === null || rfcPath === '' || !fs.existsSync(rfcPath)) {
+      return refuse('MISSING_RFC', `RFC is not readable: ${rfcPath ?? '(missing)'}`, 'pass --rfc=<RFC.md>');
+    }
+    const inWorkspace = findAllocateManifest(path.dirname(path.resolve(rfcPath))) !== null;
+    if (inWorkspace && (artifactPath === null || artifactPath === '' || !fs.existsSync(artifactPath))) {
+      return refuse('MISSING_SIDECAR', 'the workspace has an allocate manifest and the root *-sequences.json is missing or unreadable', 'restore the root artifact or pass --artifact=<path>');
+    }
+    if (inWorkspace && (registryPath === null || registryPath === '' || !fs.existsSync(registryPath))) {
+      return refuse('MISSING_REGISTRY', 'the workspace has an allocate manifest and the contract_registry is missing or unreadable', 'restore WORKSPACIFY-ALLOCATE-MANIFEST.json or pass --registry=<path>');
+    }
+    try {
+      const rfcText = fs.readFileSync(rfcPath, 'utf8');
+      const map = readDistributionMap(rfcText);
+      if (!inWorkspace && map === null) {
+        process.stdout.write(`${JSON.stringify({ ok: true, skipped: 'no-workspace', findings: [] })}\n`);
+        return 0;
+      }
+      const view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+      const registry = registryPath === null || registryPath === ''
+        ? []
+        : (JSON.parse(fs.readFileSync(registryPath, 'utf8')).contract_registry ?? []);
+      const artifact = artifactPath === null || artifactPath === ''
+        ? null
+        : JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+      const findings = verifyViewAgainstMap({ view, map, artifact, registry });
+      for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
+      process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);
+      return findings.length === 0 ? 0 : 1;
+    } catch (error) {
+      return refuse(error.code ?? 'UNREADABLE_SIDECAR', error.message, 'repair the file and re-run');
+    }
   }
+
+  let rfcText;
+  try {
+    rfcText = fs.readFileSync(rfcPath, 'utf8');
+  } catch (error) {
+    return refuse('MISSING_RFC', error.message, 'pass a readable --rfc=<RFC.md>');
+  }
+  const map = readDistributionMap(rfcText);
 
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
 

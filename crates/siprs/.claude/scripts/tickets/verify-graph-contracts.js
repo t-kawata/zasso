@@ -20,12 +20,13 @@ const fs = require('fs');
 const path = require('path');
 
 const {
+  carryingEdgeFor,
   combinedBoundaryDigest,
   parseBoundaryNoteRows,
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { rowsFromBoundaryNote } = require('../rfc-graph/project-boundary-contracts.js');
-const { registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
+const { collectViewUnits, registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 
 /** Edge types that require non-empty contracts */
@@ -102,7 +103,12 @@ function resolveRegistryPath(graphPath, registryPath) {
  * @param {object} graph — Parsed GRAPH.json
  * @returns {Array<{edge: string, detail: string}>} — Errors (empty array = pass)
  */
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+function directionFor(view, unitId) {
+  return collectViewUnits(view).get(unitId)?.record?.direction ?? null;
+}
+
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function verifyGraphContracts(graph, options = {}) {
   const errors = [];
   const seenIds = {};
@@ -180,9 +186,14 @@ function verifyGraphContracts(graph, options = {}) {
       errors.push({ edge: row.boundary_id, code: 'MISSING_BOUNDARY_CONTRACT', detail: 'no graph node carries ' + ctrUnit });
       continue;
     }
-    const edge = edges.find((candidate) => ctrNodes.some((node) => candidate.from === node.id || candidate.to === node.id));
+    const direction = directionFor(options.view, ctrUnit);
+    const edge = carryingEdgeFor(graph, ctrNodes, row, { direction });
     if (edge === undefined) {
       errors.push({ edge: row.boundary_id, code: 'MISSING_BOUNDARY_CONTRACT', detail: 'no edge touches ' + ctrUnit });
+      continue;
+    }
+    if (edge === null) {
+      errors.push({ edge: row.boundary_id, code: 'AMBIGUOUS_BOUNDARY_EDGE', detail: 'more than one edge can carry ' + ctrUnit });
       continue;
     }
     const note = parseBoundaryNoteRows(edge.attributes?.note);
@@ -204,7 +215,7 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath } = parseArgs();
   const sidecarPath = explicitSidecarPath ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
@@ -236,10 +247,14 @@ function main() {
       process.exit(1);
     }
   }
+  const view = viewPath !== null && fs.existsSync(viewPath)
+    ? JSON.parse(fs.readFileSync(viewPath, 'utf8'))
+    : null;
   const errors = verifyGraphContracts(graph, {
     registryBoundaryIds: scopedRows.map((row) => row.boundary_id),
     registryContracts: scopedRows,
     sidecarPath,
+    view,
   });
   if (errors.length > 0) {
     for (const err of errors) {

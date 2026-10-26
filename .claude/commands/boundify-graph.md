@@ -107,6 +107,8 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 
 `begin-run` counts one invocation; `end-step 3` advances `generation` only when the Dirs-Tree digest changes. Audit mode appends `--audit` to the final `end-step 3`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
+`verify-chain` also requires the workspace-level `SMOOTH-VERDICT.json` written by graphify. `MISSING_SMOOTH_RECEIPT` → run graphify first; `STALE_SMOOTH_VERDICT` → smooth or the root artifact moved after the receipt, so rerun graphify, then boundify.
+
 ### Recovery on Error
 
 fail → fix graph per script output; always regression check; reset 0; re-run Step 0.

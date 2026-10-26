@@ -61,12 +61,23 @@ function normalizeDeep(value) {
 }
 
 /** The unit records a view distributes, in the four arrays the projection carries. */
+// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 export function collectViewUnits(view) {
   const units = new Map();
   for (const field of VIEW_UNIT_ARRAYS) {
     for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
-      if (!isUnitId(unit?.unitId) || units.has(unit.unitId)) continue;
-      units.set(unit.unitId, { unitId: unit.unitId, kind: kindOfUnit(unit.unitId), record: unit });
+      if (!isUnitId(unit?.unitId)) continue;
+      const existing = units.get(unit.unitId);
+      if (existing !== undefined) {
+        existing.records.push(unit);
+        continue;
+      }
+      units.set(unit.unitId, {
+        unitId: unit.unitId,
+        kind: kindOfUnit(unit.unitId),
+        record: unit,
+        records: [unit],
+      });
     }
   }
   return units;
@@ -169,7 +180,7 @@ export function stepContractMatches(left, right) {
 }
 
 /** The stable projection of a view that the map's source digest binds. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 function canonicalViewProjection(view) {
   const units = [];
   for (const unit of collectViewUnits(view).values()) {
@@ -199,13 +210,25 @@ function canonicalViewProjection(view) {
         })),
       });
     } else {
-      units.push({
+      const projection = {
         unitId: unit.unitId,
         relation: record.relation ?? null,
         subject: record.subject ?? null,
         direction: record.direction ?? null,
         counterpart: record.counterpart ?? null,
-      });
+      };
+      // One record keeps the original projection so existing maps stay valid. A unit that
+      // appears twice (a package on both sides of one boundary) carries both records, so a
+      // change to the second side cannot hide behind the first one in the view digest.
+      if ((unit.records ?? []).length > 1) {
+        projection.records = unit.records.map((entry) => ({
+          relation: entry.relation ?? null,
+          subject: entry.subject ?? null,
+          direction: entry.direction ?? null,
+          counterpart: entry.counterpart ?? null,
+        })).sort((left, right) => `${left.direction}|${left.counterpart}`.localeCompare(`${right.direction}|${right.counterpart}`));
+      }
+      units.push(projection);
     }
   }
   units.sort((left, right) => left.unitId.localeCompare(right.unitId));

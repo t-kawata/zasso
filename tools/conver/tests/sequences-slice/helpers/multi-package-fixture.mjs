@@ -5,8 +5,10 @@
  * B-1 and the registry also carries boundary-002; a verifier that reads the global
  * sidecars without scoping reports both as local omissions.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { snapshotDesignFiles } from '../../../.claude/scripts/regeneration/lib/staging.mjs';
 
 import {
   mapDigest,
@@ -232,7 +234,90 @@ export function writePackage(packageDir, fixture, { withDirs = true } = {}) {
 /** Write the workspace manifests that make findAllocateManifest succeed. */
 export function writeWorkspaceManifests(root, registry = REGISTRY) {
   writeFileSync(join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+    workspace: { packages: [{ id: VIEW_PACKAGE, path: 'pkg' }] },
     dependencies: { boundaries: registry.map((row) => ({ id: row.boundary_id })) },
   }));
   writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ contract_registry: registry }));
+}
+
+/** The verdict a passing smooth run records. */
+const PASS_VERDICT = Object.freeze({
+  exitCode: 0,
+  findings: 0,
+  blocked: 0,
+  withheld: 0,
+  readings: 0,
+});
+
+/** The digest smooth-sequences/run.mjs computes from the frozen design snapshot. */
+// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+function designInputDigest(root) {
+  const snapshot = snapshotDesignFiles(root);
+  const lines = Object.keys(snapshot).sort().map((path) => `${path}\u0000${snapshot[path]}`);
+  return createHash('sha256').update(lines.join('\n')).digest('hex');
+}
+
+/** The single root `*-sequences.json`, or null. */
+// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+export function rootArtifactPath(root) {
+  const matches = readdirSync(root).filter((name) => name.endsWith('-sequences.json'));
+  return matches.length === 1 ? join(root, matches[0]) : null;
+}
+
+/** The sha256 of a file the gate reads. */
+// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+export function sha256OfFile(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+/**
+ * Write smooth-sequences/status.json and, when requested, the completion certificate.
+ *
+ * Call this after every design file exists: the input digest covers the whole snapshot.
+ */
+// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+export function writeSmoothVerdict(root, options = {}) {
+  const {
+    verdict = PASS_VERDICT,
+    certificate = 'complete',
+    artifactDigest = null,
+  } = options;
+  const smoothDirectory = join(root, 'smooth-sequences');
+  mkdirSync(smoothDirectory, { recursive: true });
+  const artifactPath = rootArtifactPath(root);
+  const resolvedArtifactDigest = artifactDigest ?? (artifactPath === null ? null : sha256OfFile(artifactPath));
+  const status = {
+    schemaVersion: 2,
+    generation: 106,
+    mode: 'new generation',
+    measuredAt: '2026-10-26T00:00:00.000Z',
+    inputDigest: designInputDigest(root),
+    reportDigest: '9f'.repeat(32),
+    findingKeysDigest: 'e3'.repeat(32),
+    schemaHistory: [3, 2, 3, 2, 3],
+    calibrationDigest: '63'.repeat(32),
+    verdict,
+    remainingOpen: 0,
+    effortDebt: 0,
+    assuranceSchemaVersion: 1,
+  };
+  const statusPath = join(smoothDirectory, 'status.json');
+  writeFileSync(statusPath, JSON.stringify(status, null, 2));
+  let certificatePath = null;
+  if (certificate !== null) {
+    certificatePath = join(smoothDirectory, 'COMPLETION-CERTIFICATE.json');
+    writeFileSync(certificatePath, JSON.stringify({
+      schemaVersion: 1,
+      status: certificate,
+      inputs: { artifact: resolvedArtifactDigest },
+    }, null, 2));
+  }
+  return { status, statusPath, certificatePath, artifactDigest: resolvedArtifactDigest, inputDigest: status.inputDigest };
+}
+
+/** Write the workspace-level receipt through the real gate. */
+// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+export async function writeSmoothReceipt(packageDir) {
+  const { verifySmoothVerdict } = await import('../../../.claude/scripts/sequences-slice/lib/smooth-verdict.mjs');
+  return verifySmoothVerdict({ packageDir, writeReceipt: true });
 }

@@ -27,6 +27,7 @@ const path = require("path");
 const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
 const { isUnitId, writeUnitIdsToTicket } = require("../rfc-graph/lib/unit-ids.mjs");
+const { ticketIdentity } = require("./lib/ticket-identity.js");
 const {
   artifactStepsForSequences,
   declaredSequenceIds,
@@ -170,23 +171,43 @@ function verifyNodeCoverage(phase) {
 }
 
 /**
- * Verify that the unit ids a graph carries reach the tickets of this phase.
+ * The unit ids a phase's own graph nodes carry.
  *
- * Phase nodeIds are graph node ids, not unit ids, so this is a separate comparison: the
- * union of `nodeIds` filtered to unit ids must equal the graph's unit set. A graph unit
- * no ticket names is an omission; a ticket unit the graph does not carry is an invention.
+ * A phase owns its nodes, not the whole package. Comparing one phase with the whole graph
+ * reports every unit implemented in a later phase as missing, so this predicate is the
+ * phase-local half of the coverage check. The package-global half is `checkUnitCoverage`
+ * and `verifyChain`, which read the whole Tickets aggregate.
+ *
+ * @param {{ nodeIds?: string[] }} phase
+ * @param {{ nodes?: Array<object> }|null} graph
+ * @returns {Set<string>}
+ */
+// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+function graphUnitsOfPhase(phase, graph) {
+  const phaseNodeIds = new Set(Array.isArray(phase?.nodeIds) ? phase.nodeIds : []);
+  const units = new Set();
+  for (const node of graph?.nodes ?? []) {
+    if (!phaseNodeIds.has(node.id)) continue;
+    for (const unitId of Array.isArray(node.unitIds) ? node.unitIds : []) {
+      if (isUnitId(unitId)) units.add(unitId);
+    }
+  }
+  return units;
+}
+
+/**
+ * Verify that the unit ids a phase's nodes carry reach that phase's tickets.
+ *
+ * The phase-local comparison is deliberately not the whole package: P0 must prove its own
+ * nodes' units and the package-global pass proves the rest.
  *
  * @param {Object} phase — phase object with tickets
  * @param {Object|null} graph — parsed GRAPH.json
  * @returns {{valid: boolean, missingUnitIds: string[], inventedUnitIds: string[]}}
  */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-315) --for-spec --no-implementation-order`.
 function verifyTicketUnits(phase, graph) {
-  const graphUnitIds = new Set(
-    (graph && Array.isArray(graph.nodes) ? graph.nodes : [])
-      .flatMap((node) => (Array.isArray(node.unitIds) ? node.unitIds : []))
-      .filter(isUnitId),
-  );
+  const graphUnitIds = graphUnitsOfPhase(phase, graph);
   const ticketUnitIds = new Set(
     (phase.tickets || [])
       .flatMap((ticket) => (Array.isArray(ticket.nodeIds) ? ticket.nodeIds : []))
@@ -759,15 +780,14 @@ function reconstructSequenceOrder(tickets) {
  * @param {object} dirsTree
  * @returns {Array<{ code: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-315) --for-spec --no-implementation-order`.
 function verifyTicketDistribution(phase, view, graph, dirsTree) {
   const findings = [];
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
   const viewUnits = viewUnitMap(view);
-  const graphUnits = new Set();
-  for (const node of graph?.nodes ?? []) {
-    for (const unitId of node.unitIds ?? []) graphUnits.add(unitId);
-  }
+  // The phase owns its nodes. The package-global unit set is checked once by
+  // checkUnitCoverage and verifyChain, never by every phase.
+  const graphUnits = graphUnitsOfPhase(phase, graph);
 
   const implementersByUnit = new Map();
   const ticketUnits = new Set();
@@ -830,10 +850,13 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
 function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
-  const graphUnits = new Set((graph?.nodes ?? []).flatMap((node) => node.unitIds ?? []));
+  // A step whose operation this phase does not carry belongs to another phase or package.
+  // The phase-local check must not report it as missing; the owning phase and verifyChain
+  // prove it reaches a ticket.
+  const graphUnits = graphUnitsOfPhase(phase, graph);
   const declaredByUnit = new Map();
   for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
     for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
@@ -928,7 +951,7 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
  * @param {object} ticketsData
  * @returns {object}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 function writeTicketDistributionAggregate(ticketsData) {
   const ticketDigests = {};
   let sourceMapDigest = null;
@@ -936,7 +959,9 @@ function writeTicketDistributionAggregate(ticketsData) {
   for (const phase of ticketsData?.phases ?? []) {
     for (const ticket of phase?.tickets ?? []) {
       if (ticket?.distribution === undefined) continue;
-      ticketDigests[String(ticket.id)] = ticket.distribution.digest;
+      // Ticket ids are numbered inside a phase, so P0-1 and P1-1 are different tickets.
+      // The public key is the only identity the aggregate may use.
+      ticketDigests[ticketIdentity(ticket)] = ticket.distribution.digest;
       sourceMapDigest = sourceMapDigest ?? ticket.distribution.sourceMapDigest;
       sourceViewDigest = sourceViewDigest ?? ticket.distribution.sourceViewDigest;
     }
@@ -985,6 +1010,7 @@ function writeJsonAtomically(filePath, data) {
 
 module.exports = {
   verifyNodeCoverage,
+  graphUnitsOfPhase,
   verifyTicketUnits,
   appendNodeUnitIds,
   resolveDefaultFiles,
