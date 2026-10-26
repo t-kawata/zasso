@@ -216,6 +216,44 @@ function viewCarriesUnits(material) {
 }
 
 /**
+ * Recompute the digests a ticket's distribution record claims.
+ *
+ * The stored value is what the split stage claimed; comparing it with a value recomputed
+ * from the current content is what turns a post-generation edit into a finding. A ticket
+ * that predates the distribution record carries no claim and keeps the old verdict.
+ */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function verifyDistributionDigests(phase) {
+  const { digestTicketDistribution, digestUnitObligation } = require("./add-tickets-for-phase.js");
+  const findings = [];
+  for (const ticket of phase?.tickets ?? []) {
+    const distribution = ticket?.distribution;
+    if (distribution === undefined || distribution === null) continue;
+    if (typeof distribution.digest !== "string"
+        || distribution.digest !== digestTicketDistribution(distribution)) {
+      findings.push({
+        code: "TICKET_DIGEST_MISMATCH",
+        unitId: `ticket:${ticket.id}`,
+        layer: "ticket",
+        message: `ticket ${ticket.id} distribution digest does not match its current units`,
+      });
+    }
+    for (const unit of Array.isArray(distribution.units) ? distribution.units : []) {
+      if (typeof unit?.obligationDigest !== "string"
+          || unit.obligationDigest !== digestUnitObligation(unit.obligation)) {
+        findings.push({
+          code: "OBLIGATION_DIGEST_MISMATCH",
+          unitId: unit?.unitId ?? "unknown",
+          layer: "ticket",
+          message: `unit ${unit?.unitId ?? "?"} obligation digest does not match its current obligation`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+/**
  * Verify ticket completeness across all phases.
  *
  * @param {Object} ticketsData — parsed Tickets.json
@@ -227,7 +265,7 @@ function viewCarriesUnits(material) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307, PX-308, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-309, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309|PX-311) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
@@ -277,6 +315,7 @@ function verifyAllTicketCoverage(ticketsData, material) {
   if (material?.view !== undefined && material?.graph !== undefined && material?.dirs !== undefined) {
     const { verifyTicketDistribution, verifySequenceSteps } = require("./add-tickets-for-phase.js");
     for (const phase of phases) {
+      distributionFindings.push(...verifyDistributionDigests(phase));
       distributionFindings.push(...verifyTicketDistribution(phase, material.view, material.graph, material.dirs));
       distributionFindings.push(...verifySequenceSteps(phase, material.view, material.graph));
     }
@@ -439,4 +478,13 @@ function verifyDigestChain({ map, graph, dirs, tickets } = {}) {
 }
 
 if (require.main === module) main();
-module.exports = { checkPhase, verifyAllTicketCoverage, formatReport, verifyDigestChain, derivePackagePaths, readUnitMaterial, viewCarriesUnits };
+module.exports = {
+  checkPhase,
+  verifyAllTicketCoverage,
+  formatReport,
+  verifyDigestChain,
+  verifyDistributionDigests,
+  derivePackagePaths,
+  readUnitMaterial,
+  viewCarriesUnits,
+};

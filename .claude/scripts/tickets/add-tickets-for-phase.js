@@ -639,9 +639,8 @@ function specRefsForUnit(unitId, kind, record, obligation, ticket) {
  * @param {object|null} map
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-311) --for-spec --no-implementation-order`.
 async function populateTicketDistribution(phase, graph, dirsTree, view, map = null) {
-  const { digestValue } = await import('../sequences-slice/lib/digest.mjs');
   const { viewDigest, kindOfUnit } = await import('../sequences-slice/lib/distribution-map.mjs');
 
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
@@ -678,7 +677,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
         surface: mapEntry?.surface ?? null,
         placement: placementOf(unitId, ticket, nodeById, dirsTree),
         obligation,
-        obligationDigest: digestValue(obligation),
+        obligationDigest: digestUnitObligation(obligation),
         specRefs: specRefsForUnit(unitId, kind, record, obligation, ticket),
       });
     };
@@ -696,7 +695,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
       const existing = records.get(unitId);
       if (existing !== undefined && existing.obligation.mode === 'flow') {
         existing.obligation = { mode: 'steps', outcome: record.outcome ?? null, steps: ownedSteps };
-        existing.obligationDigest = digestValue(existing.obligation);
+        existing.obligationDigest = digestUnitObligation(existing.obligation);
         existing.specRefs = specRefsForUnit(unitId, kind, record, existing.obligation, ticket);
       }
     }
@@ -710,7 +709,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
         sourceMapDigest,
         sourceViewDigest,
         units,
-        digest: digestValue({ sourceMapDigest, sourceViewDigest, units }),
+        digest: digestTicketDistribution({ sourceMapDigest, sourceViewDigest, units }),
       },
     };
   });
@@ -922,6 +921,29 @@ function writeTicketDistributionAggregate(ticketsData) {
   return ticketsData;
 }
 
+/**
+ * The digest a ticket's distribution record must carry.
+ *
+ * The writer and the verifier call this one function, so a change to the digested shape
+ * cannot leave the two stages disagreeing about what a valid record is.
+ */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function digestTicketDistribution(distribution) {
+  const { digestValue } = require('../sequences-slice/lib/digest.mjs');
+  return digestValue({
+    sourceMapDigest: distribution?.sourceMapDigest ?? null,
+    sourceViewDigest: distribution?.sourceViewDigest ?? null,
+    units: Array.isArray(distribution?.units) ? distribution.units : [],
+  });
+}
+
+/** The digest a unit's obligation must carry. */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function digestUnitObligation(obligation) {
+  const { digestValue } = require('../sequences-slice/lib/digest.mjs');
+  return digestValue(obligation ?? null);
+}
+
 /** Write a JSON document by staging it beside its target and renaming it into place. */
 // [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function writeJsonAtomically(filePath, data) {
@@ -942,5 +964,7 @@ module.exports = {
   verifyTicketDistribution,
   verifySequenceSteps,
   writeTicketDistributionAggregate,
+  digestTicketDistribution,
+  digestUnitObligation,
   writeJsonAtomically,
 };

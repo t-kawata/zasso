@@ -82,6 +82,18 @@ const SCHEMA_V2 = 2;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const SCHEMA_V3 = 3;
 
+/**
+ * Whether this run must prove observable effort.
+ *
+ * Closure mode is the final acceptance gate, so it owes strict evidence whether or not the
+ * caller remembers a flag. --legacy keeps closureMode false, so the flags remain the only
+ * way to ask for strict evidence in a workspace that is not claiming closure.
+ */
+// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+function strictEvidenceFor({ closureMode, parsed }) {
+  return closureMode || parsed.requireEffort === true || parsed.strictFreshness === true;
+}
+
 /** The argument parser: one optional root, the audit flag, the readings policy, legacy and scope. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
@@ -466,14 +478,7 @@ export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const downgrade = detectDowngrade({ status, baseline, artifact: loaded.artifact });
 
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const index = {
-      ...indexArtifact(loaded),
-      linesByPath: (parsed.requireEffort || parsed.strictFreshness) ? readSpecLines(root, loaded.artifact) : undefined,
-    };
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-    const evaluation = evaluateCheckRegistry(index);
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-299|PX-311) --for-spec --no-implementation-order`.
     const evidenceManifest = readEvidenceManifest(root);
     // The closure gates are the design-authoring gates. They are measured only where the
     // workspace claims the whole pipeline: an artifact or evidence manifest, and both
@@ -483,6 +488,16 @@ export function runCommand(argv, io = {}) {
       && (evidenceManifest !== null || loaded.artifact?.schema_version === SCHEMA_V3)
       && loaded.treeManifest !== null && loaded.treeManifest !== undefined
       && loaded.allocateManifest !== null && loaded.allocateManifest !== undefined;
+    // The evidence policy is a property of the run, computed once before any consumer.
+    // Closure mode is the final acceptance gate, so it owes strict evidence without a flag.
+    const strictEvidence = strictEvidenceFor({ closureMode, parsed });
+// [::TICKET::] PX-295, PX-296, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-295|PX-296|PX-311) --for-spec --no-implementation-order`.
+    const index = {
+      ...indexArtifact(loaded),
+      linesByPath: strictEvidence ? readSpecLines(root, loaded.artifact) : undefined,
+    };
+// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    const evaluation = evaluateCheckRegistry(index);
     const closure = closureMode
       ? (io.runClosureGates ?? runClosureGates)({ root })
       : { ok: true, gates: [] };
@@ -569,8 +584,6 @@ export function runCommand(argv, io = {}) {
         && manifestArtifactDigest !== artifactDigest;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const specLines = readSpecLines(root, loaded.artifact);
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const strictEvidence = parsed.requireEffort === true || parsed.strictFreshness === true;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       // A judgment may cite an RFC line whatever the effort gate is. Reading the RFCs
       // only in strict mode refused every distribution-fidelity basis with
@@ -754,6 +767,7 @@ export function runCommand(argv, io = {}) {
       instrument,
       denominator,
       verdict,
+      evidencePolicy: strictEvidence ? 'strict' : 'legacy',
       wouldExit: parsed.audit ? wouldExit : null,
     });
     if (certificate !== null) report.certificate = certificate;
@@ -775,7 +789,7 @@ export function runCommand(argv, io = {}) {
       writeWorklist(root, worklist, {
         generation: generation?.generation ?? null,
         worklistDigest: worklist[0]?.worklistDigest ?? null,
-        legacy: !(parsed.requireEffort === true || parsed.strictFreshness === true),
+        legacy: !strictEvidence,
       });
     }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
