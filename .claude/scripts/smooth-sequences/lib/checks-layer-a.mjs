@@ -465,14 +465,17 @@ export function checkContributionCompleteness(index) {
  * unit check while dropping the procedure. This check compares the artifact's step set
  * with the union of ownedSequenceUnits and crossBoundarySequenceUnits records and reports
  * the missing ids and any order disagreement.
+ *
+ * The order compared is the artifact's own: its step array. The artifact schema declares
+ * no `order` on a step; the view numbers a step by its array position and the renderer
+ * prints in array order. A line sort here would invent a third order and report a view
+ * that copies the artifact.
  */
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function collectSequenceStepDistribution(index, findings) {
   for (const sequence of index.artifact.sequences ?? []) {
     if (!DRAWN_OUTCOMES.has(sequence.outcome)) continue;
-    const artifactSteps = (index.stepsBySequence.get(sequence.id) ?? [])
-      .slice()
-      .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0));
+    const artifactSteps = index.stepsBySequence.get(sequence.id) ?? [];
     if (artifactSteps.length === 0) continue;
     const records = index.stepBearingSequences?.get(sequence.id) ?? [];
     const declared = new Map();
@@ -503,8 +506,6 @@ function collectSequenceStepDistribution(index, findings) {
     for (const record of records) {
       const observed = record.steps
         .filter((step) => typeof step?.stepId === 'string')
-        .slice()
-        .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0))
         .map((step) => step.stepId);
       const recordIds = new Set(observed);
       const expected = artifactSteps.filter((step) => recordIds.has(step.id)).map((step) => step.id);

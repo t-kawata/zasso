@@ -322,3 +322,80 @@ test('C004 an assignment naming nothing the artifact holds is a finding of the v
   assert.match(markdown, /Recorded assignments naming no operation or sequence: op-NoSuchOperation\./);
 });
 
+
+// A sequence whose operations produce no known object has no owner, so a recorded
+// assignment is the only relation that can place it. Object ownership stays primary: an
+// assignment must not add a second owner to a sequence ownership already distributed.
+function unownedSequenceInput({ resultObjectClasses = [], objects = [] } = {}) {
+  return {
+    artifact: {
+      schema_version: 2,
+      spec: { path: 'SyntheticSpec.md', sha256: 'a'.repeat(64), lines: 20 },
+      sequences: [{ id: 'S-1', kind: 'entry', firstLine: 1, lastLine: 10, outcome: 'direct' }],
+      steps: [{ id: 'S-1__Do', sequence: 'S-1', operation: 'Do', line: 2, quote: 'does it' }],
+      operations: [{ id: 'Do', result_object_classes: resultObjectClasses }],
+    },
+    treeManifest: {
+      workspace: {
+        packages: [
+          { id: 'pkg-0001', path: 'crates/a' },
+          { id: 'pkg-0002', path: 'crates/b' },
+        ],
+      },
+      inventory: { objects, claims: [], terms: [] },
+      structure: { segment_count: 0, segments: [] },
+    },
+    packageSegments: [],
+  };
+}
+
+test('C006 a grounded assignment places a sequence object ownership cannot reach', () => {
+  const input = unownedSequenceInput();
+  const view = buildPackageView({
+    ...input,
+    obligations: { sequenceAssignments: new Map([['S-1', ['pkg-0001']]]) },
+  }, 'pkg-0001');
+
+  assert.equal(view.ownedSequenceUnits.length, 1);
+  assert.equal(view.ownedSequenceUnits[0].unitId, 'seq-S-1');
+  assert.deepEqual(view.ownedSequenceUnits[0].ownerPackageIds, ['pkg-0001']);
+  assert.deepEqual(view.ownedSequenceUnits[0].steps.map((step) => step.stepId), ['S-1__Do']);
+});
+
+test('C006 two assigners see the sequence as a cross-boundary unit with the same owner list', () => {
+  const input = unownedSequenceInput();
+  const obligations = { sequenceAssignments: new Map([['S-1', ['pkg-0001', 'pkg-0002']]]) };
+  const first = buildPackageView({ ...input, obligations }, 'pkg-0001');
+  const second = buildPackageView({ ...input, obligations }, 'pkg-0002');
+
+  assert.deepEqual(first.ownedSequenceUnits, []);
+  assert.deepEqual(second.ownedSequenceUnits, []);
+  assert.equal(first.crossBoundarySequenceUnits[0].unitId, 'xdir-S-1');
+  assert.deepEqual(first.crossBoundarySequenceUnits[0].ownerPackageIds, ['pkg-0001', 'pkg-0002']);
+  assert.deepEqual(second.crossBoundarySequenceUnits[0].ownerPackageIds, ['pkg-0001', 'pkg-0002']);
+});
+
+test('C006 object ownership wins over an assignment, so no second owner is claimed', () => {
+  const input = unownedSequenceInput({
+    resultObjectClasses: ['Fact'],
+    objects: [{ id: 'obj-1', canonical_name: 'Fact', owner_package: 'pkg-0002' }],
+  });
+  const assignedElsewhere = buildPackageView({
+    ...input,
+    obligations: { sequenceAssignments: new Map([['S-1', ['pkg-0001']]]) },
+  }, 'pkg-0001');
+  const objectOwner = buildPackageView({
+    ...input,
+    obligations: { sequenceAssignments: new Map([['S-1', ['pkg-0001']]]) },
+  }, 'pkg-0002');
+
+  assert.deepEqual(assignedElsewhere.ownedSequenceUnits, []);
+  assert.deepEqual(assignedElsewhere.crossBoundarySequenceUnits, []);
+  assert.deepEqual(objectOwner.ownedSequenceUnits[0].ownerPackageIds, ['pkg-0002']);
+});
+
+test('C006 without an assignments map the projection is unchanged', () => {
+  const view = buildPackageView(unownedSequenceInput(), 'pkg-0001');
+  assert.deepEqual(view.ownedSequenceUnits, []);
+  assert.deepEqual(view.crossBoundarySequenceUnits, []);
+});

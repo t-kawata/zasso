@@ -422,6 +422,41 @@ export function readPackageObligations(packageRoot, allocateManifest) {
 }
 
 /**
+ * The sequence each package's recorded assignment places, keyed by sequence id.
+ *
+ * A `seq-<id>` assignment reaches a sequence whose steps produce no object a manifest owns:
+ * object ownership reaches a package only through a result class, so a sequence built from
+ * framework operations has no owner at all until a judgment places it. A groundless
+ * assignment places nothing — the ground is what makes the row a judgment rather than a
+ * string a reader has to guess at.
+ *
+ * @param {{
+ *   packages?: Array<{ id: string, path: string }>,
+ *   recordsByPackageId?: Map<string, { assignments?: Array<object> } | null>,
+ * }} input
+ * @returns {Map<string, string[]>} sequence id to the sorted package ids that assign it
+ */
+export function resolveAssignedSequenceOwners({ packages = [], recordsByPackageId = new Map() } = {}) {
+  const bySequence = new Map();
+  for (const pkg of packages) {
+    const record = recordsByPackageId.get(pkg.id);
+    if (record === null || record === undefined) continue;
+    for (const assignment of record.assignments ?? []) {
+      const unit = typeof assignment?.unit === 'string' ? assignment.unit : '';
+      if (!unit.startsWith(SEQUENCE_UNIT_PREFIX)) continue;
+      if (String(assignment.ground ?? '').trim() === '') continue;
+      const sequenceId = unit.slice(SEQUENCE_UNIT_PREFIX.length);
+      if (sequenceId.length === 0) continue;
+      if (!bySequence.has(sequenceId)) bySequence.set(sequenceId, new Set());
+      bySequence.get(sequenceId).add(pkg.id);
+    }
+  }
+  const owners = new Map();
+  for (const [sequenceId, packageIds] of bySequence) owners.set(sequenceId, [...packageIds].sort());
+  return owners;
+}
+
+/**
  * The units one package's recorded judgments place, and the ones that name nothing.
  *
  * A judgment names the demand by the unit id the view already spells, so an assignment to an

@@ -204,9 +204,52 @@ export function writeEvidence(request) {
   if (rejected.length > 0) {
     return { ok: false, written: [], rejected };
   }
-  writeAtomically(join(root, path), written);
+  // The worklist holds only the obligations still open, so a batch is an increment of the
+  // generation's evidence, not a replacement for it. Rows the batch does not name are kept
+  // byte-for-byte; a row it does name is replaced, because two records for one obligation
+  // are read as a duplicate and neither decides it.
+  const merged = mergeBatch(readJsonLinesIfPresent(join(root, path)), written);
+  writeAtomically(join(root, path), merged);
   const receipt = writeReceiptFor(root, { kind, path, generation, now });
   return { ok: true, written, rejected: [], receipt };
+}
+
+/**
+ * The file's rows with the batch applied: earlier rows keep their position, a re-judged
+ * obligation takes the batch's row, and a new one is appended in batch order.
+ *
+ * @param {object[]} existing
+ * @param {object[]} batch
+ * @returns {object[]}
+ */
+function mergeBatch(existing, batch) {
+  const byObligation = new Map();
+  for (const row of batch) if (typeof row?.obligationId === 'string') byObligation.set(row.obligationId, row);
+  const merged = [];
+  const placed = new Set();
+  for (const row of existing) {
+    const id = row?.obligationId;
+    if (typeof id !== 'string') {
+      merged.push(row);
+      continue;
+    }
+    if (byObligation.has(id)) {
+      if (!placed.has(id)) {
+        merged.push(byObligation.get(id));
+        placed.add(id);
+      }
+      continue;
+    }
+    merged.push(row);
+  }
+  for (const row of batch) {
+    const id = row?.obligationId;
+    if (typeof id === 'string' && !placed.has(id)) {
+      merged.push(row);
+      placed.add(id);
+    }
+  }
+  return merged;
 }
 
 /** Read a JSON file, or null when it is absent or unreadable. */

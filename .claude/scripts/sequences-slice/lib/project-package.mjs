@@ -19,7 +19,7 @@ import path from 'node:path';
 import { parseSequencesArtifact } from './artifact.mjs';
 import { digestOf, readDistributionRecord, writeDistributionRecord } from './distribution-record.mjs';
 import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME } from './material.mjs';
-import { readPackageObligations } from './obligation.mjs';
+import { readPackageObligations, resolveAssignedSequenceOwners } from './obligation.mjs';
 import { resolvePackageByPath } from './packages.mjs';
 import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './segments.mjs';
 import { buildPackageView, renderPackageViewJson, renderPackageViewMarkdown } from './view.mjs';
@@ -119,6 +119,25 @@ function recordDistribution(packageDir, viewJson) {
 }
 
 /**
+ * One package's record, found from either an absolute directory or one relative to the
+ * workspace root.
+ *
+ * The record map is keyed by the package's path relative to the package root, so the
+ * caller's form cannot be used as the key directly: a relative directory would resolve
+ * against the process's current directory and name no record at all.
+ *
+ * @param {Map<string, object>} obligationsByPath
+ * @param {string} root
+ * @param {string} packageDir
+ * @returns {object|null}
+ */
+export function packageRecordFor(obligationsByPath, root, packageDir) {
+  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
+  const key = path.relative(packageRoot, path.resolve(root, packageDir));
+  return obligationsByPath.get(key) ?? null;
+}
+
+/**
  * Write the two view files and report what was written.
  *
  * The artifact path names the workspace: the two manifests are resolved beside it, and the package
@@ -159,13 +178,26 @@ export function projectPackageView(artifactPath, packageDir) {
   // package's own directory and the reader is the one place that knows the key. A record that
   // could not be read leaves its package declaring nothing, so the demands it would have placed
   // are reported as unassigned by the gate rather than disappearing with the refusal.
-  const obligation = readPackageObligations(packageRoot, allocateManifest).get(path.relative(packageRoot, packageDir))
+  const obligationsByPath = readPackageObligations(packageRoot, allocateManifest);
+  const obligation = packageRecordFor(obligationsByPath, root, packageDir)
     ?? { serves: [], assignments: [], adjudications: [], refused: [] };
+  // A sequence assignment places the whole ordered procedure, and only a package that knows
+  // every assigner can tell an own unit from a shared one. Reading every record here is what
+  // keeps the unit ids and owner lists equal across the views of one sequence.
+  const sequenceAssignments = resolveAssignedSequenceOwners({
+    packages: treeManifest.workspace.packages,
+    recordsByPackageId: new Map(treeManifest.workspace.packages.map((pkg) => [pkg.id, packageRecordFor(obligationsByPath, root, pkg.path)])),
+  });
   const view = buildPackageView({
     artifact,
     treeManifest,
     packageSegments,
-    obligations: { allocateManifest, declared: obligation.serves, record: { assignments: obligation.assignments, adjudications: obligation.adjudications } },
+    obligations: {
+      allocateManifest,
+      declared: obligation.serves,
+      record: { assignments: obligation.assignments, adjudications: obligation.adjudications },
+      sequenceAssignments,
+    },
   }, resolved.packageId);
   fs.mkdirSync(packageDir, { recursive: true });
   const viewJson = renderPackageViewJson(view);

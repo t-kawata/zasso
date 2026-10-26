@@ -358,3 +358,31 @@ test('C003 invariant: the distribution record is not a design file', () => {
     removeSyntheticTriple(root);
   }
 });
+
+// A sequence no object ownership reaches is placed only by a recorded assignment. The
+// projection must carry that judgment as a step-bearing unit, because downstream work reads
+// the steps from the view and an obligation-only row carries none.
+test('a grounded sequence assignment projects a step-bearing owned unit', () => {
+  const root = workspaceWithNamedPackages();
+  try {
+    const packageDir = 'crates/protocol/gaia-package-0011';
+    fs.mkdirSync(path.join(root, packageDir), { recursive: true });
+    fs.writeFileSync(path.join(root, packageDir, 'OBLIGATION.json'), JSON.stringify({
+      version: 2,
+      serves: [],
+      assignments: [{ unit: 'seq-S-112', ground: 'no owned object carries this framework sequence' }],
+      adjudications: [],
+    }));
+
+    const result = runWriter(root, packageDir);
+
+    assert.equal(result.status, 0, result.stderr);
+    const view = JSON.parse(fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME), 'utf8'));
+    const unit = view.ownedSequenceUnits.find((entry) => entry.unitId === 'seq-S-112');
+    assert.ok(unit, 'the assigned sequence must be a step-bearing owned unit');
+    assert.deepEqual(unit.ownerPackageIds, ['pkg-0011']);
+    assert.equal(unit.steps.length, 2);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});

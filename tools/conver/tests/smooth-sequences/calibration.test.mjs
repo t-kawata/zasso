@@ -1,8 +1,10 @@
 // [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 import {
@@ -10,6 +12,8 @@ import {
   calibrationVerdict,
   readCalibration,
 } from '../../.claude/scripts/smooth-sequences/calibrate.mjs';
+
+const CALIBRATE = fileURLToPath(new URL('../../.claude/scripts/smooth-sequences/calibrate.mjs', import.meta.url));
 
 test('calibration seeds every check family and detects each seeded defect', () => {
   const workspace = materializeSmoothWorkspace();
@@ -37,4 +41,30 @@ test('an undetected seed makes the calibration verdict fail', () => {
 
 test('a missing calibration file is CALIBRATION_MISSING, never pass', () => {
   assert.deepEqual(calibrationVerdict(null), { ok: false, code: 'CALIBRATION_MISSING' });
+});
+
+test('running calibrate.mjs in the workspace root writes CALIBRATION.json', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const result = spawnSync(process.execPath, [CALIBRATE], { cwd: workspace.root, encoding: 'utf8' });
+
+    assert.equal(result.status, 0, result.stderr);
+    const calibration = readCalibration(workspace.root);
+    assert.ok(calibration, 'the command must write the calibration it measures');
+    assert.equal(calibrationVerdict(calibration).ok, true);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('calibrate.mjs accepts an explicit workspace root outside the current directory', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const result = spawnSync(process.execPath, [CALIBRATE, workspace.root], { cwd: join(workspace.root, '..'), encoding: 'utf8' });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(join(workspace.root, 'smooth-sequences', 'CALIBRATION.json')), true);
+  } finally {
+    workspace.remove();
+  }
 });

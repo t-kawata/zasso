@@ -79,7 +79,8 @@ function operationObligation(operation) {
  *   artifact: object,
  *   treeManifest: object,
  *   packageSegments: Array<{ packagePath: string, segmentIds: string[] }>,
- *   obligations?: { allocateManifest?: object, declared?: Array<object>, record?: object|null },
+ *   obligations?: { allocateManifest?: object, declared?: Array<object>, record?: object|null,
+ *     sequenceAssignments?: Map<string, string[]> },
 
  * }} input
  * @param {string} packageId
@@ -88,7 +89,7 @@ function operationObligation(operation) {
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
 export function buildPackageView({ artifact, treeManifest, packageSegments, obligations = {} }, packageId) {
-  const { allocateManifest = null, declared = [], record = null } = obligations;
+  const { allocateManifest = null, declared = [], record = null, sequenceAssignments = new Map() } = obligations;
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
   const units = buildSequenceUnits(artifact);
 
@@ -138,7 +139,15 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
   const ownedSequenceUnits = [];
   const crossBoundarySequenceUnits = [];
   for (const sequence of units.sequences) {
-    const ownerPackageIds = classifySequenceOwnership(sequence, operationsBySequence, operationById, ownershipByCanonicalName);
+    const objectOwners = classifySequenceOwnership(sequence, operationsBySequence, operationById, ownershipByCanonicalName);
+    // Object ownership is the primary relation. A sequence whose operations produce no
+    // known object is reached only by a recorded assignment, and that assignment places
+    // the whole ordered procedure, not a step-less subject. When object ownership already
+    // distributes the sequence, the assignment adds no second owner: the union would claim
+    // ownership the record never asserted.
+    const ownerPackageIds = objectOwners.length > 0
+      ? objectOwners
+      : (sequenceAssignments.get(sequence.id) ?? []);
     if (!ownerPackageIds.includes(packageId)) continue;
 
     // A sequence owned by one package is that package's work. A sequence owned by several

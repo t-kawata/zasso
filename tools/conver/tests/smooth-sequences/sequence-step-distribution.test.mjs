@@ -53,8 +53,8 @@ test('a step-bearing record whose step order disagrees with the artifact is repo
     counterpart: CONSUMER,
     sequenceIds: ['A-1'],
     sequenceSteps: [
-      { order: 2, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 },
-      { order: 1, stepId: 'A-1__ConsumeFact', operationId: 'ConsumeFact', line: 2 },
+      { stepId: 'A-1__ConsumeFact', operationId: 'ConsumeFact', line: 2 },
+      { stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 },
     ],
   });
   const consumer = defaultViews()[CONSUMER];
@@ -62,6 +62,28 @@ test('a step-bearing record whose step order disagrees with the artifact is repo
   try {
     const findings = findingsOf(workspace);
     assert.ok(findings.some((entry) => entry.checkId === 'S7.sequence-step-order'));
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('an order field that disagrees with the artifact array does not make the view wrong', () => {
+  const provider = packageView({
+    packageId: PROVIDER,
+    operationId: 'ProduceFact',
+    direction: 'provides',
+    counterpart: CONSUMER,
+    sequenceIds: ['A-1'],
+    sequenceSteps: [
+      { order: 2, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 },
+      { order: 1, stepId: 'A-1__ConsumeFact', operationId: 'ConsumeFact', line: 2 },
+    ],
+  });
+  const consumer = defaultViews()[CONSUMER];
+  const workspace = materializeSmoothWorkspace({ views: { [PROVIDER]: provider, [CONSUMER]: consumer } });
+  try {
+    const findings = findingsOf(workspace).filter((entry) => entry.checkId === 'S7.sequence-step-order');
+    assert.deepEqual(findings, []);
   } finally {
     workspace.remove();
   }

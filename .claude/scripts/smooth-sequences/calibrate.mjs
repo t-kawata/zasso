@@ -21,6 +21,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { digestValue } from '../sequences-slice/lib/digest.mjs';
 import { mapDigest, parseDistributionMap, renderDistributionMap } from '../sequences-slice/lib/distribution-map.mjs';
@@ -140,10 +141,13 @@ function seedStepOrder(sandbox) {
     const view = JSON.parse(readFileSync(pkg.viewPath, 'utf8'));
     for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
       for (const unit of view[field] ?? []) {
-        const steps = (stepsBySequence.get(unit.sequenceId) ?? []).slice().sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0));
+        const steps = stepsBySequence.get(unit.sequenceId) ?? [];
         if (steps.length < 2) continue;
-        unit.steps = steps.slice(0, 2).map((step, index) => ({
-          order: index === 0 ? 2 : 1,
+        // The artifact's array position is the sequence order, so the seeded defect is a
+        // reversed array. Reversing only the `order` field would seed nothing against a
+        // reader that compares array positions, which is what the artifact defines.
+        unit.steps = steps.slice().reverse().map((step, index) => ({
+          order: index,
           stepId: step.id,
           operationId: step.operation,
           line: step.line,
@@ -281,4 +285,14 @@ export function calibrationVerdict(calibration) {
     return { ok: false, code: 'CALIBRATION_FAILED' };
   }
   return { ok: true };
+}
+
+// Direct invocation is the command line the smooth-sequences procedure names. Without it
+// the documented run exits 0 having written nothing, and a closure run then reads a
+// calibration that no command in the workspace can produce.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const root = process.argv[2] ?? process.cwd();
+  const calibration = runCalibration({ root });
+  const detected = calibration.seeds.filter((seed) => seed.detected).length;
+  process.stdout.write(`smooth-sequences calibration: ${detected}/${calibration.seeds.length} seeds detected; ${join(root, CALIBRATION_DIRECTORY, CALIBRATION_FILE_NAME)}\n`);
 }

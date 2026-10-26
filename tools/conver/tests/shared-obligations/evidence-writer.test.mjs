@@ -1,7 +1,7 @@
 // [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -231,4 +231,39 @@ test('C001 an effort trace is validated against the judgment verdict', () => {
   };
   const result = validateForKind('effort', effort, item(), { judgments: [judgment()] });
   assert.equal(result.ok, true);
+});
+
+// The worklist holds only the obligations still open, so a batch is an increment of the
+// evidence, not a replacement for the file. Rows the batch does not name must survive.
+test('C001 a second batch preserves the rows it does not name', () => {
+  const root = mkdtempSync(join(tmpdir(), 'px297-writer-'));
+  try {
+    mkdirSync(join(root, 'educe-sequences'), { recursive: true });
+    writeFileSync(join(root, JUDGMENT_FILE), `${JSON.stringify({ obligationId: 'PROP:OpA:earlier', verdict: 'present' })}\n`);
+
+    const result = write(root, [judgment()]);
+
+    assert.equal(result.ok, true);
+    const rows = rowsAt(root);
+    assert.deepEqual(rows.map((row) => row.obligationId), ['PROP:OpA:earlier', 'PROP:OpA:purpose']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C001 re-judging one obligation replaces its row instead of adding a second', () => {
+  const root = mkdtempSync(join(tmpdir(), 'px297-writer-'));
+  try {
+    write(root, [judgment()]);
+    const result = write(root, [judgment({ reader: 'reader-2' })], {
+      item: { reader: 'reader-2', attackReader: 'reader-2/attack' },
+    });
+
+    assert.equal(result.ok, true);
+    const rows = rowsAt(root);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].reader, 'reader-2');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
