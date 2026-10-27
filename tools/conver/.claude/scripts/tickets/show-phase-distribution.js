@@ -74,7 +74,7 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
@@ -139,7 +139,8 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   lines.push('- A sequence step\'s operation is implemented by exactly one ticket.');
   lines.push('- Do not separate an operation from the sequence steps it implements.');
   lines.push('- A ticket carrying a ctr unit carries that boundary registry contract; never invent or edit a clause.');
-  lines.push('- A step may appear in exactly one ticket; the ticket order must match the artifact order.');
+  lines.push('- A ticket may carry a step-bearing sequence unit from another phase; the local step placement must follow the artifact order.');
+  lines.push("- Cross-package build order is not asserted: another package's ticket placement is not visible here.");
 
   return `${lines.join('\n')}\n`;
 }

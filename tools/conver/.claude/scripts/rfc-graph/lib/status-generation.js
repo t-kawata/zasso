@@ -13,6 +13,7 @@
 const { createHash } = require('node:crypto');
 const { existsSync, readFileSync } = require('node:fs');
 const { dirname, join } = require('node:path');
+const { localOperationUnitIds } = require('./step-contracts.mjs');
 
 const GENERATION_FIELD = 'generation';
 const RUNS_FIELD = 'runs';
@@ -86,18 +87,20 @@ function outputDigest(filePath) {
   }
 }
 
-/** A coverage record for one stage's output, or null when the output is unreadable. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 /** The steps the sibling package view carries, or null when it is absent. */
+// [::TICKET::] PX-313, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-313|PX-322) --for-spec --no-implementation-order`.
 function stepCountFromView(packageDirectory) {
   const viewPath = join(packageDirectory, 'SEQUENCES.json');
   if (!existsSync(viewPath)) return null;
   try {
     const view = JSON.parse(readFileSync(viewPath, 'utf8'));
+    const local = localOperationUnitIds(view);
     let count = 0;
     for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
       for (const unit of view[field] ?? []) {
-        count += Array.isArray(unit.steps) ? unit.steps.length : 0;
+        for (const step of Array.isArray(unit.steps) ? unit.steps : []) {
+          if (local.has(step.operationId)) count += 1;
+        }
       }
     }
     return count;
@@ -106,6 +109,8 @@ function stepCountFromView(packageDirectory) {
   }
 }
 
+/** A coverage record for one stage's output, or null when the output is unreadable. */
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function coverageFor(kind, filePath) {
   if (typeof filePath !== 'string' || !existsSync(filePath)) return null;
   let document;

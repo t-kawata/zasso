@@ -49031,6 +49031,218 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-27"
+        },
+        {
+          "id": 322,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Close the distribution chain: scoped step contracts, phase-crossing sequences, bounded additive notes, 7-axis delivery, coverage, order and sidecar completeness",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-322.md",
+          "background": "### Goal\nMake the graphify -> boundify -> split chain carry every sequence step, every operation and every boundary contract into the graph, the Dirs-Tree, the tickets and the spec without omission, contradiction, deficiency or danger, including packages with cross-boundary sequences and sequences whose steps span phases.\n\n### Purpose\nEnd the repeated audit/fix cycle by closing every hole the PX-321 audit found, plus the note-composition interaction the audit missed. The unit set and digest chain already hold; the missing guarantee is that the per-package projection, the note binding, the ticket distribution and the spec delivery all use the same package/phase scope.\n\n### Motivation\nThe current implementation stops on real workspaces. A foreign step of a cross-boundary sequence is projected as this package step (CONTRACT_CHAIN_OPEN). A sequence unit carried by a node in another phase is reported INVENTED_UNIT at split 5-2. A step note over 240 characters aborts graphify. A boundary projection replaces a step note on the same edge. Even when the chain completes, four of the seven typed contract axes and the obl- coverage never reach the spec, and no gate proves every sidecar row reached a ticket. Gaia, the in-progress example, has 10 of 29 views with 319 foreign steps and a 245-character step note, so these are not hypothetical edges.\n\n### Constraints\nStrict TDD (Red -> Green -> Refactor). Do not modify, delete or weaken tests. Keep the existing green suites green. Schema changes are additive; no ticket schema change is needed because obligation and contract properties already allow additive keys. No new dependency. Cross-package build order is not runtime sequence order and is not gated. Verification uses node --test on the impact set, not make test.",
+          "scope": [
+            "**Scope of changes — .claude/scripts/rfc-graph/lib/step-contracts.mjs**: add `localOperationUnitIds(view)` and filter `viewSteps` in both `projectStepContracts` and `verifyStepContracts` to steps whose operation the view declares locally (`ownedOperationUnits` or an `op-` obligation unit). A local step whose graph lacks `op-<id>` still fails `CONTRACT_CHAIN_OPEN`; a foreign step is skipped.",
+            "**Scope of changes — .claude/scripts/rfc-graph/lib/step-contracts.mjs**: add `edgeKeyOf`, `edgeForRow`, `assignRowsToEdges`, `digestStepRows`, `stepSidecarNote` and `parseStepSidecarNote`; the sidecar gains `edges: {edgeKey: rowIndexes}`; projection fails with `CONTRACT_CHAIN_OPEN` when a local step has no incident edge.",
+            "**Scope of changes — .claude/scripts/rfc-graph/project-step-contracts.js**: attach one bounded `step-sidecar;digest:<hex>` note per edge instead of per-row inline notes; append the part to the existing note, never replace it. `attachNotes` reads the sidecar `edges` map and re-projects the sidecar before writing.",
+            "**Scope of changes — .claude/scripts/rfc-graph/project-boundary-contracts.js**: append the registry note part to the existing note so a step pointer is preserved; keep the 240-character limit and the `registry:sidecar:` fallback. Extract a shared `appendNotePart(existing, part, limit)` helper.",
+            "**Scope of changes — .claude/scripts/tickets/add-tickets-for-phase.js**: `verifyTicketDistribution` accepts a `seq-`/`xdir-` unit carried by a ticket when the ticket obligation holds declared steps of that sequence (the same predicate `populateTicketDistribution` uses). `obligationOf` keeps `coverage` for `obl-` units and adds `providers` and a same-file `implementerTicketId` to a consumer reference.",
+            "**Scope of changes — .claude/scripts/sequences-slice/verify-chain.mjs**: add a local-step placement check; for each sequence, the `(phase array index, ticket array index)` of the tickets implementing its local steps must be non-decreasing in artifact order. Foreign steps are excluded because a package cannot see the other package's ticket placement.",
+            "**Scope of changes — .claude/scripts/tickets/merge-contracts-to-tickets.js and .claude/scripts/tickets/verify-ticket-closure.js**: every sidecar row must appear in at least one ticket contract with the same digest (`CONTRACT_CHAIN_OPEN` / `STEP_CONTRACT_MISMATCH`); duplicate contract ids per ticket are `DUPLICATE_CONTRACT_ID`.",
+            "**Scope of changes — .claude/scripts/tickets/show-ticket-context.js and show-ticket-distribution.js**: render all seven contract axes from the raw `contract` (string and fact-object entries), `obl-` coverage, a consumer reference's providers/implementer ticket, and step subject/predicate/object plus sequence outcome.",
+            "**Scope of changes — .claude/scripts/rfc-graph/verify-graph-contracts.js**: fail closed when the view carries step-bearing sequences and the step sidecar is absent, instead of silently skipping step verification.",
+            "**Scope of changes — .claude/scripts/rfc-graph/lib/status-generation.js**: count only steps whose operation the package declares locally, so a cross-boundary sequence is not double-counted.",
+            "**Scope of changes — .claude/scripts/tickets/show-phase-distribution.js and .claude/commands/split-to-tickets.md**: replace the unconditional 'the ticket order must match the artifact order' claim with the local-placement scope actually verified.",
+            "**Out of scope**: cross-package build order is not gated; workspace implementation_order orders builds, not runtime sequence steps. The artifact, educe-sequences, smooth-sequences and gaia data are not modified.",
+            "**Affected areas**: graphify, boundify and split gates; ticket spec renderer; distribution and status reports; command documents. The digest chain, unit set equality and one-implementer-per-operation checks are not changed."
+          ],
+          "testUnit": [
+            "UT: [Normal] A view built by buildPackageView with an xdir sequence whose s2 names a foreign operation projects only s1; verifyStepContracts returns no finding and the owner package projects s2.",
+            "UT: [Error] A sidecar row for a foreign step is CONTRACT_CHAIN_OPEN; a local step whose graph lacks op-<id> is CONTRACT_CHAIN_OPEN (fail closed, not silently skipped).",
+            "UT: [Boundary] An operation with 17 local steps produces a step-sidecar;digest:<hex> note at or under 240 characters and verifyStepContracts binds every row through the sidecar edges map and digest.",
+            "UT: [Boundary] A sidecar without an edges map still accepts the legacy step:<stepId>;row:<index> inline note, so existing projections remain verifiable.",
+            "UT: [Invariant] A step pointer note and a registry boundary note on one edge both survive projectBoundaryContracts; neither projection replaces the other note part and the combined note stays at or under 240 characters.",
+            "UT: [Normal] A seq- unit on a P0 node with a step operation node in P1 is accepted by verifyTicketDistribution and verifyChain stage=split; the P1 ticket carries its step and the audit no longer reports INVENTED_UNIT.",
+            "UT: [Invariant] Package-global unit set equality still rejects an invented unit that names no declared step and still reports a graph unit that reaches no ticket.",
+            "UT: [Normal] A step contract with pre, post, invariants, consumes, produces, errors and crosses renders all seven axes in show-ticket-context --for-spec and show-ticket-distribution.",
+            "UT: [Boundary] A string-form contract entry in consumes, produces, errors or crosses is rendered by the same text extractor as a fact object; a fact-object entry renders its text and factId fallback.",
+            "UT: [Normal] An obl- unit coverage operationSet and uncoveredSpellings reach the ticket obligation and the spec; the renderer prints the column, carried/total and uncovered spellings.",
+            "UT: [Normal] A consumer operation reference carries providers (owner packages other than this package) and the same-file implementer ticket when one exists; the spec renders them.",
+            "UT: [Error] A sidecar row that reaches no ticket is CONTRACT_CHAIN_OPEN; the finding names the stepId and the merge gate exits 1.",
+            "UT: [Error] Two contracts with the same id in one ticket are DUPLICATE_CONTRACT_ID; the finding names the ticket and the id.",
+            "UT: [Boundary] Local steps placed in reverse (phase array index, ticket array index) order are SEQUENCE_ORDER_MISMATCH; foreign steps are not checked and a cross-package build-order inversion is not reported.",
+            "UT: [Invariant] The existing digest chain and one-implementer-per-operation checks stay green; no unit set, map digest or ticket digest changes.",
+            "UT: [Normal] A view with step-bearing sequences and no sidecar fails verify-graph-contracts instead of silently skipping step verification.",
+            "UT: [Normal] stepCountFromView counts local steps only, so a cross-boundary sequence is not double-counted in the status coverage record.",
+            "UT: [Normal] A delivered step contract keeps its digest from the artifact through the sidecar to the ticket; a changed view step is STEP_CONTRACT_MISMATCH and a changed order or quote is STEP_IDENTITY_MISMATCH.",
+            "UT: [Normal] A testUnit or planTestCode mention of the contract key terms satisfies verify-make-contracts and verify-plan-contracts for a step contract, including the four non-prose axes.",
+            "UT: [Invariant] The renderer never emits an axis heading with no content; empty axes are omitted and the seven-axis section stays stable across runs."
+          ],
+          "testIntegration": [
+            "IT: [graphify + boundify note composition] Run project-step-contracts then project-boundary-contracts on a graph whose op node and ctr node share a depends_on edge; both note parts survive and both --mode=verify invocations pass.",
+            "IT: [split 5-2 + final] Run populateTicketDistribution, verifyTicketDistribution and verifyChain stage=split with a sequence node in P0 and step operations in P0 and P1; all findings are empty and the ticket distributions carry only declared steps.",
+            "IT: [spec delivery] Run mergeContracts then buildTicketMarkdown --for-spec; all seven axes, obl- coverage, consumer providers and step subject/predicate/object appear.",
+            "IT: [sidecar reach] Run mergeContracts on a ticket set missing one sidecar row; verifyMergedBoundaryContracts reports CONTRACT_CHAIN_OPEN for that row and the CLI exits 1.",
+            "IT: [Prerequisites and related tickets] Use buildPackageView and the real producers, not hand-copied view fixtures; run with node --test on the impact set. Integrates the PX-318 step-contract sidecar, the PX-320 consumer chain and the PX-321 split distribution records."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/rfc-graph/lib/step-contracts.mjs",
+            ".claude/scripts/rfc-graph/project-step-contracts.js",
+            ".claude/scripts/rfc-graph/project-boundary-contracts.js",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            ".claude/scripts/tickets/verify-ticket-closure.js",
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/scripts/tickets/show-ticket-distribution.js",
+            ".claude/scripts/rfc-graph/verify-graph-contracts.js",
+            ".claude/scripts/rfc-graph/lib/status-generation.js",
+            ".claude/scripts/tickets/show-phase-distribution.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a two-package xdir fixture built by buildPackageView and a phase-crossing sequence fixture run through graphify projection, boundify verify and split 5-2 with zero findings; the 17-step operation keeps every edge note at or under 240 characters and every row verifies.",
+            "Error case: a foreign sidecar row, an unreached sidecar row, a duplicate contract id and a reversed local placement are each reported by their named code and make the gate exit 1; a missing sidecar with a step-bearing view also exits 1.",
+            "Edge case: consumes/produces/errors/crosses entries that are strings render with the same extractor as fact objects; a step contract visible only in raw JSON no longer exists; an obl- coverage reaches the spec."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "distribution-chain:step-scope",
+              "precondition": "A package view carries an xdir sequence whose step s2 names an operation the view does not declare locally",
+              "postcondition": "projectStepContracts writes a sidecar with s1 only and verifyStepContracts returns no finding; the owner package projects s2",
+              "invariant": "No foreign step is required locally and a local step whose graph lacks op-<id> is CONTRACT_CHAIN_OPEN"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "distribution-chain:phase-crossing",
+              "precondition": "A seq- unit sits on a P0 node and a step operation node sits in P1",
+              "postcondition": "verifyTicketDistribution accepts the step-bearing seq unit on the P1 ticket and verifyChain stage=split passes",
+              "invariant": "The package-global unit set equality remains unchanged"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "distribution-chain:note-bound",
+              "precondition": "One operation carries 17 local steps and one incident edge",
+              "postcondition": "The edge note is at most 240 characters and verifyStepContracts binds every row through the step sidecar digest",
+              "invariant": "Every sidecar row is bound to an incident edge"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "distribution-chain:additive-note",
+              "precondition": "One edge carries a step pointer note and a registry boundary note",
+              "postcondition": "projectBoundaryContracts preserves both parts and both verifiers pass",
+              "invariant": "Neither projection replaces the other note part"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "distribution-chain:seven-axes",
+              "precondition": "A step contract carries pre, post, invariants, consumes, produces, errors and crosses with string or fact-object entries",
+              "postcondition": "The spec and the distribution report render all seven axes",
+              "invariant": "No axis exists only in raw JSON"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "distribution-chain:coverage",
+              "precondition": "An obl- unit carries coverage with operationSet and uncoveredSpellings",
+              "postcondition": "The ticket obligation and the spec carry both fields",
+              "invariant": "Coverage is not dropped by obligationOf"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "distribution-chain:order",
+              "precondition": "Two local steps of one sequence are placed in reverse (phase,ticket) order",
+              "postcondition": "SEQUENCE_ORDER_MISMATCH names the sequence",
+              "invariant": "Foreign steps and cross-package build order are outside the check"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "distribution-chain:sidecar-reach",
+              "precondition": "The step sidecar has a row and no ticket contract names that stepId",
+              "postcondition": "CONTRACT_CHAIN_OPEN names the row",
+              "invariant": "Every sidecar row is a subset of ticket step contracts"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "distribution-chain:unique-id-and-consumer",
+              "precondition": "One ticket carries a C5xx step contract and an edge contract with the same id, and a consumer reference exists",
+              "postcondition": "DUPLICATE_CONTRACT_ID is reported and the reference names the provider package and same-file implementer",
+              "invariant": "Contract ids are unique per ticket and a reference never points to nothing"
+            }
+          ],
+          "notes": "- Implementation steps: (1) add the red tests for C001..C009 and confirm each fails for absence of implementation; (2) implement the package-scoped step set; (3) add the sidecar edges map and pointer note, keeping legacy inline-note verification; (4) make the boundary note additive; (5) allow the phase-crossing sequence unit; (6) add the local placement check and correct the command claim; (7) render the seven axes, coverage, providers and s/p/o; (8) add the sidecar reach and duplicate-id gates; (9) fail closed in verify-graph-contracts; (10) fix the status count; (11) run the impact set and refactor.\n- Risks: the note format changes from per-row inline to a pointer; verification accepts both so existing projections and tests remain valid. The local placement check could surface a real ordering defect; it is scoped to local steps so it cannot contradict the workspace build order. The sidecar `edges` map is additive; a legacy sidecar without it still verifies through inline notes.\n- Caveats: cross-package sequence order is not asserted. A consumer reference cannot name another package's ticket id because that Tickets.json is not visible at split time; it names the provider package and, when one exists, the same-file implementer ticket.\n- Open items: none that block this ticket. If the project later wants a workspace-level sequence-order gate, it belongs to the workspacify layer and must distinguish build order from runtime order.\n- Future improvements: replace the keyword-overlap TDD gates with structural fact coverage if the artifact grows a machine-checkable test mapping; move the note composition helper to a shared lib if a third projection appears.\nImplementation summary:\n- Changed files: .claude/scripts/rfc-graph/lib/step-contracts.mjs, .claude/scripts/rfc-graph/lib/note-parts.mjs (new), .claude/scripts/rfc-graph/project-step-contracts.js, .claude/scripts/rfc-graph/project-boundary-contracts.js, .claude/scripts/tickets/add-tickets-for-phase.js, .claude/scripts/sequences-slice/verify-chain.mjs, .claude/scripts/tickets/merge-contracts-to-tickets.js, .claude/scripts/tickets/show-ticket-context.js, .claude/scripts/tickets/show-ticket-distribution.js, .claude/scripts/tickets/verify-graph-contracts.js, .claude/scripts/rfc-graph/lib/status-generation.js, .claude/scripts/tickets/show-phase-distribution.js, and the graphify/split/make command documents.\n- New tests: tests/rfc-graph/step-contract-scope.test.mjs, tests/tickets/distribution-closure.test.mjs, tests/sequences-slice/verify-chain-order.test.mjs; tests/rfc-graph/step-contract-revalidation.test.mjs and tests/sequences-slice/helpers/multi-package-fixture.mjs were completed (op-A declaration and a real step sidecar), not weakened.\n- Test results: rfc-graph 981 pass; tickets + sequences-slice 443 pass; smooth-sequences 391 pass / 1 skip; 0 failures. Quality checks: 0 issues. Crimes: 0; stubs: 0.\n- Reproductions after the change: B1 (two-package xdir) projects ok for both packages with only the local step; B2 (phase-crossing) reports no INVENTED_UNIT; the seven-axis fixture renders all seven axes.\n- Sidecar schema is now version 2 with an edges map; verification remains backward-compatible with version 1 inline notes.\n- Completion note: verify-ticket-closure.js also performs the sidecar-row reach check; the multi-package fixture now carries the projected step contract so the closure gate is exercised. Quality checks and the targeted 19 tests were re-run after this completion and pass.\nReview report:\n- Static quality check: passed (0 issues; run-quality-checks + generate-report)\n- Translatability: no issues; new functions are verb phrases, new constants are named, no debug output added, no generic variables added\n- Dependencies: unit sets, digests, boundary contracts and one-implementer checks remain consistent\n- Annotation: 18 source files, 0 missing, 0 AMBIGUOUS; status-generation.js annotation order corrected (JSDoc before annotation)\n- Integration: project-step-contracts attach -> project-boundary-contracts attach -> step verify -> verify-graph-contracts all exit 0; edge note carries both the step pointer and the registry part (178 <= 240)\n- Contracts: 9/9 have @verifies coverage; Gate P and make-stage gates pass\n- Issues found and fixes applied: status-generation.js JSDoc/annotation order; no functional defects found in review",
+          "invariants": "- [Normal establishment] A local step is exactly a view step whose operation the package declares in `ownedOperationUnits` or an `op-` obligation unit; projection and verification derive that set from the same function. The view/map/graph/Dirs-Tree/Tickets unit sets and digests remain equal.\n- [Error invariant] A foreign step is never required locally; a local step whose graph lacks `op-<id>` is `CONTRACT_CHAIN_OPEN`, never a silent skip. A missing sidecar with a step-bearing view is a failure, not a pass.\n- [Internal state invariant] `sidecar.edges` lists every row index exactly once across its edges; a pointer note's digest is computed from the rows of that edge only; note parts are append-only and one projection never erases another's part.\n- [Boundary invariant] Every edge note stays at or under 240 characters. A `seq-`/`xdir-` unit is allowed on a ticket only when the ticket carries at least one declared step of that sequence. Contract ids are unique per ticket. A consumer reference names at least one provider package.",
+          "instrumentation": "No runtime instrumentation is added. The gates keep their existing contract: named findings on stderr (`CONTRACT_CHAIN_OPEN`, `STEP_CONTRACT_MISMATCH`, `DUPLICATE_CONTRACT_ID`, `SEQUENCE_ORDER_MISMATCH`, `STEP_NOTE_TOO_LONG`) and a JSON summary on stdout. Determinism is the observability: the sidecar digest, the note digest and the ticket digest are stable across runs. No metrics, error tracker or health check is added because convergence is proven by exit codes and the automated impact suite.\nStatic quality check: passed\nTranslatability: no issues\nTests: rfc-graph 981 pass, tickets+sequences 443 pass, smooth 391 pass/1 skip, targeted 19 pass",
+          "investigation": "### Evidence gathered in conver (gaia used only as the in-progress example)\n\n- Step projection scope: `.claude/scripts/rfc-graph/lib/step-contracts.mjs:78-91` `viewSteps()` returns every step of `ownedSequenceUnits` and `crossBoundarySequenceUnits`; `.claude/scripts/sequences-slice/lib/view.mjs:169-178` puts `stepsBySequence.get(sequence.id)` on an `xdir-` unit, so a shared sequence carries the other package's steps. `projectStepContracts` (`step-contracts.mjs:108-130`) and `verifyStepContracts` (`:157-201`) both use that unfiltered set, while `verify-chain.mjs:420-425` and `add-tickets-for-phase.js:1010` already scope a step to the graph's `op-<operationId>`.\n- Real shape: in `~/shyme/gaia`, 10 of 29 package views carry foreign steps (319 rows). A real buildPackageView fixture with pkg-1 owning Op1 and pkg-2 owning Op2 yields `project ok? false` and `CONTRACT_CHAIN_OPEN` for the foreign step; fixing projection alone still leaves the verify-side failure.\n- Phase crossing: `add-tickets-for-phase.js:757-775` forces a `seq-`/`xdir-` unit onto a ticket that owns one of its steps, while `:828-885` rejects a ticket unit outside the phase's graph units as `INVENTED_UNIT`. Reproduction with the real populate/verify pair: P1 units `[op-B, seq-S]`, finding `INVENTED_UNIT:seq-S`. The existing test `tests/sequences-slice/px315-phase-and-step-scope.test.mjs:44-47` hides this by putting `seq-S` on both nodes.\n- Note bound: `project-step-contracts.js:41-63` accumulates every row of one operation on one edge and throws `STEP_NOTE_TOO_LONG` above 240 (edge schema `maxLength: 240`). The boundary projection has a sidecar fallback (`project-boundary-contracts.js:214-221`); the step projection does not. In gaia, `CreateServiceOrder` has 10 local steps and a 245-character note in gaia-commerce and gaia-certificates.\n- Note clobber: `project-boundary-contracts.js:216-227` assigns `edge.attributes.note` wholesale, so a registry note replaces a step note when both projections select the same `depends_on` edge. Step notes are attached first in `/graphify-rfc` Step 2, so the later boundary projection can erase them.\n- Seven axes: the artifact schema requires pre, post, invariants, consumes, produces, errors and crosses (`educe-sequences/rail/artifact-schema.json:58-64`); the raw contract survives into the ticket (`step-contracts.mjs:60-73`, `merge-contracts-to-tickets.js:200-209`), but both renderers print only pre/post/invariant/prose (`show-ticket-context.js:588-604`, `:867-880`, `show-ticket-distribution.js:144-168`). A seven-axis fixture renders PRE/POST/INV and omits CONSUMES/PRODUCES/ERRORS/CROSSES. In gaia, 659 steps carry 363 consumes, 607 produces, 391 crosses and 659 errors. `make-ticket.md:314` calls a contract visible only in raw JSON a spec defect.\n- Coverage: `obligation.mjs:563-575` builds `coverage` on an `obl-` unit; `add-tickets-for-phase.js:621-637` returns only relation/subject/direction/counterpart; no renderer reads coverage. Gaia has 3 obl- units, all with coverage.\n- Order: `add-tickets-for-phase.js:1023-1030` and `verify-chain.mjs:455-465` sort the copied `order` values and compare them with the same view order, so they cannot see a ticket/phase placement inversion. `phasify-graph-and-dirs-files-tree.js` never reads sequence/step; `consolidate-phase-tickets.js:324-338` regenerates `relatedTicketIds` from graph edges only. `show-phase-distribution.js:141` nevertheless prints 'the ticket order must match the artifact order.'\n- Completeness: `merge-contracts-to-tickets.js:244-292` checks ticket contract -> sidecar row, never sidecar row -> ticket; `verify-ticket-closure.js:264-284` does the same. `split-to-tickets.md:299` claims a row that reaches no ticket is `CONTRACT_CHAIN_OPEN`.\n- Fail-open: `verify-graph-contracts.js:285` runs step verification only when the sidecar file exists.\n- Baseline: 974 rfc-graph, 96 tickets, 339 sequences-slice and 391 smooth-sequences tests pass; none covers the shapes above.",
+          "boyScoutPlan": "- Extract `localOperationUnitIds(view)` so projection, verification and the status count read one predicate instead of three copies of the step filter.\n- Split `verifyStepContracts` into `findCarryingEdgeForRow`, `rowNoteBinds`, `pointerBindsRow` and `sidecarEdgesCoverRows`; each name states the check it performs and the main function reads as a sequence of checks.\n- Replace the numeric literals `240` and the `step:`/`|` spellings with `STEP_NOTE_LIMIT`, `STEP_NOTE_PREFIX`, `STEP_SIDECAR_NOTE_PREFIX` and `NOTE_PART_SEPARATOR` constants shared by the step and boundary projections.\n- Rename `viewSteps` to `localStepRecords` and `viewUnitMap`'s fields to domain names so the scope (this package) is visible at the call site.\n- Remove the dead `boundaryContracts: []` placeholder by replacing it with `providers` and `implementerTicketId`, or keep it only when a real value is populated.\n- Extract `appendNotePart(existing, part, limit)` so the step and boundary projections cannot drift in how they compose a note.\n- Add the missing doc comment on the sidecar `edges` map and on the local placement predicate.",
+          "created_at": "2026-10-27",
+          "updated_at": "2026-10-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 package-scoped projection] tests/rfc-graph/step-contract-scope.test.mjs\n```js\nconst view = buildPackageView({ artifact, treeManifest, packageSegments: [], obligations: {} }, 'pkg-1');\nconst graph = { nodes: [{ id: 'N1', unitIds: ['op-Op1', 'xdir-S1'] }, { id: 'N2', unitIds: [] }], edges: [] };\nconst projected = projectStepContracts({ view, graph });\nassert.equal(projected.ok, true);\nassert.deepEqual(projected.sidecar.steps.map((row) => row.stepId), ['s1']);\nconst note = [...stepNotesByEdge(graph, projected.sidecar).values()][0].note;\nassert.deepEqual(verifyStepContracts({ view, graph: withNote(graph, note), sidecar: projected.sidecar }), []);\nconst foreign = verifyStepContracts({ view, graph: withNote(graph, note), sidecar: { ...projected.sidecar, steps: [...projected.sidecar.steps, { stepId: 's2', digest: 'x', nodeIds: ['N9'], operationId: 'Op2' }] } });\nassert.ok(foreign.some((finding) => finding.code === 'CONTRACT_CHAIN_OPEN' && finding.subject === 's2'));\n```",
+            "UT: [C002 phase-crossing sequence unit] tests/tickets/distribution-closure.test.mjs\n```js\nconst populated = await populateTicketDistribution(phase1, graph, dirsTree, view);\nassert.deepEqual(verifyTicketDistribution(populated, view, graph, dirsTree), []);\nconst seq = populated.tickets[0].distribution.units.find((unit) => unit.unitId === 'seq-S');\nassert.deepEqual(seq.obligation.steps.map((step) => step.stepId), ['s2']);\nconst chain = verifyChain({ ...fixture, tickets: { phases: [phase0, populated] }, stage: 'split' });\nassert.equal(chain.findings.some((finding) => finding.code === 'INVENTED_UNIT'), false);\n```",
+            "UT: [C003 bounded pointer note] tests/rfc-graph/step-contract-scope.test.mjs\n```js\nconst view = viewWithSteps('Op1', 17);\nconst graph = { nodes: [{ id: 'N1', unitIds: ['op-Op1', 'seq-S'] }], edges: [{ from: 'N1', to: 'N2', type: 'depends_on', attributes: {}, contracts: [] }] };\nconst projected = projectStepContracts({ view, graph });\nconst note = [...stepNotesByEdge(graph, projected.sidecar).values()][0].note;\nassert.match(note, /^step-sidecar;digest:[0-9a-f]{64}$/);\nassert.ok(note.length <= 240);\nassert.deepEqual(verifyStepContracts({ view, graph: withNote(graph, note), sidecar: projected.sidecar }), []);\n```",
+            "UT: [C004 additive note] tests/rfc-graph/step-contract-scope.test.mjs\n```js\nconst graph = { nodes: [{ id: 'N1', unitIds: ['op-Op1'] }, { id: 'N2', unitIds: ['ctr-boundary-001'] }], edges: [{ from: 'N1', to: 'N2', type: 'depends_on', attributes: { note: 'step-sidecar;digest:' + 'a'.repeat(64) }, contracts: [] }] };\nconst projected = projectBoundaryContracts({ graph, registry: [registryRow], view: ctrView, sidecarPath: null });\nconst note = projected.edges[0].attributes.note;\nassert.match(note, /step-sidecar;digest:/);\nassert.match(note, /registry:boundary-001;digest:/);\nassert.ok(note.length <= 240);\n```",
+            "UT: [C005 seven axes render] tests/tickets/distribution-closure.test.mjs\n```js\nconst ticket = { id: 1, phaseId: 0, nodeIds: ['N1'], contracts: [stepContractEntry(sevenAxisRow, 0)] };\nconst spec = buildTicketMarkdown('PX-1', ticket, { phases: [{ id: 0, tickets: [ticket] }] }, '/tmp', true, true);\nfor (const text of ['PRE-FACT', 'POST-FACT', 'INV-FACT', 'CONSUMES-FACT', 'PRODUCES-FACT', 'ERRORS-FACT', 'CROSSES-FACT']) {\n  assert.match(spec, new RegExp(text));\n}\nconst report = renderTicketDistribution(collectTicketDistribution({ phases: [{ id: 0, tickets: [ticket] }] }));\nassert.match(report, /CONSUMES-FACT/);\n```",
+            "UT: [C006 coverage delivery] tests/tickets/distribution-closure.test.mjs\n```js\nconst populated = await populateTicketDistribution(phaseWithObl, graphWithObl, dirsTree, viewWithObl);\nconst unit = populated.tickets[0].distribution.units.find((entry) => entry.unitId === 'obl-surface-1');\nassert.equal(unit.obligation.coverage.operationSet, 'SurfaceOps');\nassert.deepEqual(unit.obligation.coverage.uncoveredSpellings, ['Op9']);\nconst spec = buildTicketMarkdown('PX-1', populated.tickets[0], { phases: [populated] }, '/tmp', true, true);\nassert.match(spec, /SurfaceOps/);\nassert.match(spec, /Op9/);\n```",
+            "UT: [C007 local placement order] tests/sequences-slice/verify-chain-order.test.mjs\n```js\nconst fixture = buildChainFixture({\n  phases: [\n    { id: 0, nodeIds: ['N2'], tickets: [{ id: 1, unitIds: ['op-B', 'seq-S'], obligations: { 'op-B': { mode: 'implement' }, 'seq-S': { mode: 'steps', steps: [STEP_2] } } }] },\n    { id: 1, nodeIds: ['N1'], tickets: [{ id: 1, unitIds: ['op-A', 'seq-S'], obligations: { 'op-A': { mode: 'implement' }, 'seq-S': { mode: 'steps', steps: [STEP_1] } } }] },\n  ],\n});\nconst findings = verifyChain({ ...fixture, stage: 'split' }).findings;\nassert.ok(findings.some((finding) => finding.code === 'SEQUENCE_ORDER_MISMATCH' && finding.subject === 'seq-S'));\nassert.equal(findings.some((finding) => finding.code === 'SEQUENCE_ORDER_MISMATCH' && finding.subject === 'xdir-foreign'), false);\n```",
+            "UT: [C008 sidecar reach] tests/tickets/distribution-closure.test.mjs\n```js\nconst sidecar = { schemaVersion: 2, sourceViewDigest: viewDigest(view), edges: {}, steps: [rowS1, rowS2] };\nconst tickets = [{ id: 1, contracts: [stepContractEntry(rowS1, 0)] }];\nconst findings = verifyMergedBoundaryContracts(tickets, graph, [], sidecar);\nassert.ok(findings.some((finding) => finding.code === 'CONTRACT_CHAIN_OPEN' && finding.stepId === 's2'));\n```",
+            "UT: [C009 duplicate id and consumer reference] tests/tickets/distribution-closure.test.mjs\n```js\nconst contracts = [stepContractEntry(rowS1, 0), { id: 'C500', sourceEdge: 'N1→N2', precondition: 'p', postcondition: 'q', invariant: 'r' }];\nconst duplicate = verifyMergedBoundaryContracts([{ id: 1, contracts }], graph, [], sidecar);\nassert.ok(duplicate.some((finding) => finding.code === 'DUPLICATE_CONTRACT_ID' && finding.contractId === 'C500'));\nconst populated = await populateTicketDistribution(phaseConsumer, graphConsumer, dirsTree, viewConsumer);\nconst reference = populated.tickets[0].distribution.units.find((entry) => entry.unitId === 'op-X');\nassert.deepEqual(reference.obligation.providers, ['pkg-2']);\nassert.match(buildTicketMarkdown('PX-1', populated.tickets[0], { phases: [populated] }, '/tmp', true, true), /pkg-2/);\n```"
+          ],
+          "startedAt": "2026-10-27",
+          "changes": [
+            {
+              "before": "step-contracts viewSteps projected every step of ownedSequenceUnits and crossBoundarySequenceUnits",
+              "after": "localStepRecords projects only steps whose operation the view declares locally; a local step whose graph lacks its operation node fails CONTRACT_CHAIN_OPEN",
+              "description": "Package-scoped step projection and verification (B1)"
+            },
+            {
+              "before": "one edge note listed every step row inline and threw STEP_NOTE_TOO_LONG above 240",
+              "after": "one bounded step-sidecar;digest:<hex> note per edge with a sidecar edges map; legacy inline notes still verify",
+              "description": "Bounded additive step notes (B3)"
+            },
+            {
+              "before": "the boundary projection replaced edge.attributes.note",
+              "after": "step and boundary projections compose note parts through composeNote; a step pointer survives a registry note",
+              "description": "Additive note composition (B4)"
+            },
+            {
+              "before": "a step-owning ticket in another phase was reported INVENTED_UNIT for its seq-/xdir- unit",
+              "after": "a declared step-bearing sequence unit is accepted; the package-global unit set equality remains",
+              "description": "Phase-crossing sequence unit (B2)"
+            },
+            {
+              "before": "SEQUENCE_ORDER_MISMATCH compared the copied order fields with the view",
+              "after": "the local (phase,ticket) placement is compared in artifact order; foreign steps and cross-package build order are excluded",
+              "description": "Meaningful sequence order check (M1)"
+            },
+            {
+              "before": "no gate checked that every sidecar row reached a ticket or that contract ids were unique",
+              "after": "merge/closure report CONTRACT_CHAIN_OPEN for an unreached row and DUPLICATE_CONTRACT_ID for a repeated id",
+              "description": "Sidecar reach and unique ids (M4, m3)"
+            },
+            {
+              "before": "renderers printed only pre, post, invariants and contractProse",
+              "after": "all seven axes (including string-form facts), obl- coverage, consumer providers/implementer and step subject/predicate/object render",
+              "description": "Contract and coverage delivery (M2, M3, A1, A2)"
+            },
+            {
+              "before": "verify-graph-contracts skipped step verification when the sidecar was absent",
+              "after": "a step-bearing view without a sidecar is CONTRACT_CHAIN_OPEN",
+              "description": "Fail-closed sidecar gate (m1)"
+            },
+            {
+              "before": "status-generation counted every step of a cross-boundary sequence as local",
+              "after": "it counts only steps whose operation the package declares locally",
+              "description": "Local step count (A3)"
+            },
+            {
+              "before": "command documents described per-row inline notes and an unenforced ticket-order claim",
+              "after": "graphify/split/make documents describe the pointer note, additive boundary note, local placement order and DUPLICATE_CONTRACT_ID",
+              "description": "Documentation alignment"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-27"
         }
       ]
     },

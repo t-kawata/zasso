@@ -12,11 +12,11 @@ import {
 } from '../../.claude/scripts/rfc-graph/lib/step-contracts.mjs';
 
 /** A view with one step bound to op-A. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-320|PX-322) --for-spec --no-implementation-order`.
 function stepView() {
   return {
     packageId: 'pkg-1',
-    ownedOperationUnits: [],
+    ownedOperationUnits: [{ unitId: 'op-A', operationId: 'A', roleCandidate: 'implementer' }],
     ownedSequenceUnits: [{
       unitId: 'seq-S',
       sequenceId: 'S',

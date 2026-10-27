@@ -238,7 +238,7 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-322) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath, stepSidecarPath: explicitStepSidecarPath } = parseArgs();
   const sidecarPath = explicitSidecarPath ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
@@ -282,7 +282,16 @@ function main() {
 
   const stepSidecarPath = explicitStepSidecarPath
     ?? path.join(path.dirname(graphPath), 'RFC-STEP-CONTRACTS.json');
-  if (view !== null && fs.existsSync(stepSidecarPath)) {
+  const viewHasSteps = view !== null
+    && ['ownedSequenceUnits', 'crossBoundarySequenceUnits'].some((field) =>
+      (Array.isArray(view?.[field]) ? view[field] : []).some((unit) => Array.isArray(unit?.steps) && unit.steps.length > 0));
+  if (viewHasSteps && !fs.existsSync(stepSidecarPath)) {
+    errors.push({
+      edge: 'step-contracts',
+      code: 'CONTRACT_CHAIN_OPEN',
+      detail: 'the view carries step-bearing sequences and the step-contract sidecar is missing',
+    });
+  } else if (view !== null && fs.existsSync(stepSidecarPath)) {
     const stepFindings = verifyStepContracts({
       view,
       graph,

@@ -21,6 +21,12 @@ import {
   boundaryContractProjection,
   boundaryNote,
 } from '../../../.claude/scripts/sequences-slice/lib/boundary-contract.mjs';
+import {
+  projectStepContracts,
+  stepContractEntry,
+  stepNotesByEdge,
+} from '../../../.claude/scripts/rfc-graph/lib/step-contracts.mjs';
+import { composeNote } from '../../../.claude/scripts/rfc-graph/lib/note-parts.mjs';
 
 export const VIEW_PACKAGE = 'pkg-0001';
 
@@ -48,6 +54,7 @@ function copy(value) {
 /** One consistent package chain plus one foreign step and boundary. */
 // [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function multiPackageFixture(options = {}) {
   const stepContract = {
     pre: [{ factId: 'identity', text: 'identity present' }],
@@ -217,7 +224,23 @@ export function multiPackageFixture(options = {}) {
     tickets.phases[0].tickets[0].distribution.units[1].obligation.steps.push(copy(viewStep));
   }
 
-  return { view, map, graph, dirsTree, tickets, registry: REGISTRY, artifact };
+  // The fixture carries a step-bearing view, so it must also carry the sidecar and the
+  // bounded pointer the graph verifier now requires. Project with the real producer so
+  // the fixture cannot drift from the verifier.
+  const stepProjection = projectStepContracts({ view, graph });
+  if (stepProjection.ok) {
+    for (const { edge, note } of stepNotesByEdge(graph, stepProjection.sidecar).values()) {
+      edge.attributes = {
+        ...(edge.attributes ?? {}),
+        note: composeNote(edge.attributes?.note, note, { limit: 240, replacePrefixes: ['step:', 'step-sidecar;'] }),
+      };
+    }
+    if (stepProjection.sidecar.steps.length > 0) {
+      tickets.phases[0].tickets[0].contracts.push(stepContractEntry(stepProjection.sidecar.steps[0], 0));
+    }
+  }
+
+  return { view, map, graph, dirsTree, tickets, registry: REGISTRY, artifact, stepSidecar: stepProjection.sidecar };
 }
 
 /** Write one package's derived files; the map is rendered into RFC.md. */
@@ -226,6 +249,9 @@ export function writePackage(packageDir, fixture, { withDirs = true } = {}) {
   writeFileSync(join(packageDir, 'SEQUENCES.json'), JSON.stringify(fixture.view, null, 2));
   writeFileSync(join(packageDir, 'RFC.md'), `# Package\n\n${renderDistributionMap(fixture.map)}\n`);
   writeFileSync(join(packageDir, 'P-GRAPH.json'), JSON.stringify(fixture.graph, null, 2));
+  if (fixture.stepSidecar !== undefined) {
+    writeFileSync(join(packageDir, 'RFC-STEP-CONTRACTS.json'), JSON.stringify(fixture.stepSidecar, null, 2));
+  }
   if (withDirs) {
     writeFileSync(join(packageDir, 'P-Dirs-Tree.json'), JSON.stringify(fixture.dirsTree, null, 2));
   }
