@@ -64,7 +64,7 @@ Root: `.claude/scripts/tickets/`.
 |---|---|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]`; Step 1/9; emits ticket Markdown; Step 9 `--for-spec` emits spec content |
 | `check-ticket-prerequisites.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--workspace=<root>]`; Step 0; exit 0 = pass or skip, exit 1 = named `PREREQUISITE_*` failure |
-| `verify-make-distribution.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--spec=<path>]`; Step 7; conditional delivery gate; `skipped:no-distribution` exits 0 |
+| `verify-make-distribution.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--spec=<path>]`; Step 9.5 (post-write); conditional delivery gate; `skipped:no-distribution` exits 0 |
 | `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]`; Step 2B; internally `add-ticket.js → show-ticket-context.js`; derives spec path only; does not create it |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 3; inserts markers in 11 fields; simultaneously sets `created_at`/`updated_at` |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 6; lists remaining `[::TEMPLATE-STUB::]` in natural language; exit 0: all replaced |
@@ -89,7 +89,8 @@ node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key=$ARGUMEN
   - `skipped:no-prerequisites` → the ticket carries no distribution prerequisites (Case B or a pre-split ticket); Step 1 continues unchanged.
   - `skipped:ticket-not-found` → Step 1 will create the ticket in Case B/C; continue.
 - exit 1 with `PREREQUISITE_NOT_DONE`, `PREREQUISITE_TICKET_MISSING` or `PREREQUISITE_TICKETS_MISSING` → stop. The named ticket or package must reach `done` or `reviewed` before this ticket may enter make → plan → start → review.
-- The gate reads `ticket.prerequisites`, written by `/split-to-tickets`; it never invents one.
+- The gate re-derives the prerequisite set and placement from the graph, artifact, contract registry and tree manifest, compares them with `ticket.prerequisites`, and rejects a stale or edited field with `PREREQUISITE_SET_MISMATCH` or `PREREQUISITE_NOT_BEFORE`. It never invents an owner or a prerequisite.
+- The same gate runs at the start of `/plan-ticket`, `/start-ticket` and `/review-ticket`, so a direct entry cannot bypass the make-stage check.
 
 ### Step 1: Display context (show-ticket-context.js)
 
@@ -311,15 +312,8 @@ Order: verify Contracts → validate STUB targets → write spec after pass → 
 node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-- 0 → the conditional delivery gate below.
+- 0 → Step 8.
 - 1 → Step 6; repair markers, Contract coverage, or exception justification; re-run Step 7
-
-```bash
-node .claude/scripts/tickets/verify-make-distribution.js --ticket-key="$ARGUMENTS" --spec="specs/$ARGUMENTS.md"
-```
-
-- exit 0, or `skipped:no-distribution` → Step 8. The skip is the Case B path.
-- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `SHARED_WORK_UNDECLARED` or `DISTRIBUTION_SECTION_MISSING` finding names the unit; repair Step 6 and re-run Step 7.
 
 ### Step 8: STUB enumeration and validation (mandatory)
 
@@ -368,6 +362,19 @@ mkdir -p specs && \
 node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
+
+### Step 9.5: Distribution delivery gate (conditional, post-write)
+
+Run only when Step 1.5 ran. The spec must exist before this gate: the gate checks the
+written spec, not a remembered plan.
+
+```bash
+node .claude/scripts/tickets/verify-make-distribution.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json" --spec="specs/$ARGUMENTS.md"
+```
+
+- exit 0, or `skipped:no-distribution` → Step 10. The skip is the Case B path.
+- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `SHARED_WORK_UNDECLARED`, `DISTRIBUTION_SPEC_MISSING`, `DISTRIBUTION_SECTION_MISSING` or `WORK_SHARE_SECTION_MISSING` finding names the unit or section; repair Step 6 or Step 9 and re-run Step 9.5.
 
 ### Step 10: Update ticket status
 

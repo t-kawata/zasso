@@ -95,8 +95,15 @@ Invariants:
 node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=plan
 ```
 
-- exit 0; status `made` → Step 1
+- exit 0; status `made` → the prerequisite gate below.
 - exit 1; status mismatch/error → follow output; reply exactly: `Status gate blocked: /plan-ticket cannot proceed until the ticket status is 'made'. Run /make-ticket first.`; stop
+
+```bash
+node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
+```
+
+- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` / `skipped:no-distribution` → Step 1.
+- exit 1 → stop. The named `PREREQUISITE_*`, `OWNER_ROLE_UNDECIDED`, `MISSING_PACKAGE_VIEW` or `STALE_IMPLEMENTATION_ORDER` finding must be resolved before plan → start → review.
 
 ### Step 1: Existence check + retrieve ticket information
 

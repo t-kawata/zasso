@@ -294,6 +294,63 @@ function renumberTicketIds(phases) {
   });
 }
 
+/** The public key of a phase-local ticket identity. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function ticketKeyOfPhase(phaseId, ticketId) {
+  return phaseId === -1 ? `PX-${ticketId}` : `P${phaseId}-${ticketId}`;
+}
+
+/** The numeric ticket id encoded in a public key, or null. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function numericIdOfKey(key) {
+  const match = /-(\d+)$/.exec(String(key));
+  return match === null ? null : parseInt(match[1], 10);
+}
+
+/**
+ * Rewrite every ticket-key reference after ticket identities move.
+ *
+ * Consolidation merges phases and renumbers tickets; a reference written before the move
+ * would silently point at another ticket afterwards. The known references are the
+ * prerequisite ticket keys and the distribution obligation's implementer identity. The
+ * numeric implementerTicketId is kept for older readers and updated from the new key.
+ *
+ * @param {object} document — a Tickets.json document
+ * @param {Map<string, string>} mapping — old public key to new public key
+ * @returns {object} a remapped copy
+ */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function remapTicketKeyReferences(document, mapping) {
+  const remapped = JSON.parse(JSON.stringify(document));
+  const keyMapping = mapping instanceof Map ? mapping : new Map(Object.entries(mapping ?? {}));
+  for (const phase of remapped.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      for (const entry of ticket.prerequisites ?? []) {
+        if (typeof entry.ticket === 'string' && keyMapping.has(entry.ticket)) {
+          entry.ticket = keyMapping.get(entry.ticket);
+        }
+      }
+      for (const unit of ticket.distribution?.units ?? []) {
+        const obligation = unit?.obligation;
+        if (obligation === null || typeof obligation !== 'object') continue;
+        const oldKey = typeof obligation.implementerTicketKey === 'string'
+          ? obligation.implementerTicketKey
+          : (typeof obligation.implementerTicketId === 'number'
+            ? (typeof ticket.__sourcePhaseId === 'number'
+              ? ticketKeyOfPhase(ticket.__sourcePhaseId, obligation.implementerTicketId)
+              : [...keyMapping.keys()].find((key) => numericIdOfKey(key) === obligation.implementerTicketId) ?? null)
+            : null);
+        if (oldKey === null || !keyMapping.has(oldKey)) continue;
+        const newKey = keyMapping.get(oldKey);
+        obligation.implementerTicketKey = newKey;
+        const newId = numericIdOfKey(newKey);
+        if (newId !== null) obligation.implementerTicketId = newId;
+      }
+    }
+  }
+  return remapped;
+}
+
 // ============================================================
 // Phase B: Regenerate relatedTicketIds (depends on PX-45)
 // ============================================================
@@ -573,7 +630,7 @@ function parseCliArgs(argv) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315|PX-325) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
@@ -611,6 +668,15 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Save pre-consolidation phases (for status.json update)
   const oldPhasesJSON = JSON.parse(JSON.stringify(phases));
 
+  // The source key travels with the ticket through the deep copy and the merge so the
+  // remap after renumbering can name the ticket the references were written against.
+  for (const phase of phases) {
+    for (const ticket of phase.tickets ?? []) {
+      ticket.__sourceTicketKey = ticketKeyOfPhase(phase.id, ticket.id);
+      ticket.__sourcePhaseId = phase.id;
+    }
+  }
+
   // 5-3-3: Single-pass right-to-left consolidation
   console.log('\n[5-3-3] Running single-pass right-to-left consolidation...');
   console.log('  Threshold: consolidating phases with fewer than ' + MIN_TICKETS_PER_PHASE + ' tickets');
@@ -636,6 +702,22 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   phases = renumberTicketIds(phases);
   const totalTickets = phases.reduce(function(acc, p) { return acc + (p.tickets || []).length; }, 0);
   console.log('  Total tickets: ' + totalTickets);
+
+  const keyMapping = new Map();
+  for (const phase of phases) {
+    for (const ticket of phase.tickets ?? []) {
+      if (typeof ticket.__sourceTicketKey === 'string') {
+        keyMapping.set(ticket.__sourceTicketKey, ticketKeyOfPhase(phase.id, ticket.id));
+      }
+    }
+  }
+  phases = remapTicketKeyReferences({ phases }, keyMapping).phases;
+  for (const phase of phases) {
+    for (const ticket of phase.tickets ?? []) {
+      delete ticket.__sourceTicketKey;
+      delete ticket.__sourcePhaseId;
+    }
+  }
 
   // Phase B: Regenerate relatedTicketIds (mechanically from GRAPH.json edges)
   console.log('\n[Phase B] Regenerating relatedTicketIds...');
@@ -721,6 +803,9 @@ module.exports = {
   consolidateFromRight,
   renumberPhaseIds,
   renumberTicketIds,
+  remapTicketKeyReferences,
+  ticketKeyOfPhase,
+  numericIdOfKey,
   finalValidation,
 
   // Phase B/C (stubs)

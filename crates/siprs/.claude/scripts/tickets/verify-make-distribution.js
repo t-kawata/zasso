@@ -30,6 +30,8 @@ const DELIVERY_CODES = Object.freeze({
   BOUNDARY_CONTRACT_NOT_DELIVERED: 'BOUNDARY_CONTRACT_NOT_DELIVERED',
   SHARED_WORK_UNDECLARED: 'SHARED_WORK_UNDECLARED',
   DISTRIBUTION_SECTION_MISSING: 'DISTRIBUTION_SECTION_MISSING',
+  DISTRIBUTION_SPEC_MISSING: 'DISTRIBUTION_SPEC_MISSING',
+  WORK_SHARE_SECTION_MISSING: 'WORK_SHARE_SECTION_MISSING',
 });
 
 /** Parse `--name=value` or `--name value`. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
@@ -81,8 +83,9 @@ function boundaryContractIsDelivered(unit, ticket) {
  * Evaluate the delivery gate without writing to the process streams.
  *
  * @returns {{ ok: boolean, skipped?: string, findings: Array<object> }}
- */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function evaluateDistributionDelivery(ticket, { specText = null } = {}) {
+ */
+// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
+function evaluateDistributionDelivery(ticket, { specText = null, specProvided = false } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return { ok: true, skipped: 'no-distribution', findings: [] };
 
@@ -124,13 +127,32 @@ function evaluateDistributionDelivery(ticket, { specText = null } = {}) {
     }
   }
 
-  if (specText !== null && !specText.includes('## Distribution Obligations')) {
-    findings.push({ code: DELIVERY_CODES.DISTRIBUTION_SECTION_MISSING, subject: null, message: 'the spec has no ## Distribution Obligations section' });
+  if (specProvided && specText === null) {
+    findings.push({ code: DELIVERY_CODES.DISTRIBUTION_SPEC_MISSING, subject: null, message: 'the spec file passed to the delivery gate does not exist' });
+  }
+  if (specText !== null) {
+    if (!specText.includes('## Distribution Obligations')) {
+      findings.push({ code: DELIVERY_CODES.DISTRIBUTION_SECTION_MISSING, subject: null, message: 'the spec has no ## Distribution Obligations section' });
+    }
+    // Work Share is the block for sequence and ctr units. An operation-only ticket has
+    // no shared step owner or boundary to report, so requiring the block would reject a
+    // correct spec for that shape.
+    const requiresWorkShare = units.some((unit) => {
+      const unitId = String(unit?.unitId ?? '');
+      return unit?.kind === 'sequence'
+        || unit?.kind === 'cross-boundary-sequence'
+        || unitId.startsWith('seq-')
+        || unitId.startsWith('xdir-')
+        || unitId.startsWith('ctr-');
+    });
+    if (requiresWorkShare && !specText.includes('### Work Share')) {
+      findings.push({ code: DELIVERY_CODES.WORK_SHARE_SECTION_MISSING, subject: null, message: 'the spec has no ### Work Share section' });
+    }
   }
   return { ok: findings.length === 0, findings };
 }
 
-/** Run the gate without writing to the process streams. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
@@ -147,7 +169,7 @@ function run(argv = process.argv.slice(2)) {
   }
   const specPath = argumentFor(argv, 'spec');
   const specText = specPath !== null && fs.existsSync(specPath) ? fs.readFileSync(specPath, 'utf8') : null;
-  const result = evaluateDistributionDelivery(ticket, { specText });
+  const result = evaluateDistributionDelivery(ticket, { specText, specProvided: specPath !== null });
   return { code: result.ok ? EXIT_OK : EXIT_FAILURE, verdict: result, findings: result.findings ?? [] };
 }
 

@@ -73,8 +73,15 @@ judge: evaluate against source, not cached summaries.
 
 ### Step 0
 G0 status: `node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=review`
-- exit0 → G1
+- exit0 → prerequisite gate below → G1
 - exit1 → stop; out: "Status gate blocked: /review-ticket cannot proceed until the ticket status is 'done'. Run /start-ticket first."
+
+```bash
+node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
+```
+
+- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` / `skipped:no-distribution` → G1.
+- exit 1 → stop; the named `PREREQUISITE_*`, `OWNER_ROLE_UNDECIDED`, `MISSING_PACKAGE_VIEW` or `STALE_IMPLEMENTATION_ORDER` finding must be resolved before review.
 
 ### Step 1
 G1 existence: `node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --review`

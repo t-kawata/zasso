@@ -21,6 +21,7 @@ const path = require('path');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 const { parseTicketKey } = require('../lib/validate-tickets');
 const { evaluatePrerequisites, ticketKeyOf } = require('../sequences-slice/lib/implementation-order.mjs');
+const { verifyPackage } = require('../sequences-slice/verify-implementation-order.mjs');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -60,6 +61,12 @@ function implementsOperation(ticket) {
   return (ticket?.distribution?.units ?? []).some((unit) => unit?.kind === 'operation' && unit?.obligation?.mode === 'implement');
 }
 
+/** Whether a ticket carries any distribution work, not only an operation implementation. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function carriesDistributionWork(ticket) {
+  return (ticket?.distribution?.units ?? []).some((unit) => unit?.obligation?.mode !== undefined);
+}
+
 /** The status of every ticket in one package, keyed by its public ticket key. */
 // [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function statusesOf(document) {
@@ -67,7 +74,7 @@ function statusesOf(document) {
 }
 
 /** The implementer statuses of one package, or null when its Tickets.json is unreadable. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function packageStatusesOf(packagePath) {
   const ticketsPath = path.join(packagePath, TICKETS_FILE_NAME);
   if (!fs.existsSync(ticketsPath)) return null;
@@ -77,6 +84,7 @@ function packageStatusesOf(packagePath) {
       ticket: ticketKeyOf(ticket),
       status: ticket.status,
       implements: implementsOperation(ticket),
+      carriesWork: carriesDistributionWork(ticket),
     }));
   } catch {
     return null;
@@ -122,7 +130,7 @@ function collectPackageStatuses({ prerequisites, workspaceRoot }) {
  *
  * @returns {{ code: number, verdict: object, findings: Array<object> }}
  */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
@@ -142,8 +150,24 @@ function run(argv = process.argv.slice(2)) {
   }
 
   const prerequisites = Array.isArray(ticket.prerequisites) ? ticket.prerequisites : [];
-  if (prerequisites.length === 0) {
+  const hasOwnDistribution = (ticket.distribution?.units ?? []).length > 0;
+  if (!hasOwnDistribution && prerequisites.length === 0) {
+    // Case B or a pre-split ticket: there is no distribution to re-derive. The gate is a
+    // skip, not a pass; the command's Step 1 still reports the ticket's actual state.
     return { code: EXIT_OK, verdict: { ok: true, skipped: 'no-prerequisites', findings: [] }, findings: [] };
+  }
+
+  // The field is a cache. Re-derive it from the graph, artifact, view, registry and tree
+  // manifest so an edited or stale prerequisites array cannot pass the entry gate.
+  let orderGate;
+  try {
+    orderGate = verifyPackage({ packageDir: path.dirname(path.resolve(ticketsPath)), write: false });
+  } catch (error) {
+    const finding = { code: 'PREREQUISITE_ORDER_UNREADABLE', subject: ticketsPath, message: error.message };
+    return { code: EXIT_FAILURE, verdict: { ok: false, findings: [finding] }, findings: [finding] };
+  }
+  if (orderGate.code !== EXIT_OK) {
+    return { code: EXIT_FAILURE, verdict: { ok: false, findings: orderGate.findings ?? [] }, findings: orderGate.findings ?? [] };
   }
 
   const workspaceRoot = resolveWorkspaceRoot(argumentFor(argv, 'workspace'), ticketsPath);

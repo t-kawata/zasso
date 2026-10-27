@@ -10,7 +10,7 @@
  * The rule is deliberately not re-implemented as the authority here. The command reads the
  * published order as the authority and re-derivation as the check.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -21,16 +21,20 @@ import {
   holdsSplitArtifact,
   artifactStem,
   findRootArtifact,
+  loadPackageRoles,
   loadPackageView,
   loadImplementationOrder,
   IMPLEMENTATION_ORDER_FILE_NAME,
   SEED_FILE_NAME,
+  TICKETS_FILE_NAME,
 } from './workspace.mjs';
 import {
   derivePackagePrecedence,
-  ownersFromViews,
+  ownersFromViewsDetailed,
+  rolesFromTickets,
   topologicalOrder,
 } from '../../sequences-slice/lib/implementation-order.mjs';
+import { digestValue } from '../../sequences-slice/lib/digest.mjs';
 import {
   readBoundifyGeneration,
   readDistributionGeneration,
@@ -226,7 +230,7 @@ function assertImplementationOrderCoversPackages(levels, packages) {
  * It is used only when the sidecar is absent and the artifact exists, so the display can
  * show the implementation order instead of calling the build order by that name.
  */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest }) {
   const artifactPath = findRootArtifact(root);
   if (artifactPath === null) return null;
@@ -237,17 +241,49 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
     return null;
   }
   const views = Object.fromEntries(packages.map((pkg) => [pkg.id, loadPackageView(root, pkg.path)]));
-  if (Object.values(views).every((view) => view === null)) return null;
-  const operationOwners = ownersFromViews({ packages, views });
-  const { edges } = derivePackagePrecedence({
+  const hasDistribution = (artifact.sequences?.length ?? 0) > 0
+    || (artifact.steps?.length ?? 0) > 0
+    || (artifact.operations?.length ?? 0) > 0;
+  if (!hasDistribution && Object.values(views).every((view) => view === null)) return null;
+  if (hasDistribution) {
+    const missing = packages.filter((pkg) => views[pkg.id] === null).map((pkg) => pkg.id);
+    if (missing.length > 0) {
+      throw new WorkspacifyOrderError(
+        `MISSING_PACKAGE_VIEW: the artifact declares a distribution but these packages have no view: ${missing.join(', ')}`,
+        { artefact: 'artifact-implementation-order' },
+      );
+    }
+  }
+
+  const roles = {};
+  for (const pkg of packages) {
+    const packageRoles = loadPackageRoles({ root, packagePath: pkg.path });
+    rolesFromTickets(flattenPackageTickets(root, pkg.path), packageRoles);
+    roles[pkg.id] = packageRoles;
+  }
+  const owners = ownersFromViewsDetailed({ packages, views, roles });
+  if (owners.findings.length > 0) {
+    throw new WorkspacifyOrderError(
+      owners.findings.map((entry) => `${entry.code}: ${entry.message}`).join('; '),
+      { artefact: 'artifact-implementation-order' },
+    );
+  }
+
+  const precedence = derivePackagePrecedence({
     treeManifest,
     registry: allocateManifest?.contract_registry ?? [],
     artifact,
-    operationOwners,
+    operationOwners: owners.owners,
   });
+  if (precedence.findings.length > 0) {
+    throw new WorkspacifyOrderError(
+      precedence.findings.map((entry) => `${entry.code}: ${entry.message}`).join('; '),
+      { artefact: 'artifact-implementation-order' },
+    );
+  }
   const order = topologicalOrder({
     nodes: packages.map((pkg) => pkg.id),
-    edges: edges.map((edge) => ({ from: edge.fromPackage, to: edge.toPackage, source: edge.source })),
+    edges: precedence.edges.map((edge) => ({ from: edge.fromPackage, to: edge.toPackage, source: edge.source })),
   });
   if (!order.ok) {
     throw new WorkspacifyOrderError(
@@ -256,6 +292,71 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
     );
   }
   return order;
+}
+
+/** The tickets of one package, flattened in phase order. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function flattenPackageTickets(root, packagePath) {
+  const path = join(root, packagePath, TICKETS_FILE_NAME);
+  if (!existsSync(path)) return [];
+  try {
+    const document = JSON.parse(readFileSync(path, 'utf8'));
+    return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
+      ...ticket,
+      phaseId: ticket.phaseId ?? phase.id,
+    })));
+  } catch {
+    return [];
+  }
+}
+
+/** The digest of a value, or null when the value is absent. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function digestOrNull(value) {
+  return value === null || value === undefined ? null : digestValue(value);
+}
+
+/**
+ * Refuse a sidecar that no longer describes the documents it names.
+ *
+ * A sidecar is a recorded answer, not an authority over a later artifact. A digest
+ * mismatch means the implementation order may have moved; showing the recorded order
+ * would label an unsafe order as implementation order.
+ */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function assertSidecarFresh({ root, packages, treeManifest, allocateManifest, sidecar }) {
+  if (sidecar === null || sidecar === undefined) return;
+  const artifactPath = findRootArtifact(root);
+  const artifact = artifactPath === null ? null : JSON.parse(readFileSync(artifactPath, 'utf8'));
+  const views = Object.fromEntries(packages.map((pkg) => [pkg.id, loadPackageView(root, pkg.path)]));
+
+  if (sidecar.sourceDigests === undefined || sidecar.sourceDigests === null) {
+    const fresh = deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest });
+    if (fresh === null) return;
+    if (JSON.stringify(fresh.levels) !== JSON.stringify(sidecar.implementationOrder?.levels)) {
+      throw new WorkspacifyOrderError(
+        'STALE_IMPLEMENTATION_ORDER: the sidecar carries no source digests and disagrees with a fresh derivation',
+        { artefact: 'implementation-order' },
+      );
+    }
+    return;
+  }
+
+  const stored = sidecar.sourceDigests;
+  if (digestOrNull(artifact) !== (stored.artifact ?? null)) {
+    throw new WorkspacifyOrderError('STALE_IMPLEMENTATION_ORDER: the artifact changed after the sidecar was written', { artefact: 'implementation-order' });
+  }
+  for (const pkg of packages) {
+    if (digestOrNull(views[pkg.id]) !== (stored.views?.[pkg.id] ?? null)) {
+      throw new WorkspacifyOrderError(`STALE_IMPLEMENTATION_ORDER: the view of ${pkg.id} changed after the sidecar was written`, { artefact: 'implementation-order' });
+    }
+  }
+  if (digestOrNull(treeManifest) !== (stored.treeManifest ?? null)) {
+    throw new WorkspacifyOrderError('STALE_IMPLEMENTATION_ORDER: the tree manifest changed after the sidecar was written', { artefact: 'implementation-order' });
+  }
+  if (digestValue(allocateManifest?.contract_registry ?? []) !== stored.registry) {
+    throw new WorkspacifyOrderError('STALE_IMPLEMENTATION_ORDER: the contract registry changed after the sidecar was written', { artefact: 'implementation-order' });
+  }
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -419,6 +520,7 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   // prerequisites the DAG cannot see. The sidecar never replaces the build order in the
   // manifest; it is displayed beside it.
   const implementationSidecar = loadImplementationOrder(root);
+  assertSidecarFresh({ root, packages, treeManifest, allocateManifest, sidecar: implementationSidecar });
   const sidecarLevels = implementationSidecar?.implementationOrder?.levels ?? null;
   const artifactOrder = implementationSidecar === null
     ? deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest })

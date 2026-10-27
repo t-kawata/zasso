@@ -23,12 +23,16 @@ import { createRequire } from 'node:module';
 import {
   checkPlacement,
   derivePackagePrecedence,
+  ownersFromViewsDetailed,
   PREREQUISITE_CODES,
+  rolesFromTickets,
+  rolesFromView,
   ticketKeyOf,
   ticketPrerequisites,
   topologicalOrder,
 } from './lib/implementation-order.mjs';
 import { digestValue } from './lib/digest.mjs';
+import { readDistributionMap } from '../rfc-graph/lib/unit-ids.mjs';
 
 const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../lib/package-artifacts');
@@ -105,46 +109,87 @@ function levelIndex(levels) {
   return index;
 }
 
-/** Build the operation → package index from every readable package view. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
-function ownersFromWorkspace({ workspaceRoot, treeManifest }) {
-  const owners = new Map();
-  for (const pkg of packagesOf(treeManifest)) {
-    const view = readJson(join(workspaceRoot, pkg.path, 'SEQUENCES.json'));
-    for (const unit of view?.ownedOperationUnits ?? []) {
-      const operationId = unit?.operationId;
-      if (typeof operationId !== 'string') continue;
-      const existing = owners.get(operationId);
-      if (existing === undefined) owners.set(operationId, { packageId: pkg.id });
-      else if (existing.packageId !== pkg.id) owners.set(operationId, { packageId: pkg.id, ambiguous: true });
-    }
-    for (const unit of view?.obligationUnits ?? []) {
-      if (typeof unit?.unitId !== 'string' || !unit.unitId.startsWith('op-')) continue;
-      const operationId = unit.unitId.slice(3);
-      const existing = owners.get(operationId);
-      if (existing === undefined) owners.set(operationId, { packageId: pkg.id });
-      else if (existing.packageId !== pkg.id) owners.set(operationId, { packageId: pkg.id, ambiguous: true });
+/** The role each operation carries in one package, from its ledger, tickets and view. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function rolesForPackage({ workspaceRoot, pkg, ticketsDocument }) {
+  // The ledger is authoritative over the view candidate; the ticket unit is the most
+  // concrete record of what split will implement, so it is applied last.
+  const roles = rolesFromView(readJson(join(workspaceRoot, pkg.path, 'SEQUENCES.json')), new Map());
+  const rfcPath = join(workspaceRoot, pkg.path, 'RFC.md');
+  if (existsSync(rfcPath)) {
+    const map = readDistributionMap(readFileSync(rfcPath, 'utf8'));
+    for (const unit of map?.units ?? []) {
+      if (unit?.role === 'implementer' || unit?.role === 'consumer') roles.set(unit.unitId, unit.role);
     }
   }
-  return owners;
+  rolesFromTickets(flattenTickets(ticketsDocument), roles);
+  return roles;
+}
+
+/** Build the operation → implementer index from every readable package view. */
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function ownersFromWorkspace({ workspaceRoot, treeManifest, views = null, roles = null }) {
+  const packages = packagesOf(treeManifest);
+  const loadedViews = views ?? Object.fromEntries(
+    packages.map((pkg) => [pkg.id, readJson(join(workspaceRoot, pkg.path, 'SEQUENCES.json'))]),
+  );
+  const loadedRoles = roles ?? Object.fromEntries(
+    packages.map((pkg) => [pkg.id, rolesForPackage({
+      workspaceRoot,
+      pkg,
+      ticketsDocument: readJson(join(workspaceRoot, pkg.path, 'Tickets.json')),
+    })]),
+  );
+  return ownersFromViewsDetailed({ packages, views: loadedViews, roles: loadedRoles });
 }
 
 /** The derived package order for one workspace. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function deriveWorkspaceOrder(context) {
   const { treeManifest, artifact, registry, operationOwners } = context;
   const packageIds = packagesOf(treeManifest).map((pkg) => pkg.id);
-  const { edges } = derivePackagePrecedence({ treeManifest, registry, artifact, operationOwners });
+  const precedence = derivePackagePrecedence({ treeManifest, registry, artifact, operationOwners });
   const order = topologicalOrder({
     nodes: packageIds,
-    edges: edges.map((edge) => ({ from: edge.fromPackage, to: edge.toPackage, source: edge.source })),
+    edges: precedence.edges.map((edge) => ({ from: edge.fromPackage, to: edge.toPackage, source: edge.source })),
   });
-  return { order, edges };
+  return { order, edges: precedence.edges, findings: [...precedence.findings, ...order.findings] };
+}
+
+/** The digests that bind a sidecar to the documents it was derived from. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function sourceDigestsOf({ artifact = null, views = {}, graph = undefined, registry = [], treeManifest = null }) {
+  return {
+    artifact: artifact === null || artifact === undefined ? null : digestValue(artifact),
+    views: Object.fromEntries(Object.entries(views ?? {}).map(([packageId, view]) => [
+      packageId,
+      view === null || view === undefined ? null : digestValue(view),
+    ])),
+    ...(graph === undefined ? {} : { graph: graph === null ? null : digestValue(graph) }),
+    registry: digestValue(registry ?? []),
+    treeManifest: treeManifest === null || treeManifest === undefined ? null : digestValue(treeManifest),
+  };
+}
+
+/** Whether a recorded digest set still names the current documents. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+function sameSourceDigests(current, stored) {
+  if (stored === null || stored === undefined) return false;
+  if (current.artifact !== (stored.artifact ?? null)) return false;
+  if (current.graph !== undefined && current.graph !== (stored.graph ?? null)) return false;
+  if (current.registry !== stored.registry) return false;
+  if (current.treeManifest !== (stored.treeManifest ?? null)) return false;
+  const currentIds = Object.keys(current.views ?? {});
+  const storedIds = Object.keys(stored.views ?? {});
+  if (currentIds.length !== storedIds.length) return false;
+  return currentIds.every((id) => current.views[id] === stored.views[id]);
 }
 
 /** The package order sidecar contents. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
-function workspaceSidecar({ order, edges, allocateManifest, artifact, views }) {
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+function workspaceSidecar(input) {
+  const { order, edges, allocateManifest, artifact, views, treeManifest } = input;
   return {
     schemaVersion: 1,
     buildOrder: allocateManifest?.implementation_order ?? { serial: [], levels: [] },
@@ -156,15 +201,17 @@ function workspaceSidecar({ order, edges, allocateManifest, artifact, views }) {
       source: edge.source,
       ...(edge.boundaryId === undefined || edge.boundaryId === null ? {} : { boundary: edge.boundaryId }),
     })),
-    sourceDigests: {
-      artifact: artifact === null ? null : digestValue(artifact),
-      views: Object.fromEntries(Object.entries(views).map(([packageId, view]) => [packageId, view === null ? null : digestValue(view)])),
-    },
+    sourceDigests: sourceDigestsOf({
+      artifact,
+      views,
+      registry: allocateManifest?.contract_registry ?? [],
+      treeManifest,
+    }),
   };
 }
 
 /** Run the workspace gate. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function verifyWorkspace({ workspaceRoot, write }) {
   const treeManifest = readJson(join(workspaceRoot, TREE_MANIFEST_FILE_NAME));
   const allocateManifest = readJson(join(workspaceRoot, ALLOCATE_MANIFEST_FILE_NAME));
@@ -174,9 +221,26 @@ function verifyWorkspace({ workspaceRoot, write }) {
   const artifact = readJson(findSingleSiblingPath(workspaceRoot, '-sequences.json'));
   const registry = allocateManifest.contract_registry ?? [];
   const views = Object.fromEntries(packagesOf(treeManifest).map((pkg) => [pkg.id, readJson(join(workspaceRoot, pkg.path, 'SEQUENCES.json'))]));
-  const operationOwners = ownersFromWorkspace({ workspaceRoot, treeManifest });
-  const { order, edges } = deriveWorkspaceOrder({ workspaceRoot, treeManifest, allocateManifest, artifact, registry, operationOwners });
-  const findings = [...order.findings];
+  const operationOwnersResult = ownersFromWorkspace({ workspaceRoot, treeManifest, views });
+  const operationOwners = operationOwnersResult.owners;
+  const { order, edges, findings: orderFindings } = deriveWorkspaceOrder({ workspaceRoot, treeManifest, allocateManifest, artifact, registry, operationOwners });
+  const findings = [...operationOwnersResult.findings, ...orderFindings];
+
+  const hasDistribution = artifact !== null
+    && ((artifact.sequences?.length ?? 0) > 0
+      || (artifact.steps?.length ?? 0) > 0
+      || (artifact.operations?.length ?? 0) > 0);
+  if (hasDistribution) {
+    for (const pkg of packagesOf(treeManifest)) {
+      if (views[pkg.id] === null) {
+        findings.push({
+          code: PREREQUISITE_CODES.MISSING_PACKAGE_VIEW,
+          subject: pkg.id,
+          message: `package ${pkg.id} has no SEQUENCES.json while the workspace artifact declares a distribution`,
+        });
+      }
+    }
+  }
 
   const packageTickets = Object.fromEntries(packagesOf(treeManifest).map((pkg) => [pkg.id, readJson(join(workspaceRoot, pkg.path, 'Tickets.json'))]));
   const orderIndex = levelIndex(order.levels);
@@ -199,13 +263,14 @@ function verifyWorkspace({ workspaceRoot, write }) {
       allocateManifest,
       artifact,
       views,
+      treeManifest,
     }));
   }
   return { code: findings.length === 0 ? EXIT_OK : EXIT_FAILURE, findings, order, edges };
 }
 
 /** Run the package gate. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function verifyPackage({ packageDir, write }) {
   const ticketsPath = join(packageDir, 'Tickets.json');
   const document = readJson(ticketsPath);
@@ -221,22 +286,75 @@ function verifyPackage({ packageDir, write }) {
   const registry = allocateManifest?.contract_registry ?? [];
   const tickets = flattenTickets(document);
 
+  const hasDistribution = artifact !== null
+    && ((artifact.sequences?.length ?? 0) > 0
+      || (artifact.steps?.length ?? 0) > 0
+      || (artifact.operations?.length ?? 0) > 0
+      || (graph?.nodes ?? []).some((node) => (node.unitIds ?? []).length > 0));
   if (view === null || graph === null) {
-    // A package without a distribution keeps the old shape; the gate is a skip.
-    return { code: EXIT_OK, findings: [], skipped: 'no-distribution' };
+    if (!hasDistribution) {
+      // A package without a distribution keeps the old shape; the gate is a skip.
+      return { code: EXIT_OK, findings: [], skipped: 'no-distribution' };
+    }
+    const findings = [];
+    if (view === null) {
+      findings.push({ code: PREREQUISITE_CODES.MISSING_PACKAGE_VIEW, subject: packageDir, message: 'the workspace artifact declares a distribution but this package has no SEQUENCES.json' });
+    }
+    if (graph === null) {
+      findings.push({ code: 'MISSING_DISTRIBUTION_LAYER', subject: packageDir, message: 'the workspace artifact declares a distribution but this package has no GRAPH.json' });
+    }
+    return { code: EXIT_FAILURE, findings };
   }
 
   const operationOwners = buildOperationOwners({ view, workspaceRoot, tickets });
-  const { prerequisites } = ticketPrerequisites({ tickets, graph, artifact, operationOwners, registry, packageId: view.packageId });
+  const derivation = ticketPrerequisites({
+    tickets,
+    graph,
+    artifact,
+    operationOwners,
+    registry,
+    packageId: view.packageId,
+    treeManifest,
+  });
+  const prerequisites = derivation.prerequisites;
   const attached = tickets.map((ticket) => ({
     ...ticket,
     prerequisites: prerequisites.get(ticketKeyOf(ticket)) ?? [],
   }));
 
   const packages = packagesOf(treeManifest);
-  const workspaceOwners = workspaceRoot === null ? operationOwners : ownersFromWorkspace({ workspaceRoot, treeManifest });
-  const { order } = deriveWorkspaceOrder({ workspaceRoot, treeManifest, allocateManifest, artifact, registry, operationOwners: workspaceOwners });
-  const findings = [...order.findings];
+  const workspaceOwnersResult = workspaceRoot === null
+    ? { owners: operationOwners, findings: [] }
+    : ownersFromWorkspace({ workspaceRoot, treeManifest });
+  const workspaceOrder = deriveWorkspaceOrder({
+    workspaceRoot,
+    treeManifest,
+    allocateManifest,
+    artifact,
+    registry,
+    operationOwners: workspaceOwnersResult.owners,
+  });
+  const order = workspaceOrder.order;
+  const findings = [...derivation.findings, ...workspaceOwnersResult.findings, ...workspaceOrder.findings];
+  if (!write) {
+    const existingSidecar = readJson(join(packageDir, IMPLEMENTATION_ORDER_FILE_NAME));
+    if (existingSidecar?.sourceDigests !== undefined) {
+      const currentDigests = sourceDigestsOf({
+        artifact,
+        views: { [view.packageId]: view },
+        graph,
+        registry,
+        treeManifest,
+      });
+      if (!sameSourceDigests(currentDigests, existingSidecar.sourceDigests)) {
+        findings.push({
+          code: PREREQUISITE_CODES.STALE_IMPLEMENTATION_ORDER,
+          subject: packageDir,
+          message: 'the package implementation-order sidecar no longer matches the artifact, view, graph, registry or tree manifest',
+        });
+      }
+    }
+  }
   for (const ticket of tickets) {
     const derived = prerequisites.get(ticketKeyOf(ticket)) ?? [];
     const actual = Array.isArray(ticket.prerequisites) ? ticket.prerequisites : [];
@@ -266,6 +384,13 @@ function verifyPackage({ packageDir, write }) {
       buildOrder: allocateManifest?.implementation_order ?? { serial: [], levels: [] },
       implementationOrder: { serial: order.serial, levels: order.levels },
       tickets: attached.map((ticket) => ({ ticket: ticketKeyOf(ticket), prerequisites: ticket.prerequisites })),
+      sourceDigests: sourceDigestsOf({
+        artifact,
+        views: { [view.packageId]: view },
+        graph,
+        registry,
+        treeManifest,
+      }),
     });
   }
   return { code: findings.length === 0 ? EXIT_OK : EXIT_FAILURE, findings, order };

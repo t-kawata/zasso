@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { WorkspacifyOrderError } from './errors.mjs';
+import { readDistributionMap } from '../../rfc-graph/lib/unit-ids.mjs';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
@@ -49,6 +50,23 @@ export function loadPackageView(root, packagePath) {
   } catch {
     return null;
   }
+}
+
+/** The operation roles the package ledger declares, or an empty map. */
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+export function loadPackageRoles({ root, packagePath }) {
+  const roles = new Map();
+  const rfcPath = join(root, packagePath, RFC_FILE_NAME);
+  if (!existsSync(rfcPath)) return roles;
+  try {
+    const map = readDistributionMap(readFileSync(rfcPath, 'utf8'));
+    for (const unit of map?.units ?? []) {
+      if (unit?.role === 'implementer' || unit?.role === 'consumer') roles.set(unit.unitId, unit.role);
+    }
+  } catch {
+    return roles;
+  }
+  return roles;
 }
 
 /** Read the implementation-order sidecar, or null when it is absent or unreadable. */

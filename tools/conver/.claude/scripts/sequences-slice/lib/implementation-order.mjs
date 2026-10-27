@@ -12,14 +12,25 @@
 /** The named findings this module can report. */
 export const PREREQUISITE_CODES = Object.freeze({
   IMPLEMENTATION_ORDER_CYCLE: 'IMPLEMENTATION_ORDER_CYCLE',
+  MISSING_IMPLEMENTER: 'MISSING_IMPLEMENTER',
+  MISSING_PACKAGE_VIEW: 'MISSING_PACKAGE_VIEW',
+  OWNER_ROLE_UNDECIDED: 'OWNER_ROLE_UNDECIDED',
   PREREQUISITE_NOT_BEFORE: 'PREREQUISITE_NOT_BEFORE',
   PREREQUISITE_PACKAGE_BEFORE: 'PREREQUISITE_PACKAGE_BEFORE',
   PREREQUISITE_PACKAGE_UNSPLIT: 'PREREQUISITE_PACKAGE_UNSPLIT',
   PREREQUISITE_TICKET_MISSING: 'PREREQUISITE_TICKET_MISSING',
   PREREQUISITE_TICKETS_MISSING: 'PREREQUISITE_TICKETS_MISSING',
   PREREQUISITE_NOT_DONE: 'PREREQUISITE_NOT_DONE',
+  PREREQUISITE_ORDER_STALE: 'PREREQUISITE_ORDER_STALE',
   PREREQUISITE_SET_MISMATCH: 'PREREQUISITE_SET_MISMATCH',
+  STALE_IMPLEMENTATION_ORDER: 'STALE_IMPLEMENTATION_ORDER',
   UNKNOWN_PACKAGE: 'UNKNOWN_PACKAGE',
+});
+
+/** The two roles a package ledger may declare for an operation. */
+export const OPERATION_ROLE = Object.freeze({
+  IMPLEMENTER: 'implementer',
+  CONSUMER: 'consumer',
 });
 
 /** The graph edge types that state a hard implementation direction. */
@@ -54,17 +65,97 @@ export function factTexts(facts) {
     .filter((text) => typeof text === 'string' && text.length > 0);
 }
 
+/** The role each operation unit carries in one package view. */
+export function rolesFromView(view, roles = new Map()) {
+  for (const unit of view?.ownedOperationUnits ?? []) {
+    if (typeof unit?.unitId !== 'string') continue;
+    if (unit.roleCandidate === OPERATION_ROLE.IMPLEMENTER || unit.roleCandidate === OPERATION_ROLE.CONSUMER) {
+      roles.set(unit.unitId, unit.roleCandidate);
+    }
+  }
+  return roles;
+}
+
+/** The role each operation unit carries in a ticket document or ticket list. */
+export function rolesFromTickets(tickets = [], roles = new Map()) {
+  for (const ticket of tickets) {
+    for (const unit of ticket?.distribution?.units ?? []) {
+      if (unit?.kind !== 'operation' || typeof unit.unitId !== 'string') continue;
+      const declared = unit.role === OPERATION_ROLE.IMPLEMENTER || unit.role === OPERATION_ROLE.CONSUMER
+        ? unit.role
+        : (unit.obligation?.mode === 'implement' ? OPERATION_ROLE.IMPLEMENTER : null);
+      if (declared === OPERATION_ROLE.IMPLEMENTER) {
+        roles.set(unit.unitId, OPERATION_ROLE.IMPLEMENTER);
+      } else if (declared === OPERATION_ROLE.CONSUMER && roles.get(unit.unitId) !== OPERATION_ROLE.IMPLEMENTER) {
+        roles.set(unit.unitId, OPERATION_ROLE.CONSUMER);
+      }
+    }
+  }
+  return roles;
+}
+
+/**
+ * Resolve the claims of every operation to its implementers.
+ *
+ * A view that lists a unit is a candidate, not an owner. The implementer role is the
+ * authority; a sole candidate without a declared role is accepted only for a view written
+ * before roles existed. Zero implementers is a finding, never a silent skip.
+ */
+export function resolveOperationClaims(claims) {
+  const owners = new Map();
+  const findings = [];
+  for (const [operationId, entries] of claims) {
+    const implementers = entries.filter((entry) => entry.role === OPERATION_ROLE.IMPLEMENTER);
+    const implementerPackageIds = [...new Set(implementers.map((entry) => entry.packageId))].sort();
+    if (implementerPackageIds.length > 0) {
+      const localTicket = implementers.find((entry) => typeof entry.ticketKey === 'string');
+      owners.set(operationId, {
+        packageId: implementerPackageIds[0],
+        implementerPackageIds,
+        ...(localTicket === undefined ? {} : { ticketKey: localTicket.ticketKey }),
+      });
+      continue;
+    }
+    if (entries.length === 1 && entries[0].role !== OPERATION_ROLE.CONSUMER) {
+      owners.set(operationId, {
+        packageId: entries[0].packageId,
+        implementerPackageIds: [entries[0].packageId],
+        ...(typeof entries[0].ticketKey === 'string' ? { ticketKey: entries[0].ticketKey } : {}),
+      });
+      continue;
+    }
+    owners.set(operationId, { ambiguous: true, missingImplementer: true, implementerPackageIds: [] });
+    findings.push(finding(
+      PREREQUISITE_CODES.OWNER_ROLE_UNDECIDED,
+      operationId,
+      `operation ${operationId} has no implementer among ${entries.map((entry) => entry.packageId).join(', ')}`,
+    ));
+  }
+  return { owners, findings };
+}
+
+/** Add one ownership candidate to the claim table. */
+export function addOperationClaim(claims, { operationId, packageId, role = null, ticketKey = undefined }) {
+  if (typeof operationId !== 'string' || operationId.length === 0) return claims;
+  const entries = claims.get(operationId) ?? [];
+  if (!entries.some((entry) => entry.packageId === packageId)) {
+    entries.push({ packageId, role, ...(ticketKey === undefined ? {} : { ticketKey }) });
+    claims.set(operationId, entries);
+  }
+  return claims;
+}
+
 /** The owner record of one step's operation, or undefined.
  *
- * An operation two package views both claim as an implementer has no single owner. The
- * edge is skipped rather than guessed; the smooth role check already reports the conflict.
+ * An operation with no resolved implementer has no owner. The caller reports the finding;
+ * this helper must not turn the absence into a guess.
  */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function ownerOf(operationOwners, step) {
   const operationId = step?.operation ?? step?.operationId;
   if (operationId === undefined) return undefined;
   const owner = operationOwners.get(operationId);
-  return owner?.ambiguous === true ? undefined : owner;
+  return owner?.ambiguous === true || owner?.missingImplementer === true ? undefined : owner;
 }
 
 /** The boundary id a crossed fact names, or null. */
@@ -97,13 +188,13 @@ function consumesWhatEarlierProduces(earlier, later) {
 }
 
 /** The boundary id of the crossed boundary a later step depends on, or null. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
-function matchingBoundaryId(later, earlierOwner, laterOwner, boundaries) {
+// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+function matchingBoundaryId(later, earlierPackages, laterPackages, boundaries) {
   const match = crossedBoundaries(later).find((boundaryId) => {
     const row = boundaries.get(boundaryId);
     return row !== undefined
-      && row.provider_package === earlierOwner.packageId
-      && row.consumer_package === laterOwner.packageId;
+      && earlierPackages.includes(row.provider_package)
+      && laterPackages.includes(row.consumer_package);
   });
   return match ?? null;
 }
@@ -123,6 +214,19 @@ export function deriveSequencePrecedence({ artifact = null, operationOwners = ne
   if (artifact === null) return { edges, findings };
   const boundaries = new Map((registry ?? []).map((row) => [row?.boundary_id, row]));
   const seen = new Set();
+  const reported = new Set();
+
+  const reportMissingOwner = (step, sequence, side) => {
+    const operationId = step?.operation ?? step?.operationId ?? '?';
+    const subject = `${sequence.id}:${step?.stepId ?? step?.id ?? '?'}:${side}`;
+    if (reported.has(subject)) return;
+    reported.add(subject);
+    findings.push(finding(
+      PREREQUISITE_CODES.MISSING_IMPLEMENTER,
+      operationId,
+      `${side} step ${step?.stepId ?? step?.id ?? '?'} of sequence ${sequence.id} has no implementer`,
+    ));
+  };
 
   for (const sequence of artifact.sequences ?? []) {
     if (sequence?.outcome === 'notASequence') continue;
@@ -133,25 +237,36 @@ export function deriveSequencePrecedence({ artifact = null, operationOwners = ne
         const later = steps[laterIndex];
         const earlierOwner = ownerOf(operationOwners, earlier);
         const laterOwner = ownerOf(operationOwners, later);
+        if (earlierOwner === undefined) reportMissingOwner(earlier, sequence, 'earlier');
+        if (laterOwner === undefined) reportMissingOwner(later, sequence, 'later');
         if (earlierOwner === undefined || laterOwner === undefined) continue;
 
+        const earlierPackages = earlierOwner.implementerPackageIds ?? [earlierOwner.packageId];
+        const laterPackages = laterOwner.implementerPackageIds ?? [laterOwner.packageId];
         const dataRelation = consumesWhatEarlierProduces(earlier, later);
-        const boundaryId = dataRelation ? null : matchingBoundaryId(later, earlierOwner, laterOwner, boundaries);
+        const boundaryId = dataRelation ? null : matchingBoundaryId(later, earlierPackages, laterPackages, boundaries);
         if (!dataRelation && boundaryId === null) continue;
 
         const source = `sequence:${sequence.id}:${earlier.stepId ?? earlier.id}->${later.stepId ?? later.id}`;
-        const key = `${earlierOwner.packageId}->${laterOwner.packageId}:${source}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        edges.push({
-          fromPackage: earlierOwner.packageId,
-          toPackage: laterOwner.packageId,
-          fromOperation: earlier.operation ?? earlier.operationId,
-          toOperation: later.operation ?? later.operationId,
-          kind: 'sequence',
-          source,
-          boundaryId,
-        });
+        for (const fromPackage of earlierPackages) {
+          for (const toPackage of laterPackages) {
+            // A same-package relation is a ticket-level prerequisite, not a package edge.
+            // derivePackagePrecedence filters it out of the package order; the ticket
+            // derivation must still see it.
+            const key = `${fromPackage}->${toPackage}:${source}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            edges.push({
+              fromPackage,
+              toPackage,
+              fromOperation: earlier.operation ?? earlier.operationId,
+              toOperation: later.operation ?? later.operationId,
+              kind: 'sequence',
+              source,
+              boundaryId,
+            });
+          }
+        }
       }
     }
   }
@@ -257,28 +372,35 @@ export function topologicalOrder({ nodes = [], edges = [] } = {}) {
 }
 
 /**
- * The operation → package index across a workspace's package views.
+ * The operation → implementer index across a workspace's package views.
  *
- * A pure projection: the caller reads the views. Two views that both declare an operation
- * as an implementer make the owner ambiguous; the sequence edge is skipped rather than
- * guessed, and the smooth role check reports the conflict.
+ * A view that lists a unit is a candidate, not an owner. The role declared by the package
+ * ledger (or, for a sole legacy owner, the view candidate) decides. A candidate with no
+ * implementer is a finding; the caller must fail rather than derive an unsafe order.
+ *
+ * @returns {{ owners: Map<string, object>, findings: Array<object> }}
  */
-export function ownersFromViews({ packages = [], views = {} } = {}) {
-  const owners = new Map();
-  const record = (operationId, packageId) => {
+export function ownersFromViewsDetailed({ packages = [], views = {}, roles = {} } = {}) {
+  const claims = new Map();
+  const record = (unit, packageId, packageRoles) => {
+    const operationId = unit?.operationId ?? (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-') ? unit.unitId.slice(3) : null);
     if (typeof operationId !== 'string' || operationId.length === 0) return;
-    const existing = owners.get(operationId);
-    if (existing === undefined) owners.set(operationId, { packageId });
-    else if (existing.packageId !== packageId) owners.set(operationId, { packageId, ambiguous: true });
+    const role = packageRoles.get(unit.unitId) ?? unit.roleCandidate ?? null;
+    addOperationClaim(claims, { operationId, packageId, role });
   };
   for (const pkg of packages) {
     const view = views[pkg.id] ?? null;
-    for (const unit of view?.ownedOperationUnits ?? []) record(unit?.operationId, pkg.id);
-    for (const unit of view?.obligationUnits ?? []) {
-      if (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-')) record(unit.unitId.slice(3), pkg.id);
-    }
+    if (view === null) continue;
+    const packageRoles = roles[pkg.id] ?? rolesFromView(view);
+    for (const unit of view.ownedOperationUnits ?? []) record(unit, pkg.id, packageRoles);
+    for (const unit of view.obligationUnits ?? []) record(unit, pkg.id, packageRoles);
   }
-  return owners;
+  return resolveOperationClaims(claims);
+}
+
+/** The operation → implementer index, without the findings. */
+export function ownersFromViews(input = {}) {
+  return ownersFromViewsDetailed(input).owners;
 }
 
 /** The map a ticket's node ids give to the ticket that owns them. */
@@ -318,7 +440,15 @@ function prerequisiteKey(entry) {
  *
  * @returns {{ prerequisites: Map<string, Array<object>>, findings: Array<object> }}
  */
-export function ticketPrerequisites({ tickets = [], graph = null, artifact = null, operationOwners = new Map(), registry = [], packageId = null } = {}) {
+export function ticketPrerequisites({
+  tickets = [],
+  graph = null,
+  artifact = null,
+  operationOwners = new Map(),
+  registry = [],
+  packageId = null,
+  treeManifest = null,
+} = {}) {
   const prerequisites = new Map();
   const findings = [];
   const hasDistribution = tickets.some((ticket) => (ticket?.distribution?.units ?? []).length > 0);
@@ -351,32 +481,70 @@ export function ticketPrerequisites({ tickets = [], graph = null, artifact = nul
   }
 
   const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry });
+  findings.push(...sequence.findings);
   for (const edge of sequence.edges) {
     const provider = operationOwners.get(edge.fromOperation);
     const consumer = operationOwners.get(edge.toOperation);
     if (provider === undefined || consumer === undefined) continue;
+    if (provider.ambiguous === true || consumer.ambiguous === true) continue;
     if (consumer.packageId !== packageId) continue;
     const consumerTicket = consumer.ticketKey === undefined
       ? implementingTicketOf(tickets, edge.toOperation)
       : tickets.find((ticket) => ticketKeyOf(ticket) === consumer.ticketKey);
-    if (consumerTicket === undefined) continue;
-    const providerTicket = provider.ticketKey !== undefined
-      ? tickets.find((ticket) => ticketKeyOf(ticket) === provider.ticketKey)
-      : (provider.packageId === packageId ? implementingTicketOf(tickets, edge.fromOperation) : undefined);
-    if (provider.packageId === packageId) {
-      if (providerTicket === undefined || providerTicket === consumerTicket) continue;
-      add(consumerTicket, {
-        ticket: ticketKeyOf(providerTicket),
+    if (consumerTicket === undefined) {
+      findings.push(finding(PREREQUISITE_CODES.MISSING_IMPLEMENTER, edge.toOperation, `consumer operation ${edge.toOperation} reaches no ticket`));
+      continue;
+    }
+
+    const providerPackages = provider.implementerPackageIds ?? [provider.packageId];
+    for (const providerPackage of providerPackages) {
+      if (providerPackage === packageId) {
+        const providerTicket = provider.ticketKey !== undefined
+          ? tickets.find((ticket) => ticketKeyOf(ticket) === provider.ticketKey)
+          : implementingTicketOf(tickets, edge.fromOperation);
+        if (providerTicket === undefined) {
+          findings.push(finding(PREREQUISITE_CODES.MISSING_IMPLEMENTER, edge.fromOperation, `provider operation ${edge.fromOperation} reaches no ticket`));
+          continue;
+        }
+        if (providerTicket === consumerTicket) continue;
+        add(consumerTicket, {
+          ticket: ticketKeyOf(providerTicket),
+          kind: 'implementation',
+          source: edge.source,
+          ...(edge.boundaryId === null ? {} : { boundary: edge.boundaryId }),
+        });
+      } else {
+        add(consumerTicket, {
+          package: providerPackage,
+          kind: 'implementation',
+          source: edge.source,
+          ...(edge.boundaryId === null ? {} : { boundary: edge.boundaryId }),
+        });
+      }
+    }
+  }
+
+  // A build edge says this package depends on the provider package. Every ticket in the
+  // consumer package waits for the provider package's implementation; the package entry
+  // is the unit the make gate can check before the provider is split.
+  for (const edge of treeManifest?.dependencies?.dag?.canonical_edges ?? []) {
+    if (edge?.from !== packageId || edge?.to === packageId) continue;
+    for (const ticket of tickets) {
+      add(ticket, { package: edge.to, kind: 'implementation', source: `build:${edge.from}->${edge.to}` });
+    }
+  }
+
+  // A boundary registry row declares a provider/consumer direction. It is a package-level
+  // prerequisite even when no step crosses it: the consumer cannot integrate without the
+  // provider's implementation.
+  for (const row of registry ?? []) {
+    if (row?.consumer_package !== packageId || row?.provider_package === packageId) continue;
+    for (const ticket of tickets) {
+      add(ticket, {
+        package: row.provider_package,
         kind: 'implementation',
-        source: edge.source,
-        ...(edge.boundaryId === null ? {} : { boundary: edge.boundaryId }),
-      });
-    } else {
-      add(consumerTicket, {
-        package: provider.packageId,
-        kind: 'implementation',
-        source: edge.source,
-        ...(edge.boundaryId === null ? {} : { boundary: edge.boundaryId }),
+        source: `boundary:${row.boundary_id}`,
+        boundary: row.boundary_id,
       });
     }
   }
@@ -456,11 +624,17 @@ export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new
         findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_TICKETS_MISSING, entry.package, `prerequisite package ${entry.package} has no readable Tickets.json`));
         continue;
       }
+      let checked = false;
       for (const candidate of statuses) {
-        if (candidate?.implements !== true) continue;
+        const carriesWork = candidate?.carriesWork === true || candidate?.implements === true;
+        if (!carriesWork) continue;
+        checked = true;
         if (!COMPLETE_STATUSES.has(candidate.status)) {
           findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_NOT_DONE, candidate.ticket, `prerequisite ticket ${candidate.ticket} in ${entry.package} is ${candidate.status}; it must be done or reviewed`));
         }
+      }
+      if (!checked) {
+        findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_TICKETS_MISSING, entry.package, `prerequisite package ${entry.package} has no ticket carrying distribution work`));
       }
     }
   }

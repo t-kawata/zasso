@@ -72,8 +72,15 @@ Before proceeding, verify that the ticket's current status in Tickets.json is `"
 node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=start
 ```
 
-- **Exit 0** (status is `"planned"`) → proceed to Step 1
+- **Exit 0** (status is `"planned"`) → run the prerequisite gate below, then Step 1.
 - **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /start-ticket cannot proceed until the ticket status is 'planned'. Run /plan-ticket first." and abort.
+
+```bash
+node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
+```
+
+- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` / `skipped:no-distribution` → Step 1.
+- exit 1 → stop. The named `PREREQUISITE_*`, `OWNER_ROLE_UNDECIDED`, `MISSING_PACKAGE_VIEW` or `STALE_IMPLEMENTATION_ORDER` finding must be resolved before implementation starts.
 
 ### Step 1: Block unless /plan-ticket was executed immediately before in the same session
 

@@ -619,7 +619,7 @@ function stepOwnerLabel({ step, unit, ticket, ticketsDocument, view }) {
 }
 
 /** The Work Share block: own work, shared work and the ctr boundary contract. */
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
 function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'
@@ -648,7 +648,9 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
     }
     if (unitInView === null) {
       lines.push('');
-      lines.push('- other steps: not available (the package view is unreadable)');
+      lines.push(view === null || view === undefined
+        ? '- other steps: not available (the package view is unreadable)'
+        : '- other steps: not available (this sequence unit is not step-bearing in the package view)');
     }
     lines.push('');
   }
