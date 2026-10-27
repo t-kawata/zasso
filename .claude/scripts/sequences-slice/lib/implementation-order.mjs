@@ -503,6 +503,34 @@ export function ticketPrerequisites({
     prerequisites.set(key, entries);
   };
 
+  /** The operation id an `op-*` distribution unit names, or null for another unit kind. */
+  // [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+  const operationIdOfUnit = (unit) => (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-')
+    ? unit.unitId.slice('op-'.length)
+    : null);
+
+  /**
+   * Whether an existing entry already names the same provider.
+   *
+   * A graph, sequence, build or boundary source can already declare the dependency. The
+   * reference unit adds the missing edge only when the provider is not yet named, so the
+   * prerequisite set keeps one entry per provider instead of one per source.
+   */
+  // [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+  const namesSameProvider = (entry, candidate) => (
+    (typeof candidate.ticket === 'string' && entry.ticket === candidate.ticket)
+    || (typeof candidate.package === 'string' && entry.package === candidate.package)
+  );
+
+  /** Add a reference-derived provider only when no source already names it. */
+  // [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+  const addProviderOnce = (consumerTicket, entry) => {
+    const key = ticketKeyOf(consumerTicket);
+    const entries = prerequisites.get(key) ?? [];
+    if (entries.some((candidate) => namesSameProvider(candidate, entry))) return;
+    add(consumerTicket, entry);
+  };
+
   for (const edge of graph?.edges ?? []) {
     const direction = HARD_EDGE_TYPES[edge?.type];
     if (direction === undefined) continue;
@@ -586,6 +614,60 @@ export function ticketPrerequisites({
         source: `boundary:${row.boundary_id}`,
         boundary: row.boundary_id,
       });
+    }
+  }
+
+  // A reference operation unit names the ticket or package that implements the operation.
+  // That is an implementation dependency even when no graph edge, sequence relation or
+  // boundary row declares it: the consumer's integration test cannot run against an
+  // implementation that does not exist. Deriving it here keeps the split attachment, the
+  // order gate and the make/plan/start/review entry gate on one rule.
+  for (const ticket of tickets) {
+    const consumerKey = ticketKeyOf(ticket);
+    for (const unit of ticket?.distribution?.units ?? []) {
+      if (unit?.obligation?.mode !== 'reference') continue;
+      if (typeof unit?.unitId !== 'string' || unit.unitId.length === 0) continue;
+      const operationId = operationIdOfUnit(unit);
+      if (operationId !== null && !isActiveOperation(activeOperationIds, operationId)) continue;
+
+      // The durable key is the identity consolidation remaps; the numeric id is the
+      // phase-local fallback for a record written before the key existed.
+      const implementerKey = typeof unit.obligation.implementerTicketKey === 'string'
+        && unit.obligation.implementerTicketKey.length > 0
+        ? unit.obligation.implementerTicketKey
+        : (typeof unit.obligation.implementerTicketId === 'number'
+          ? ticketKeyOf({ phaseId: ticket.phaseId, id: unit.obligation.implementerTicketId })
+          : null);
+      if (implementerKey !== null) {
+        // A ticket that names itself owes nothing to itself; the entry would also make the
+        // canonical prerequisite comparison unstable across phases.
+        if (implementerKey === consumerKey) continue;
+        addProviderOnce(ticket, {
+          ticket: implementerKey,
+          kind: 'implementation',
+          source: `reference:${unit.unitId}`,
+        });
+        continue;
+      }
+
+      const externalProviders = (Array.isArray(unit.obligation.providers) ? unit.obligation.providers : [])
+        .filter((provider) => typeof provider === 'string' && provider.length > 0 && provider !== packageId);
+      for (const provider of externalProviders) {
+        addProviderOnce(ticket, {
+          package: provider,
+          kind: 'implementation',
+          source: `reference:${unit.unitId}`,
+        });
+      }
+      if (externalProviders.length === 0) {
+        // A reference with no provider would be a satisfied prerequisite by silence. It is
+        // a distribution defect, and the split must stop rather than emit an incomplete set.
+        findings.push(finding(
+          PREREQUISITE_CODES.MISSING_IMPLEMENTER,
+          unit.unitId,
+          `reference unit ${unit.unitId} names no implementer ticket or external provider package`,
+        ));
+      }
     }
   }
 

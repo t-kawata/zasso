@@ -50072,6 +50072,94 @@
             }
           ],
           "completedAt": "2026-10-27"
+        },
+        {
+          "id": 329,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Derive a reference-unit dependency as an implementation prerequisite",
+          "background": "The distribution chain already delivers every sequence step, operation obligation and boundary contract to the ticket, and verify-make-distribution requires a reference unit to name its implementer in the integration test plan. The missing link is the implementation prerequisite: a reference operation unit is a declared dependency on another ticket or package, but ticketPrerequisites derived prerequisites only from graph hard edges, contract-backed sequence relations, build edges and the boundary registry. A consumer ticket could therefore enter make -> plan -> start -> review while the ticket that implements the operation it references was still planned. Requirement 5 forbids this. The fix extends the single derivation used by attachPrerequisites, verify-implementation-order and check-ticket-prerequisites so the same rule is enforced at split time and at every entry point.",
+          "scope": [
+            "Derive a same-package reference-unit prerequisite from obligation.implementerTicketKey.",
+            "Derive a cross-package reference-unit prerequisite from obligation.providers, excluding the local package.",
+            "Suppress a self-edge and a duplicate when a graph, sequence, build or boundary entry already names the same provider.",
+            "Skip a reference to a non-active or residual operation; emit MISSING_IMPLEMENTER when a reference names neither an implementer ticket nor an external provider.",
+            "Add unit tests for the derivation and an integration test proving check-ticket-prerequisites blocks a planned provider.",
+            "Keep no-distribution, no-prerequisites and Case B behavior unchanged."
+          ],
+          "testUnit": [
+            "UT: [Normal] a same-package reference unit with implementerTicketKey adds a ticket prerequisite with source reference:op-X",
+            "UT: [Normal] a cross-package reference unit with providers adds a package prerequisite with source reference:op-X",
+            "UT: [Boundary] a reference to the ticket's own key adds no self-edge",
+            "UT: [Boundary] an existing graph prerequisite for the same provider is not duplicated by the reference unit",
+            "UT: [Error] a reference unit with neither implementerTicketKey nor an external provider emits MISSING_IMPLEMENTER",
+            "UT: [Boundary] a reference to a non-active operation adds no prerequisite and no finding",
+            "UT: [Normal] the entry gate with a reference prerequisite and a planned provider exits 1 with PREREQUISITE_NOT_DONE",
+            "UT: [Boundary] the entry gate with a done provider exits 0; no distribution and Case B remain skips"
+          ],
+          "testIntegration": [
+            "IT: a two-ticket package whose consumer carries a reference unit and the derived prerequisite blocks make while the implementer is planned",
+            "IT: the same package passes after the implementer is done, so split and make read one derivation"
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/sequences-slice/lib/implementation-order.mjs",
+            "tests/sequences-slice/reference-prerequisites.test.mjs",
+            "tests/tickets/reference-prerequisite-entry-gate.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a same-package reference unit becomes a ticket prerequisite and a cross-package reference unit becomes a package prerequisite.",
+            "Error case: a reference unit with no implementer or external provider is a named MISSING_IMPLEMENTER failure, never a silent skip.",
+            "Edge case: self-references, duplicate graph prerequisites, non-active operations, no distribution and Case B remain unchanged."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "distribution:reference:same-package",
+              "precondition": "A ticket carries a distribution operation unit whose obligation.mode is reference and whose obligation.implementerTicketKey names another ticket in the same package.",
+              "postcondition": "ticketPrerequisites adds a prerequisite entry with ticket=implementerTicketKey, kind=implementation and source=reference:<unitId> to the consumer ticket.",
+              "invariant": "No self-edge is created; an existing entry for the same provider is not duplicated; the result is deterministic."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "distribution:reference:cross-package",
+              "precondition": "A ticket carries a reference unit with no implementer ticket and a non-empty obligation.providers list naming another package.",
+              "postcondition": "ticketPrerequisites adds a package prerequisite entry for each external provider with kind=implementation and source=reference:<unitId>.",
+              "invariant": "The local package is never a prerequisite of itself; duplicate provider entries are suppressed; the result is deterministic."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "distribution:reference:unresolved",
+              "precondition": "A reference unit names neither an implementer ticket nor an external provider package.",
+              "postcondition": "ticketPrerequisites emits MISSING_IMPLEMENTER for the unit and attachPrerequisites fails closed.",
+              "invariant": "An unresolved reference is never treated as satisfied and never produces a silent empty prerequisite set."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "entry-gate:reference-prerequisite",
+              "precondition": "The split attached a reference-derived prerequisite to the consumer ticket and the entry gate runs for it.",
+              "postcondition": "check-ticket-prerequisites exits 1 with PREREQUISITE_NOT_DONE while the provider is not done or reviewed, and exits 0 after it is done or reviewed.",
+              "invariant": "No distribution, no prerequisites and Case B remain skips; the gate re-derives the set and rejects a stale or edited field."
+            }
+          ],
+          "notes": "The reference unit already appears in Distribution Obligations and requires an IT entry naming the provider (SHARED_WORK_UNDECLARED). The missing link was the implementation prerequisite. ticketPrerequisites is the single derivation used by attachPrerequisites, verify-implementation-order and check-ticket-prerequisites, so the fix is enforced at split time and at make, plan, start and review.",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-329.md",
+          "relatedTicketIds": "PX-323, PX-325, PX-327, PX-328",
+          "invariants": "- [Normal establishment] Every reference operation unit resolves to exactly one implementer ticket or to one or more external provider packages, and the consumer ticket carries the derived prerequisite.\n- [Invariant on error] An unresolved reference, a self-reference or a duplicate provider is a named finding or is suppressed deterministically; no reference is silently treated as satisfied.\n- [Internal state invariant] ticketPrerequisites is a deterministic function of the tickets, graph, artifact, registry and tree manifest; re-running on unchanged inputs yields the same sorted entries.\n- [Boundary invariant] A reference to a non-active or residual operation creates no prerequisite; a ticket with no distribution and Case B keep their old shape and skip the gate.",
+          "instrumentation": "- Logging: the derivation returns findings; check-ticket-prerequisites and verify-implementation-order write each named code and subject to stderr.\n- Metrics: no metric is added; the exit code and the finding count are the observable result.\n- Error tracking: MISSING_IMPLEMENTER names the unresolved unit id for the split and entry gates.\n- Health check: node --test over the reference-prerequisite unit and integration tests is the repeatable check.",
+          "investigation": "Measured in this workspace: ticketPrerequisites iterated graph hard edges, sequence precedence, build edges and boundary rows only; add-tickets-for-phase.js attachPrerequisites passes its result into ticket.prerequisites; check-ticket-prerequisites.js re-derives with verifyPackage. A synthetic two-ticket Tickets.json (P0-1 implement op-X planned, P0-2 reference op-X) returned {\"ok\":true,\"skipped\":\"no-prerequisites\"} before the change. The reference unit was already rendered in Distribution Obligations and required an IT entry by verify-make-distribution (SHARED_WORK_UNDECLARED), so the entry gate, not the delivery gate, was the gap.",
+          "boyScoutPlan": "- Extract operationIdOfUnit, namesSameProvider and addProviderOnce so the new block reads as prose: classify the unit, decide whether the provider is already named, add it once.\n- Name the new finding by the unit id, not by a generic ticket number.\n- Keep the reference loop after the existing sources so graph and sequence entries keep their source when both name the provider.\n- No swallowed error: an unresolved reference is a finding that attachPrerequisites turns into a split failure.",
+          "planTestCode": [
+            "C001: const consumerPrerequisites = ticketPrerequisites({ tickets, graph: { edges: [] }, packageId: 'pkg-1' }).prerequisites; assert.deepEqual(consumerPrerequisites.get('P0-2'), [{ ticket: 'P0-1', kind: 'implementation', source: 'reference:op-X' }]);",
+            "C001: const selfReference = ticketPrerequisites({ tickets: [ticket(1, [samePackageReference('P0-1', 1)], ['N1'])], graph: { edges: [] }, packageId: 'pkg-1' }); assert.equal(selfReference.prerequisites.has('P0-1'), false);",
+            "C001: const duplicateCheck = ticketPrerequisites({ tickets, graph: { edges: [{ from: 'N2', to: 'N1', type: 'depends_on' }] }, operationOwners, packageId: 'pkg-1' }).prerequisites.get('P0-2'); assert.equal(duplicateCheck.length, 1); assert.equal(duplicateCheck[0].source, 'graph:depends_on:N2->N1');",
+            "C002: const crossPackage = ticketPrerequisites({ tickets: [ticket(2, [operationUnit('op-X', { mode: 'reference', implementerTicketId: null, providers: ['pkg-2'] }, 'consumer')], ['N2'])], graph: { edges: [] }, packageId: 'pkg-1' }); assert.deepEqual(crossPackage.prerequisites.get('P0-2'), [{ package: 'pkg-2', kind: 'implementation', source: 'reference:op-X' }]);",
+            "C003: const unresolved = ticketPrerequisites({ tickets: [ticket(2, [operationUnit('op-X', { mode: 'reference', implementerTicketId: null, providers: [] }, 'consumer')], ['N2'])], graph: { edges: [] }, packageId: 'pkg-1' }); assert.ok(unresolved.findings.some((entry) => entry.code === 'MISSING_IMPLEMENTER' && entry.subject === 'op-X'));",
+            "C003: const inactive = ticketPrerequisites({ tickets: [ticket(2, [samePackageReference()], ['N2'])], graph: { edges: [] }, packageId: 'pkg-1', activeOperationIds: new Set(['Y']) }); assert.equal(inactive.prerequisites.has('P0-2'), false); assert.deepEqual(inactive.findings, []);",
+            "C004: const planned = run(['--ticket-key=P0-2', '--tickets=' + ticketsPath, '--workspace=' + root]); assert.equal(planned.code, 1); assert.ok(planned.findings.some((entry) => entry.code === 'PREREQUISITE_NOT_DONE' && entry.subject === 'P0-1'));",
+            "C004: const done = run(['--ticket-key=P0-2', '--tickets=' + ticketsPath, '--workspace=' + root]); assert.equal(done.code, 0); assert.equal(done.verdict.ok, true);"
+          ],
+          "completedAt": "2026-10-27"
         }
       ]
     },
