@@ -617,12 +617,16 @@ function placementOf(unitId, ticket, nodeById, dirsTree) {
  * @param {object|null} mapEntry
  * @returns {object}
  */
-// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
-function obligationOf(unitId, kind, record, ticketId, ownerTicketByUnit, implementingTicketByUnit, mapEntry) {
+// [::TICKET::] PX-307, PX-308, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-322) --for-spec --no-implementation-order`.
+function obligationOf(unitId, kind, record, ticketId, ownerTicketByUnit, implementingTicketByUnit, mapEntry, packageId) {
   if (kind === 'operation') {
     const role = mapEntry?.role ?? (record.roleCandidate === 'implementer' ? 'implementer' : 'consumer');
-    if (role === 'consumer') return { mode: 'reference', boundaryContracts: [] };
-    if (implementingTicketByUnit.get(unitId) !== ticketId) return { mode: 'reference', boundaryContracts: [] };
+    const providers = (Array.isArray(record.ownerPackageIds) ? record.ownerPackageIds : [])
+      .filter((ownerPackageId) => ownerPackageId !== packageId);
+    if (role === 'consumer') return { mode: 'reference', providers, implementerTicketId: null, boundaryContracts: [] };
+    if (implementingTicketByUnit.get(unitId) !== ticketId) {
+      return { mode: 'reference', providers, implementerTicketId: implementingTicketByUnit.get(unitId) ?? null, boundaryContracts: [] };
+    }
     return { mode: 'implement', ...(record.obligation ?? {}) };
   }
   if (kind === 'sequence' || kind === 'cross-boundary-sequence') {
@@ -636,7 +640,34 @@ function obligationOf(unitId, kind, record, ticketId, ownerTicketByUnit, impleme
     subject: record.subject ?? null,
     direction: record.direction ?? null,
     counterpart: record.counterpart ?? null,
+    ...(record.coverage !== undefined && record.coverage !== null ? { coverage: record.coverage } : {}),
   };
+}
+
+/**
+ * Whether a ticket unit is a declared step-bearing sequence unit.
+ *
+ * `populateTicketDistribution` records a sequence unit on every ticket that implements
+ * one of its steps, even when the sequence node sits in another phase. The unit is not
+ * invented: its steps are declared by the view, and the package-global unit set equality
+ * is still checked by verifyChain. A unit whose steps are not declared is still invented.
+ *
+ * @param {object} unit
+ * @param {Map<string, object>} viewUnits
+ * @returns {boolean}
+ */
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+function isDeclaredStepBearingUnit(unit, viewUnits) {
+  const unitId = String(unit?.unitId ?? '');
+  const isSequence = unit?.kind === 'sequence'
+    || unit?.kind === 'cross-boundary-sequence'
+    || unitId.startsWith('seq-')
+    || unitId.startsWith('xdir-');
+  if (!isSequence) return false;
+  const steps = unit?.obligation?.steps;
+  if (!Array.isArray(steps) || steps.length === 0) return false;
+  const declared = new Set((viewUnits.get(unitId)?.steps ?? []).map((step) => step.stepId));
+  return steps.every((step) => declared.has(step.stepId));
 }
 
 /**
@@ -707,7 +738,7 @@ function specRefsForUnit(unitId, kind, record, obligation, ticket, defaultSpecPa
  * @param {object|null} map
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-307, PX-308, PX-311, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-311|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-311, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-311|PX-321|PX-322) --for-spec --no-implementation-order`.
 async function populateTicketDistribution(phase, graph, dirsTree, view, map = null) {
   const { viewDigest, kindOfUnit } = await import('../sequences-slice/lib/distribution-map.mjs');
 
@@ -738,7 +769,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
       const record = viewUnits.get(unitId);
       if (record === undefined) return;
       const mapEntry = mapUnits.get(unitId) ?? null;
-      const obligation = obligationOf(unitId, kind, record, ticket.id, ownerTicketByUnit, implementingTicketByUnit, mapEntry);
+      const obligation = obligationOf(unitId, kind, record, ticket.id, ownerTicketByUnit, implementingTicketByUnit, mapEntry, view.packageId);
       records.set(unitId, {
         unitId,
         kind,
@@ -824,7 +855,7 @@ function reconstructSequenceOrder(tickets) {
  * @param {object} dirsTree
  * @returns {Array<{ code: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-307, PX-308, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-315|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-315, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
 function verifyTicketDistribution(phase, view, graph, dirsTree) {
   const findings = [];
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
@@ -846,6 +877,9 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
       }
     }
     for (const unit of ticket?.distribution?.units ?? []) {
+      if (!graphUnits.has(unit.unitId) && !isDeclaredStepBearingUnit(unit, viewUnits)) {
+        findings.push({ code: 'INVENTED_UNIT', unitId: unit.unitId, layer: 'ticket', message: `ticket ${ticket.id} carries ${unit.unitId}, which is not carried by the phase graph` });
+      }
       if (unit?.obligation?.mode === 'implement') {
         const ticketIds = implementersByUnit.get(unit.unitId) ?? [];
         ticketIds.push(ticket.id);
@@ -874,11 +908,6 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
   for (const unitId of graphUnits) {
     if (!ticketUnits.has(unitId)) {
       findings.push({ code: 'MISSING_UNIT_AT_LAYER', unitId, layer: 'ticket', message: `graph unit ${unitId} reaches no ticket` });
-    }
-  }
-  for (const unitId of ticketUnits) {
-    if (!graphUnits.has(unitId)) {
-      findings.push({ code: 'INVENTED_UNIT', unitId, layer: 'ticket', message: `ticket unit ${unitId} is not carried by the graph` });
     }
   }
   return findings;

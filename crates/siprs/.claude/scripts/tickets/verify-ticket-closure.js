@@ -137,7 +137,7 @@ function edgeLabelOf(contract) {
   return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
 
-// [::TICKET::] PX-306, PX-312, PX-313, PX-315, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-315|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-315, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-315|PX-318|PX-322) --for-spec --no-implementation-order`.
 function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
@@ -283,10 +283,21 @@ function verifyClosure(tickets, graph, options = {}) {
     }
   }
 
+  const ticketStepIds = new Set();
+  for (const ticket of tickets) {
+    for (const contract of Array.isArray(ticket.contracts) ? ticket.contracts : []) {
+      if (typeof contract?.stepId === 'string') ticketStepIds.add(contract.stepId);
+    }
+  }
+  for (const row of Array.isArray(options.stepRows) ? options.stepRows : []) {
+    if (ticketStepIds.has(row.stepId)) continue;
+    errors.push({ ticket: null, code: 'CONTRACT_CHAIN_OPEN', detail: `step-contract row ${row.stepId} reaches no ticket` });
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318|PX-322) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath, viewPath, stepSidecarPath } = parseArgs();
 
@@ -327,6 +338,7 @@ function main() {
     registryBoundaryIds: scopedRows.map((row) => row.boundary_id),
     registryContracts: scopedRows,
     stepIds: (stepSidecar?.steps ?? []).map((row) => row.stepId),
+    stepRows: stepSidecar?.steps ?? [],
   });
 
   if (!result.valid) {

@@ -551,16 +551,27 @@ function renderObligationValue(value) {
 }
 
 /** The prose of one typed fact array, or an empty string. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderFactText(facts) {
   return (Array.isArray(facts) ? facts : [])
-    .map((fact) => fact?.text ?? fact?.factId ?? '')
+    .map((fact) => (typeof fact === 'string' ? fact : (fact?.text ?? fact?.factId ?? '')))
     .filter((text) => typeof text === 'string' && text.length > 0)
     .join('; ');
 }
 
+/** The four axes the prose pre/post/invariant labels do not cover. */
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+const EXTRA_CONTRACT_AXES = Object.freeze(['consumes', 'produces', 'errors', 'crosses']);
+
+/** One contract axis as a Markdown line, or null when the axis is empty. */
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+function renderContractAxis(contract, axis) {
+  const text = renderFactText(contract?.[axis]);
+  return text.length > 0 ? `${axis}: ${text}` : null;
+}
+
 /** The distribution units of a ticket as a spec section, or null when the ticket has none. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderDistributionObligations(ticket) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return null;
@@ -573,6 +584,15 @@ function renderDistributionObligations(ticket) {
       lines.push(`- placement: ${(placement.nodeIds ?? []).join(', ') || '(none)'} -> ${(placement.paths ?? []).join(', ') || '(none)'}`);
     }
     lines.push(`- obligation: ${unit.obligation?.mode ?? 'unknown'}`);
+    if (unit.obligation?.outcome !== undefined && unit.obligation?.outcome !== null) {
+      lines.push(`- outcome: ${unit.obligation.outcome}`);
+    }
+    if (unit.obligation?.mode === 'reference') {
+      const providers = renderObligationValue(unit.obligation.providers);
+      if (providers !== null) lines.push(`- providers: ${providers}`);
+      const implementer = renderObligationValue(unit.obligation.implementerTicketId);
+      if (implementer !== null) lines.push(`- implementer ticket: ${implementer}`);
+    }
     if (unit.obligation?.mode === 'implement') {
       for (const field of OPERATION_OBLIGATION_FIELDS) {
         const rendered = renderObligationValue(unit.obligation[field]);
@@ -584,18 +604,34 @@ function renderDistributionObligations(ticket) {
         const rendered = renderObligationValue(unit.obligation[field]);
         if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
       }
+      const coverage = unit.obligation.coverage;
+      if (coverage !== null && typeof coverage === 'object') {
+        for (const field of ['column', 'operationSet', 'carried', 'total', 'uncoveredSpellings']) {
+          const rendered = renderObligationValue(coverage[field]);
+          if (rendered !== null) lines.push(`- coverage.${field}: ${rendered}`);
+        }
+      }
     }
     if (Array.isArray(unit.obligation?.steps) && unit.obligation.steps.length > 0) {
       lines.push('- sequence steps:');
       for (const step of unit.obligation.steps) {
         const location = typeof step.line === 'number' && step.line > 0 ? ` line ${step.line}` : '';
-        lines.push(`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}`);
+        const statement = ['subject', 'predicate', 'object']
+          .map((field) => (step[field] ? `${field}=${step[field]}` : null))
+          .filter(Boolean)
+          .join(', ');
+        const statementText = statement.length > 0 ? ` [${statement}]` : '';
+        lines.push(`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}${statementText}`);
         const precondition = renderFactText(step.contract?.pre);
         const postcondition = renderFactText(step.contract?.post);
         const invariant = renderFactText(step.contract?.invariants);
         if (precondition) lines.push(`    - precondition: ${precondition}`);
         if (postcondition) lines.push(`    - postcondition: ${postcondition}`);
         if (invariant) lines.push(`    - invariant: ${invariant}`);
+        for (const axis of EXTRA_CONTRACT_AXES) {
+          const rendered = renderContractAxis(step.contract, axis);
+          if (rendered !== null) lines.push(`    - ${rendered}`);
+        }
         if (typeof step.contractProse === 'string' && step.contractProse.length > 0) {
           lines.push(`    - contractProse: ${step.contractProse}`);
         }
@@ -612,7 +648,7 @@ function renderDistributionObligations(ticket) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -877,6 +913,10 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
       lines.push('- **Precondition**: ' + (c.precondition || '(none)'));
       lines.push('- **Postcondition**: ' + (c.postcondition || '(none)'));
       lines.push('- **Invariant**: ' + (c.invariant || '(none)'));
+      for (const axis of EXTRA_CONTRACT_AXES) {
+        const rendered = renderContractAxis(c.contract, axis);
+        if (rendered !== null) lines.push(`- **${axis}**: ${renderFactText(c.contract?.[axis])}`);
+      }
       lines.push('- **Contract prose**: ' + (c.contractProse || '(none)'));
       lines.push('');
     }
@@ -1084,6 +1124,9 @@ module.exports = {
   findTicket,
   renderDistributionObligations,
   renderObligationValue,
+  renderFactText,
+  renderContractAxis,
+  EXTRA_CONTRACT_AXES,
   OPERATION_OBLIGATION_FIELDS,
   main,
 };

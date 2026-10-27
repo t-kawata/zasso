@@ -201,6 +201,7 @@ function requireImplementerForRole({ unitId, map, view, implementersByUnit, find
 // [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function verifyChain(input = {}) {
   const {
     view,
@@ -462,6 +463,40 @@ export function verifyChain(input = {}) {
         if (observed.join(',') !== expected.join(',')) {
           findings.push(finding(CHAIN_CODES.SEQUENCE_ORDER_MISMATCH, `ticket-${ticket.id}`, `sequence ${unit.unitId} reconstructs as ${observed.join(' -> ')} and is declared as ${expected.join(' -> ')}`));
         }
+      }
+    }
+  }
+
+  // The recorded order check above compares the copied order fields with the view. This
+  // check compares the ticket placement itself: a package's local steps must appear in the
+  // artifact order across the tickets that implement them. A foreign step is excluded: the
+  // other package's Tickets.json is not visible here, and build order is not runtime order.
+  if (checkTickets) {
+    const placementByStep = new Map();
+    for (const [phaseIndex, phase] of (tickets?.phases ?? []).entries()) {
+      for (const [ticketIndex, ticket] of (phase?.tickets ?? []).entries()) {
+        for (const unit of ticket?.distribution?.units ?? []) {
+          for (const step of unit?.obligation?.steps ?? []) {
+            if (typeof step?.stepId !== 'string' || placementByStep.has(step.stepId)) continue;
+            placementByStep.set(step.stepId, { phaseIndex, ticketIndex });
+          }
+        }
+      }
+    }
+    for (const [sequenceId, steps] of declared) {
+      const local = steps.filter((step) => graphUnits.has(`op-${step.operationId}`) && placementByStep.has(step.id));
+      for (let index = 0; index + 1 < local.length; index += 1) {
+        const left = placementByStep.get(local[index].id);
+        const right = placementByStep.get(local[index + 1].id);
+        const inverted = left.phaseIndex > right.phaseIndex
+          || (left.phaseIndex === right.phaseIndex && left.ticketIndex > right.ticketIndex);
+        if (!inverted) continue;
+        findings.push(finding(
+          CHAIN_CODES.SEQUENCE_ORDER_MISMATCH,
+          `seq-${sequenceId}`,
+          `sequence ${sequenceId} places ${local[index].id} after ${local[index + 1].id} in (phase,ticket) order`,
+        ));
+        break;
       }
     }
   }

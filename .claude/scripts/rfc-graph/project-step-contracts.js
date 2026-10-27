@@ -4,8 +4,9 @@
  * project-step-contracts — bind every artifact step contract to its operation node.
  *
  * The graph node carries the operation unit; this script writes the deterministic sidecar
- * and a short `step:<stepId>;row:<n>` note on an edge incident to that node. The sidecar
- * holds the full contract, so the edge note stays under the 240-character schema limit.
+ * and a short `step-sidecar;digest:<hex>` note on an edge incident to that node. The
+ * sidecar holds the full contract and the row-to-edge map, so the edge note stays under
+ * the 240-character schema limit however many steps one operation carries.
  *
  * Usage:
  *   node project-step-contracts.js --graph=<GRAPH.json> --view=<SEQUENCES.json> [--sidecar=<path>] [--mode=attach|verify]
@@ -16,16 +17,21 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const {
+  STEP_NOTE_LIMIT,
+  edgeForRow,
   projectStepContracts,
   readStepContractSidecar,
-  stepContractNote,
+  stepNotesByEdge,
   verifyStepContracts,
   writeStepContractSidecar,
 } = require('./lib/step-contracts.mjs');
+const { composeNote } = require('./lib/note-parts.mjs');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
-const NOTE_LIMIT = 240;
+
+/** The note prefixes this projection owns; a re-run replaces them rather than stacking. */
+const STEP_NOTE_PREFIXES = Object.freeze(['step:', 'step-sidecar;']);
 
 /** Parse `--name=value` or `--name value`. */
 // [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
@@ -36,63 +42,26 @@ function argumentFor(argv, name) {
   return index === -1 ? null : argv[index + 1] ?? null;
 }
 
-/** The edge a row may bind to: an incident edge, preferring one already carrying a step note. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
-function edgeForRow(graph, row) {
-  const incident = (graph.edges ?? []).filter((edge) =>
-    (row.nodeIds ?? []).includes(edge.from) || (row.nodeIds ?? []).includes(edge.to));
-  return incident.find((edge) => String(edge.attributes?.note ?? '').includes('step:')) ?? incident[0];
-}
-
-/** Append one row's note to the edge, preserving any registry note. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
-function appendNote(edge, stepId, rowIndex) {
-  const parts = String(edge.attributes?.note ?? '')
-    .split('|')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const note = stepContractNote(stepId, rowIndex);
-  if (!parts.includes(note)) parts.push(note);
-  const combined = parts.join('|');
-  if (combined.length > NOTE_LIMIT) {
-    const error = new Error(`STEP_NOTE_TOO_LONG: ${edge.from}→${edge.to} cannot carry ${stepId}`);
-    error.code = 'STEP_NOTE_TOO_LONG';
-    throw error;
-  }
-  return combined;
-}
-
 /** Apply the step notes through crud.js, the sole graph write path. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
 function attachNotes(graphPath, sidecar) {
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-  const patched = new Map();
-  for (const [index, row] of (sidecar.steps ?? []).entries()) {
-    const edge = edgeForRow(graph, row);
-    if (edge === undefined) {
-      const error = new Error(`CONTRACT_CHAIN_OPEN: no edge is incident to ${row.nodeIds.join(', ')}`);
-      error.code = 'CONTRACT_CHAIN_OPEN';
-      throw error;
-    }
-    const key = `${edge.from}→${edge.to}(${edge.type})`;
-    const current = patched.get(key) ?? edge;
-    current.attributes = {
-      ...(current.attributes ?? {}),
-      note: appendNote(current, row.stepId, index),
-    };
-    patched.set(key, current);
-  }
+  const notes = stepNotesByEdge(graph, sidecar);
 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'step-contracts-'));
   const crudPath = path.join(__dirname, 'crud.js');
   try {
-    for (const edge of patched.values()) {
+    for (const { edge, note } of notes.values()) {
+      const composed = composeNote(edge.attributes?.note, note, {
+        limit: STEP_NOTE_LIMIT,
+        replacePrefixes: STEP_NOTE_PREFIXES,
+      });
       const patch = path.join(directory, `edge-${edge.from}-${edge.to}-${edge.type}.json`);
       fs.writeFileSync(patch, JSON.stringify({
         from: edge.from,
         to: edge.to,
         type: edge.type,
-        attributes: edge.attributes,
+        attributes: { ...(edge.attributes ?? {}), note: composed },
         contracts: edge.contracts ?? [],
       }, null, 2));
       execFileSync(process.execPath, [crudPath, `--graph=${graphPath}`, 'update-edge', `--file=${patch}`], { stdio: 'pipe' });
@@ -103,7 +72,7 @@ function attachNotes(graphPath, sidecar) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphPath = argumentFor(argv, 'graph');
   const viewPath = argumentFor(argv, 'view');
@@ -147,8 +116,8 @@ function main(argv = process.argv.slice(2)) {
     attachNotes(graphPath, projected.sidecar);
   } catch (error) {
     console.error(`[ERROR] ${error.code ?? 'STEP_CONTRACT_PROJECTION_FAILED'}: ${error.message}`);
-    console.error('Cause: a step could not be bound to an edge in the package graph');
-    console.error('Action: add an edge to the operation node or repair the graph, then re-run');
+    console.error('Cause: a step note could not be composed on an edge in the package graph');
+    console.error('Action: repair the graph edge note or the sidecar, then re-run');
     return EXIT_FAILURE;
   }
 
@@ -163,4 +132,4 @@ if (require.main === module) {
   process.exit(main());
 }
 
-module.exports = { main, appendNote, edgeForRow };
+module.exports = { main, edgeForRow };

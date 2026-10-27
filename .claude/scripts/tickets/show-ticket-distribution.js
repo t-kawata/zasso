@@ -22,7 +22,10 @@ const { deriveGraphPathFromTickets } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
 const {
   OPERATION_OBLIGATION_FIELDS,
+  EXTRA_CONTRACT_AXES,
   renderObligationValue,
+  renderFactText,
+  renderContractAxis,
 } = require('./show-ticket-context.js');
 
 const EXIT_SUCCESS = 0;
@@ -105,26 +108,26 @@ function renderSpecRef(ref) {
   return `  - ${ref.path}:${ref.line}${ref.quote ? ` "${ref.quote}"` : ''}`;
 }
 
-/** The prose of one fact array, or an empty string. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
-function factText(facts) {
-  return (Array.isArray(facts) ? facts : [])
-    .map((fact) => fact?.text ?? fact?.factId ?? '')
-    .filter((text) => typeof text === 'string' && text.length > 0)
-    .join('; ');
-}
-
 /** One sequence step, with its operation-boundary contract. */
-// [::TICKET::] PX-308, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-318|PX-322) --for-spec --no-implementation-order`.
 function renderStep(step) {
   const location = typeof step.line === 'number' && step.line > 0 ? ` line ${step.line}` : '';
-  const lines = [`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}`];
-  const precondition = factText(step.contract?.pre);
-  const postcondition = factText(step.contract?.post);
-  const invariant = factText(step.contract?.invariants);
+  const statement = ['subject', 'predicate', 'object']
+    .map((field) => (step[field] ? `${field}=${step[field]}` : null))
+    .filter(Boolean)
+    .join(', ');
+  const statementText = statement.length > 0 ? ` [${statement}]` : '';
+  const lines = [`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}${statementText}`];
+  const precondition = renderFactText(step.contract?.pre);
+  const postcondition = renderFactText(step.contract?.post);
+  const invariant = renderFactText(step.contract?.invariants);
   if (precondition) lines.push(`    - precondition: ${precondition}`);
   if (postcondition) lines.push(`    - postcondition: ${postcondition}`);
   if (invariant) lines.push(`    - invariant: ${invariant}`);
+  for (const axis of EXTRA_CONTRACT_AXES) {
+    const rendered = renderContractAxis(step.contract, axis);
+    if (rendered !== null) lines.push(`    - ${rendered}`);
+  }
   if (typeof step.contractProse === 'string' && step.contractProse.length > 0) {
     lines.push(`    - contractProse: ${step.contractProse}`);
   }
@@ -137,7 +140,7 @@ function renderStep(step) {
  * @param {object} unit
  * @returns {string[]}
  */
-// [::TICKET::] PX-308, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderUnit(unit) {
   const lines = [];
   const surface = unit.surface ? `, surface: ${unit.surface}` : '';
@@ -146,6 +149,15 @@ function renderUnit(unit) {
   const placement = unit.placement ?? {};
   lines.push(`- placement: ${(placement.nodeIds ?? []).join(', ') || '(none)'} -> ${(placement.paths ?? []).join(', ') || '(none)'}`);
   lines.push(`- obligation: ${unit.obligation?.mode ?? 'unknown'}`);
+  if (unit.obligation?.outcome !== undefined && unit.obligation?.outcome !== null) {
+    lines.push(`- outcome: ${unit.obligation.outcome}`);
+  }
+  if (unit.obligation?.mode === 'reference') {
+    const providers = renderObligationValue(unit.obligation.providers);
+    if (providers !== null) lines.push(`- providers: ${providers}`);
+    const implementer = renderObligationValue(unit.obligation.implementerTicketId);
+    if (implementer !== null) lines.push(`- implementer ticket: ${implementer}`);
+  }
   if (unit.obligation?.mode === 'implement') {
     for (const field of OPERATION_OBLIGATION_FIELDS) {
       const rendered = renderObligationValue(unit.obligation[field]);
@@ -156,6 +168,13 @@ function renderUnit(unit) {
     for (const field of ['relation', 'subject', 'direction', 'counterpart']) {
       const rendered = renderObligationValue(unit.obligation[field]);
       if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
+    }
+    const coverage = unit.obligation.coverage;
+    if (coverage !== null && typeof coverage === 'object') {
+      for (const field of ['column', 'operationSet', 'carried', 'total', 'uncoveredSpellings']) {
+        const rendered = renderObligationValue(coverage[field]);
+        if (rendered !== null) lines.push(`- coverage.${field}: ${rendered}`);
+      }
     }
   }
   if (Array.isArray(unit.obligation?.steps) && unit.obligation.steps.length > 0) {

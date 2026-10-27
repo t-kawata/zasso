@@ -27,6 +27,7 @@ const {
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { collectViewUnits } = require('../sequences-slice/lib/distribution-map.mjs');
+const { composeNote } = require('./lib/note-parts.mjs');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -162,7 +163,7 @@ function writeBoundarySidecar(sidecarPath, indexedRows, rowsByEdge) {
  * @param {{ graph: object, registry: Array<object>, sidecarPath?: string|null }} input
  * @returns {object} the projected graph
  */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
 function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPath = null }) {
   const next = JSON.parse(JSON.stringify(graph));
   const indexedLocal = indexedLocalRows(next, registry);
@@ -218,10 +219,19 @@ function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPa
         throw error;
       }
       writeBoundarySidecar(sidecarPath, indexedLocal, rowsByEdge);
-      edge.attributes = { ...(edge.attributes ?? {}), note: boundarySidecarNote(path.basename(sidecarPath), rows) };
+      edge.attributes = {
+        ...(edge.attributes ?? {}),
+        note: composeNote(edge.attributes?.note, boundarySidecarNote(path.basename(sidecarPath), rows), {
+          limit: NOTE_LIMIT,
+          replacePrefixes: ['registry:'],
+        }),
+      };
       continue;
     }
-    edge.attributes = { ...(edge.attributes ?? {}), note };
+    edge.attributes = {
+      ...(edge.attributes ?? {}),
+      note: composeNote(edge.attributes?.note, note, { limit: NOTE_LIMIT, replacePrefixes: ['registry:'] }),
+    };
   }
 
   return next;

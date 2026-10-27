@@ -228,7 +228,7 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
  * @param {string[]} [registryBoundaryIds]
  * @returns {Array<{code: string, ticketId: number|null, boundaryId?: string, contractId?: string}>}
  */
-// [::TICKET::] PX-306, PX-312, PX-313, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-318|PX-322) --for-spec --no-implementation-order`.
 function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const findings = [];
   const edgeLabels = new Set((graph.edges || []).map((edge) => edge.from + '→' + edge.to));
@@ -239,6 +239,14 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
   for (const ticket of tickets) {
     const unitIds = (ticket.nodeIds || []).filter(isUnitId);
     const contracts = Array.isArray(ticket.contracts) ? ticket.contracts : [];
+    const seenContractIds = new Set();
+    for (const contract of contracts) {
+      if (typeof contract?.id !== 'string') continue;
+      if (seenContractIds.has(contract.id)) {
+        findings.push({ code: 'DUPLICATE_CONTRACT_ID', ticketId: ticket.id, contractId: contract.id });
+      }
+      seenContractIds.add(contract.id);
+    }
     for (const unitId of unitIds.filter((entry) => entry.startsWith('ctr-'))) {
       const boundaryId = unitId.slice('ctr-'.length);
       const row = rowById.get(boundaryId);
@@ -280,6 +288,30 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
       if (!edgeLabels.has(label) && !registryMatch) {
         findings.push({ code: 'INVENTED_TICKET_CONTRACT', ticketId: ticket.id, contractId: contract.id || null });
       }
+    }
+  }
+
+  // The loop above proves every ticket contract has a source. This loop proves the
+  // reverse: every sidecar row reached at least one ticket. A merge that dropped a row
+  // would otherwise leave the chain green.
+  const ticketStepContracts = new Map();
+  for (const ticket of tickets) {
+    for (const contract of Array.isArray(ticket.contracts) ? ticket.contracts : []) {
+      if (typeof contract?.stepId === 'string') ticketStepContracts.set(contract.stepId, contract);
+    }
+  }
+  for (const [index, row] of (stepSidecar?.steps ?? []).entries()) {
+    const contract = ticketStepContracts.get(row.stepId);
+    if (contract === undefined) {
+      findings.push({ code: 'CONTRACT_CHAIN_OPEN', ticketId: null, stepId: row.stepId });
+      continue;
+    }
+    const expected = stepContractEntry(row, index);
+    if (contract.digest !== expected.digest
+        || contract.precondition !== expected.precondition
+        || contract.postcondition !== expected.postcondition
+        || contract.invariant !== expected.invariant) {
+      findings.push({ code: 'STEP_CONTRACT_MISMATCH', ticketId: null, stepId: row.stepId });
     }
   }
   return findings;
