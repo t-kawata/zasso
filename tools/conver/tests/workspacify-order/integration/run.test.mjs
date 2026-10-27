@@ -42,13 +42,14 @@ function threePackageWorkspace(t) {
   return workspace;
 }
 
-// [::TICKET::] PX-223, PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228, PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228|PX-323) --for-spec --no-implementation-order`.
 function expectedPlan(workspace) {
   return [
     // The command opens the plan with a blank line and a Markdown H1, so the expected bytes
     // start there too; without them this helper describes a plan the command stopped printing.
     '',
-    `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+    `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
     '',
     'level  0    alone     1 dir',
     '  * crates/protocol/package-1',
@@ -216,7 +217,8 @@ test('IT: an explained workspace prints the label after the path and exits 0', (
     result.stdout,
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1 🔴 EXP',
@@ -296,7 +298,8 @@ test('IT: a grilled workspace prints the grill mark after the path and exits 0',
     result.stdout,
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1',
@@ -324,7 +327,8 @@ test('IT: a directory holding both documents prints both marks, explained first'
     result.stdout,
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:?',
@@ -367,7 +371,8 @@ test('IT: a workspace the distribution reached prints the judged mark after the 
     result.stdout,
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1',
@@ -397,7 +402,8 @@ test('IT: a directory the pipeline reached prints the three marks in pipeline or
     result.stdout,
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:? 🟡 SEQ:?',

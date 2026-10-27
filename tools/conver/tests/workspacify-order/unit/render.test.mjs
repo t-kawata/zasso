@@ -68,7 +68,8 @@ test('C004 postcondition: the plan renders the level blocks, the width row and t
       // The heading is a Markdown H1: renderPlan opens the plan with a blank line and the
       // hash marker, and both are asserted here so a heading that loses either is caught.
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       `  ${CRITICAL_MARKER} crates/protocol/package-1`,
@@ -260,11 +261,12 @@ function explainedFixture(t) {
 }
 
 /** The plan of that fixture, line by line, written out rather than rebuilt from the renderer. */
-// [::TICKET::] PX-228, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-282) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-282, PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-282|PX-323) --for-spec --no-implementation-order`.
 function explainedPlanLines(workspace) {
   return [
     '',
-    `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+    `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
     '',
     'level  0    alone     1 dir',
     '  * crates/protocol/package-1 🔴 EXP',
@@ -424,10 +426,15 @@ test('C004 boundary: the heading is a blank line followed by the hash-marked H1'
   const lines = renderPlan(twoLevelModel(workspace)).split('\n');
   const name = basename(workspace.root);
 
-  assert.deepEqual(lines.slice(0, 3), ['', `# ${name} implementation order — 3 dirs / 2 levels / 2 dependencies`, '']);
+  assert.deepEqual(lines.slice(0, 4), [
+    '',
+    `# ${name} build order — 3 dirs / 2 levels / 2 dependencies`,
+    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
+    '',
+  ]);
   // The stale expectation this file carried started at the name, with neither the blank line
   // nor the marker, so the two expectations cannot be confused for one another.
-  assert.notEqual(lines[1], `${name} implementation order — 3 dirs / 2 levels / 2 dependencies`);
+  assert.notEqual(lines[1], `${name} build order — 3 dirs / 2 levels / 2 dependencies`);
 });
 
 // The grilled mark.
@@ -466,7 +473,8 @@ test('C002 postcondition: each mark follows its own document, so one line may ca
     renderPlan(twoLevelModel(workspace)),
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:?',
@@ -628,7 +636,8 @@ test('C001 postcondition: the marks follow the pipeline order, and a package the
     renderPlan(twoLevelModel(workspace)),
     [
       '',
-      `# ${basename(workspace.root)} implementation order — 3 dirs / 2 levels / 2 dependencies`,
+      `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
+      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
       'level  0    alone     1 dir',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:? 🟡 SEQ:?',

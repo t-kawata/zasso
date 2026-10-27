@@ -63,6 +63,8 @@ Root: `.claude/scripts/tickets/`.
 | Script | Arguments / contract |
 |---|---|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]`; Step 1/9; emits ticket Markdown; Step 9 `--for-spec` emits spec content |
+| `check-ticket-prerequisites.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--workspace=<root>]`; Step 0; exit 0 = pass or skip, exit 1 = named `PREREQUISITE_*` failure |
+| `verify-make-distribution.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--spec=<path>]`; Step 7; conditional delivery gate; `skipped:no-distribution` exits 0 |
 | `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]`; Step 2B; internally `add-ticket.js → show-ticket-context.js`; derives spec path only; does not create it |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 3; inserts markers in 11 fields; simultaneously sets `created_at`/`updated_at` |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 6; lists remaining `[::TEMPLATE-STUB::]` in natural language; exit 0: all replaced |
@@ -76,6 +78,18 @@ Invariants:
 - Step 1 Markdown is the source of concrete paths and keys for later commands.
 - Never write spec before Steps 7 and 8 pass.
 - Implementation order: Red → Green → Refactor; no skip, reorder, or parallel execution.
+
+### Step 0: Implementation-prerequisite gate (conditional)
+
+```bash
+node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key=$ARGUMENTS
+```
+
+- exit 0 → Step 1.
+  - `skipped:no-prerequisites` → the ticket carries no distribution prerequisites (Case B or a pre-split ticket); Step 1 continues unchanged.
+  - `skipped:ticket-not-found` → Step 1 will create the ticket in Case B/C; continue.
+- exit 1 with `PREREQUISITE_NOT_DONE`, `PREREQUISITE_TICKET_MISSING` or `PREREQUISITE_TICKETS_MISSING` → stop. The named ticket or package must reach `done` or `reviewed` before this ticket may enter make → plan → start → review.
+- The gate reads `ticket.prerequisites`, written by `/split-to-tickets`; it never invents one.
 
 ### Step 1: Display context (show-ticket-context.js)
 
@@ -101,9 +115,23 @@ Output: every nonempty ticket field:
 | `## Test Plan` | unit/integration/exceptions |
 | `## Related Tickets` | related tickets |
 | `## Notes` | supplementary information |
+| `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners and the ctr boundary contracts |
 | `## Pipeline Context` | normal mode only: resource paths/existence status |
 
 Missing ticket → Not Found.
+
+### Step 1.5: Distribution brief (conditional)
+
+Run only when Step 1 output contains `## Distribution Obligations`. If it does not, skip to Step 2; Case B and a pre-split ticket keep their old workflow.
+
+Treat the section as authoritative machine output. Read it in this order:
+
+1. **Own work** — units whose `obligation.mode` is `implement`, `steps`, `flow` or `obligation`. Implement every local step in the order shown; do not aggregate or reorder it.
+2. **Shared work** — `### Work Share` step owners that are another ticket key (`P?-?`) or a package id (`package pkg-*`). Do not reimplement a shared step; the counterpart is an integration dependency and the boundary contract is the interface.
+3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Record the `implementer ticket` or `provider packages` in `testIntegration` or `notes`.
+4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on.
+
+If the package view is unreadable, the brief prints `other steps: not available`; do not invent an owner or a contract. Investigate the source named in Step 1 before filling the field.
 
 ### Step 2: Decision branching
 
@@ -204,6 +232,7 @@ Green without Red, test-modified Green, or stub Green → incomplete.
 
 - `pipelineAvailable=true`: use Step 1 `query.js` instructions; query every `Related RFC graph NODE-ID`; obtain all design information; then investigate concrete source.
 - `pipelineAvailable=false`: spot-investigate using prior conversation plus direct source grep/read.
+- Step 1.5 ran: also read the counterpart ticket(s) in the same `Tickets.json` and the counterpart package's `SEQUENCES.json`/`Tickets.json` when visible. A shared step's interface is its boundary contract; a reference unit's provider is the owner that must exist before this ticket's tests can run.
 
 ### Step 6: Replace template markers
 
@@ -224,6 +253,17 @@ Before remaining fields:
 - Invariant → assertable predicates, e.g. `assert!()`, `debug_assert!()`, property-based invariants
 - every translated element maps to at least one `testUnit`
 - untestable Contract element → Step 5; refine Contract; retry
+
+**Phase 1.6 — Distribution-driven tests and contracts (conditional)**
+
+Run only when Step 1.5 ran. For every distribution unit:
+
+- `implement` unit → at least one `testUnit` entry names the unit id or operation id.
+- local sequence step → its precondition, postcondition and invariant, plus `consumes`, `produces`, `errors` and `crosses` when present, appear in `testUnit` in artifact order.
+- shared sequence step (owner is another ticket or a package) → an `testIntegration` entry names the counterpart and asserts the boundary contract; do not add an implementation test for it.
+- `reference` unit → a consumption test; name the `implementer ticket` or provider package. Never implement the provider.
+- `ctr-*` unit → a test asserts its precondition, postcondition and invariant; keep the projected contract in `contracts` unchanged.
+- A machine-projected step or boundary contract is never removed, shortened or re-derived by hand. If it is wrong, fix the producer and re-split; do not edit the ticket around it.
 
 **Phase 2 — All remaining fields**
 
@@ -271,8 +311,15 @@ Order: verify Contracts → validate STUB targets → write spec after pass → 
 node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-- 0 → Step 8
+- 0 → the conditional delivery gate below.
 - 1 → Step 6; repair markers, Contract coverage, or exception justification; re-run Step 7
+
+```bash
+node .claude/scripts/tickets/verify-make-distribution.js --ticket-key="$ARGUMENTS" --spec="specs/$ARGUMENTS.md"
+```
+
+- exit 0, or `skipped:no-distribution` → Step 8. The skip is the Case B path.
+- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `SHARED_WORK_UNDECLARED` or `DISTRIBUTION_SECTION_MISSING` finding names the unit; repair Step 6 and re-run Step 7.
 
 ### Step 8: STUB enumeration and validation (mandatory)
 
@@ -312,6 +359,7 @@ Heal-loop targets:
 
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
 When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract visible only in raw JSON is a spec defect.
+When the ticket carries distribution units, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
 
 Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 

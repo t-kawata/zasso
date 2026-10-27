@@ -2,6 +2,12 @@
 /**
  * workspacify-order — the implementation order of a workspacify workspace, in the terminal.
  *
+ * The stage-1 dependency DAG is the build order, not the implementation order. The
+ * artifact-derived implementation order (sequences, step contracts and boundary contracts)
+ * is shown when the sidecar or the artifact and views are present; otherwise the display
+ * is the build order and says so. The two are separate concepts and the build order is
+ * preserved beside the implementation order.
+ *
  * Usage:
  *   node .claude/scripts/workspacify-order/run.mjs
  *   node .claude/scripts/workspacify-order/run.mjs <path-to-RFC-SEED.md>
@@ -34,6 +40,7 @@ const MAXIMUM_ARGUMENTS = 1;
  * @returns {number} the process exit code
  */
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function renderImplementationOrder(argv) {
   if (argv.length > MAXIMUM_ARGUMENTS) {
     throw new WorkspacifyOrderError(

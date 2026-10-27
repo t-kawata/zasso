@@ -570,9 +570,113 @@ function renderContractAxis(contract, axis) {
   return text.length > 0 ? `${axis}: ${text}` : null;
 }
 
+/** A ticket's public key, matching the project's ticket identity rule. */
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function publicTicketKey(ticket) {
+  const phaseId = ticket?.phaseId ?? -1;
+  return phaseId === -1 ? `PX-${ticket.id}` : `P${phaseId}-${ticket.id}`;
+}
+
+/** Every ticket in a document, in phase order, with its phase id. */
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function flattenTicketDocument(document) {
+  return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
+    ...ticket,
+    phaseId: ticket.phaseId ?? phase.id,
+  })));
+}
+
+/** The view unit carrying the same sequence as a ticket unit, or null. */
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function viewSequenceUnit(view, unit) {
+  const candidates = [
+    ...(Array.isArray(view?.ownedSequenceUnits) ? view.ownedSequenceUnits : []),
+    ...(Array.isArray(view?.crossBoundarySequenceUnits) ? view.crossBoundarySequenceUnits : []),
+  ];
+  return candidates.find((candidate) => candidate?.unitId === unit?.unitId
+    || (candidate?.sequenceId !== undefined && candidate.sequenceId === unit?.sequenceId))
+    ?? null;
+}
+
+/** The owner label of one sequence step: this ticket, another ticket, or a package. */
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function stepOwnerLabel({ step, unit, ticket, ticketsDocument, view }) {
+  const localSteps = Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : [];
+  if (localSteps.some((candidate) => candidate?.stepId === step?.stepId)) return 'this ticket';
+
+  const operationId = step?.operationId ?? step?.operation;
+  const other = flattenTicketDocument(ticketsDocument).find((candidate) => candidate !== ticket
+    && (candidate?.distribution?.units ?? []).some((candidateUnit) => candidateUnit?.unitId === `op-${operationId}`
+      && candidateUnit?.kind === 'operation'
+      && candidateUnit?.obligation?.mode === 'implement'));
+  if (other !== undefined) return publicTicketKey(other);
+
+  const unitInView = viewSequenceUnit(view, unit);
+  const otherPackages = (unitInView?.ownerPackageIds ?? []).filter((packageId) => packageId !== view?.packageId);
+  if (otherPackages.length === 1) return `package ${otherPackages[0]}`;
+  if (otherPackages.length > 1) return `package ${otherPackages.join(', ')}`;
+  return 'unknown package';
+}
+
+/** The Work Share block: own work, shared work and the ctr boundary contract. */
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
+  const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
+  const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'
+    || unit?.kind === 'cross-boundary-sequence'
+    || String(unit?.unitId ?? '').startsWith('seq-')
+    || String(unit?.unitId ?? '').startsWith('xdir-'));
+  const boundaryUnits = units.filter((unit) => String(unit?.unitId ?? '').startsWith('ctr-'));
+  if (sequenceUnits.length === 0 && boundaryUnits.length === 0) return null;
+
+  const lines = ['### Work Share', ''];
+  for (const unit of sequenceUnits) {
+    const unitInView = viewSequenceUnit(view, unit);
+    const steps = Array.isArray(unitInView?.steps) && unitInView.steps.length > 0
+      ? unitInView.steps
+      : (Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []);
+    lines.push(`#### Sequence ${unit.sequenceId ?? unit.unitId} — outcome: ${unit.obligation?.outcome ?? 'unknown'}`);
+    lines.push('');
+    lines.push('| step | operation | owner | precondition | postcondition | invariant |');
+    lines.push('|---|---|---|---|---|---|');
+    for (const step of steps) {
+      const owner = stepOwnerLabel({ step, unit, ticket, ticketsDocument, view });
+      const precondition = renderFactText(step?.contract?.pre) || '(none)';
+      const postcondition = renderFactText(step?.contract?.post) || '(none)';
+      const invariant = renderFactText(step?.contract?.invariants) || '(none)';
+      lines.push(`| ${step.stepId ?? '?'} | op-${step.operationId ?? step.operation ?? '?'} | ${owner} | ${precondition} | ${postcondition} | ${invariant} |`);
+    }
+    if (unitInView === null) {
+      lines.push('');
+      lines.push('- other steps: not available (the package view is unreadable)');
+    }
+    lines.push('');
+  }
+
+  for (const unit of boundaryUnits) {
+    const boundaryId = String(unit.unitId).replace(/^ctr-/, '');
+    const contract = (Array.isArray(ticket.contracts) ? ticket.contracts : []).find((candidate) => candidate?.boundaryId === boundaryId
+      || candidate?.registryContractId === `contract-${boundaryId}`
+      || candidate?.id === `contract-${boundaryId}`);
+    lines.push(`#### Boundary ${boundaryId}`);
+    lines.push('');
+    lines.push(`- direction: ${unit.obligation?.direction ?? 'unknown'}`);
+    lines.push(`- counterpart: ${unit.obligation?.counterpart ?? 'unknown'}`);
+    if (contract === undefined) {
+      lines.push('- contract: MISSING (the ticket carries the ctr unit without its registry projection)');
+    } else {
+      lines.push(`- precondition: ${contract.precondition || '(none)'}`);
+      lines.push(`- postcondition: ${contract.postcondition || '(none)'}`);
+      lines.push(`- invariant: ${contract.invariant || '(none)'}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 /** The distribution units of a ticket as a spec section, or null when the ticket has none. */
-// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
-function renderDistributionObligations(ticket) {
+// [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
+function renderDistributionObligations(ticket, options = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return null;
   const lines = ['## Distribution Obligations', ''];
@@ -645,11 +749,16 @@ function renderDistributionObligations(ticket) {
     }
     lines.push('');
   }
+  const workShare = renderWorkShare(ticket, options);
+  if (workShare !== null) {
+    lines.push(workShare);
+    lines.push('');
+  }
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
-function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
+// [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
+function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
   // In --for-spec mode, output Implementation Order first (before YAML frontmatter)
@@ -923,7 +1032,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   }
 
   // Distribution obligations (the machine-readable work a ticket owes)
-  const distributionObligations = renderDistributionObligations(ticket);
+  const distributionObligations = renderDistributionObligations(ticket, options);
   if (distributionObligations !== null) {
     lines.push(distributionObligations);
     lines.push('');
@@ -1066,6 +1175,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   return lines.join('\n');
 }
 
+// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey, forSpec, noImplementationOrder, plan, review } = parseArgs();
 
@@ -1089,7 +1199,14 @@ function main() {
   }
 
   const ticketsDir = path.dirname(ticketsPath);
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder);
+  const viewPath = path.join(ticketsDir, 'SEQUENCES.json');
+  let view = null;
+  try {
+    if (fs.existsSync(viewPath)) view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+  } catch {
+    view = null;
+  }
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, { view, ticketsDocument: tickets });
   console.log(output);
 
   // Append implementation locations from show-ticket-locations.js (read-only)
@@ -1123,6 +1240,10 @@ module.exports = {
   parseTicketKey,
   findTicket,
   renderDistributionObligations,
+  renderWorkShare,
+  stepOwnerLabel,
+  publicTicketKey,
+  viewSequenceUnit,
   renderObligationValue,
   renderFactText,
   renderContractAxis,

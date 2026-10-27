@@ -68,6 +68,7 @@ Root: `.claude/scripts/tickets/`; each script derives the fixed artifact paths o
 | `bulk-delete-tickets.js <Tickets.json>` | stdin deletion-key list |
 | `list-phases-and-tickets.js <Tickets.json>` | checklist output |
 | `update-split-step-status.js --status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | SPLIT status; source invocations below literal |
+| `sequences-slice/verify-implementation-order.mjs --package=<dir> [--write] \| --workspace=<root> [--write]` | proves the ticket and package implementation order; writes `IMPLEMENTATION-ORDER.json` / `WORKSPACIFY-IMPLEMENTATION-ORDER.json` |
 
 All ticket scripts: pre-write `validate-tickets.js`; failure → no save.
 
@@ -343,8 +344,11 @@ node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH"
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 node .claude/scripts/tickets/show-ticket-distribution.js "$TICKETS_PATH"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH" --require-tickets
+node .claude/scripts/sequences-slice/verify-implementation-order.mjs --package="$DOC_DIR" --write
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
+
+`verify-implementation-order.mjs --package` derives every ticket's implementation prerequisites from the graph hard edges and the artifact's `consumes`/`produces`/`crosses` relations, writes `IMPLEMENTATION-ORDER.json` beside `Tickets.json`, and fails closed on `PREREQUISITE_SET_MISMATCH` (the tickets do not carry what the derivation says), `PREREQUISITE_NOT_BEFORE` (a same-package prerequisite is placed at or after its dependent), `PREREQUISITE_PACKAGE_UNSPLIT` (a cross-package prerequisite has no `Tickets.json`), `PREREQUISITE_PACKAGE_BEFORE` (a cross-package prerequisite is later in the implementation order), and `IMPLEMENTATION_ORDER_CYCLE`. A package without a view or graph is `skipped:no-distribution`.
 
 Every split-stage script derives the graph, Dirs-Tree, RFC and view from the directory holding `$TICKETS_PATH`. The pipeline fixes those names, so the command line does not repeat them; the scripts keep their explicit-path arguments only as overrides for a non-standard layout. `verify-ticket-closure.js` and `merge-contracts-to-tickets.js` also discover the workspace's `WORKSPACIFY-ALLOCATE-MANIFEST.json` at the nearest ancestor holding both workspace manifests, so the registry chain runs whenever the split is inside a workspacify workspace and is skipped otherwise.
 
@@ -366,8 +370,13 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH"
 node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify --graph="$GRAPH_PATH" --view="$DOC_DIR/SEQUENCES.json"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH" --require-tickets
+node .claude/scripts/sequences-slice/verify-implementation-order.mjs --package="$DOC_DIR" --write
+WORKSPACE_ROOT="$(node -e "const p=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest(process.argv[1]);process.stdout.write(p?require('path').dirname(p):'')" "$DOC_DIR")"
+if [ -n "$WORKSPACE_ROOT" ]; then node .claude/scripts/sequences-slice/verify-implementation-order.mjs --workspace="$WORKSPACE_ROOT" --write; fi
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```
+
+The workspace gate writes `WORKSPACIFY-IMPLEMENTATION-ORDER.json` with `buildOrder` copied from the stage-2 manifest and `implementationOrder` derived from the union. It never rewrites `Tickets.json` or the published build order. A package whose prerequisite package is unsplit is `PREREQUISITE_PACKAGE_UNSPLIT`; a prerequisite placed later is `PREREQUISITE_PACKAGE_BEFORE`; a union cycle is `IMPLEMENTATION_ORDER_CYCLE`.
 
 Final `✅` → pass; `⚠️` → judge cause; fix; rerun 5-3.
 

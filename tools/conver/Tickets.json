@@ -49243,6 +49243,222 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-27"
+        },
+        {
+          "id": 323,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Separate build order from implementation order and gate ticket entry on completed prerequisites",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-323.md",
+          "background": "Goal: make the order the pipeline treats as the implementation order provably safe at package and ticket granularity. Purpose: workspacify-order currently prints the template dependency DAG order under the name implementation_order; the pipeline never proves that this order also respects the artifact's sequence and boundary-contract prerequisites. Motivation: a ticket can enter make -> plan -> start -> review while a ticket it depends on for implementation is unfinished, which is an accident, not a schedule choice. Constraints: strict TDD Red -> Green -> Refactor; no test weakening; additive schema only; no new dependency; Case B and workspaces without an artifact must keep their current behaviour; verification uses node --test on the impact set, not make test.",
+          "scope": [
+            "Add .claude/scripts/sequences-slice/lib/implementation-order.mjs: pure derivation of operation owners, sequence/boundary precedence, package order, ticket prerequisites and placement findings.",
+            "Add .claude/scripts/sequences-slice/verify-implementation-order.mjs: package and workspace gates; write IMPLEMENTATION-ORDER.json and WORKSPACIFY-IMPLEMENTATION-ORDER.json atomically.",
+            "Change .claude/scripts/tickets/add-tickets-for-phase.js: attach prerequisites only when view, graph and artifact exist; attach nothing otherwise.",
+            "Add .claude/scripts/tickets/check-ticket-prerequisites.js: /make-ticket entry gate; skipped:no-prerequisites when the array is absent.",
+            "Change workspacify-order workspace.mjs, levels.mjs and render.mjs: read the sidecar; display implementation order first and build order separately; label a DAG-only display as build order.",
+            "Change .claude/commands/split-to-tickets.md: add the post-5-2 package order gate and the workspace gate.",
+            "Change .claude/commands/make-ticket.md: add the conditional Step 0 prerequisite gate.",
+            "Add tests in tests/sequences-slice, tests/tickets and tests/workspacify-order."
+          ],
+          "testUnit": [
+            "UT: deriveLevels returns provider-first levels for a chain and a diamond build order.",
+            "UT: derivePackagePrecedence creates no edge for a narrative sequence with no consumes/produces intersection.",
+            "UT: derivePackagePrecedence creates a provider to consumer edge for a consumes/produces match and for a boundary provides/consumes pair.",
+            "UT: topologicalOrder returns IMPLEMENTATION_ORDER_CYCLE for a cycle.",
+            "UT: ticketPrerequisites maps same-package steps to ticket keys and cross-package steps to package ids, each with source.",
+            "UT: ticketPrerequisites is deterministic and deduplicated.",
+            "UT: checkPlacement reports PREREQUISITE_NOT_BEFORE for an inverted same-package placement.",
+            "UT: checkPlacement reports PREREQUISITE_PACKAGE_BEFORE for a later cross-package placement.",
+            "UT: checkPrerequisiteStatus returns skipped:no-prerequisites when the prerequisites array is absent or empty.",
+            "UT: checkPrerequisiteStatus reports PREREQUISITE_NOT_DONE for todo, made, planned and in_progress.",
+            "UT: checkPrerequisiteStatus accepts done and reviewed.",
+            "UT: checkPrerequisiteStatus reports PREREQUISITE_TICKETS_MISSING for a missing cross-package Tickets.json.",
+            "UT: render labels a sidecar-free DAG order build order and displays both orders when the sidecar exists.",
+            "UT: attachTicketPrerequisites adds no field when the view or graph is absent.",
+            "UT: the split command invokes the order gate as a mandatory command step, not an optional advisory.",
+            "UT: workspacify-order still prints the workspace; make-ticket skips the gate; split writes no prerequisites.",
+            "UT: existing behavior is preserved exactly where the data does not exist."
+          ],
+          "testIntegration": [
+            "IT: split on a two-ticket package with a graph hard edge attaches the prerequisite and the placement gate passes when the prerequisite is earlier.",
+            "IT: split on a reversed placement fails with PREREQUISITE_NOT_BEFORE.",
+            "IT: split on a cross-package consumer whose provider package has no Tickets.json fails with PREREQUISITE_PACKAGE_UNSPLIT.",
+            "IT: make-ticket on a ticket whose same-package prerequisite is planned exits 1 with PREREQUISITE_NOT_DONE; after done it exits 0.",
+            "IT: make-ticket on a Case B ticket with no distribution and no prerequisites exits 0 with skipped:no-prerequisites.",
+            "IT: workspacify-order on a fixture with a sidecar prints the implementation order first and the build order second."
+          ],
+          "testExceptions": [],
+          "acceptanceCriteria": [
+            "Happy path: the implementation order is a topological order of build edges plus contract-backed prerequisites; the split gate attaches prerequisites; make-ticket passes when every implementation prerequisite is done or reviewed.",
+            "Error case: a later cross-package provider is PREREQUISITE_PACKAGE_BEFORE; an inverted same-package placement is PREREQUISITE_NOT_BEFORE; an unsplit prerequisite package is PREREQUISITE_PACKAGE_UNSPLIT; an unfinished prerequisite is PREREQUISITE_NOT_DONE; a prerequisite cycle is IMPLEMENTATION_ORDER_CYCLE.",
+            "Edge case: a ticket with no prerequisites exits 0 with skipped:no-prerequisites; a workspace without an artifact prints the build order with an explicit label; a narrative sequence order with no contract relation creates no edge."
+          ],
+          "invariants": "- Normal establishment: the build order is the published stage-1 DAG order and is never overwritten. The implementation order is a topological order of the union of build edges and derived implementation edges. Every derived edge names its source.\n- Error invariant: a cycle, unknown source, self-edge or duplicate edge is a named failure, never a silent skip. An artifact-backed package without a readable prerequisite Tickets.json fails closed.\n- Internal state invariant: ticket prerequisites is a deterministic function of graph, view, artifact and registry; re-running split yields the same array in the same order.\n- Boundary invariant: no prerequisite is derived from sequence order alone; only a contract-backed data relation or a declared graph hard edge creates one. Case B carries no prerequisites field.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "order:build-vs-implementation",
+              "precondition": "A workspace has a tree DAG and an allocate manifest but no artifact-derived order sidecar.",
+              "postcondition": "workspacify-order prints the published DAG order labelled build order and states that the implementation order is not yet derivable.",
+              "invariant": "The build order remains the published DAG order and is not relabelled."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "order:package-derivation",
+              "precondition": "The artifact views declare operations and sequence steps, the registry declares provider and consumer directions, and the tree manifest declares build edges.",
+              "postcondition": "The derived package order is a deterministic topological order of the union; a cycle is IMPLEMENTATION_ORDER_CYCLE; every derived edge carries a source.",
+              "invariant": "No edge is derived from sequence narrative order alone."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "order:sidecar",
+              "precondition": "A workspace root carries an artifact and the package views.",
+              "postcondition": "WORKSPACIFY-IMPLEMENTATION-ORDER.json carries buildOrder, implementationOrder, prerequisites and source digests; the build order is copied, not recomputed.",
+              "invariant": "The sidecar is written atomically and re-running on unchanged inputs yields the same content."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "prerequisites:ticket",
+              "precondition": "Split has populated a ticket with graph hard edges and sequence consumes/produces relations.",
+              "postcondition": "The ticket carries prerequisites entries with ticket or package, kind, source and optional boundary; same-package entries name ticket keys and cross-package entries name package ids.",
+              "invariant": "No self-edge, no duplicate, every source resolves; a ticket with no distribution carries no prerequisites field."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "prerequisites:split-placement",
+              "precondition": "A package Tickets.json carries prerequisites and the workspace order is readable.",
+              "postcondition": "PREREQUISITE_NOT_BEFORE for a same-package prerequisite placed at or after its dependent; PREREQUISITE_PACKAGE_UNSPLIT for a prerequisite package without Tickets.json; PREREQUISITE_PACKAGE_BEFORE for a cross-package prerequisite placed later in the implementation order.",
+              "invariant": "The placement check is topological, not merely numeric; a failure names the prerequisite and the source."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "prerequisites:entry-gate",
+              "precondition": "make-ticket starts for a ticket carrying prerequisites.",
+              "postcondition": "It exits 1 with PREREQUISITE_NOT_DONE, PREREQUISITE_TICKET_MISSING or PREREQUISITE_TICKETS_MISSING until every implementation prerequisite is done or reviewed; it exits 0 otherwise.",
+              "invariant": "A ticket with no prerequisites exits 0 with skipped:no-prerequisites; Case B is unchanged."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "order:split-guarantee",
+              "precondition": "split-to-tickets completes a package's tickets.",
+              "postcondition": "It runs the package order gate after 5-2 and, when a workspace order sidecar is present, the workspace gate; an unsplit prerequisite package or a later cross-package placement blocks completion.",
+              "invariant": "The gate is part of the command, not an optional advisory."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "compatibility:no-artifact",
+              "precondition": "A workspace has no artifact-derived order sidecar, or a ticket has no distribution.",
+              "postcondition": "workspacify-order still prints the workspace; make-ticket skips the gate; split writes no prerequisites.",
+              "invariant": "Existing behavior is preserved exactly where the new data does not exist."
+            }
+          ],
+          "default_files": [
+            ".claude/scripts/sequences-slice/lib/implementation-order.mjs",
+            ".claude/scripts/sequences-slice/verify-implementation-order.mjs",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/check-ticket-prerequisites.js",
+            ".claude/scripts/workspacify-order/lib/workspace.mjs",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/scripts/workspacify-order/lib/render.mjs",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/commands/make-ticket.md"
+          ],
+          "investigation": "- workspacify-order/run.mjs calls renderImplementationOrder; levels.mjs deriveLevels puts a package one level after its deepest provider and assertMatchesPublished compares with allocateManifest.implementation_order.\n- workspacify-tree/lib/dag.mjs:135 writes implementation_order from computeImplementationOrder(nodeSet, edgeList, cycleCount); entry-parity.mjs:239 rejects a consumer placed no later than its provider. This is provider-first dependency order, i.e. build order.\n- Measured in ~/shyme/gaia: 29 dirs / 11 levels / 84 dependencies from the tree DAG; the artifact has 553 sequences, 300 steps and 257 operations; no sequence or boundary row is consulted by the DAG.\n- sequences-slice/lib/view.mjs:152-176 records ownedSequenceUnits and crossBoundarySequenceUnits with ordered steps.\n- distribution-map.mjs:191-197 scopes registry rows to provider/consumer; boundary-contract.mjs projects preconditions, postconditions and invariants.\n- add-tickets-for-phase.js:742-818 already computes ownerTicketByUnit and implementingTicketByUnit.\n- tickets-schema.json definitions.ticket has additionalProperties true, so prerequisites is additive.",
+          "notes": "- Implementation steps: (1) pure derivation and unit tests; (2) sidecar CLI and package/workspace gates; (3) attach prerequisites in split and add the split gates; (4) make-ticket gate script and Step 0; (5) workspacify-order display; (6) impact set and refactor.\n- Risks: a false prerequisite blocks a legitimate ticket; the derivation uses only contract-backed relations and graph hard edges, never narrative sequence order.\n- Caveats: a cross-package prerequisite names the package, not a foreign ticket id; each package's Tickets.json is local by design.\n- Open items: none.\nReview: impact set 735 tests pass (tickets, sequences-slice, workspacify-order); rfc-graph 1153 pass. Quality checks 0; stubs 0; crimes 0; annotation verify clean. Two tests/conventions path-emission failures are pre-existing committed baselines (smooth-sequences/lib/workspace.mjs and committed specs), not regressions from this ticket.",
+          "boyScoutPlan": "- Use verb-phrase function names: derivePackagePrecedence, attachTicketPrerequisites, checkPrerequisiteStatus.\n- Return named findings instead of throwing on expected failures.\n- Extract named constants for edge types, statuses and file names; no hardcoded package ids, ticket keys or paths.\n- Comments explain why the build and implementation orders are distinct.",
+          "instrumentation": "- Runtime logs are English and name the gate and the finding code.\n- The sidecar writer reports the counts of build edges, implementation edges, packages and ticket prerequisites.\n- No new metrics endpoint; the JSON sidecar is the observable output."
+        },
+        {
+          "id": 324,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Deliver the per-ticket distribution brief and gate make-ticket on its use",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-324.md",
+          "background": "Goal: at make-ticket, mechanically output which sequences and operations the ticket must implement, which parts are shared with other tickets and other crate directories, and the boundary contracts as pre/post/invariant; then require the ticket design to use that output. Purpose: the distribution data already reaches Tickets.json and the spec renderer, but make-ticket.md has no step that tells the AI to read it, distinguishes own work from shared work, or checks that the step/boundary contracts survived into the test plan. Motivation: a ticket that implements a shared step without its boundary contract, or reimplements a reference unit, is unsafe even though the distribution chain is complete. Constraints: strict TDD; no test weakening; additive only; the mechanism must self-skip when the distribution is absent and must not change Case B; no new dependency.",
+          "scope": [
+            "Extend .claude/scripts/tickets/show-ticket-context.js with a conditional Work Share block that names own, shared and foreign step owners and the ctr boundary pre/post/invariant.",
+            "Add .claude/scripts/tickets/verify-make-distribution.js: a conditional delivery gate that self-skips when the ticket has no distribution.",
+            "Update .claude/commands/make-ticket.md with Step 1.5, Step 6 Phase 1.6, Step 7 gate and Step 9 requirement, all conditional.",
+            "Add tests in tests/tickets and tests/conventions."
+          ],
+          "testUnit": [
+            "UT: renderWorkShare prints this ticket, another ticket key and a package id for a shared sequence; an unavailable view prints not available.",
+            "UT: renderWorkShare prints a ctr unit direction, counterpart and pre/post/invariant; a missing contract is visible as missing.",
+            "UT: evaluateDistributionDelivery reports DISTRIBUTION_UNIT_UNTESTED for an implement unit absent from testUnit and testIntegration.",
+            "UT: evaluateDistributionDelivery reports STEP_CONTRACT_NOT_DELIVERED for a local step without a ticket contract.",
+            "UT: evaluateDistributionDelivery reports BOUNDARY_CONTRACT_NOT_DELIVERED for a ctr unit without its registry contract.",
+            "UT: evaluateDistributionDelivery reports SHARED_WORK_UNDECLARED for a reference unit whose provider is named nowhere.",
+            "UT: evaluateDistributionDelivery returns skipped:no-distribution when the units array is absent or empty.",
+            "UT: make-ticket.md contains Step 1.5, Phase 1.6, verify-make-distribution and the conditional wording.",
+            "UT: Case B and pre-split tickets are unchanged.",
+            "UT: unknown information is printed as unknown."
+          ],
+          "testIntegration": [
+            "IT: a shared sequence ticket with a ctr unit renders Work Share and passes the gate when the contracts and test plan are present.",
+            "IT: the same ticket with a dropped step contract exits 1 with STEP_CONTRACT_NOT_DELIVERED.",
+            "IT: a Case B ticket with no distribution is skipped by the gate."
+          ],
+          "testExceptions": [],
+          "acceptanceCriteria": [
+            "Happy path: the brief prints own, shared and foreign step owners and the ctr boundary pre/post/invariant; the gate passes when every implement unit is tested and every contract is delivered.",
+            "Error case: an untested implement unit is DISTRIBUTION_UNIT_UNTESTED; a dropped step contract is STEP_CONTRACT_NOT_DELIVERED; a dropped boundary contract is BOUNDARY_CONTRACT_NOT_DELIVERED; an undeclared provider is SHARED_WORK_UNDECLARED.",
+            "Edge case: no distribution is skipped:no-distribution exit 0; an unavailable view prints not available; Case B keeps its old shape."
+          ],
+          "invariants": "- Normal establishment: the brief is a projection of the ticket, the package view and Tickets.json; it invents no owner. Own, shared and reference work are distinguished.\n- Error invariant: a missing step contract, boundary contract, test entry or provider declaration is a named failure.\n- Internal state invariant: re-rendering the same ticket yields the same brief; the gate is deterministic.\n- Boundary invariant: no distribution skips the mechanism; Case B is unchanged.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "brief:work-share",
+              "precondition": "A ticket carries a sequence unit and the package view carries the full sequence.",
+              "postcondition": "The brief prints every step with an owner: this ticket, another ticket key, or a package id; an unknown owner prints unknown package.",
+              "invariant": "The brief never invents an owner and never omits a step the view carries."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "brief:boundary",
+              "precondition": "A ticket carries a ctr unit and a matching boundary contract in ticket.contracts.",
+              "postcondition": "The brief prints the direction, counterpart and the contract pre/post/invariant.",
+              "invariant": "A ctr unit without its contract is visible as missing, not silently blank."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "gate:delivery",
+              "precondition": "A ticket carries distribution units and a test plan.",
+              "postcondition": "Every implement-mode unit appears in testUnit or testIntegration; every local step contract appears in ticket.contracts; every ctr boundary contract appears; a reference unit names its provider or implementer ticket.",
+              "invariant": "Each failure carries a stable named code."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "gate:conditional",
+              "precondition": "A ticket has no distribution.units.",
+              "postcondition": "The gate returns skipped:no-distribution and exits 0; the command adds no step.",
+              "invariant": "Case B and pre-split tickets are unchanged."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "command:steps",
+              "precondition": "make-ticket.md is read.",
+              "postcondition": "It contains Step 1.5, Step 6 Phase 1.6, Step 7 gate and Step 9 distribution requirement, each conditional.",
+              "invariant": "The steps are no-ops when the distribution is absent."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "brief:no-invention",
+              "precondition": "The package view is unreadable.",
+              "postcondition": "The brief still renders the local steps and marks the rest not available; it invents no package or ticket.",
+              "invariant": "Unknown information is printed as unknown."
+            }
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/scripts/tickets/verify-make-distribution.js",
+            ".claude/commands/make-ticket.md"
+          ],
+          "investigation": "- show-ticket-context.js:573-640 renders distribution units and local steps; the sequence unit carries only local steps.\n- view.mjs:152-176 puts all steps of a shared sequence on the xdir unit, so the package view is the source for the full sequence.\n- verify-make-contracts.js checks contracts against testUnit but not distribution delivery.\n- make-ticket.md Step 1 omits ## Distribution Obligations; Step 9 mentions only ## Operation-Boundary Contracts.",
+          "notes": "- Implementation steps: (1) render Work Share; (2) add the gate; (3) update make-ticket.md; (4) tests; (5) impact set and refactor.\n- Risks: a test plan may name a unit by a different spelling; the gate accepts the unit id, the operation id or the step id.\n- Caveats: a foreign ticket id is not visible; the brief names the package.\n- Open items: none.\nReview: Work Share and delivery gate tests 25 pass; impact set 735 pass; rfc-graph 1153 pass. Quality checks 0; stubs 0; crimes 0; PX-324 annotations added to the changed definitions. Two tests/conventions path-emission failures are pre-existing committed baselines.",
+          "boyScoutPlan": "- Use verb-phrase functions: renderWorkShare, evaluateDistributionDelivery.\n- Named constants for finding codes and marker strings; no hardcoded ticket keys or package ids.\n- Comments explain why shared work is distinguished from own work.",
+          "instrumentation": "- The gate names its code and subject on stderr.\n- The brief is part of the ticket Markdown; no new log stream."
         }
       ]
     },

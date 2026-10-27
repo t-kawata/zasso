@@ -278,11 +278,34 @@ function renderChainRow(model) {
   return lines.join('\n');
 }
 
+/**
+ * The order source and the build order, printed under the title.
+ *
+ * The stage-1 DAG order is always the build order. Calling it the implementation order was
+ * the defect this line exists to prevent: the two are equal only when the artifact states no
+ * prerequisite the DAG does not already contain.
+ */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+export function renderOrderSource(model) {
+  if (model.orderSource !== 'implementation') {
+    return 'order source: build order (stage-1 dependency DAG); implementation order not yet derivable';
+  }
+  const identical = JSON.stringify(model.buildSerial) === JSON.stringify(model.implementationSerial);
+  const origin = model.orderSourceDetail === 'derived'
+    ? ' (derived from the artifact; the sidecar is not written yet)'
+    : '';
+  return identical
+    ? `order source: implementation order${origin}; build order is identical`
+    : `order source: implementation order${origin}; build order preserved separately: ${model.buildSerial.join(' → ')}`;
+}
+
 /** The whole picture: every level, then the width row and the chain row. */
 export function renderPlan(model) {
   const layout = buildFieldLayout(model);
+  const label = model.orderSource === 'implementation' ? 'implementation order' : 'build order';
   const blocks = [
-    `\n# ${model.workspaceName} implementation order — ${model.packages.length} dirs / ${model.levels.length} levels / ${model.edgeCount} dependencies`,
+    `\n# ${model.workspaceName} ${label} — ${model.packages.length} dirs / ${model.levels.length} levels / ${model.edgeCount} dependencies`,
+    renderOrderSource(model),
   ];
   model.levels.forEach((level, index) => {
     blocks.push('');

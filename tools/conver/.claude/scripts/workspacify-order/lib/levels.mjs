@@ -10,6 +10,7 @@
  * The rule is deliberately not re-implemented as the authority here. The command reads the
  * published order as the authority and re-derivation as the check.
  */
+import { readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -19,8 +20,17 @@ import {
   holdsRfc,
   holdsSplitArtifact,
   artifactStem,
+  findRootArtifact,
+  loadPackageView,
+  loadImplementationOrder,
+  IMPLEMENTATION_ORDER_FILE_NAME,
   SEED_FILE_NAME,
 } from './workspace.mjs';
+import {
+  derivePackagePrecedence,
+  ownersFromViews,
+  topologicalOrder,
+} from '../../sequences-slice/lib/implementation-order.mjs';
 import {
   readBoundifyGeneration,
   readDistributionGeneration,
@@ -172,6 +182,80 @@ export function assertMatchesPublished({ derivedLevels, allocateManifest }) {
       { artefact: 'implementation_order' },
     );
   }
+}
+
+/** Refuse a sidecar order that does not partition the package list exactly. */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+function assertImplementationOrderCoversPackages(levels, packages) {
+  if (!Array.isArray(levels) || levels.some((level) => !Array.isArray(level))) {
+    throw new WorkspacifyOrderError(
+      `${IMPLEMENTATION_ORDER_FILE_NAME}.implementationOrder.levels must be an array of arrays`,
+      { artefact: IMPLEMENTATION_ORDER_FILE_NAME },
+    );
+  }
+  const expected = new Set(packages.map((pkg) => pkg.id));
+  const seen = new Set();
+  for (const id of levels.flat()) {
+    if (!expected.has(id)) {
+      throw new WorkspacifyOrderError(
+        `${IMPLEMENTATION_ORDER_FILE_NAME} names ${id}, which this workspace does not hold`,
+        { artefact: IMPLEMENTATION_ORDER_FILE_NAME },
+      );
+    }
+    if (seen.has(id)) {
+      throw new WorkspacifyOrderError(
+        `${IMPLEMENTATION_ORDER_FILE_NAME} lists ${id} more than once`,
+        { artefact: IMPLEMENTATION_ORDER_FILE_NAME },
+      );
+    }
+    seen.add(id);
+  }
+  if (seen.size !== expected.size) {
+    const missing = [...expected].filter((id) => !seen.has(id));
+    throw new WorkspacifyOrderError(
+      `${IMPLEMENTATION_ORDER_FILE_NAME} omits ${missing.join(', ')}`,
+      { artefact: IMPLEMENTATION_ORDER_FILE_NAME },
+    );
+  }
+}
+
+/**
+ * Derive the implementation order from the artifact and the package views.
+ *
+ * The sidecar is the recorded answer; this is the same derivation before split writes it.
+ * It is used only when the sidecar is absent and the artifact exists, so the display can
+ * show the implementation order instead of calling the build order by that name.
+ */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+function deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest }) {
+  const artifactPath = findRootArtifact(root);
+  if (artifactPath === null) return null;
+  let artifact;
+  try {
+    artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  const views = Object.fromEntries(packages.map((pkg) => [pkg.id, loadPackageView(root, pkg.path)]));
+  if (Object.values(views).every((view) => view === null)) return null;
+  const operationOwners = ownersFromViews({ packages, views });
+  const { edges } = derivePackagePrecedence({
+    treeManifest,
+    registry: allocateManifest?.contract_registry ?? [],
+    artifact,
+    operationOwners,
+  });
+  const order = topologicalOrder({
+    nodes: packages.map((pkg) => pkg.id),
+    edges: edges.map((edge) => ({ from: edge.fromPackage, to: edge.toPackage, source: edge.source })),
+  });
+  if (!order.ok) {
+    throw new WorkspacifyOrderError(
+      `the artifact-derived implementation order is not acyclic: ${order.findings.map((entry) => entry.message).join('; ')}`,
+      { artefact: 'artifact-implementation-order' },
+    );
+  }
+  return order;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -327,8 +411,25 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   }));
   const edges = requireEdgeRecords(treeManifest);
   assertEdgesReferencePackages(packages, edges);
-  const levels = deriveLevels({ packageIds: packages.map((pkg) => pkg.id), edges });
-  assertMatchesPublished({ derivedLevels: levels, allocateManifest });
+  const buildLevels = deriveLevels({ packageIds: packages.map((pkg) => pkg.id), edges });
+  assertMatchesPublished({ derivedLevels: buildLevels, allocateManifest });
+
+  // The stage-1 DAG order is the build order. The artifact-derived sidecar, when it exists,
+  // is the implementation order: the same packages, ordered by the sequence and boundary
+  // prerequisites the DAG cannot see. The sidecar never replaces the build order in the
+  // manifest; it is displayed beside it.
+  const implementationSidecar = loadImplementationOrder(root);
+  const sidecarLevels = implementationSidecar?.implementationOrder?.levels ?? null;
+  const artifactOrder = implementationSidecar === null
+    ? deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest })
+    : null;
+  const implementationLevels = sidecarLevels ?? artifactOrder?.levels ?? null;
+  if (implementationLevels !== null) {
+    assertImplementationOrderCoversPackages(implementationLevels, packages);
+  }
+  const levels = implementationLevels ?? buildLevels;
+  const orderSource = implementationLevels === null ? 'build' : 'implementation';
+  const orderSourceDetail = sidecarLevels !== null ? 'sidecar' : (artifactOrder !== null ? 'derived' : 'none');
 
   const levelOf = new Map();
   levels.forEach((level, index) => level.forEach((id) => levelOf.set(id, index)));
@@ -404,11 +505,16 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     boundifyGenerations,
     splitGenerations,
     levels,
+    buildLevels,
+    orderSource,
+    orderSourceDetail,
+    buildSerial: buildLevels.flat(),
+    implementationSerial: levels.flat(),
     levelOf,
     serialIndex: new Map(levels.flat().map((id, index) => [id, index])),
     providersOf,
     consumersOf,
-    criticalChain: findCriticalChain({ levels, edges }),
+    criticalChain: findCriticalChain({ levels: buildLevels, edges }),
     pathOf: new Map(packages.map((pkg) => [pkg.id, pkg.path])),
     nameOf: new Map(packages.map((pkg) => [pkg.id, pkg.name])),
     pathWidth,

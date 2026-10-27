@@ -1,0 +1,31 @@
+// PX-324 @verifies C005
+// The make-ticket workflow must define the distribution brief and the delivery gate as
+// conditional steps, so a ticket without distribution and Case B keep their old path.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const DOCUMENT = readFileSync(new URL('../../.claude/commands/make-ticket.md', import.meta.url), 'utf8');
+
+test('C005 the workflow defines the conditional distribution brief', () => {
+  assert.match(DOCUMENT, /### Step 1\.5: Distribution brief \(conditional\)/);
+  assert.match(DOCUMENT, /If it does not, skip to Step 2/);
+  assert.match(DOCUMENT, /## Distribution Obligations/);
+  assert.match(DOCUMENT, /### Work Share/);
+});
+
+test('C005 the workflow defines the distribution-driven test phase', () => {
+  assert.match(DOCUMENT, /Phase 1\.6 — Distribution-driven tests and contracts \(conditional\)/);
+  assert.match(DOCUMENT, /machine-projected step or boundary contract is never removed/);
+});
+
+test('C005 the workflow runs the delivery gate and names the skip path', () => {
+  assert.match(DOCUMENT, /verify-make-distribution\.js/);
+  assert.match(DOCUMENT, /skipped:no-distribution/);
+  assert.match(DOCUMENT, /DISTRIBUTION_UNIT_UNTESTED/);
+});
+
+test('C005 the spec requirement is conditional', () => {
+  assert.match(DOCUMENT, /When the ticket carries distribution units, the spec must also contain/);
+  assert.match(DOCUMENT, /A ticket with no distribution units writes no such section, so Case B is unchanged/);
+});

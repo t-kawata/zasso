@@ -17,6 +17,53 @@ export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 export const SEED_FILE_NAME = 'RFC-SEED.md';
 
 /**
+ * The artifact-derived implementation order written after the distribution exists.
+ *
+ * The stage-1 DAG order cannot see sequences and boundary contracts; this sidecar records
+ * the order that does. Its absence means the build order is the only order available, not
+ * that the build order is the implementation order.
+ */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+export const IMPLEMENTATION_ORDER_FILE_NAME = 'WORKSPACIFY-IMPLEMENTATION-ORDER.json';
+
+/** The root sequences artifact, or null when there is none or more than one. */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+export function findRootArtifact(root) {
+  let entries;
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return null;
+  }
+  const candidates = entries.filter((name) => name.endsWith('-sequences.json'));
+  return candidates.length === 1 ? join(root, candidates[0]) : null;
+}
+
+/** One package's projected view, or null when it is absent or unreadable. */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+export function loadPackageView(root, packagePath) {
+  const path = join(root, packagePath, 'SEQUENCES.json');
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Read the implementation-order sidecar, or null when it is absent or unreadable. */
+// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+export function loadImplementationOrder(root) {
+  const path = join(root, IMPLEMENTATION_ORDER_FILE_NAME);
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The explanation document `explain-seed` writes beside a package's seed.
  *
  * Declared here rather than imported from explain-seed/lib/frame.mjs: that module pulls in
