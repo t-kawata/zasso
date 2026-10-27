@@ -569,9 +569,22 @@ function renderContractAxis(contract, axis) {
   return text.length > 0 ? `${axis}: ${text}` : null;
 }
 
+/** The typed axes of one Work Share step, in the vocabulary the delivery gate reads. */
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+function renderStepAxes(step) {
+  const parts = EXTRA_CONTRACT_AXES
+    .map((axis) => {
+      const text = renderFactText(step?.contract?.[axis]);
+      return text.length > 0 ? `${axis}=${text}` : null;
+    })
+    .filter((part) => part !== null);
+  return parts.length > 0 ? parts.join('; ') : '(none)';
+}
+
 /** The Work Share block: own work, shared work and the ctr boundary contract. */
 // [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'
@@ -589,14 +602,14 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
       : (Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []);
     lines.push(`#### Sequence ${unit.sequenceId ?? unit.unitId} — outcome: ${unit.obligation?.outcome ?? 'unknown'}`);
     lines.push('');
-    lines.push('| step | operation | owner | precondition | postcondition | invariant |');
-    lines.push('|---|---|---|---|---|---|');
+    lines.push('| step | operation | owner | precondition | postcondition | invariant | axes |');
+    lines.push('|---|---|---|---|---|---|---|');
     for (const step of steps) {
       const owner = stepOwnerLabel({ step, unit, ticket, ticketsDocument, view });
       const precondition = renderFactText(step?.contract?.pre) || '(none)';
       const postcondition = renderFactText(step?.contract?.post) || '(none)';
       const invariant = renderFactText(step?.contract?.invariants) || '(none)';
-      lines.push(`| ${step.stepId ?? '?'} | op-${step.operationId ?? step.operation ?? '?'} | ${owner} | ${precondition} | ${postcondition} | ${invariant} |`);
+      lines.push(`| ${step.stepId ?? '?'} | op-${step.operationId ?? step.operation ?? '?'} | ${owner} | ${precondition} | ${postcondition} | ${invariant} | ${renderStepAxes(step)} |`);
     }
     if (unitInView === null) {
       lines.push('');

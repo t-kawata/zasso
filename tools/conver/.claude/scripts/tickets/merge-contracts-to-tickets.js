@@ -145,6 +145,7 @@ function registryContractsForTicket(ticket, registry) {
  * @returns {Array<object>}
  */
 // [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const edges = graph.edges || [];
 
@@ -201,12 +202,18 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
     }
 
     if (stepSidecar !== null) {
-      const unitIds = (ticket.distribution?.units ?? []).map((unit) => unit.unitId);
+      // A step contract belongs to the ticket that implements the step. The ticket's
+      // sequence unit carries exactly those steps; a node id can be shared by a ticket
+      // that only names the sequence, so node ownership alone would attach a foreign
+      // contract to that ticket.
+      const localStepIds = new Set(
+        (ticket.distribution?.units ?? [])
+          .flatMap((unit) => (Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []))
+          .map((step) => step?.stepId)
+          .filter((stepId) => typeof stepId === 'string' && stepId.length > 0),
+      );
       for (const [index, row] of (stepSidecar.steps ?? []).entries()) {
-        const carriesRow = (row.nodeIds ?? []).some((nodeId) => nodeSet.has(nodeId))
-          || unitIds.includes(`seq-${row.sequenceId}`)
-          || unitIds.includes(`xdir-${row.sequenceId}`);
-        if (!carriesRow) continue;
+        if (!localStepIds.has(row.stepId)) continue;
         if (mergedContracts.some((entry) => entry.stepId === row.stepId)) continue;
         mergedContracts.push(stepContractEntry(row, index));
       }

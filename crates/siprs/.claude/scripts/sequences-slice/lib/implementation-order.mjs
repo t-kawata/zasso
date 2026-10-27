@@ -125,6 +125,7 @@ export function rolesFromTickets(tickets = [], roles = new Map()) {
   return roles;
 }
 
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 /**
  * Resolve the claims of every operation to its implementers.
  *
@@ -138,11 +139,20 @@ export function resolveOperationClaims(claims) {
   for (const [operationId, entries] of claims) {
     const implementers = entries.filter((entry) => entry.role === OPERATION_ROLE.IMPLEMENTER);
     const implementerPackageIds = [...new Set(implementers.map((entry) => entry.packageId))].sort();
+    // A consumer package is a dependency of the implementer even when it does not own a
+    // step. The package order derives that edge from this list, so dropping it would
+    // leave the display and the ticket prerequisites reading different relations.
+    const consumerPackageIds = [...new Set(
+      entries
+        .filter((entry) => entry.role === OPERATION_ROLE.CONSUMER)
+        .map((entry) => entry.packageId),
+    )].sort();
     if (implementerPackageIds.length > 0) {
       const localTicket = implementers.find((entry) => typeof entry.ticketKey === 'string');
       owners.set(operationId, {
         packageId: implementerPackageIds[0],
         implementerPackageIds,
+        consumerPackageIds,
         ...(localTicket === undefined ? {} : { ticketKey: localTicket.ticketKey }),
       });
       continue;
@@ -151,11 +161,17 @@ export function resolveOperationClaims(claims) {
       owners.set(operationId, {
         packageId: entries[0].packageId,
         implementerPackageIds: [entries[0].packageId],
+        consumerPackageIds,
         ...(typeof entries[0].ticketKey === 'string' ? { ticketKey: entries[0].ticketKey } : {}),
       });
       continue;
     }
-    owners.set(operationId, { ambiguous: true, missingImplementer: true, implementerPackageIds: [] });
+    owners.set(operationId, {
+      ambiguous: true,
+      missingImplementer: true,
+      implementerPackageIds: [],
+      consumerPackageIds,
+    });
     findings.push(finding(
       PREREQUISITE_CODES.OWNER_ROLE_UNDECIDED,
       operationId,
@@ -334,13 +350,48 @@ export function deriveBoundaryPrecedence(registry = []) {
     }));
 }
 
+/** The provider-first edges a reference operation unit declares. */
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+export function deriveReferencePackagePrecedence(operationOwners = new Map()) {
+  const edges = [];
+  const seen = new Set();
+  for (const [operationId, owner] of operationOwners ?? []) {
+    if (owner?.ambiguous === true || owner?.missingImplementer === true) continue;
+    const providers = owner.implementerPackageIds
+      ?? (typeof owner.packageId === 'string' ? [owner.packageId] : []);
+    for (const fromPackage of providers) {
+      for (const toPackage of owner.consumerPackageIds ?? []) {
+        if (fromPackage === toPackage) continue;
+        const source = `operation:${operationId}:reference`;
+        const key = `${fromPackage}->${toPackage}:${source}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        edges.push({
+          fromPackage,
+          toPackage,
+          fromOperation: operationId,
+          toOperation: operationId,
+          kind: 'reference',
+          source,
+          boundaryId: null,
+        });
+      }
+    }
+  }
+  return edges.sort((left, right) => (
+    `${left.fromPackage}->${left.toPackage}:${left.source}`
+      .localeCompare(`${right.fromPackage}->${right.toPackage}:${right.source}`)
+  ));
+}
+
 /**
- * The union of build, boundary and sequence precedence.
+ * The union of build, boundary, sequence and reference precedence.
  *
  * The build edges are retained as their own source so the display can still show the
  * published build order; the caller decides which order to present.
  */
 // [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 export function derivePackagePrecedence({ treeManifest = null, registry = [], artifact = null, operationOwners = new Map(), activeOperationIds = null } = {}) {
   const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry, activeOperationIds });
   return {
@@ -350,6 +401,10 @@ export function derivePackagePrecedence({ treeManifest = null, registry = [], ar
       // A same-package step relation is a ticket-level prerequisite, not a package-level
       // edge; including it here would make the package order cycle on itself.
       ...sequence.edges.filter((edge) => edge.fromPackage !== edge.toPackage),
+      // A reference names its implementer directly, so it is an implementation
+      // prerequisite even when no build, boundary or sequence edge states it. The same
+      // relation feeds ticketPrerequisites, and the two layers must agree.
+      ...deriveReferencePackagePrecedence(operationOwners),
     ],
     findings: sequence.findings,
   };
@@ -473,12 +528,13 @@ function prerequisiteKey(entry) {
  *
  * A same-package prerequisite names the ticket that must be implemented first. A
  * cross-package prerequisite names the package; the package's Tickets.json is read by the
- * consumer-side gate. Only hard graph edges and contract-backed sequence relations create
- * an entry.
+ * consumer-side gate. Hard graph edges, contract-backed sequence relations, build edges,
+ * boundary rows and reference units all create an entry.
  *
  * @returns {{ prerequisites: Map<string, Array<object>>, findings: Array<object> }}
  */
 // [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 export function ticketPrerequisites({
   tickets = [],
   graph = null,
@@ -555,7 +611,10 @@ export function ticketPrerequisites({
     const consumer = operationOwners.get(edge.toOperation);
     if (provider === undefined || consumer === undefined) continue;
     if (provider.ambiguous === true || consumer.ambiguous === true) continue;
-    if (consumer.packageId !== packageId) continue;
+    // An operation may be implemented by several packages. The edge reaches every one
+    // of them, not only the first sorted package id.
+    const consumerPackages = consumer.implementerPackageIds ?? [consumer.packageId];
+    if (!consumerPackages.includes(packageId)) continue;
     const consumerTicket = consumer.ticketKey === undefined
       ? implementingTicketOf(tickets, edge.toOperation)
       : tickets.find((ticket) => ticketKeyOf(ticket) === consumer.ticketKey);
@@ -650,8 +709,15 @@ export function ticketPrerequisites({
         continue;
       }
 
+      // The provider list is a record of the implementer packages. When the owner table
+      // knows the implementers, a package that merely consumes the same operation is not
+      // a provider; keeping it would demand an order edge that does not exist.
+      const knownImplementers = operationId === null
+        ? null
+        : (ownerOf(operationOwners, { operation: operationId })?.implementerPackageIds ?? null);
       const externalProviders = (Array.isArray(unit.obligation.providers) ? unit.obligation.providers : [])
-        .filter((provider) => typeof provider === 'string' && provider.length > 0 && provider !== packageId);
+        .filter((provider) => typeof provider === 'string' && provider.length > 0 && provider !== packageId)
+        .filter((provider) => knownImplementers === null || knownImplementers.includes(provider));
       for (const provider of externalProviders) {
         addProviderOnce(ticket, {
           package: provider,
@@ -718,11 +784,14 @@ export function checkPlacement({ tickets = [], packageId = null, packageOrder = 
   return { ok: findings.length === 0, findings };
 }
 
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 /**
  * Evaluate a ticket's prerequisites against statuses read by the caller.
  *
  * A missing array is the Case B shape: there is no distribution and therefore nothing to
- * wait for. It is a skip, not a pass and not a failure.
+ * wait for. It is a skip, not a pass and not a failure. A provider package that predates
+ * the distribution is evaluated through its own tickets, so its absence of work units is
+ * not mistaken for an absence of implementation.
  */
 export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new Map(), packageStatuses = new Map() } = {}) {
   if (!Array.isArray(prerequisites) || prerequisites.length === 0) {
@@ -746,10 +815,14 @@ export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new
         findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_TICKETS_MISSING, entry.package, `prerequisite package ${entry.package} has no readable Tickets.json`));
         continue;
       }
+      // A package written before the distribution has no work-carrying ticket. It is
+      // still a real prerequisite, so its own tickets decide completion; treating the
+      // absence of distribution as an absence of work would block every such provider.
+      const workCandidates = statuses.filter((candidate) => candidate?.carriesWork === true || candidate?.implements === true);
+      const candidates = workCandidates.length > 0 ? workCandidates : statuses;
       let checked = false;
-      for (const candidate of statuses) {
-        const carriesWork = candidate?.carriesWork === true || candidate?.implements === true;
-        if (!carriesWork) continue;
+      for (const candidate of candidates) {
+        if (candidate === null || candidate === undefined) continue;
         checked = true;
         if (!COMPLETE_STATUSES.has(candidate.status)) {
           findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_NOT_DONE, candidate.ticket, `prerequisite ticket ${candidate.ticket} in ${entry.package} is ${candidate.status}; it must be done or reviewed`));

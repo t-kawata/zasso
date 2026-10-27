@@ -14,6 +14,7 @@
  * Usage:
  *   node verify-make-distribution.js --ticket-key=<key> [--tickets=<path>] [--spec=<path>]
  */
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 
 const fs = require('fs');
 const path = require('path');
@@ -57,6 +58,24 @@ function argumentFor(argv, name) {
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
   const index = argv.indexOf(`--${name}`);
   return index === -1 ? null : argv[index + 1] ?? null;
+}
+
+/** Escape a literal term so it can be embedded in a regular expression. */
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Whether one whole token occurs in the text.
+ *
+ * The delivery gate proves that a design named the thing it owes. A substring match would
+ * let `op-10` name `op-1` and `restore` name the `rest` surface, so the boundary on both
+ * sides is the rule rather than a convenience.
+ */
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+function mentions(text, term) {
+  if (typeof text !== 'string' || typeof term !== 'string' || term.length === 0) return false;
+  return new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}([^A-Za-z0-9_]|$)`).test(text);
 }
 
 /** Every ticket in a Tickets.json document, in phase order. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
@@ -196,10 +215,10 @@ function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
       });
       continue;
     }
-    const namesOwner = terms.length === 0 || terms.some((term) => integrationText.includes(term));
-    const namesStep = typeof foreignStep?.stepId === 'string' && integrationText.includes(foreignStep.stepId);
+    const namesOwner = terms.length === 0 || terms.some((term) => mentions(integrationText, term));
+    const namesStep = typeof foreignStep?.stepId === 'string' && mentions(integrationText, foreignStep.stepId);
     const boundaryIds = crossedBoundaryIds(foreignStep);
-    const namesBoundary = boundaryIds.every((boundaryId) => integrationText.includes(boundaryId));
+    const namesBoundary = boundaryIds.every((boundaryId) => mentions(integrationText, boundaryId));
     if (!namesOwner || !namesStep || !namesBoundary) {
       findings.push({
         code: DELIVERY_CODES.SHARED_STEP_INTEGRATION_MISSING,
@@ -218,7 +237,7 @@ function operationObligationFindings({ unit, testText, exceptionText }) {
   const fields = [...CONTRACT_BEARING_OPERATION_FIELDS, ...SURFACE_OPERATION_FIELDS];
   for (const field of fields) {
     if (!hasObligationValue(unit?.obligation?.[field])) continue;
-    if (testText.includes(field) || exceptionText.includes(field)) continue;
+    if (mentions(testText, field) || mentions(exceptionText, field)) continue;
     findings.push({
       code: DELIVERY_CODES.OPERATION_OBLIGATION_UNPLANNED,
       subject: `${unit?.unitId ?? '?'}:${field}`,
@@ -257,7 +276,7 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
     const unitId = String(unit?.unitId ?? '');
     if (unit?.kind === 'operation' && unit?.obligation?.mode === 'implement') {
       const operationId = unit.operationId ?? unitId.replace(/^op-/, '');
-      const named = [unitId, `op-${operationId}`, operationId].some((term) => term.length > 0 && testText.includes(term));
+      const named = [unitId, `op-${operationId}`, operationId].some((term) => mentions(testText, term));
       if (!named) {
         findings.push({ code: DELIVERY_CODES.DISTRIBUTION_UNIT_UNTESTED, subject: unitId, message: `implement unit ${unitId} is in no test plan entry` });
       }
@@ -295,7 +314,7 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
         .filter((value) => typeof value === 'string' || typeof value === 'number')
         .map((value) => String(value))
         .filter((value) => value.length > 0);
-      const declared = providerTerms.some((term) => testText.includes(term));
+      const declared = providerTerms.some((term) => mentions(testText, term));
       if (!declared && providerTerms.length > 0) {
         findings.push({ code: DELIVERY_CODES.SHARED_WORK_UNDECLARED, subject: unitId, message: `reference unit ${unitId} names ${providerTerms.join(', ')} and no test-plan entry names it` });
       }

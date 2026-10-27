@@ -1,3 +1,4 @@
+// PX-330 @verifies C006
 // PX-323 @verifies C003 C005 C007
 // PX-327 @verifies C001 C002 C003
 // The package gate proves the ticket placement and the workspace gate writes the
@@ -64,6 +65,23 @@ test('C005 a correctly attached prerequisite passes the package gate', () => {
   const result = verifyPackage({ packageDir: join(root, 'crates/pkg-1'), write: false });
   assert.equal(result.code, 0);
   assert.deepEqual(result.findings, []);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('C006 the workspace gate reports a missing graph when the artifact declares a distribution', () => {
+  const root = workspace();
+  writeFileSync(join(root, 'DESIGN-sequences.json'), JSON.stringify({
+    sequences: [{ id: 'S', outcome: 'realized' }],
+    steps: [{ id: 's1', stepId: 's1', sequence: 'S', operation: 'A', order: 1 }],
+    operations: [{ id: 'A' }],
+  }));
+  writeTickets(root, tickets(undefined));
+  rmSync(join(root, 'crates/pkg-1/DESIGN-GRAPH.json'));
+  const result = verifyWorkspace({ workspaceRoot: root, write: false });
+  assert.equal(result.code, 1);
+  assert.ok(result.findings.some(
+    (entry) => entry.code === 'MISSING_DISTRIBUTION_LAYER' && entry.subject === 'pkg-1',
+  ), JSON.stringify(result.findings));
   rmSync(root, { recursive: true, force: true });
 });
 

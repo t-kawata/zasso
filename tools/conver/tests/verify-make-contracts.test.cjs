@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// PX-330 @verifies C007
 // @verifies C005 — Gate M rejects empty contracts
 const assert = require('assert');
 let mod;
@@ -18,6 +19,18 @@ if (!mod || !mod.verifyMakeContracts) {
       ['UT: [Normal] key loaded → token signed (mem clean)']);
     const errs = mod.verifyMakeContracts(t);
     assert.strictEqual(errs.length, 0);
+  });
+  test('accepts a clause planned only in testIntegration', () => {
+    const t = makeTicket(1, [c('C001','key loaded','token signed','mem clean')], []);
+    t.testIntegration = ['IT: key loaded → token signed (mem clean)'];
+    const errs = mod.verifyMakeContracts(t);
+    assert.strictEqual(errs.length, 0, JSON.stringify(errs));
+  });
+  test('still rejects a clause planned in neither test field', () => {
+    const t = makeTicket(1, [c('C001','prerequisite_x','result_y','state_z')], []);
+    t.testIntegration = ['IT: unrelated behaviour'];
+    const errs = mod.verifyMakeContracts(t);
+    assert.ok(errs.some(e => e.detail && e.detail.includes('precondition')));
   });
   test('blocks missing precondition in testUnit', () => {
     const t = makeTicket(1, [c('C001','prerequisite_x','result_y','state_z')],

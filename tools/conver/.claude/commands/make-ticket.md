@@ -45,6 +45,7 @@ In:
 - `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-53`
 - pass unchanged to `show-ticket-context.js --ticket-key`
 - missing, numeric-only, or other format → error; stop
+- Run from the package directory that holds the target ticket's `Tickets.json`. Steps 0 and 1 resolve that file relative to the current directory, so a same-keyed ticket in another directory is not the target.
 
 ## Boy Scout Rule
 
@@ -69,7 +70,7 @@ Root: `.claude/scripts/tickets/`.
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 3; inserts markers in 11 fields; simultaneously sets `created_at`/`updated_at` |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 6; lists remaining `[::TEMPLATE-STUB::]` in natural language; exit 0: all replaced |
 | `update-ticket.js` | `<Tickets.json path> P{phaseID}-{ticketID}`; stdin update JSON; Step 6/10; overwrites fields; handles string/array distinction |
-| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>`; Step 7; checks each Contract pre/post/invariant in `testUnit`, justified `testExceptions`, nonempty contracts; exit 0 pass, 1 fail |
+| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>`; Step 7; checks each Contract pre/post/invariant in `testUnit` or `testIntegration`, justified `testExceptions`, nonempty contracts; exit 0 pass, 1 fail |
 | `add-ticket.js` | `<Tickets.json path> P{phaseID}`; stdin ticket JSON; called internally by `ensure-ticket.js` |
 
 ## Workflow
@@ -262,7 +263,7 @@ Before remaining fields:
 
 Run only when Step 1.5 ran. For every distribution unit:
 
-- `implement` unit → at least one `testUnit` entry names the unit id or operation id. Every non-empty contract-bearing field in `Distribution Obligations` (`finalityPredicate`, `idempotencyScope`, `allowedStatusTransitions`, `initialStatus`, `cancellationRule`, `reversalOrRecoveryRule`, `rejectCodeFamilies`, `registryContribution`, `boundaryEffects`, `requiredAuthority`, `requiredPreStateCheckpoint`, `requiredProofClasses`, `requiresRemoteTimeHandshake`, `requiresSessionBinding`, `externalDependencyClass`, `resultObjectClasses`) and every non-empty surface field (`rest`, `websocket`, `cli`) is named in `testUnit`/`testIntegration` or in a justified `testException`. `verify-make-distribution` reports `OPERATION_OBLIGATION_UNPLANNED` by field name.
+- `implement` unit → at least one `testUnit` or `testIntegration` entry names the unit id or operation id. Every non-empty contract-bearing field in `Distribution Obligations` (`finalityPredicate`, `idempotencyScope`, `allowedStatusTransitions`, `initialStatus`, `cancellationRule`, `reversalOrRecoveryRule`, `rejectCodeFamilies`, `registryContribution`, `boundaryEffects`, `requiredAuthority`, `requiredPreStateCheckpoint`, `requiredProofClasses`, `requiresRemoteTimeHandshake`, `requiresSessionBinding`, `externalDependencyClass`, `resultObjectClasses`) and every non-empty surface field (`rest`, `websocket`, `cli`) is named in `testUnit`/`testIntegration` or in a justified `testException`. `verify-make-distribution` reports `OPERATION_OBLIGATION_UNPLANNED` by field name.
 - local sequence step → its precondition, postcondition and invariant, plus `consumes`, `produces`, `errors` and `crosses` when present, appear in the test plan (`testUnit` or `testIntegration`) in artifact order. Each non-empty axis fact is named in the test plan; `verify-make-distribution` reports `STEP_AXIS_NOT_DELIVERED` by step and axis.
 - shared sequence step that is interface-relevant (crosses a boundary, or exchanges a `consumes`/`produces` fact with a local step) → a `testIntegration` entry names the owner (counterpart ticket key or package id), the step id, and the crossed boundary id when present. Other foreign steps need no entry. Do not add an implementation test for a foreign step. `verify-make-distribution` reports `SHARED_STEP_INTEGRATION_MISSING` or `SHARED_STEP_OWNER_UNKNOWN`.
 - `reference` unit → a consumption test naming the `implementer ticket` or provider package in `testUnit`/`testIntegration`; a note alone is `SHARED_WORK_UNDECLARED`. Never implement the provider.
@@ -358,7 +359,7 @@ Heal-loop targets:
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
 When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract visible only in raw JSON is a spec defect.
 When the ticket carries `prerequisites`, the spec must contain `## Implementation Prerequisites` with every prerequisite ticket or package and its source. A prerequisite visible only in raw JSON is a spec defect.
-When the ticket carries distribution units, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
+When the ticket carries a sequence or ctr unit, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. An operation-only ticket carries `## Distribution Obligations` without a Work Share block. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
 
 Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 

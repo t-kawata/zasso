@@ -1,3 +1,4 @@
+// PX-330 @verifies C003
 // PX-324 @verifies C003 C004
 // The delivery gate is conditional: no distribution is a skip, and every carried unit or
 // contract that did not reach the design is a named failure.
@@ -48,6 +49,47 @@ test('C003 an implement unit named in the test plan passes', () => {
     distribution: { units: [{ unitId: 'op-A', kind: 'operation', operationId: 'A', obligation: { mode: 'implement' } }] },
   }));
   assert.equal(result.ok, true);
+});
+
+test('C003 an operation id is not satisfied by a longer identifier', () => {
+  const result = evaluateDistributionDelivery(ticket({
+    testUnit: ['UT: op-10 returns the value'],
+    distribution: { units: [{ unitId: 'op-1', kind: 'operation', operationId: '1', obligation: { mode: 'implement' } }] },
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some((entry) => entry.code === 'DISTRIBUTION_UNIT_UNTESTED' && entry.subject === 'op-1'));
+});
+
+test('C003 a surface field is not satisfied by a longer word', () => {
+  const result = evaluateDistributionDelivery(ticket({
+    testUnit: ['UT: op-A restores the client cache'],
+    distribution: {
+      units: [{
+        unitId: 'op-A',
+        kind: 'operation',
+        operationId: 'A',
+        obligation: { mode: 'implement', rest: { method: 'GET' }, cli: { command: 'status' } },
+      }],
+    },
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some((entry) => entry.code === 'OPERATION_OBLIGATION_UNPLANNED' && entry.subject === 'op-A:rest'));
+  assert.ok(result.findings.some((entry) => entry.code === 'OPERATION_OBLIGATION_UNPLANNED' && entry.subject === 'op-A:cli'));
+});
+
+test('C003 a surface field named as a whole token passes', () => {
+  const result = evaluateDistributionDelivery(ticket({
+    testUnit: ['UT: op-A rest endpoint and cli command'],
+    distribution: {
+      units: [{
+        unitId: 'op-A',
+        kind: 'operation',
+        operationId: 'A',
+        obligation: { mode: 'implement', rest: { method: 'GET' }, cli: { command: 'status' } },
+      }],
+    },
+  }));
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
 });
 
 test('C003 a missing step contract is STEP_CONTRACT_NOT_DELIVERED', () => {

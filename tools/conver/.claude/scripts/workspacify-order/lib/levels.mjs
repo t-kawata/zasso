@@ -508,6 +508,7 @@ function assertEdgesReferencePackages(packages, edges) {
 export function buildModel({ root, treeManifest, allocateManifest }) {
 // [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
   const packageRecords = requirePackageList(treeManifest);
   assertEveryPackageIsComplete(packageRecords);
   const packages = packageRecords.map((pkg) => ({
@@ -528,9 +529,18 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   const implementationSidecar = loadImplementationOrder(root);
   assertSidecarFresh({ root, packages, treeManifest, allocateManifest, sidecar: implementationSidecar });
   const sidecarLevels = implementationSidecar?.implementationOrder?.levels ?? null;
-  const artifactOrder = implementationSidecar === null
-    ? deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest })
-    : null;
+  // The derivation also reads the ticket-declared roles, which the sidecar's source
+  // digests do not cover. Re-deriving is what keeps a recorded order from being labelled
+  // implementation order after a ticket edit moved the real one.
+  const artifactOrder = deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest });
+  if (implementationSidecar !== null
+    && artifactOrder !== null
+    && JSON.stringify(artifactOrder.levels) !== JSON.stringify(sidecarLevels)) {
+    throw new WorkspacifyOrderError(
+      'STALE_IMPLEMENTATION_ORDER: the sidecar disagrees with the live ticket roles, artifact or views',
+      { artefact: 'implementation-order' },
+    );
+  }
   const implementationLevels = sidecarLevels ?? artifactOrder?.levels ?? null;
   if (implementationLevels !== null) {
     assertImplementationOrderCoversPackages(implementationLevels, packages);

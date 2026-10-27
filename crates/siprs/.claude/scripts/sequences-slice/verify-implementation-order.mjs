@@ -298,6 +298,7 @@ function removeSidecar(filePath) {
 
 /** Run the workspace gate. */
 // [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function verifyWorkspace({ workspaceRoot, write }) {
   const treeManifest = readJson(join(workspaceRoot, TREE_MANIFEST_FILE_NAME));
   const allocateManifest = readJson(join(workspaceRoot, ALLOCATE_MANIFEST_FILE_NAME));
@@ -339,7 +340,18 @@ function verifyWorkspace({ workspaceRoot, write }) {
     const view = views[pkg.id];
     if (document === null || view === null) continue;
     const graph = readJson(findSingleSiblingPath(join(workspaceRoot, pkg.path), '-GRAPH.json'));
-    if (graph === null) continue;
+    if (graph === null) {
+      // The package gate refuses this state; the workspace gate must not trust the
+      // ticket's prerequisite array in the same state and pass where the other fails.
+      if (hasDistribution) {
+        findings.push({
+          code: 'MISSING_DISTRIBUTION_LAYER',
+          subject: pkg.id,
+          message: `package ${pkg.id} has a view and the workspace artifact declares a distribution, but its GRAPH.json is missing`,
+        });
+      }
+      continue;
+    }
     findings.push(...packagePrerequisiteFindings({
       workspaceRoot,
       pkg,

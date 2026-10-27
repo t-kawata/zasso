@@ -27,7 +27,9 @@ test('C005 the workflow runs the delivery gate and names the skip path', () => {
 });
 
 test('C005 the spec requirement is conditional', () => {
-  assert.match(DOCUMENT, /When the ticket carries distribution units, the spec must also contain/);
+  // PX-330: Work Share is emitted for sequence and ctr units only. The previous wording
+  // required it for every distribution unit, which contradicted the renderer and the gate.
+  assert.match(DOCUMENT, /When the ticket carries a sequence or ctr unit, the spec must also contain/);
   assert.match(DOCUMENT, /A ticket with no distribution units writes no such section, so Case B is unchanged/);
 });
 
@@ -54,4 +56,13 @@ test('C005 the workflow briefs implementation prerequisites and step contracts',
   assert.match(DOCUMENT, /## Implementation Prerequisites/);
   assert.match(DOCUMENT, /`## Distribution Obligations` or `## Implementation Prerequisites`/);
   assert.match(DOCUMENT, /Operation-Boundary Contracts/);
+});
+
+test('PX-330 the Work Share requirement names the units that actually produce the section', () => {
+  assert.match(DOCUMENT, /When the ticket carries a sequence or ctr unit, the spec must also contain/);
+  assert.doesNotMatch(DOCUMENT, /When the ticket carries distribution units, the spec must also contain/);
+});
+
+test('PX-330 the contract gate names both test fields the workflow allows', () => {
+  assert.match(DOCUMENT, /checks each Contract pre\/post\/invariant in `testUnit` or `testIntegration`/);
 });

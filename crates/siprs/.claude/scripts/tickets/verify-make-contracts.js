@@ -6,9 +6,9 @@
  * Usage: node verify-make-contracts.js --ticket-key=<PX-id> --tickets=<path>
  *
  * Verifies:
- * 1. All contract preconditions appear in testUnit
- * 2. All contract postconditions appear in testUnit
- * 3. All invariants appear in testUnit
+ * 1. All contract preconditions appear in testUnit or testIntegration
+ * 2. All contract postconditions appear in testUnit or testIntegration
+ * 3. All invariants appear in testUnit or testIntegration
  * 4. testExceptions entries have proper justification
  *
  * Exits 0 on pass, 1 on failure. 3-line error template on stderr.
@@ -42,10 +42,12 @@ function parseArgs() {
  * @returns {Array<{ticket: number, contract: string|null, detail: string}>}
  */
 // [::TICKET::] PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function verifyMakeContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
   const testUnit = ticket.testUnit || [];
+  const testIntegration = ticket.testIntegration || [];
   const testExceptions = ticket.testExceptions || [];
 
   // Gate M: reject empty contracts — contracts must be defined before make can complete
@@ -55,7 +57,7 @@ function verifyMakeContracts(ticket) {
     return errors;
   }
 
-  const utText = testUnit.join(' ').toLowerCase();
+  const utText = [...testUnit, ...testIntegration].join(' ').toLowerCase();
   /** The contract key terms the test plan must mention (same rule as the check itself). */
   const missingTerms = (text, written) => String(text).toLowerCase().split(/\s+/).filter(w => w.length > 3 && !written.includes(w));
 
@@ -66,7 +68,7 @@ function verifyMakeContracts(ticket) {
       const preWords = preLower.split(/\s+/).filter(w => w.length > 3);
       const found = preWords.some(w => utText.includes(w));
       if (!found && preWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.precondition, utText), detail: 'precondition "' + c.precondition + '" not found in testUnit (key terms not found: ' + missingTerms(c.precondition, utText).join(', ') + ')' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.precondition, utText), detail: 'precondition "' + c.precondition + '" not found in testUnit or testIntegration (key terms not found: ' + missingTerms(c.precondition, utText).join(', ') + ')' });
       }
     }
     // Check 2: postcondition in testUnit
@@ -75,7 +77,7 @@ function verifyMakeContracts(ticket) {
       const postWords = postLower.split(/\s+/).filter(w => w.length > 3);
       const found = postWords.some(w => utText.includes(w));
       if (!found && postWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.postcondition, utText), detail: 'postcondition "' + c.postcondition + '" not found in testUnit (key terms not found: ' + missingTerms(c.postcondition, utText).join(', ') + ')' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.postcondition, utText), detail: 'postcondition "' + c.postcondition + '" not found in testUnit or testIntegration (key terms not found: ' + missingTerms(c.postcondition, utText).join(', ') + ')' });
       }
     }
     // Check 3: invariant in testUnit
@@ -84,7 +86,7 @@ function verifyMakeContracts(ticket) {
       const invWords = invLower.split(/\s+/).filter(w => w.length > 3);
       const found = invWords.some(w => utText.includes(w));
       if (!found && invWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.invariant, utText), detail: 'invariant "' + c.invariant + '" not found in testUnit (key terms not found: ' + missingTerms(c.invariant, utText).join(', ') + ')' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.invariant, utText), detail: 'invariant "' + c.invariant + '" not found in testUnit or testIntegration (key terms not found: ' + missingTerms(c.invariant, utText).join(', ') + ')' });
       }
     }
   }

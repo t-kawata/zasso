@@ -1,3 +1,4 @@
+// PX-330 @verifies C002
 // PX-324 @verifies C001 C002 C006
 // The Work Share block names the owner of every step: this ticket, another ticket, or a
 // package. It prints unknown information as unknown and never invents an owner.
@@ -6,8 +7,18 @@ import assert from 'node:assert/strict';
 
 import { renderWorkShare } from '../../.claude/scripts/tickets/show-ticket-context.js';
 
-function step(stepId, operationId, order) {
-  return { stepId, operationId, order, contract: { pre: [`${stepId}-pre`], post: [`${stepId}-post`], invariants: [`${stepId}-inv`] } };
+function step(stepId, operationId, order, axes = {}) {
+  return {
+    stepId,
+    operationId,
+    order,
+    contract: {
+      pre: [`${stepId}-pre`],
+      post: [`${stepId}-post`],
+      invariants: [`${stepId}-inv`],
+      ...axes,
+    },
+  };
 }
 
 function sharedTicket() {
@@ -49,7 +60,11 @@ function view() {
       unitId: 'xdir-S',
       sequenceId: 'S',
       ownerPackageIds: ['pkg-1', 'pkg-2'],
-      steps: [step('S__s1', 'A', 1), step('S__s2', 'B', 2), step('S__s3', 'C', 3)],
+      steps: [
+        step('S__s1', 'A', 1, { consumes: ['fact:one'] }),
+        step('S__s2', 'B', 2, { crosses: ['boundary:boundary-001'], produces: ['fact:two'] }),
+        step('S__s3', 'C', 3),
+      ],
     }],
   };
 }
@@ -60,6 +75,13 @@ test('C001 a shared sequence names this ticket, another ticket and a package', (
   assert.match(text, /\| S__s1 \| op-A \| this ticket \|/);
   assert.match(text, /\| S__s2 \| op-B \| package pkg-1 \|/);
   assert.match(text, /\| S__s3 \| op-C \| P0-1 \|/);
+});
+
+test('C002 Work Share prints the typed axes the delivery gate reads', () => {
+  const text = renderWorkShare(sharedTicket(), { ticketsDocument: ticketsDocument(), view: view() });
+  assert.match(text, /S__s2 .*crosses=boundary:boundary-001/);
+  assert.match(text, /S__s2 .*produces=fact:two/);
+  assert.match(text, /S__s1 .*consumes=fact:one/);
 });
 
 test('C006 an unreadable view keeps the local steps and marks the rest not available', () => {
