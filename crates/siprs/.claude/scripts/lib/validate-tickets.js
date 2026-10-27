@@ -3,12 +3,13 @@
 // [::TICKET::] PX-106 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-106 --for-spec --no-implementation-order`.
 
 const fs = require('fs'), path = require('path');
+const { isContractId } = require('../tickets/lib/contract-id');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
 const isRoundStatus = (s) => /^R[1-9]\d*$/.test(s);
 
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114, P25-2, P25-3, P25-4, P25-5, P25-6, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114|P25-2|P25-3|P25-4|P25-5|P25-6|PX-326) --for-spec --no-implementation-order`.
 function validateTickets(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
@@ -60,7 +61,7 @@ function validateTickets(data) {
           const contract = ticket.contracts[ci], contractPath = ticketPath + '.contracts[' + ci + ']';
           if (!contract || typeof contract !== 'object' || Array.isArray(contract)) errors.push(contractPath + ': must be object');
           else {
-            if (typeof contract.id !== 'string' || !/^C\d{3}$/.test(contract.id)) errors.push(contractPath + '.id: must match C000 format (e.g. C001)');
+            if (!isContractId(contract.id)) errors.push(contractPath + '.id: must match C000 or contract-<boundary_id> format (e.g. C001, contract-boundary-001)');
             if (typeof contract.sourceEdge !== 'string' || contract.sourceEdge.length < 1) errors.push(contractPath + '.sourceEdge: must be non-empty string');
             if (typeof contract.precondition !== 'string' || contract.precondition.length < 1) errors.push(contractPath + '.precondition: must be non-empty string');
             if (typeof contract.postcondition !== 'string' || contract.postcondition.length < 1) errors.push(contractPath + '.postcondition: must be non-empty string');

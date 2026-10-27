@@ -49656,6 +49656,206 @@
           "startedAt": "2026-10-27",
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-27"
+        },
+        {
+          "id": 326,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Close the boundary-contract delivery chain without contradictions or gaps",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-326.md",
+          "invariants": "- [Normal establishment] Every distribution unit type (operation, sequence, ctr, reference) maps to a named contract or test-plan requirement; every emitted contract passes validate-tickets; every presented field is either gated or explicitly classified as descriptive.\n- [Invariant on error] An unknown contract id, a missing provenance, an unresolvable foreign owner, a missing axis or an unplanned operation field is refused by a named finding; none is dropped silently.\n- [Internal state invariant] Machine-projected rows (id, boundaryId, registryContractId, stepId, digest, pre/post/invariant) are read unchanged from merge through make; gates never rewrite a projected contract.\n- [Boundary invariant] A ticket with zero distribution units returns skipped:no-distribution from every distribution gate and writes no new spec section; the PX-323/PX-325 order and prerequisite guarantees are unchanged.",
+          "background": "### Goal\nMake every sequence, operation, ownership split and boundary contract presented by show-ticket-context flow without contradiction or gap into the ticket's contracts and coverage tests, and make TDD enforce them at /start-ticket and /review-ticket.\n\n### Purpose\nClose the two blockers and four gaps found in the PX-325 audit: (1) registry boundary contracts cannot be written because validate-tickets requires a C-format id and a sourceEdge the producer does not emit; (2) @verifies only parses C-format ids, so Gate S/R can never cover a registry contract; (3) foreign steps are not gated as integration dependencies; (4) a reference unit passes with a note instead of a test; (5) the typed axes are planned but not checked; (6) the operation obligation fields are presented but not mapped to the test plan.\n\n### Motivation\n/split-to-tickets now emits ctr units and registry boundary contracts. The first distributed ticket that carries a boundary cannot reach `made`, and even if it did, /start-ticket Step 5b and /review-ticket Step 10b would block forever. gaia has 84 registry boundaries, so the current chain would stall as soon as graphify/boundify/split produce the first ctr ticket. The ticket must close the gap in the producer and in the shared contract-id grammar, not work around it in a ticket.\n\n### Constraints\n- Case B and pre-split tickets must keep their existing behavior; every new check is conditional on distribution units.\n- Machine-projected step and boundary contracts must never be removed, shortened or re-derived by hand; fix the producer.\n- No new dependency crate or runtime configuration.\n- After the tests are green, run `make install-to-projects` and verify the gaia target byte-for-byte.",
+          "scope": [
+            "**Registry contract identity:** `.claude/scripts/tickets/merge-contracts-to-tickets.js` — add `sourceEdge: boundary:<boundary_id>` to every contract emitted by `registryContractsForTicket`; `.claude/scripts/lib/validate-tickets.js` — accept contract ids matching `^(C\\d{3}|contract-[A-Za-z0-9_.-]+)$` and keep the non-empty sourceEdge/pre/post/invariant requirements; `.claude/scripts/tickets/tickets-schema.json` — align the contract id pattern and declare `boundaryId`, `registryContractId`, `clauseDigest` and `clauses`. Before: a ctr contract fails update-ticket with `must match C000 format` and `sourceEdge: must be non-empty string`. After: merge → update-ticket → status made succeeds without hand-editing the contract.",
+            "**TDD coverage grammar:** `.claude/scripts/tickets/verify-red-coverage.js` — extend `VERIFIES_RE`, `REQUIRES_RE` and `ASSERT_INV_RE` from `C\\d+` to `(C\\d+|contract-[A-Za-z0-9_.-]+)`; `verify-final-contracts.js` consumes the shared scanner unchanged. Before: `@verifies contract-boundary-001` is never recognized and Gate S/R fail forever. After: the registry id is covered while C-format ids and unknown-id reporting stay unchanged.",
+            "**Shared step integration:** add `.claude/scripts/tickets/lib/step-owner.js` exporting the owner label and foreign-step classification currently embedded in `show-ticket-context.js:601-677`; `show-ticket-context.js` imports it; `verify-make-distribution.js` loads `SEQUENCES.json` beside Tickets.json (with a `--view` override), finds foreign steps, and requires a `testIntegration` entry naming the owner and the step id for each interface-relevant foreign step.",
+            "**Interface-relevance rule:** a foreign step is interface-relevant when its contract has a non-empty `crosses` axis, or when a consumes/produces fact links it to a local step in sequence order. Other foreign steps remain informational and are not required as integration tests; this keeps the gate to the interfaces the ticket actually depends on.",
+            "**Reference work:** `verify-make-distribution.js` drops `notesText` from the reference declaration check; only `testUnit`/`testIntegration` satisfy `SHARED_WORK_UNDECLARED`. `make-ticket.md` Step 1.5 item 3 is corrected to require a test entry.",
+            "**Typed axes:** `verify-make-distribution.js` reads the ticket contract by `stepId` and requires each non-empty `consumes`, `produces`, `errors` and `crosses` fact to appear in the test plan; new finding `STEP_AXIS_NOT_DELIVERED`.",
+            "**Operation obligations:** define `CONTRACT_BEARING_OPERATION_FIELDS` and `SURFACE_OPERATION_FIELDS` once (shared with `show-ticket-context.js`); `verify-make-distribution.js` requires each non-empty field name to appear in the test plan or a justified `testExceptions` entry; new finding `OPERATION_OBLIGATION_UNPLANNED`.",
+            "**Command instructions:** `.claude/commands/make-ticket.md` Step 1.5/1.6/9.5 are updated to state the exact rules for foreign steps, reference units, typed axes and operation fields, and to name the new finding codes.",
+            "**Case B non-regression:** every new check runs only when `ticket.distribution.units.length > 0`; `skipped:no-distribution` remains the verdict for Case B and pre-split tickets, and show-ticket-context writes no new section.",
+            "**Out of scope:** the workspacify-order and verify-implementation-order design (PX-323/PX-325) is not reimplemented; this ticket adds regression tests only. Per-step cross-package owner precision for three or more result-object owners stays as recorded in the PX-325 residual; it is not exercised by the current workspace and is not part of this ticket.",
+            "**Affected areas — split pipeline:** every package whose ctr unit reaches a ticket now gets a valid registry contract; gaia's 84 registry boundaries become deliverable. No change to the allocate registry, graph, Dirs-Tree or smooth verdict.",
+            "**Affected areas — make/start/review:** `/make-ticket` Step 7 and 9.5 gain the new checks; `/start-ticket` Step 5b and `/review-ticket` Step 10b accept registry ids. Case B tickets keep their existing path.",
+            "**API/schema/config/dependency:** no new dependency; the ticket schema's contract definition gains the four boundary properties; the validator's accepted-id set is additive. No runtime configuration change.",
+            "**Installation:** after all tests are green, run `make install-to-projects`; verify `~/shyme/gaia/.claude` matches the changed conver files byte-for-byte."
+          ],
+          "testUnit": [
+            "UT: [Normal] validate-tickets accepts a registry boundary contract with id contract-boundary-001, boundaryId boundary-001, registryContractId contract-boundary-001 and sourceEdge boundary:boundary-001; the merged contract is written unchanged through update-ticket.",
+            "UT: [Normal] scanContractCoverage recognizes @verifies contract-boundary-001 next to @verifies C001 and reports both as covered.",
+            "UT: [Normal] verify-red-coverage exits 0 for a ticket whose contracts are C001 and contract-boundary-001 when both annotations exist.",
+            "UT: [Normal] verify-final-contracts Layer 2 passes for the same registry contract when a test file carries @verifies contract-boundary-001.",
+            "UT: [Normal] verify-make-distribution requires a testIntegration entry for a boundary-crossing foreign step and passes when it names the owner and the shared step.",
+            "UT: [Normal] verify-make-distribution passes a reference unit only when testUnit or testIntegration names the provider package or implementer ticket.",
+            "UT: [Normal] verify-make-distribution requires every typed axis (consumes, produces, errors, crosses) of a local step contract to appear in the test plan.",
+            "UT: [Normal] verify-make-distribution requires every contract-bearing operation field name (finalityPredicate, idempotencyScope, allowedStatusTransitions, and the other named fields) to appear in the test plan or a justified testException.",
+            "UT: [Normal] a ticket with no distribution units returns skipped:no-distribution from verify-make-distribution and check-ticket-prerequisites, preserving Case B.",
+            "UT: [Normal] the install-to-projects target mirrors the changed files to the gaia target after a green run; the check compares each changed file byte-for-byte and reports installed copies equal to conver copies.",
+            "UT: [Error] validate-tickets rejects an unknown contract id such as X001 and a registry id without the contract- prefix; the named field is reported.",
+            "UT: [Error] merge-contracts-to-tickets emits sourceEdge boundary:<boundary_id> so validate-tickets never sees a registry contract without provenance.",
+            "UT: [Error] verify-make-distribution reports SHARED_WORK_UNDECLARED when a reference provider appears only in notes; notes alone do not satisfy the gate.",
+            "UT: [Error] verify-make-distribution reports SHARED_STEP_INTEGRATION_MISSING when a boundary-crossing foreign step has no testIntegration entry.",
+            "UT: [Error] verify-make-distribution reports STEP_AXIS_NOT_DELIVERED and OPERATION_OBLIGATION_UNPLANNED by name rather than dropping the information silently.",
+            "UT: [Error] verify-make-distribution reports SHARED_STEP_OWNER_UNKNOWN when a foreign step has no resolvable owner instead of guessing.",
+            "UT: [Boundary] validate-tickets still accepts C001 and C500 and verify-red-coverage still covers them; the new grammar is additive.",
+            "UT: [Boundary] a registry contract with an empty precondition or postcondition is rejected; the projection keeps non-empty clauses from the allocate registry.",
+            "UT: [Boundary] @requires and @assert-invariant also recognize contract-boundary-001 and remain additive for C-format ids.",
+            "UT: [Invariant] the machine-projected boundary contract keeps id, boundaryId, registryContractId, precondition, postcondition and invariant unchanged from merge through make.",
+            "UT: [Invariant] workspacify-order refuses a stale sidecar and check-ticket-prerequisites skips Case B; the PX-323 and PX-325 guarantees are not weakened.",
+            "UT: [Invariant] every new finding code is deterministic and names the unit, step, field or boundary it refuses.",
+            "UT: [Invariant] the contract id grammar is declared once and shared by validate-tickets, verify-red-coverage, verify-final-contracts and tickets-schema.json.",
+            "UT: [Invariant] a local step with no typed axes keeps the existing pre/post/invariant delivery behavior; the new axis check is conditional on a non-empty axis."
+          ],
+          "testIntegration": [
+            "IT: merge-contracts-to-tickets + update-ticket + verify-red-coverage on a synthetic package whose ticket carries ctr-boundary-001: merge writes the registry contract, update-ticket accepts it, and Gate S passes with @verifies contract-boundary-001.",
+            "IT: merge-contracts-to-tickets + verify-make-distribution + verify-make-contracts on a synthetic ticket with one local step and one ctr unit: the step axes, the ctr precondition/postcondition/invariant and the operation obligations all appear in the test plan.",
+            "IT: verify-final-contracts on the same synthetic ticket after the tests are written: Layer 2 accepts the registry annotation and Layer 1 status is done.",
+            "IT: check-ticket-prerequisites on a two-ticket package whose prerequisite is todo: the dependent ticket is refused with PREREQUISITE_NOT_DONE; after the prerequisite reaches done it passes.",
+            "IT: verify-implementation-order --package and --workspace on a synthetic workspace: the implementation order is unchanged and the sidecar is fresh.",
+            "IT: show-ticket-context --for-spec on a distributed ticket renders Distribution Obligations, Work Share, Operation-Boundary Contracts and Implementation Prerequisites; a ticket without units renders none of them.",
+            "IT: make install-to-projects after all tests are green mirrors the changed .claude files into the gaia target; compare each changed file byte-for-byte."
+          ],
+          "testExceptions": [
+            "make install-to-projects writes into ~/shyme/gaia/.claude outside this repository and cannot test in isolation from the source tree; it is verified by installing into the declared target and comparing the mirrored files byte-for-byte after a green run; this is not a design defect."
+          ],
+          "instrumentation": "- [Logging] Every new gate writes one deterministic finding line to stderr in the existing `<CODE>: <subject> <message>` shape; no progress output is added to stdout.\n- [Metrics] No counter is added. The existing split and make verdicts (exit code, JSON `ok`/`skipped` fields) remain the only machine surface.\n- [Error tracking] New finding codes: SHARED_STEP_INTEGRATION_MISSING, SHARED_STEP_OWNER_UNKNOWN, STEP_AXIS_NOT_DELIVERED, OPERATION_OBLIGATION_UNPLANNED, DISTRIBUTION_VIEW_MISSING. Each names the step, unit, field or boundary it refuses.\n- [Health check] The gates themselves are the health check: `verify-red-coverage`, `verify-final-contracts`, `verify-make-distribution` and `verify-make-contracts` exit non-zero on a missing delivery, and `make install-to-projects` followed by a byte comparison verifies the gaia target.\nStatic quality check: passed (0 issues).\nTranslatability: no new violations in the PX-326 code; the pre-existing generic parameter `data` in validate-tickets.js and single-char `g` in show-ticket-context.js are unchanged known state.\nTests: tickets 166 pass, sequences-slice 369 pass, workspacify-order 161 pass, standalone 12/12/7 pass.\nInstall mirror: make install-to-projects exit 0; changed scripts and command/schema are byte-identical in the gaia target.",
+          "notes": "- [Implementation steps] (1) Red: extend `tests/validate-tickets-contracts.test.cjs`, `tests/verify-red-coverage.test.cjs`, `tests/verify-final-contracts.test.cjs`, `tests/tickets/verify-make-distribution.test.mjs`, `tests/tickets/step-contract-chain.test.cjs` with the failing registry-id, foreign-step, notes-only, axis and obligation cases. (2) Green: add `sourceEdge` in the merge producer; add the shared contract-id grammar; extend the annotation regex; extract `lib/step-owner.js` and add the three delivery checks. (3) Refactor: remove duplicated owner/axis logic from `show-ticket-context.js`, name the field lists, and keep one contract-id predicate. (4) Run the impact set: `tests/validate-tickets-contracts.test.cjs`, `tests/verify-red-coverage.test.cjs`, `tests/verify-final-contracts.test.cjs`, `tests/tickets/*.test.*`, `tests/sequences-slice/*.test.mjs`, `tests/workspacify-order/**/*.test.mjs`. (5) Run `make install-to-projects`. (6) Compare the changed files under `~/shyme/gaia/.claude` with conver byte-for-byte.\n- [Risks] Tightening the reference, axis and operation-obligation checks can reject a distributed ticket that previously passed with notes or with only the op id. This is intended; the integration test proves the synthetic ticket satisfies the new rules, and Case B is skipped. A too-strict foreign-step rule could reject a legitimate sequence; the interface-relevance rule limits the check to boundary-crossing or consumes/produces-linked steps.\n- [Caveats] The registry contract id stays `contract-<boundary_id>`; it is not renumbered to a C-id, so the allocate registry, graph projection and ticket contract remain the same identity. Machine-projected contracts are read unchanged. The schema change is additive and does not alter existing PX tickets.\n- [Open items] Per-step cross-package owner precision for operations with three or more result-object owners remains the PX-325 residual. Operation obligation fields are checked by field name, not by value semantics; a future ticket may synthesize first-class operation contracts if a field needs its own pre/post/invariant.\n- [Future improvements] Share the contract-id grammar with any future contract exporter; add a single `deliver-contract` helper if a fourth consumer of the scanner appears.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/lib/contract-id.js, contract-facts.js, step-owner.js; .claude/scripts/lib/validate-tickets.js; .claude/scripts/tickets/merge-contracts-to-tickets.js, verify-red-coverage.js, verify-make-distribution.js, show-ticket-context.js; tickets-schema.json; .claude/commands/make-ticket.md.\n- Tests: tests/validate-tickets-contracts.test.cjs, tests/verify-red-coverage.test.cjs, tests/verify-final-contracts.test.cjs, tests/tickets/step-contract-chain.test.cjs, tests/tickets/verify-make-distribution.test.mjs, tests/tickets/contract-grammar.test.mjs, tests/tickets/registry-contract-delivery.test.mjs.\n- Test results: tickets 165 pass, sequences-slice 369 pass, workspacify-order 161 pass, standalone 12/12/7 pass; quality checks totalIssues 0.\n- Install: make install-to-projects exit 0; the changed gaia scripts are byte-identical to conver and the installed update-ticket/verify-red-coverage smoke test passes.\n- Gate S: verify-red-coverage reports contractsChecked 8, contractsCovered 8.\nReview report:\n- Static quality check: passed (totalIssues 0).\n- Translatability: no new violations; pre-existing generic names are unchanged known state.\n- Dependencies: consistency verified against PX-323/PX-325 order and prerequisite gates.\n- Issues found and fixes applied: (1) C008 mirror test expanded to include tickets-schema.json and make-ticket.md; (2) a readable SEQUENCES.json that omits the carried sequence unit now fails DISTRIBUTION_VIEW_MISSING instead of silently skipping the foreign-step check; (3) make-ticket.md Step 1.6 axis wording aligned to the enforced test plan (testUnit or testIntegration).\n- Re-verification: annotation verify 25 files, missing 0, ambiguous 0; Gate S 8/8; impact tests green.",
+          "acceptanceCriteria": [
+            "Happy path: a synthetic distributed ticket carrying one local step, one ctr boundary contract and one reference unit reaches `made`; merge writes the registry contract, update-ticket accepts it, verify-make-distribution and verify-make-contracts pass, and Gate S/R pass with `@verifies contract-boundary-001` plus the step and axis entries.",
+            "Error case: removing the registry `@verifies` annotation, the foreign-step testIntegration entry, a typed axis or an operation field name fails with the named finding; a reference provider named only in notes fails SHARED_WORK_UNDECLARED; a registry contract without sourceEdge fails validate-tickets.",
+            "Edge case: a Case B or no-distribution ticket returns `skipped:no-distribution` from every distribution gate and writes no new spec section; a stale implementation-order sidecar is still refused; after `make install-to-projects` the changed gaia files match conver byte-for-byte."
+          ],
+          "investigation": "Evidence gathered from the PX-325 audit and reproduced in this workspace.\n- `merge-contracts-to-tickets.js:113-130` emits a registry contract as `{ id: 'contract-<boundary_id>', boundaryId, registryContractId, clauseDigest, precondition, postcondition, invariant, clauses }` with no `sourceEdge`.\n- `validate-tickets.js:63-67` requires every contract id to match `^C\\d{3}$` and every contract to carry a non-empty `sourceEdge`; `update-ticket.js:144` validates the whole document after every write. Reproduction: a ticket with `contract-boundary-001` fails with `contracts[0].id: must match C000 format` and `contracts[0].sourceEdge: must be non-empty string`, so Step 6 and Step 10 of /make-ticket cannot complete.\n- `verify-red-coverage.js:20-22` uses `@verifies\\s+(C\\d+)`; `:156-160` feeds every contract id, including `contract-boundary-001`. Reproduction: a test file containing `// @verifies contract-boundary-001` still reports `missing @verifies annotation`. `verify-final-contracts.js:24` imports the same scanner, so /review-ticket Step 10b fails identically.\n- `verify-make-distribution.js:105-112` iterates only `unit.obligation.steps`; `add-tickets-for-phase.js:762-765` stores only steps whose operation this ticket implements, so a foreign step is never checked. `:133` accepts `notesText` for a reference unit, contradicting Step 1.6's consumption-test requirement.\n- `verify-make-contracts.js:62-90` checks only precondition, postcondition and invariant; the `consumes`/`produces`/`errors`/`crosses` axes rendered by `show-ticket-context.js:758-780` have no gate.\n- `show-ticket-context.js:714-780` renders the operation obligation fields; the implement-unit check at `verify-make-distribution.js:98-104` only requires the operation id to appear somewhere in the test text.\n- Existing tests to extend: `tests/validate-tickets-contracts.test.cjs`, `tests/verify-red-coverage.test.cjs`, `tests/verify-final-contracts.test.cjs`, `tests/tickets/verify-make-distribution.test.mjs`, `tests/tickets/step-contract-chain.test.cjs`. Regression surfaces: `tests/tickets/check-ticket-prerequisites.test.mjs`, `tests/sequences-slice/verify-implementation-order.test.mjs`, `tests/workspacify-order/implementation-order-display.test.mjs`.",
+          "boyScoutPlan": "- Extract the contract-id grammar into `.claude/scripts/tickets/lib/contract-id.js` so validate-tickets, both coverage gates and the schema share one predicate instead of four spellings.\n- Extract `stepOwnerLabel` and the foreign-step classifier from `show-ticket-context.js` into `.claude/scripts/tickets/lib/step-owner.js`; the renderer and the delivery gate then read one implementation.\n- Name the operation field lists (`CONTRACT_BEARING_OPERATION_FIELDS`, `SURFACE_OPERATION_FIELDS`) instead of inline arrays, and use domain names (`foreignStep`, `interfaceRelevant`, `providerTerms`) instead of generic names.\n- Replace silent skips with named findings; no empty `catch` and no swallowed parse error in the new helper modules.\n- Keep each new function to one responsibility: one predicate, one owner resolver, one axis check, one obligation check.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "audit:registry-identity",
+              "precondition": "A registry boundary row with clauses and a boundary id is merged into a ticket.",
+              "postcondition": "The emitted contract keeps id, boundaryId, registryContractId and sourceEdge boundary:<id> and validate-tickets accepts it.",
+              "invariant": "Every emitted contract carries provenance and a non-empty precondition, postcondition and invariant."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "audit:tdd-coverage",
+              "precondition": "A ctr unit carries a registry contract id contract-<boundary id>.",
+              "postcondition": "An @verifies annotation with that exact id covers it in verify-red-coverage and verify-final-contracts.",
+              "invariant": "C-format ids stay covered and unknown ids stay reported."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "audit:shared-step",
+              "precondition": "A sequence unit carries a foreign step owned by another ticket or package.",
+              "postcondition": "A testIntegration entry names the owner and the shared step; boundary-crossing steps also name the boundary contract.",
+              "invariant": "Local step contracts are not duplicated and no implementation test is added for a foreign step."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "audit:reference-work",
+              "precondition": "A reference unit names a provider package or implementer ticket.",
+              "postcondition": "A testUnit or testIntegration entry names the provider; a note alone does not satisfy the gate.",
+              "invariant": "Never reimplement the provider."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "audit:typed-axes",
+              "precondition": "A local step contract carries consumes, produces, errors or crosses facts.",
+              "postcondition": "Each non-empty axis appears in the test plan.",
+              "invariant": "Precondition, postcondition and invariant delivery is unchanged."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "audit:operation-obligation",
+              "precondition": "An implement operation carries contract-bearing field names.",
+              "postcondition": "Each field name appears in the test plan or in a justified testException.",
+              "invariant": "The operation id naming rule is unchanged."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "audit:case-b",
+              "precondition": "A ticket has no distribution units (Case B or pre-split).",
+              "postcondition": "Every distribution gate returns skipped:no-distribution and writes no section.",
+              "invariant": "Case B behavior is unchanged."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "audit:install",
+              "precondition": "All conver tests are green after the change.",
+              "postcondition": "make install-to-projects mirrors the changed files to the gaia target.",
+              "invariant": "Installed copies equal the conver copies."
+            }
+          ],
+          "created_at": "2026-10-27",
+          "updated_at": "2026-10-27",
+          "default_files": [
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            ".claude/scripts/lib/validate-tickets.js",
+            ".claude/scripts/tickets/tickets-schema.json",
+            ".claude/scripts/tickets/verify-red-coverage.js",
+            ".claude/scripts/tickets/verify-make-distribution.js",
+            ".claude/scripts/tickets/lib/contract-id.js",
+            ".claude/scripts/tickets/lib/step-owner.js",
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/commands/make-ticket.md"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 registry contract identity — tests/validate-tickets-contracts.test.cjs, tests/tickets/registry-contract-delivery.test.mjs\n```js\nconst contract = { id: 'contract-boundary-001', boundaryId: 'boundary-001', registryContractId: 'contract-boundary-001', sourceEdge: 'boundary:boundary-001', precondition: 'identity present', postcondition: 'order_id derived', invariant: 'one active order_id' };\nconst document = { title: 'synthetic', round: 1, metadata: { source: 'PX-326', generatedAt: '2026-10-27' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'ctr', status: 'planned', contracts: [contract] }] }] };\nconst result = validateTickets(document);\nassert.equal(result.valid, true);\n```",
+            "C002 Gate S/R coverage of the registry id — tests/verify-red-coverage.test.cjs, tests/verify-final-contracts.test.cjs, tests/tickets/registry-contract-delivery.test.mjs\n```js\nconst covered = scanContractCoverage('// @verifies contract-boundary-001', new Set(['contract-boundary-001']));\nassert.equal(covered.missing.length, 0);\nconst verdict = verifyFinalContracts({ tickets, graph, contractsCheck: true, testDir: fixtureDir });\nassert.equal(verdict.valid, true);\n```",
+            "C003 foreign-step integration delivery — tests/tickets/verify-make-distribution.test.mjs\n```js\nconst result = evaluateDistributionDelivery(foreignTicket(), { view: foreignView(), ticketsDocument: foreignTicketsDocument() });\nassert.ok(result.findings.some((entry) => entry.code === 'SHARED_STEP_INTEGRATION_MISSING' && entry.subject === 'S__s2'));\nconst accepted = evaluateDistributionDelivery(foreignTicket({ testIntegration: ['IT: S__s2 from P0-1 across boundary-001'] }), { view: foreignView(), ticketsDocument: foreignTicketsDocument() });\nassert.equal(accepted.ok, true);\n```",
+            "C004 reference work is a test, not a note — tests/tickets/verify-make-distribution.test.mjs\n```js\nconst notesOnly = evaluateDistributionDelivery(ticket({ notes: 'provider pkg-1', distribution: { units: [{ unitId: 'op-B', kind: 'operation', obligation: { mode: 'reference', providers: ['pkg-1'] } }] } }));\nassert.ok(notesOnly.findings.some((entry) => entry.code === 'SHARED_WORK_UNDECLARED'));\nconst tested = evaluateDistributionDelivery(ticket({ testIntegration: ['IT: consume pkg-1'], distribution: { units: [{ unitId: 'op-B', kind: 'operation', obligation: { mode: 'reference', providers: ['pkg-1'] } }] } }));\nassert.equal(tested.ok, true);\n```",
+            "C005 typed-axis delivery — tests/tickets/verify-make-distribution.test.mjs\n```js\nconst localStep = { stepId: 'S__s1', operationId: 'A', order: 1, contract: { pre: ['pre'], post: ['post'], invariants: ['inv'], consumes: ['object:X'] } };\nconst missing = evaluateDistributionDelivery(ticket({ testUnit: ['UT: op-A returns the value'], contracts: [{ stepId: 'S__s1', precondition: 'pre', postcondition: 'post', invariant: 'inv', contract: { consumes: ['object:X'] } }], distribution: { units: [{ unitId: 'op-A', kind: 'operation', operationId: 'A', obligation: { mode: 'implement' } }, { unitId: 'seq-S', kind: 'sequence', obligation: { mode: 'steps', steps: [localStep] } }] } }));\nassert.ok(missing.findings.some((entry) => entry.code === 'STEP_AXIS_NOT_DELIVERED' && entry.subject === 'S__s1:consumes'));\n```",
+            "C006 operation obligation planning — tests/tickets/verify-make-distribution.test.mjs, tests/tickets/contract-grammar.test.mjs\n```js\nconst result = evaluateDistributionDelivery(ticket({ testUnit: ['UT: op-A returns the value'], distribution: { units: [{ unitId: 'op-A', kind: 'operation', operationId: 'A', obligation: { mode: 'implement', finalityPredicate: 'none required' } }] } }));\nassert.ok(result.findings.some((entry) => entry.code === 'OPERATION_OBLIGATION_UNPLANNED' && entry.subject === 'op-A:finalityPredicate'));\nassert.deepEqual([...CONTRACT_BEARING_OPERATION_FIELDS, ...SURFACE_OPERATION_FIELDS, ...DESCRIPTIVE_OPERATION_FIELDS].sort(), [...OPERATION_OBLIGATION_FIELDS].sort());\n```",
+            "C007 Case B / no-distribution non-regression — tests/tickets/verify-make-distribution.test.mjs, tests/tickets/empty-view-additivity.test.mjs, tests/tickets/registry-contract-delivery.test.mjs\n```js\nconst skipped = evaluateDistributionDelivery(ticket());\nassert.deepEqual(skipped, { ok: true, skipped: 'no-distribution', findings: [] });\nconst document = { title: 'Case B', round: 1, metadata: { source: 'conversation', generatedAt: '2026-10-27' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'Case B', status: 'todo' }] }] };\nassert.equal(validateTickets(document).valid, true);\n```",
+            "C008 installation mirror — installed-copy smoke test in this session\n```js\nconst gaiaRoot = process.env.GAIA_ROOT ?? path.join(os.homedir(), 'shyme', 'gaia');\nconst converBytes = fs.readFileSync('tools/conver/.claude/scripts/tickets/verify-red-coverage.js', 'utf8');\nconst gaiaBytes = fs.readFileSync(path.join(gaiaRoot, '.claude/scripts/tickets/verify-red-coverage.js'), 'utf8');\nassert.equal(gaiaBytes, converBytes);\nconst update = execFileSync(process.execPath, [path.join(gaiaRoot, '.claude/scripts/tickets/update-ticket.js'), ticketsPath, 'P0-1'], { input: JSON.stringify({ status: 'made' }), encoding: 'utf8' });\nassert.equal(JSON.parse(update.trim().split('\\n').pop()).success, true);\n```"
+          ],
+          "startedAt": "2026-10-27",
+          "changes": [
+            {
+              "before": "Registry boundary contracts could not be written: validate-tickets rejected contract-<boundary_id> ids and the merge producer emitted no sourceEdge.",
+              "after": "The producer emits sourceEdge boundary:<boundary_id>, the shared contract-id grammar accepts C-format and registry ids, and update-ticket writes the projected contract unchanged.",
+              "description": "Registry contract identity (C001)."
+            },
+            {
+              "before": "Gate S/R could not cover a registry contract because @verifies only parsed C-format ids.",
+              "after": "verify-red-coverage and verify-final-contracts accept @verifies/@requires/@assert-invariant contract-<boundary_id> while keeping C-format and unknown-id reporting.",
+              "description": "TDD coverage grammar (C002)."
+            },
+            {
+              "before": "Foreign sequence steps were rendered in Work Share but never checked against the ticket's integration plan.",
+              "after": "verify-make-distribution loads SEQUENCES.json and requires a testIntegration entry naming the owner, the step id and the crossed boundary for each interface-relevant foreign step.",
+              "description": "Shared-step integration delivery (C003)."
+            },
+            {
+              "before": "A reference unit could be discharged by a note.",
+              "after": "Only testUnit/testIntegration satisfy the reference gate; notes alone are SHARED_WORK_UNDECLARED.",
+              "description": "Reference work is a test (C004)."
+            },
+            {
+              "before": "The consumes/produces/errors/crosses axes were presented but not gated.",
+              "after": "Each non-empty axis fact must appear in the test plan; STEP_AXIS_NOT_DELIVERED names the step and axis.",
+              "description": "Typed-axis delivery (C005)."
+            },
+            {
+              "before": "Implement operation obligation fields were presented but not mapped to the test plan.",
+              "after": "Contract-bearing and surface fields are classified once and each non-empty field name must appear in the test plan or a justified testException; OPERATION_OBLIGATION_UNPLANNED names the field.",
+              "description": "Operation obligation planning (C006)."
+            },
+            {
+              "before": "Case B and no-distribution tickets shared the new gate path.",
+              "after": "Every new check is conditional on distribution.units; no-distribution tickets keep skipped:no-distribution and write no new spec section.",
+              "description": "Case B non-regression (C007)."
+            },
+            {
+              "before": "The changed scripts were not synchronised to the gaia target.",
+              "after": "make install-to-projects exits 0 and the changed scripts are byte-identical in ~/shyme/gaia/.claude; a conditional C008 test verifies the mirror.",
+              "description": "Installation mirror (C008)."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-27"
         }
       ]
     },

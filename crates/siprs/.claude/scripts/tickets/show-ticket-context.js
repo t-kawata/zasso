@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * show-ticket-context.js — make-ticket Step 1
  *
@@ -19,6 +18,13 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
 const { fromHomeRelative, resolveStoredPath, toHomeRelative } = require('../lib/path-utils');
+const { CONTRACT_AXES, OPERATION_OBLIGATION_FIELDS } = require('./lib/contract-facts');
+const {
+  flattenTicketDocument,
+  publicTicketKey,
+  stepOwnerLabel,
+  viewSequenceUnit,
+} = require('./lib/step-owner');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -529,17 +535,9 @@ function generateSlug(title) {
 // [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
 /** The operation fields an implementer must receive; the projection is explicit so a
  * classification field cannot be mistaken for work. */
-const OPERATION_OBLIGATION_FIELDS = Object.freeze([
-  'kind', 'purpose', 'requiredAuthority', 'requiresRemoteTimeHandshake',
-  'requiresSessionBinding', 'requiredPreStateCheckpoint', 'requiredProofClasses',
-  'idempotencyScope', 'initialStatus', 'allowedStatusTransitions',
-  'externalDependencyClass', 'finalityPredicate', 'cancellationRule',
-  'reversalOrRecoveryRule', 'rest', 'websocket', 'cli', 'rejectCodeFamilies',
-  'registryContribution', 'boundaryEffects', 'resultObjectClasses', 'specLines',
-]);
-
 /** One obligation value as a single Markdown line, or null when it carries nothing. */
 // [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderObligationValue(value) {
   if (Array.isArray(value)) return value.length > 0 ? value.join('; ') : null;
   if (value !== null && typeof value === 'object') {
@@ -561,65 +559,19 @@ function renderFactText(facts) {
 
 /** The four axes the prose pre/post/invariant labels do not cover. */
 // [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
-const EXTRA_CONTRACT_AXES = Object.freeze(['consumes', 'produces', 'errors', 'crosses']);
+const EXTRA_CONTRACT_AXES = CONTRACT_AXES;
 
 /** One contract axis as a Markdown line, or null when the axis is empty. */
 // [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderContractAxis(contract, axis) {
   const text = renderFactText(contract?.[axis]);
   return text.length > 0 ? `${axis}: ${text}` : null;
 }
 
-/** A ticket's public key, matching the project's ticket identity rule. */
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function publicTicketKey(ticket) {
-  const phaseId = ticket?.phaseId ?? -1;
-  return phaseId === -1 ? `PX-${ticket.id}` : `P${phaseId}-${ticket.id}`;
-}
-
-/** Every ticket in a document, in phase order, with its phase id. */
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function flattenTicketDocument(document) {
-  return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
-    ...ticket,
-    phaseId: ticket.phaseId ?? phase.id,
-  })));
-}
-
-/** The view unit carrying the same sequence as a ticket unit, or null. */
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function viewSequenceUnit(view, unit) {
-  const candidates = [
-    ...(Array.isArray(view?.ownedSequenceUnits) ? view.ownedSequenceUnits : []),
-    ...(Array.isArray(view?.crossBoundarySequenceUnits) ? view.crossBoundarySequenceUnits : []),
-  ];
-  return candidates.find((candidate) => candidate?.unitId === unit?.unitId
-    || (candidate?.sequenceId !== undefined && candidate.sequenceId === unit?.sequenceId))
-    ?? null;
-}
-
-/** The owner label of one sequence step: this ticket, another ticket, or a package. */
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function stepOwnerLabel({ step, unit, ticket, ticketsDocument, view }) {
-  const localSteps = Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : [];
-  if (localSteps.some((candidate) => candidate?.stepId === step?.stepId)) return 'this ticket';
-
-  const operationId = step?.operationId ?? step?.operation;
-  const other = flattenTicketDocument(ticketsDocument).find((candidate) => candidate !== ticket
-    && (candidate?.distribution?.units ?? []).some((candidateUnit) => candidateUnit?.unitId === `op-${operationId}`
-      && candidateUnit?.kind === 'operation'
-      && candidateUnit?.obligation?.mode === 'implement'));
-  if (other !== undefined) return publicTicketKey(other);
-
-  const unitInView = viewSequenceUnit(view, unit);
-  const otherPackages = (unitInView?.ownerPackageIds ?? []).filter((packageId) => packageId !== view?.packageId);
-  if (otherPackages.length === 1) return `package ${otherPackages[0]}`;
-  if (otherPackages.length > 1) return `package ${otherPackages.join(', ')}`;
-  return 'unknown package';
-}
-
 /** The Work Share block: own work, shared work and the ctr boundary contract. */
 // [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'

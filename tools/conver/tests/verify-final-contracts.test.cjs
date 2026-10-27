@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 let mod;
 try { mod = require('../.claude/scripts/tickets/verify-final-contracts.js'); } catch (e) { mod = null; }
 const stats = { passed: 0, failed: 0, total: 0 };
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function test(n, fn) { stats.total++; try { fn(); stats.passed++; console.log('  ✅', n); } catch (e) { stats.failed++; console.log('  ❌', n); console.error('     ' + e.message); } }
 
 console.log('\n--- verify-final-contracts tests ---\n');
@@ -59,6 +63,23 @@ if (!mod || !mod.verifyFinalContracts) {
     const graph = { sourceFile:'t.md', mainLanguage:'rust', nodes:[], edges:[mkEdge('N1','N2','depends_on',[mkContract('C001'), mkContract('C002')])] };
     const result = mod.verifyFinalContracts({ tickets, graph, contractsCheck: true });
     assert.strictEqual(result.report.details.length, 1);
+  });
+
+  // PX-326: Gate R Layer 2 reads the same scanner as Gate S. A registry boundary
+  // contract must be coverable by @verifies contract-<boundary_id>.
+  test('PX-326 Layer 2 covers a registry boundary contract', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px326-final-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'registry.test.js'), '// @verifies contract-boundary-001\n');
+      const contract = { id: 'contract-boundary-001', sourceEdge: 'boundary:boundary-001', precondition: 'p', postcondition: 'q', invariant: 'r' };
+      const tickets = [mkTicket(1, [contract], 'done')];
+      const graph = { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges: [] };
+      const result = mod.verifyFinalContracts({ tickets, graph, contractsCheck: true, testDir: dir });
+      assert.strictEqual(result.valid, true);
+      assert.strictEqual(result.report.details[0].verifiesMissing.length, 0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 }
 console.log('\nTotal: ' + stats.total + ' Passed: ' + stats.passed + ' Failed: ' + stats.failed);

@@ -19,6 +19,18 @@ const fs = require('fs');
 const path = require('path');
 
 const { parseTicketKey } = require('../lib/validate-tickets');
+const {
+  CONTRACT_AXES,
+  CONTRACT_BEARING_OPERATION_FIELDS,
+  SURFACE_OPERATION_FIELDS,
+  factTexts,
+  hasObligationValue,
+} = require('./lib/contract-facts');
+const {
+  foreignStepsForUnit,
+  isInterfaceRelevantForeignStep,
+  stepOwnerLabel,
+} = require('./lib/step-owner');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -29,6 +41,11 @@ const DELIVERY_CODES = Object.freeze({
   STEP_CONTRACT_NOT_DELIVERED: 'STEP_CONTRACT_NOT_DELIVERED',
   BOUNDARY_CONTRACT_NOT_DELIVERED: 'BOUNDARY_CONTRACT_NOT_DELIVERED',
   SHARED_WORK_UNDECLARED: 'SHARED_WORK_UNDECLARED',
+  SHARED_STEP_INTEGRATION_MISSING: 'SHARED_STEP_INTEGRATION_MISSING',
+  SHARED_STEP_OWNER_UNKNOWN: 'SHARED_STEP_OWNER_UNKNOWN',
+  STEP_AXIS_NOT_DELIVERED: 'STEP_AXIS_NOT_DELIVERED',
+  OPERATION_OBLIGATION_UNPLANNED: 'OPERATION_OBLIGATION_UNPLANNED',
+  DISTRIBUTION_VIEW_MISSING: 'DISTRIBUTION_VIEW_MISSING',
   DISTRIBUTION_SECTION_MISSING: 'DISTRIBUTION_SECTION_MISSING',
   DISTRIBUTION_SPEC_MISSING: 'DISTRIBUTION_SPEC_MISSING',
   WORK_SHARE_SECTION_MISSING: 'WORK_SHARE_SECTION_MISSING',
@@ -79,19 +96,162 @@ function boundaryContractIsDelivered(unit, ticket) {
     || contract?.id === `contract-${boundaryId}`);
 }
 
+/** Whether a unit is a sequence whose steps may include a foreign step. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function isSequenceUnit(unit) {
+  const unitId = String(unit?.unitId ?? '');
+  return unit?.kind === 'sequence'
+    || unit?.kind === 'cross-boundary-sequence'
+    || unitId.startsWith('seq-')
+    || unitId.startsWith('xdir-');
+}
+
+/** The ticket contract that projects one step, or undefined. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function contractForStep(ticket, stepId) {
+  return (Array.isArray(ticket?.contracts) ? ticket.contracts : [])
+    .find((contract) => contract?.stepId === stepId);
+}
+
+/** The fact texts of one typed axis on a ticket contract. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function axisTexts(contract, axis) {
+  return factTexts(contract?.contract?.[axis]);
+}
+
+/** A step's typed axes are delivered only when each non-empty fact is in the test plan. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function stepAxisFindings({ ticket, unit, testText }) {
+  const findings = [];
+  for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
+    const contract = contractForStep(ticket, step.stepId);
+    if (contract === undefined) continue; // STEP_CONTRACT_NOT_DELIVERED already fired
+    for (const axis of CONTRACT_AXES) {
+      const texts = axisTexts(contract, axis);
+      if (texts.length === 0) continue;
+      if (!texts.some((text) => testText.includes(text))) {
+        findings.push({
+          code: DELIVERY_CODES.STEP_AXIS_NOT_DELIVERED,
+          subject: `${step.stepId}:${axis}`,
+          message: `step ${step.stepId} carries ${axis} (${texts.join(', ')}) and no test-plan entry names it`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+/** The terms that identify a foreign step's owner; null when the owner is unresolved. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function ownerTerms(label) {
+  if (label === 'this ticket') return [];
+  if (label === 'unknown package') return null;
+  if (label.startsWith('package ')) {
+    return label.slice('package '.length).split(',').map((term) => term.trim()).filter((term) => term.length > 0);
+  }
+  return [label];
+}
+
+/** The boundary ids a foreign step crosses. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function crossedBoundaryIds(step) {
+  return factTexts(step?.contract?.crosses)
+    .map((fact) => (fact.startsWith('boundary:') ? fact.slice('boundary:'.length).split('/')[0] : fact))
+    .filter((boundaryId) => boundaryId.length > 0);
+}
+
+/**
+ * Each interface-relevant foreign step needs one integration entry naming its owner and
+ * the step. A boundary-crossing step also needs the boundary id, because that contract is
+ * the interface the two sides must agree on.
+ */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
+  const findings = [];
+  const viewUnit = (view?.ownedSequenceUnits ?? []).concat(view?.crossBoundarySequenceUnits ?? [])
+    .find((candidate) => candidate?.unitId === unit?.unitId
+      || (candidate?.sequenceId !== undefined && candidate.sequenceId === unit?.sequenceId));
+  if (viewUnit === undefined) {
+    // A readable view that omits the carried sequence is as unusable as an unreadable
+    // one: without its steps the foreign-step check would pass by seeing nothing.
+    findings.push({
+      code: DELIVERY_CODES.DISTRIBUTION_VIEW_MISSING,
+      subject: unit?.unitId ?? '?',
+      message: `the package view declares no sequence unit ${unit?.unitId ?? '?'}, so foreign steps cannot be checked`,
+    });
+    return findings;
+  }
+
+  const localSteps = Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : [];
+  const allSteps = Array.isArray(viewUnit?.steps) ? viewUnit.steps : [];
+  const integrationText = [...(ticket.testIntegration ?? [])].join(' ');
+  for (const foreignStep of foreignStepsForUnit({ view, unit })) {
+    if (!isInterfaceRelevantForeignStep({ foreignStep, localSteps, allSteps })) continue;
+    const terms = ownerTerms(stepOwnerLabel({ step: foreignStep, unit, ticket, ticketsDocument, view }));
+    if (terms === null) {
+      findings.push({
+        code: DELIVERY_CODES.SHARED_STEP_OWNER_UNKNOWN,
+        subject: foreignStep?.stepId ?? '?',
+        message: `foreign step ${foreignStep?.stepId ?? '?'} has no resolvable owner`,
+      });
+      continue;
+    }
+    const namesOwner = terms.length === 0 || terms.some((term) => integrationText.includes(term));
+    const namesStep = typeof foreignStep?.stepId === 'string' && integrationText.includes(foreignStep.stepId);
+    const boundaryIds = crossedBoundaryIds(foreignStep);
+    const namesBoundary = boundaryIds.every((boundaryId) => integrationText.includes(boundaryId));
+    if (!namesOwner || !namesStep || !namesBoundary) {
+      findings.push({
+        code: DELIVERY_CODES.SHARED_STEP_INTEGRATION_MISSING,
+        subject: foreignStep?.stepId ?? '?',
+        message: `foreign step ${foreignStep?.stepId ?? '?'} needs a testIntegration entry naming its owner (${terms.join(', ') || 'this ticket'}), the step id and ${boundaryIds.join(', ') || 'no boundary'}`,
+      });
+    }
+  }
+  return findings;
+}
+
+/** Each non-empty contract-bearing or surface operation field must be planned by name. */
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function operationObligationFindings({ unit, testText, exceptionText }) {
+  const findings = [];
+  const fields = [...CONTRACT_BEARING_OPERATION_FIELDS, ...SURFACE_OPERATION_FIELDS];
+  for (const field of fields) {
+    if (!hasObligationValue(unit?.obligation?.[field])) continue;
+    if (testText.includes(field) || exceptionText.includes(field)) continue;
+    findings.push({
+      code: DELIVERY_CODES.OPERATION_OBLIGATION_UNPLANNED,
+      subject: `${unit?.unitId ?? '?'}:${field}`,
+      message: `operation ${unit?.unitId ?? '?'} carries ${field} and no test-plan or testException entry names it`,
+    });
+  }
+  return findings;
+}
+
 /**
  * Evaluate the delivery gate without writing to the process streams.
  *
  * @returns {{ ok: boolean, skipped?: string, findings: Array<object> }}
  */
-// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
-function evaluateDistributionDelivery(ticket, { specText = null, specProvided = false } = {}) {
+// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
+function evaluateDistributionDelivery(ticket, { specText = null, specProvided = false, view, ticketsDocument = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return { ok: true, skipped: 'no-distribution', findings: [] };
 
   const findings = [];
   const testText = [...(ticket.testUnit ?? []), ...(ticket.testIntegration ?? [])].join(' ');
-  const notesText = typeof ticket.notes === 'string' ? ticket.notes : '';
+  const exceptionText = [...(ticket.testExceptions ?? [])].join(' ');
+
+  // A sequence unit's foreign steps live in the package view. The split guarantees the
+  // view for a distributed ticket; an explicit null means it could not be read, which is
+  // a finding rather than a silent loss of the foreign-step check.
+  if (units.some((unit) => isSequenceUnit(unit)) && view === null) {
+    findings.push({
+      code: DELIVERY_CODES.DISTRIBUTION_VIEW_MISSING,
+      subject: 'SEQUENCES.json',
+      message: 'a sequence unit is carried and the package view is unreadable, so foreign steps cannot be checked',
+    });
+  }
 
   for (const unit of units) {
     const unitId = String(unit?.unitId ?? '');
@@ -101,13 +261,18 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
       if (!named) {
         findings.push({ code: DELIVERY_CODES.DISTRIBUTION_UNIT_UNTESTED, subject: unitId, message: `implement unit ${unitId} is in no test plan entry` });
       }
+      findings.push(...operationObligationFindings({ unit, testText, exceptionText }));
     }
-    if (unit?.kind === 'sequence' || unit?.kind === 'cross-boundary-sequence' || unitId.startsWith('seq-') || unitId.startsWith('xdir-')) {
+    if (isSequenceUnit(unit)) {
       for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
-        const contract = (Array.isArray(ticket.contracts) ? ticket.contracts : []).find((candidate) => candidate?.stepId === step.stepId);
+        const contract = contractForStep(ticket, step.stepId);
         if (!stepContractIsDelivered(step, contract)) {
           findings.push({ code: DELIVERY_CODES.STEP_CONTRACT_NOT_DELIVERED, subject: step.stepId, message: `step ${step.stepId} is carried by the ticket and its contract is not in ticket.contracts` });
         }
+      }
+      findings.push(...stepAxisFindings({ ticket, unit, testText }));
+      if (view !== undefined && view !== null) {
+        findings.push(...foreignStepFindings({ ticket, unit, view, ticketsDocument }));
       }
     }
     if (unitId.startsWith('ctr-')) {
@@ -130,9 +295,9 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
         .filter((value) => typeof value === 'string' || typeof value === 'number')
         .map((value) => String(value))
         .filter((value) => value.length > 0);
-      const declared = providerTerms.some((term) => testText.includes(term) || notesText.includes(term));
+      const declared = providerTerms.some((term) => testText.includes(term));
       if (!declared && providerTerms.length > 0) {
-        findings.push({ code: DELIVERY_CODES.SHARED_WORK_UNDECLARED, subject: unitId, message: `reference unit ${unitId} names ${providerTerms.join(', ')} and no test plan or note names it` });
+        findings.push({ code: DELIVERY_CODES.SHARED_WORK_UNDECLARED, subject: unitId, message: `reference unit ${unitId} names ${providerTerms.join(', ')} and no test-plan entry names it` });
       }
     }
   }
@@ -147,14 +312,8 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
     // Work Share is the block for sequence and ctr units. An operation-only ticket has
     // no shared step owner or boundary to report, so requiring the block would reject a
     // correct spec for that shape.
-    const requiresWorkShare = units.some((unit) => {
-      const unitId = String(unit?.unitId ?? '');
-      return unit?.kind === 'sequence'
-        || unit?.kind === 'cross-boundary-sequence'
-        || unitId.startsWith('seq-')
-        || unitId.startsWith('xdir-')
-        || unitId.startsWith('ctr-');
-    });
+    const requiresWorkShare = units.some((unit) => isSequenceUnit(unit)
+      || String(unit?.unitId ?? '').startsWith('ctr-'));
     if (requiresWorkShare && !specText.includes('### Work Share')) {
       findings.push({ code: DELIVERY_CODES.WORK_SHARE_SECTION_MISSING, subject: null, message: 'the spec has no ### Work Share section' });
     }
@@ -162,7 +321,7 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
   return { ok: findings.length === 0, findings };
 }
 
-// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
@@ -179,7 +338,16 @@ function run(argv = process.argv.slice(2)) {
   }
   const specPath = argumentFor(argv, 'spec');
   const specText = specPath !== null && fs.existsSync(specPath) ? fs.readFileSync(specPath, 'utf8') : null;
-  const result = evaluateDistributionDelivery(ticket, { specText, specProvided: specPath !== null });
+  const viewPath = argumentFor(argv, 'view') ?? path.join(path.dirname(path.resolve(ticketsPath)), 'SEQUENCES.json');
+  let view = null;
+  if (fs.existsSync(viewPath)) {
+    try {
+      view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+    } catch {
+      view = null;
+    }
+  }
+  const result = evaluateDistributionDelivery(ticket, { specText, specProvided: specPath !== null, view, ticketsDocument: document });
   return { code: result.ok ? EXIT_OK : EXIT_FAILURE, verdict: result, findings: result.findings ?? [] };
 }
 

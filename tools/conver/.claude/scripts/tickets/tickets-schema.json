@@ -294,8 +294,8 @@
             "properties": {
               "id": {
                 "type": "string",
-                "pattern": "^C[0-9]{3}$",
-                "description": "契約ID。グラフ内で一意なC000形式。"
+                "pattern": "^(?:C\\d{3}|contract-[A-Za-z0-9_.-]+)$",
+                "description": "契約ID。グラフ内で一意なC000形式、または割当レジストリの contract-<boundary_id> 形式。"
               },
               "sourceEdge": {
                 "type": "string",
@@ -352,6 +352,29 @@
               "satisfiedBy": {
                 "type": "string",
                 "description": "Explicit link when a paraphrase is recorded instead of an identical clause."
+              },
+              "boundaryId": {
+                "type": "string",
+                "description": "Registry boundary id the contract projects (ctr units)."
+              },
+              "registryContractId": {
+                "type": "string",
+                "pattern": "^contract-[A-Za-z0-9_.-]+$",
+                "description": "Allocate-registry contract id for a boundary contract."
+              },
+              "clauseDigest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Digest of the registry clauses the projection was built from."
+              },
+              "clauses": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "The registry clauses (preconditions, postconditions, invariants) carried unchanged."
               }
             }
           }

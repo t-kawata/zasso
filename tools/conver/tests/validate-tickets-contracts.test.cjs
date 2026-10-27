@@ -219,6 +219,76 @@ test('invariant: ALLOWED statuses union R-pattern covers every status a script c
 });
 
 // ============================================================
+// PX-326: registry boundary contract ids
+// ============================================================
+
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+function makeRegistryContract(overrides) {
+  return {
+    id: 'contract-boundary-001',
+    boundaryId: 'boundary-001',
+    registryContractId: 'contract-boundary-001',
+    sourceEdge: 'boundary:boundary-001',
+    clauseDigest: 'a'.repeat(64),
+    precondition: 'identity present',
+    postcondition: 'order_id derived',
+    invariant: 'one active order_id',
+    clauses: { preconditions: ['identity present'], postconditions: ['order_id derived'], invariants: ['one active order_id'] },
+    ...overrides,
+  };
+}
+
+test('PX-326 accepts a registry boundary contract with contract-<boundary_id> id', () => {
+  const data = makeValidTicketsBase();
+  data.phases[0].tickets.push({
+    id: 1,
+    phaseId: -1,
+    title: 'Registry Ticket',
+    status: 'todo',
+    contracts: [makeRegistryContract()],
+  });
+  const result = validateTickets(data);
+  assert.ok(result.valid, 'Expected valid=true, got errors: ' + JSON.stringify(result.errors));
+});
+
+test('PX-326 rejects a registry contract with no provenance', () => {
+  const data = makeValidTicketsBase();
+  const contract = makeRegistryContract({ sourceEdge: undefined });
+  data.phases[0].tickets.push({
+    id: 1,
+    phaseId: -1,
+    title: 'Registry Ticket',
+    status: 'todo',
+    contracts: [contract],
+  });
+  const result = validateTickets(data);
+  assert.ok(!result.valid, 'Expected invalid');
+  assertErrors(result, 1, 'sourceEdge');
+});
+
+test('PX-326 rejects an empty contract- suffix and keeps C-format ids valid', () => {
+  const bad = makeValidTicketsBase();
+  bad.phases[0].tickets.push({
+    id: 1,
+    phaseId: -1,
+    title: 'Bad Registry Ticket',
+    status: 'todo',
+    contracts: [makeRegistryContract({ id: 'contract-', registryContractId: 'contract-' })],
+  });
+  assert.ok(!validateTickets(bad).valid, 'contract- must not be a contract id');
+
+  const good = makeValidTicketsBase();
+  good.phases[0].tickets.push({
+    id: 1,
+    phaseId: -1,
+    title: 'C Ticket',
+    status: 'todo',
+    contracts: [makeContract('C001', 'N1→N2', 'a', 'b', 'c')],
+  });
+  assert.ok(validateTickets(good).valid, 'C001 must stay valid');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 

@@ -109,7 +109,7 @@ function normalizeRegistryContracts(registry) {
 }
 
 /** The registry contracts a ticket owes for the ctr units it carries. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-326) --for-spec --no-implementation-order`.
 function registryContractsForTicket(ticket, registry) {
   const unitIds = [
     ...(ticket.nodeIds ?? []),
@@ -121,6 +121,9 @@ function registryContractsForTicket(ticket, registry) {
     const registryContractId = `contract-${row.boundary_id}`;
     contracts.push({
       id: registryContractId,
+      // A registry contract has no graph edge, so its provenance is the boundary it
+      // projects. validate-tickets requires a non-empty sourceEdge for every contract.
+      sourceEdge: `boundary:${row.boundary_id}`,
       boundaryId: row.boundary_id,
       registryContractId,
       clauseDigest: row.clauses === null ? null : boundaryClauseDigest(row),

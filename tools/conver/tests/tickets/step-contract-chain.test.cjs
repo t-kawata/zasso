@@ -39,6 +39,7 @@ function graphFixture() {
 
 // [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function ticketFixture() {
   return [{
     id: 1,
@@ -87,6 +88,7 @@ test('mergeContracts adds the registry contract with boundaryId and clauseDigest
   const contract = tickets[0].contracts.find((entry) => entry.boundaryId === 'boundary-001');
   assert.ok(contract, 'the registry contract is present');
   assert.equal(contract.registryContractId, 'contract-boundary-001');
+  assert.equal(contract.sourceEdge, 'boundary:boundary-001');
   assert.equal(contract.clauseDigest, boundaryClauseDigest(REGISTRY[0]));
   assert.equal(contract.precondition, 'identity present');
   assert.deepEqual(contract.clauses, REGISTRY[0].clauses);

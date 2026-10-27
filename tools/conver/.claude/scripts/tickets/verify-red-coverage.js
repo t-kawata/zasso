@@ -17,9 +17,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const VERIFIES_RE = /@verifies\s+(C\d+)/g;
-const REQUIRES_RE = /@requires\s+(C\d+)/g;
-const ASSERT_INV_RE = /@assert-invariant\s+(C\d+)/g;
+const { CONTRACT_ID_SOURCE } = require('./lib/contract-id');
+
+// The Gate S/R annotation grammar is the contract-id grammar. A registry boundary
+// contract is identified by contract-<boundary_id>, not by a C-number, so the scanner
+// must accept both forms.
+const VERIFIES_RE = new RegExp(`@verifies\\s+(${CONTRACT_ID_SOURCE})`, 'g');
+const REQUIRES_RE = new RegExp(`@requires\\s+(${CONTRACT_ID_SOURCE})`, 'g');
+const ASSERT_INV_RE = new RegExp(`@assert-invariant\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 
 // [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
@@ -45,10 +50,14 @@ function parseArgs() {
  * @param {Set<string>} expectedIds — Set of expected contract IDs
  * @returns {{ covered: Set<string>, missing: string[], unknown: Array<{file: string, id: string}> }}
  */
-// [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-70, PX-71, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71|PX-326) --for-spec --no-implementation-order`.
 function scanContractCoverage(content, expectedIds) {
   const foundIds = new Set();
   const unknownAnnotations = [];
+
+  VERIFIES_RE.lastIndex = 0;
+  REQUIRES_RE.lastIndex = 0;
+  ASSERT_INV_RE.lastIndex = 0;
 
   // Match @verifies
   let m;
