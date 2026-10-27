@@ -155,7 +155,9 @@ function renderUnit(unit) {
   if (unit.obligation?.mode === 'reference') {
     const providers = renderObligationValue(unit.obligation.providers);
     if (providers !== null) lines.push(`- providers: ${providers}`);
-    const implementer = renderObligationValue(unit.obligation.implementerTicketId);
+    // The durable key survives phase renumbering; the numeric id is its phase-local fallback.
+    const implementer = renderObligationValue(unit.obligation.implementerTicketKey)
+      ?? renderObligationValue(unit.obligation.implementerTicketId);
     if (implementer !== null) lines.push(`- implementer ticket: ${implementer}`);
   }
   if (unit.obligation?.mode === 'implement') {

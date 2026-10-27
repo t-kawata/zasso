@@ -116,10 +116,20 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
       }
     }
     if (unit?.obligation?.mode === 'reference') {
+      // The durable key is the identity a design can name across phases. The numeric id is
+      // the phase-local fallback written before the key existed, so it is used only when no
+      // key is present: a bare number must not stand in for the ticket it happens to equal.
+      const implementer = typeof unit.obligation.implementerTicketKey === 'string'
+        && unit.obligation.implementerTicketKey.length > 0
+        ? unit.obligation.implementerTicketKey
+        : unit.obligation.implementerTicketId;
       const providerTerms = [
-        unit.obligation.implementerTicketId,
+        implementer,
         ...(Array.isArray(unit.obligation.providers) ? unit.obligation.providers : []),
-      ].filter((value) => typeof value === 'string' && value.length > 0);
+      ]
+        .filter((value) => typeof value === 'string' || typeof value === 'number')
+        .map((value) => String(value))
+        .filter((value) => value.length > 0);
       const declared = providerTerms.some((term) => testText.includes(term) || notesText.includes(term));
       if (!declared && providerTerms.length > 0) {
         findings.push({ code: DELIVERY_CODES.SHARED_WORK_UNDECLARED, subject: unitId, message: `reference unit ${unitId} names ${providerTerms.join(', ')} and no test plan or note names it` });

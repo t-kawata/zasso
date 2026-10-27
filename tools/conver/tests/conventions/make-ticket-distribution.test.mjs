@@ -49,3 +49,9 @@ test('C005 plan, start and review run the prerequisite gate at entry', () => {
     assert.match(document, /check-ticket-prerequisites\.js --ticket-key="\$ARGUMENTS"/);
   }
 });
+
+test('C005 the workflow briefs implementation prerequisites and step contracts', () => {
+  assert.match(DOCUMENT, /## Implementation Prerequisites/);
+  assert.match(DOCUMENT, /`## Distribution Obligations` or `## Implementation Prerequisites`/);
+  assert.match(DOCUMENT, /Operation-Boundary Contracts/);
+});

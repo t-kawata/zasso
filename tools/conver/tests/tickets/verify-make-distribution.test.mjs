@@ -115,3 +115,41 @@ test('C004 a missing ticket is a skip, not a failure', () => {
   assert.deepEqual(result.verdict, { ok: true, skipped: 'ticket-not-found', findings: [] });
   rmSync(root, { recursive: true, force: true });
 });
+
+// F1: the producer writes the phase-local numeric id beside the durable ticket key. A
+// same-package reference has no provider package, so the key is the only term the gate
+// can check. Reading the numeric id alone leaves the reference unverified.
+function samePackageReference() {
+  return ticket({
+    distribution: {
+      units: [{
+        unitId: 'op-B',
+        kind: 'operation',
+        obligation: {
+          mode: 'reference',
+          providers: [],
+          implementerTicketId: 12,
+          implementerTicketKey: 'P0-12',
+        },
+      }],
+    },
+  });
+}
+
+test('C003 a same-package reference requires its durable implementer key', () => {
+  const unnamed = evaluateDistributionDelivery(samePackageReference());
+  assert.equal(unnamed.ok, false, 'a reference with no named provider is a finding');
+  assert.ok(unnamed.findings.some((entry) => entry.code === 'SHARED_WORK_UNDECLARED'));
+
+  const named = evaluateDistributionDelivery({
+    ...samePackageReference(),
+    testIntegration: ['IT: consume P0-12 through its boundary contract'],
+  });
+  assert.equal(named.ok, true, 'naming the durable key declares the provider');
+
+  const numericOnly = evaluateDistributionDelivery({
+    ...samePackageReference(),
+    testIntegration: ['IT: consume ticket 12'],
+  });
+  assert.equal(numericOnly.ok, false, 'the phase-local number is not the durable key');
+});

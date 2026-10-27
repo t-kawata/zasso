@@ -676,6 +676,41 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
   return lines.join('\n');
 }
 
+/** The source and boundary a prerequisite entry names, as one prose suffix. */
+function prerequisiteDetail(entry) {
+  const parts = [];
+  if (typeof entry?.source === 'string' && entry.source.length > 0) parts.push(`source ${entry.source}`);
+  if (typeof entry?.boundary === 'string' && entry.boundary.length > 0) parts.push(`boundary ${entry.boundary}`);
+  return parts.length === 0 ? '' : ` — ${parts.join(' — ')}`;
+}
+
+/**
+ * The implementation prerequisites as a section, or null when the ticket carries none.
+ *
+ * A same-package prerequisite names a ticket whose status is in this document. A
+ * cross-package prerequisite names a package whose Tickets.json the entry gate reads, so
+ * this display says the gate checked it rather than inventing a status it cannot see.
+ */
+function renderImplementationPrerequisites(ticket, tickets) {
+  const entries = Array.isArray(ticket?.prerequisites) ? ticket.prerequisites : [];
+  if (entries.length === 0) return null;
+  const statusOf = new Map(
+    flattenTicketDocument(tickets).map((candidate) => [publicTicketKey(candidate), candidate.status]),
+  );
+  const lines = ['## Implementation Prerequisites', ''];
+  for (const entry of entries) {
+    if (typeof entry?.ticket === 'string') {
+      lines.push(`- ${entry.ticket} — status ${statusOf.get(entry.ticket) ?? 'unknown'}${prerequisiteDetail(entry)}`);
+      continue;
+    }
+    if (typeof entry?.package === 'string') {
+      lines.push(`- package ${entry.package} — status checked by the entry gate${prerequisiteDetail(entry)}`);
+    }
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
 /** The distribution units of a ticket as a spec section, or null when the ticket has none. */
 // [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
 function renderDistributionObligations(ticket, options = {}) {
@@ -696,7 +731,9 @@ function renderDistributionObligations(ticket, options = {}) {
     if (unit.obligation?.mode === 'reference') {
       const providers = renderObligationValue(unit.obligation.providers);
       if (providers !== null) lines.push(`- providers: ${providers}`);
-      const implementer = renderObligationValue(unit.obligation.implementerTicketId);
+      // The durable key survives phase renumbering; the numeric id is its phase-local fallback.
+      const implementer = renderObligationValue(unit.obligation.implementerTicketKey)
+        ?? renderObligationValue(unit.obligation.implementerTicketId);
       if (implementer !== null) lines.push(`- implementer ticket: ${implementer}`);
     }
     if (unit.obligation?.mode === 'implement') {
@@ -1040,6 +1077,13 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  // Implementation prerequisites (the per-ticket order split derived and the entry gate checks)
+  const implementationPrerequisites = renderImplementationPrerequisites(ticket, tickets);
+  if (implementationPrerequisites !== null) {
+    lines.push(implementationPrerequisites);
+    lines.push('');
+  }
+
   // Boy Scout Rule
   if (ticket.boyScoutPlan) {
     lines.push('## Boy Scout Rule');
@@ -1242,6 +1286,7 @@ module.exports = {
   parseTicketKey,
   findTicket,
   renderDistributionObligations,
+  renderImplementationPrerequisites,
   renderWorkShare,
   stepOwnerLabel,
   publicTicketKey,

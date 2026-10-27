@@ -111,26 +111,29 @@ Output: every nonempty ticket field:
 | `## Investigation` | material investigation evidence |
 | `## Acceptance Criteria` | happy/error/edge pass conditions |
 | `## Invariants` | normal/error/internal/boundary conditions |
-| `## Contracts — mandatory 100% test coverage in TDD Red phase` | only nonempty `ticket.contracts`; each Precondition/Postcondition/Invariant |
+| `## Contracts — mandatory 100% test coverage in TDD Red phase` | only nonempty edge and boundary contracts; each Precondition/Postcondition/Invariant |
+| `## Operation-Boundary Contracts — mandatory 100% test coverage in TDD Red phase` | only nonempty step contracts; each step's Precondition/Postcondition/Invariant, the four axes and contract prose |
 | `## Boy Scout Rule` | translatability plan |
 | `## Test Plan` | unit/integration/exceptions |
 | `## Related Tickets` | related tickets |
 | `## Notes` | supplementary information |
 | `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners and the ctr boundary contracts |
+| `## Implementation Prerequisites` | only when the ticket carries prerequisites; each prerequisite ticket or package with its status, source and boundary |
 | `## Pipeline Context` | normal mode only: resource paths/existence status |
 
 Missing ticket → Not Found.
 
 ### Step 1.5: Distribution brief (conditional)
 
-Run only when Step 1 output contains `## Distribution Obligations`. If it does not, skip to Step 2; Case B and a pre-split ticket keep their old workflow.
+Run only when Step 1 output contains `## Distribution Obligations` or `## Implementation Prerequisites`. If it does not, skip to Step 2; Case B and a pre-split ticket keep their old workflow.
 
 Treat the section as authoritative machine output. Read it in this order:
 
 1. **Own work** — units whose `obligation.mode` is `implement`, `steps`, `flow` or `obligation`. Implement every local step in the order shown; do not aggregate or reorder it.
 2. **Shared work** — `### Work Share` step owners that are another ticket key (`P?-?`) or a package id (`package pkg-*`). Do not reimplement a shared step; the counterpart is an integration dependency and the boundary contract is the interface.
-3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Record the `implementer ticket` or `provider packages` in `testIntegration` or `notes`.
+3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Record the `implementer ticket` key or `provider packages` in `testIntegration` or `notes`.
 4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on.
+5. **Implementation prerequisites** — `## Implementation Prerequisites` lists every ticket or package that must reach `done` or `reviewed` before this ticket may be implemented. Read the named provider ticket's spec and implementation as integration context; never reimplement it. The list is derived by the split; never edit it by hand.
 
 If the package view is unreadable, the brief prints `other steps: not available`; do not invent an owner or a contract. Investigate the source named in Step 1 before filling the field.
 
@@ -353,6 +356,7 @@ Heal-loop targets:
 
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
 When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract visible only in raw JSON is a spec defect.
+When the ticket carries `prerequisites`, the spec must contain `## Implementation Prerequisites` with every prerequisite ticket or package and its source. A prerequisite visible only in raw JSON is a spec defect.
 When the ticket carries distribution units, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
 
 Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
