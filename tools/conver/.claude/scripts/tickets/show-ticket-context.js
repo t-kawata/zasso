@@ -533,14 +533,28 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
+/** One obligation value element as text; a structured row keeps its fields instead of collapsing. */
+function renderObligationElement(element) {
+  if (element === null || element === undefined) return '';
+  if (typeof element === 'object') return JSON.stringify(element);
+  return String(element);
+}
+
+/**
+ * Render one obligation value as a single Markdown fragment, or null when it carries nothing.
+ *
+ * An obligation row may be structured: `boundaryEffects` is a list of
+ * {boundary, direction} records. Joining the raw array would print "[object Object]"
+ * and erase the only contract the implementer can plan against.
+ */
 // [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
-/** The operation fields an implementer must receive; the projection is explicit so a
- * classification field cannot be mistaken for work. */
-/** One obligation value as a single Markdown line, or null when it carries nothing. */
 // [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderObligationValue(value) {
-  if (Array.isArray(value)) return value.length > 0 ? value.join('; ') : null;
+  if (Array.isArray(value)) {
+    const rendered = value.map(renderObligationElement).filter((text) => text.length > 0);
+    return rendered.length > 0 ? rendered.join('; ') : null;
+  }
   if (value !== null && typeof value === 'object') {
     return Object.keys(value).length > 0 ? JSON.stringify(value) : null;
   }

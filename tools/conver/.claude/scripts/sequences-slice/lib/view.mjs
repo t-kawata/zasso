@@ -29,6 +29,23 @@ const CROSS_BOUNDARY_UNIT_PREFIX = 'xdir-';
 export const VIEW_SOURCE_NOTE = 'Generated from the sequences artifact by /grill-me-for-rfc. Frozen input: do not edit; regenerate instead.';
 
 /**
+ * A copy of one obligation value, preserving the shape the artifact declared.
+ *
+ * The artifact states some fields as a list and some as an object map: the status graph
+ * is `status -> targets`, while proof classes and object classes are lists. Projecting
+ * every field through an array-only guard would silently replace the map with an empty
+ * list, so the view carries the declared shape and the ticket renderer serializes it.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function copyObligationValue(value) {
+  if (Array.isArray(value)) return [...value];
+  if (value !== null && typeof value === 'object') return { ...value };
+  return value ?? null;
+}
+
+/**
  * The implementation fields an operation unit owes its ticket.
  *
  * The projection is an explicit list rather than the raw artifact record: the artifact
@@ -50,7 +67,7 @@ function operationObligation(operation) {
     requiredProofClasses: Array.isArray(operation.required_proof_classes) ? [...operation.required_proof_classes] : [],
     idempotencyScope: operation.idempotency_scope ?? null,
     initialStatus: operation.initial_status ?? null,
-    allowedStatusTransitions: Array.isArray(operation.allowed_status_transitions) ? [...operation.allowed_status_transitions] : [],
+    allowedStatusTransitions: copyObligationValue(operation.allowed_status_transitions) ?? [],
     externalDependencyClass: operation.external_dependency_class ?? null,
     finalityPredicate: operation.finality_predicate ?? null,
     cancellationRule: operation.cancellation_rule ?? null,

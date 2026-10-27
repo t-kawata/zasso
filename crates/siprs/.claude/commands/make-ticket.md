@@ -118,7 +118,7 @@ Output: every nonempty ticket field:
 | `## Test Plan` | unit/integration/exceptions |
 | `## Related Tickets` | related tickets |
 | `## Notes` | supplementary information |
-| `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners, each step's generated contract id and the ctr boundary contracts |
+| `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners, each step's generated contract id, the ctr boundary contracts and every boundary a local step crosses |
 | `## Implementation Prerequisites` | only when the ticket carries prerequisites; each prerequisite ticket or package with its status, source and boundary |
 | `## Pipeline Context` | normal mode only: resource paths/existence status |
 
@@ -133,7 +133,7 @@ Treat the section as authoritative machine output. Read it in this order:
 1. **Own work** — units whose `obligation.mode` is `implement`, `steps`, `flow` or `obligation`. Implement every local step in the order shown; do not aggregate or reorder it. The Work Share `contract` column carries the generated contract id (for example `C500`); name that id in the test plan because Gate S scans the Red tests for `@verifies <id>`.
 2. **Shared work** — `### Work Share` step owners that are another ticket key (`P{phaseID}-{ticketID}` or `PX-{id}`) or a package id (`package pkg-*`). Do not reimplement a shared step; the counterpart is an integration dependency and the boundary contract is the interface. A foreign step is an interface only when it crosses a boundary or exchanges a `consumes`/`produces` fact with a local step; other foreign steps are informational.
 3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Name the `implementer ticket` key or `provider packages` in `testIntegration` (or `testUnit` for a unit-level consumption assertion). A note alone does not satisfy the gate.
-4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on. The registry contract id is `contract-<boundary_id>`; the Gate S/R annotation uses that exact id.
+4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and every boundary a local step crosses (a `crosses` axis). Each boundary names its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on. The registry contract id is `contract-<boundary_id>`; the Gate S/R annotation uses that exact id. A crossed boundary is delivered even when another ticket owns the `ctr` node, because the implementing step owes the same clauses.
 5. **Implementation prerequisites** — `## Implementation Prerequisites` lists every ticket or package that must reach `done` or `reviewed` before this ticket may be implemented. Read the named provider ticket's spec and implementation as integration context; never reimplement it. The list is derived by the split; never edit it by hand.
 
 If the package view is unreadable, the brief prints `other steps: not available`; do not invent an owner or a contract. Investigate the source named in Step 1 before filling the field.
@@ -268,6 +268,7 @@ Run only when Step 1.5 ran. For every distribution unit:
 - shared sequence step that is interface-relevant (crosses a boundary, or exchanges a `consumes`/`produces` fact with a local step) → a `testIntegration` entry names the owner (counterpart ticket key or package id), the step id, and the crossed boundary id when present. Other foreign steps need no entry. Do not add an implementation test for a foreign step. `verify-make-distribution` reports `SHARED_STEP_INTEGRATION_MISSING` or `SHARED_STEP_OWNER_UNKNOWN`.
 - `reference` unit → a consumption test naming the `implementer ticket` or provider package in `testUnit`/`testIntegration`; a note alone is `SHARED_WORK_UNDECLARED`. Never implement the provider.
 - `ctr-*` unit → a test asserts its precondition, postcondition and invariant; keep the projected contract in `contracts` unchanged. The contract id is `contract-<boundary_id>` and the test carries `@verifies contract-<boundary_id>`. The id must also appear in `testUnit` or `testIntegration`; `verify-make-distribution` reports `BOUNDARY_CONTRACT_UNTESTED` when it does not.
+- a boundary crossed by a local step (`crosses`) → the ticket carries the same registry contract as the `ctr` owner, even when the boundary node belongs to another ticket. Its id must appear in `testUnit` or `testIntegration`; `verify-make-distribution` reports `CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED` when the contract is absent and `CROSSED_BOUNDARY_CONTRACT_UNTESTED` when the id is not planned. A foreign step's crossing belongs to its owner, not to this ticket.
 - A sequence unit is checked against the package `SEQUENCES.json`; an unreadable view is `DISTRIBUTION_VIEW_MISSING`, not a silent skip of the foreign-step check.
 - A machine-projected step or boundary contract is never removed, shortened or re-derived by hand. If it is wrong, fix the producer and re-split; do not edit the ticket around it.
 
@@ -359,7 +360,7 @@ Heal-loop targets:
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
 When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the generated contract id and its `@verifies` annotation, the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract or its id visible only in raw JSON is a spec defect, because Gate S needs the id to prove Red coverage.
 When the ticket carries `prerequisites`, the spec must contain `## Implementation Prerequisites` with every prerequisite ticket or package and its source. A prerequisite visible only in raw JSON is a spec defect.
-When the ticket carries a sequence or ctr unit, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. An operation-only ticket carries `## Distribution Obligations` without a Work Share block. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
+When the ticket carries a sequence or ctr unit, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners, the ctr boundary contracts and every boundary a local step crosses with its clauses. An operation-only ticket carries `## Distribution Obligations` without a Work Share block. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
 
 Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 
@@ -382,7 +383,7 @@ node .claude/scripts/tickets/verify-make-distribution.js \
 ```
 
 - exit 0, or `skipped:no-distribution` → Step 10. The skip is the Case B path.
-- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `STEP_CONTRACT_UNTESTED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_UNTESTED`, `SHARED_WORK_UNDECLARED`, `SHARED_STEP_INTEGRATION_MISSING`, `SHARED_STEP_OWNER_UNKNOWN`, `STEP_AXIS_NOT_DELIVERED`, `OPERATION_OBLIGATION_UNPLANNED`, `DISTRIBUTION_VIEW_MISSING`, `DISTRIBUTION_SPEC_MISSING`, `DISTRIBUTION_SECTION_MISSING` or `WORK_SHARE_SECTION_MISSING` finding names the unit, step, field or section; repair Step 6 and re-run Step 9 to regenerate the spec (or repair Step 9 directly), then re-run Step 9.5.
+- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `STEP_CONTRACT_UNTESTED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_UNTESTED`, `CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED`, `CROSSED_BOUNDARY_CONTRACT_UNTESTED`, `SHARED_WORK_UNDECLARED`, `SHARED_STEP_INTEGRATION_MISSING`, `SHARED_STEP_OWNER_UNKNOWN`, `STEP_AXIS_NOT_DELIVERED`, `OPERATION_OBLIGATION_UNPLANNED`, `DISTRIBUTION_VIEW_MISSING`, `DISTRIBUTION_SPEC_MISSING`, `DISTRIBUTION_SECTION_MISSING` or `WORK_SHARE_SECTION_MISSING` finding names the unit, step, field or section; repair Step 6 and re-run Step 9 to regenerate the spec (or repair Step 9 directly), then re-run Step 9.5.
 
 ### Step 10: Update ticket status
 

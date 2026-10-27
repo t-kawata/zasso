@@ -24,6 +24,7 @@ const {
   CONTRACT_AXES,
   CONTRACT_BEARING_OPERATION_FIELDS,
   SURFACE_OPERATION_FIELDS,
+  crossedBoundaryIds,
   factTexts,
   hasObligationValue,
 } = require('./lib/contract-facts');
@@ -48,6 +49,8 @@ const DELIVERY_CODES = Object.freeze({
   SHARED_STEP_OWNER_UNKNOWN: 'SHARED_STEP_OWNER_UNKNOWN',
   STEP_AXIS_NOT_DELIVERED: 'STEP_AXIS_NOT_DELIVERED',
   OPERATION_OBLIGATION_UNPLANNED: 'OPERATION_OBLIGATION_UNPLANNED',
+  CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED: 'CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED',
+  CROSSED_BOUNDARY_CONTRACT_UNTESTED: 'CROSSED_BOUNDARY_CONTRACT_UNTESTED',
   DISTRIBUTION_VIEW_MISSING: 'DISTRIBUTION_VIEW_MISSING',
   DISTRIBUTION_SECTION_MISSING: 'DISTRIBUTION_SECTION_MISSING',
   DISTRIBUTION_SPEC_MISSING: 'DISTRIBUTION_SPEC_MISSING',
@@ -139,6 +142,14 @@ function contractForStep(ticket, stepId) {
     .find((contract) => contract?.stepId === stepId);
 }
 
+/** The ticket contract that projects one boundary, or undefined. */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function contractForBoundary(ticket, boundaryId) {
+  return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).find((contract) => contract?.boundaryId === boundaryId
+    || contract?.registryContractId === `contract-${boundaryId}`
+    || contract?.id === `contract-${boundaryId}`);
+}
+
 /** The fact texts of one typed axis on a ticket contract. */
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function axisTexts(contract, axis) {
@@ -167,6 +178,44 @@ function stepAxisFindings({ ticket, unit, testText }) {
   return findings;
 }
 
+/**
+ * Every boundary a local step crosses needs its registry contract in the ticket and in the
+ * test plan.
+ *
+ * The ctr-owning ticket used to be the only receiver, but a crossing step makes the same
+ * contract an obligation of the ticket that implements the step. Without this check a
+ * ticket could name the crossing axis in a test and never test the clauses the counterpart
+ * relies on.
+ */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function crossedBoundaryFindings({ ticket, unit, testText }) {
+  const findings = [];
+  const seen = new Set();
+  for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
+    for (const boundaryId of crossedBoundaryIds(step?.contract?.crosses)) {
+      if (seen.has(boundaryId)) continue;
+      seen.add(boundaryId);
+      const contract = contractForBoundary(ticket, boundaryId);
+      if (contract === undefined) {
+        findings.push({
+          code: DELIVERY_CODES.CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED,
+          subject: boundaryId,
+          message: `step ${step.stepId ?? '?'} crosses ${boundaryId} and the ticket carries no registry contract for it`,
+        });
+        continue;
+      }
+      if (typeof contract.id === 'string' && contract.id.length > 0 && !mentions(testText, contract.id)) {
+        findings.push({
+          code: DELIVERY_CODES.CROSSED_BOUNDARY_CONTRACT_UNTESTED,
+          subject: contract.id,
+          message: `crossed boundary ${boundaryId} contract ${contract.id} is in no test-plan entry`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
 /** The terms that identify a foreign step's owner; null when the owner is unresolved. */
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function ownerTerms(label) {
@@ -179,11 +228,9 @@ function ownerTerms(label) {
 }
 
 /** The boundary ids a foreign step crosses. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
-function crossedBoundaryIds(step) {
-  return factTexts(step?.contract?.crosses)
-    .map((fact) => (fact.startsWith('boundary:') ? fact.slice('boundary:'.length).split('/')[0] : fact))
-    .filter((boundaryId) => boundaryId.length > 0);
+// [::TICKET::] PX-326, PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-326|PX-331) --for-spec --no-implementation-order`.
+function crossedBoundaryIdsOfStep(step) {
+  return crossedBoundaryIds(step?.contract?.crosses);
 }
 
 /**
@@ -192,6 +239,7 @@ function crossedBoundaryIds(step) {
  * the interface the two sides must agree on.
  */
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
   const findings = [];
   const viewUnit = (view?.ownedSequenceUnits ?? []).concat(view?.crossBoundarySequenceUnits ?? [])
@@ -224,7 +272,7 @@ function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
     }
     const namesOwner = terms.length === 0 || terms.some((term) => mentions(integrationText, term));
     const namesStep = typeof foreignStep?.stepId === 'string' && mentions(integrationText, foreignStep.stepId);
-    const boundaryIds = crossedBoundaryIds(foreignStep);
+    const boundaryIds = crossedBoundaryIdsOfStep(foreignStep);
     const namesBoundary = boundaryIds.every((boundaryId) => mentions(integrationText, boundaryId));
     if (!namesOwner || !namesStep || !namesBoundary) {
       findings.push({
@@ -260,6 +308,7 @@ function operationObligationFindings({ unit, testText, exceptionText }) {
  * @returns {{ ok: boolean, skipped?: string, findings: Array<object> }}
  */
 // [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function evaluateDistributionDelivery(ticket, { specText = null, specProvided = false, view, ticketsDocument = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return { ok: true, skipped: 'no-distribution', findings: [] };
@@ -301,6 +350,7 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
         }
       }
       findings.push(...stepAxisFindings({ ticket, unit, testText }));
+      findings.push(...crossedBoundaryFindings({ ticket, unit, testText }));
       if (view !== undefined && view !== null) {
         findings.push(...foreignStepFindings({ ticket, unit, view, ticketsDocument }));
       }

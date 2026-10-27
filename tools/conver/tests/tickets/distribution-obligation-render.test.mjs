@@ -49,6 +49,23 @@ test('C005 the spec renders the operation obligation payload', () => {
   assert.match(markdown, /rejectCodeFamilies/);
 });
 
+test('C005 structured obligation values render their content, not an opaque object', () => {
+  // boundaryEffects is an array of {boundary, direction} rows and allowedStatusTransitions
+  // is a status graph. The brief is the implementer's only view of these contracts, so an
+  // array element must not collapse into "[object Object]".
+  const ticket = ticketWithObligation();
+  const unit = ticket.distribution.units[0];
+  unit.obligation.boundaryEffects = [
+    { boundary: 'boundary-001', direction: 'provides' },
+    { boundary: 'boundary-002', direction: 'consumes' },
+  ];
+  unit.obligation.allowedStatusTransitions = { draft: ['placed'], placed: [] };
+  const markdown = buildTicketMarkdown('PX-321', ticket, { phases: [] }, '.', true, false);
+  assert.match(markdown, /boundaryEffects: \{"boundary":"boundary-001","direction":"provides"\}; \{"boundary":"boundary-002","direction":"consumes"\}/);
+  assert.match(markdown, /allowedStatusTransitions: \{"draft":\["placed"\],"placed":\[\]\}/);
+  assert.doesNotMatch(markdown, /\[object Object\]/);
+});
+
 test('C005 a ticket without distribution renders no empty section', () => {
   const markdown = buildTicketMarkdown('PX-321', { ...ticketWithObligation(), distribution: undefined }, { phases: [] }, '.', true, false);
   assert.doesNotMatch(markdown, /## Distribution Obligations/);

@@ -18,7 +18,8 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
 const { fromHomeRelative, resolveStoredPath, toHomeRelative } = require('../lib/path-utils');
-const { CONTRACT_AXES, OPERATION_OBLIGATION_FIELDS } = require('./lib/contract-facts');
+const { CONTRACT_AXES, OPERATION_OBLIGATION_FIELDS, crossedBoundaryIds } = require('./lib/contract-facts');
+const { findAllocateManifest } = require('../lib/package-artifacts');
 const {
   flattenTicketDocument,
   publicTicketKey,
@@ -532,14 +533,28 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
+/** One obligation value element as text; a structured row keeps its fields instead of collapsing. */
+function renderObligationElement(element) {
+  if (element === null || element === undefined) return '';
+  if (typeof element === 'object') return JSON.stringify(element);
+  return String(element);
+}
+
+/**
+ * Render one obligation value as a single Markdown fragment, or null when it carries nothing.
+ *
+ * An obligation row may be structured: `boundaryEffects` is a list of
+ * {boundary, direction} records. Joining the raw array would print "[object Object]"
+ * and erase the only contract the implementer can plan against.
+ */
 // [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
-/** The operation fields an implementer must receive; the projection is explicit so a
- * classification field cannot be mistaken for work. */
-/** One obligation value as a single Markdown line, or null when it carries nothing. */
 // [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderObligationValue(value) {
-  if (Array.isArray(value)) return value.length > 0 ? value.join('; ') : null;
+  if (Array.isArray(value)) {
+    const rendered = value.map(renderObligationElement).filter((text) => text.length > 0);
+    return rendered.length > 0 ? rendered.join('; ') : null;
+  }
   if (value !== null && typeof value === 'object') {
     return Object.keys(value).length > 0 ? JSON.stringify(value) : null;
   }
@@ -581,11 +596,20 @@ function renderStepAxes(step) {
   return parts.length > 0 ? parts.join('; ') : '(none)';
 }
 
-/** The Work Share block: own work, shared work and the ctr boundary contract. */
+/** The contract a ticket carries for one boundary, or undefined. */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function ticketBoundaryContract(ticket, boundaryId) {
+  return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).find((candidate) => candidate?.boundaryId === boundaryId
+    || candidate?.registryContractId === `contract-${boundaryId}`
+    || candidate?.id === `contract-${boundaryId}`);
+}
+
+/** The Work Share block: own work, shared work, carried boundaries and crossed boundaries. */
 // [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
-function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function renderWorkShare(ticket, { ticketsDocument = null, view = null, registry = [] } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'
     || unit?.kind === 'cross-boundary-sequence'
@@ -625,17 +649,48 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
     lines.push('');
   }
 
+  const carriedBoundaryIds = new Set();
   for (const unit of boundaryUnits) {
     const boundaryId = String(unit.unitId).replace(/^ctr-/, '');
-    const contract = (Array.isArray(ticket.contracts) ? ticket.contracts : []).find((candidate) => candidate?.boundaryId === boundaryId
-      || candidate?.registryContractId === `contract-${boundaryId}`
-      || candidate?.id === `contract-${boundaryId}`);
+    carriedBoundaryIds.add(boundaryId);
+    const contract = ticketBoundaryContract(ticket, boundaryId);
     lines.push(`#### Boundary ${boundaryId}`);
     lines.push('');
     lines.push(`- direction: ${unit.obligation?.direction ?? 'unknown'}`);
     lines.push(`- counterpart: ${unit.obligation?.counterpart ?? 'unknown'}`);
     if (contract === undefined) {
       lines.push('- contract: MISSING (the ticket carries the ctr unit without its registry projection)');
+    } else {
+      lines.push(`- contract id: ${contract.id ?? `contract-${boundaryId}`}`);
+      lines.push(`- precondition: ${contract.precondition || '(none)'}`);
+      lines.push(`- postcondition: ${contract.postcondition || '(none)'}`);
+      lines.push(`- invariant: ${contract.invariant || '(none)'}`);
+    }
+    lines.push('');
+  }
+
+  // A boundary crossed by a local step is part of the ticket's division interface even
+  // when another ticket owns the ctr node. The registry row supplies the direction; the
+  // merged contract supplies the clauses the implementer must satisfy.
+  const crossedIds = new Set();
+  for (const unit of sequenceUnits) {
+    for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
+      for (const boundaryId of crossedBoundaryIds(step?.contract?.crosses)) crossedIds.add(boundaryId);
+    }
+  }
+  for (const boundaryId of [...crossedIds].sort()) {
+    if (carriedBoundaryIds.has(boundaryId)) continue;
+    const registryRow = (Array.isArray(registry) ? registry : [])
+      .find((candidate) => candidate?.boundary_id === boundaryId) ?? null;
+    const contract = ticketBoundaryContract(ticket, boundaryId);
+    lines.push(`#### Crossed boundary ${boundaryId}`);
+    lines.push('');
+    if (registryRow !== null) {
+      lines.push(`- provider: ${registryRow.provider_package ?? 'unknown'}`);
+      lines.push(`- consumer: ${registryRow.consumer_package ?? 'unknown'}`);
+    }
+    if (contract === undefined) {
+      lines.push('- contract: MISSING (the ticket crosses this boundary without its registry projection)');
     } else {
       lines.push(`- contract id: ${contract.id ?? `contract-${boundaryId}`}`);
       lines.push(`- precondition: ${contract.precondition || '(none)'}`);
@@ -1197,6 +1252,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
 }
 
 // [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey, forSpec, noImplementationOrder, plan, review } = parseArgs();
 
@@ -1227,7 +1283,20 @@ function main() {
   } catch {
     view = null;
   }
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, { view, ticketsDocument: tickets });
+  // The registry is the only source of a crossed boundary's clauses. A missing or
+  // unreadable manifest leaves the list empty; the renderer then prints MISSING rather
+  // than inventing a contract, and the delivery gate refuses the ticket.
+  let registry = [];
+  try {
+    const allocatePath = findAllocateManifest(ticketsDir);
+    if (allocatePath !== null) {
+      const allocate = JSON.parse(fs.readFileSync(allocatePath, 'utf8'));
+      registry = Array.isArray(allocate?.contract_registry) ? allocate.contract_registry : [];
+    }
+  } catch {
+    registry = [];
+  }
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, { view, ticketsDocument: tickets, registry });
   console.log(output);
 
   // Append implementation locations from show-ticket-locations.js (read-only)

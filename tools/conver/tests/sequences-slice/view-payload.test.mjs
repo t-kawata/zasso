@@ -60,6 +60,17 @@ test('C001 an operation unit carries its implementation obligation', () => {
   assert.equal(operation.roleCandidate, 'implementer');
 });
 
+test('C001 an object-valued status graph reaches the operation obligation unchanged', () => {
+  // The v3 artifact states the status graph as `status -> targets`, not as a flat list.
+  // An array-only projection would replace it with an empty list, and the make brief
+  // would then have no status contract to plan.
+  const artifact = fixtureArtifact();
+  artifact.operations[0].allowed_status_transitions = { draft: ['placed'], placed: [] };
+  const view = buildPackageView({ artifact, treeManifest: fixtureTreeManifest(), packageSegments: [] }, 'pkg-1');
+  const operation = view.ownedOperationUnits.find((unit) => unit.unitId === 'op-Produce');
+  assert.deepEqual(operation.obligation.allowedStatusTransitions, { draft: ['placed'], placed: [] });
+});
+
 test('C001 a sequence unit carries its ordered steps with contract, line and quote', () => {
   const view = buildPackageView({ artifact: fixtureArtifact(), treeManifest: fixtureTreeManifest(), packageSegments: [] }, 'pkg-1');
   const sequence = view.ownedSequenceUnits.find((unit) => unit.unitId === 'seq-A-1');

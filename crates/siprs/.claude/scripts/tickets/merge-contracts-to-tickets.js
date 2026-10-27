@@ -32,6 +32,7 @@ const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
 } = require('../lib/package-artifacts');
+const { crossedBoundaryIds } = require('./lib/contract-facts');
 
 /**
  * Parse CLI arguments
@@ -108,16 +109,49 @@ function normalizeRegistryContracts(registry) {
     : entry));
 }
 
-/** The registry contracts a ticket owes for the ctr units it carries. */
-// [::TICKET::] PX-312, PX-313, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-326) --for-spec --no-implementation-order`.
+/**
+ * The boundary ids one local step contract crosses.
+ *
+ * A step states the crossing as `boundary:<id>` (or as a structured fact carrying
+ * `boundaryId` / `boundary`). The id is the whole obligation: the step does not carry the
+ * clauses, so the ticket must receive the registry row for it.
+ */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function crossedBoundaryIdsOfStep(step) {
+  return crossedBoundaryIds(step?.contract?.crosses);
+}
+
+/**
+ * The boundary ids the ticket's local steps cross.
+ *
+ * Only the steps this ticket implements are local. A foreign step belongs to its owner,
+ * which receives the same registry row through its own local step, so rendering or gating
+ * the contract here would duplicate another ticket's obligation.
+ */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function crossedBoundaryIdsOfTicket(ticket) {
+  const boundaryIds = new Set();
+  for (const unit of ticket?.distribution?.units ?? []) {
+    for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
+      for (const boundaryId of crossedBoundaryIdsOfStep(step)) boundaryIds.add(boundaryId);
+    }
+  }
+  return boundaryIds;
+}
+
+/** The registry contracts a ticket owes for the ctr units it carries or the boundaries its steps cross. */
+// [::TICKET::] PX-312, PX-313, PX-326, PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-326|PX-331) --for-spec --no-implementation-order`.
 function registryContractsForTicket(ticket, registry) {
   const unitIds = [
     ...(ticket.nodeIds ?? []),
     ...(ticket.distribution?.units ?? []).map((unit) => unit.unitId),
   ];
+  const crossedIds = crossedBoundaryIdsOfTicket(ticket);
   const contracts = [];
   for (const row of normalizeRegistryContracts(registry)) {
-    if (!unitIds.includes(`ctr-${row.boundary_id}`)) continue;
+    const carriesCtrUnit = unitIds.includes(`ctr-${row.boundary_id}`);
+    const crossesBoundary = crossedIds.has(row.boundary_id);
+    if (!carriesCtrUnit && !crossesBoundary) continue;
     const registryContractId = `contract-${row.boundary_id}`;
     contracts.push({
       id: registryContractId,
