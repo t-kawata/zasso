@@ -101,11 +101,30 @@ function renderSpecRef(ref) {
   return `  - ${ref.path}:${ref.line}${ref.quote ? ` "${ref.quote}"` : ''}`;
 }
 
-/** One line per sequence step. */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+/** The prose of one fact array, or an empty string. */
+// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+function factText(facts) {
+  return (Array.isArray(facts) ? facts : [])
+    .map((fact) => fact?.text ?? fact?.factId ?? '')
+    .filter((text) => typeof text === 'string' && text.length > 0)
+    .join('; ');
+}
+
+/** One sequence step, with its operation-boundary contract. */
+// [::TICKET::] PX-308, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-318) --for-spec --no-implementation-order`.
 function renderStep(step) {
   const location = typeof step.line === 'number' && step.line > 0 ? ` line ${step.line}` : '';
-  return `  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}`;
+  const lines = [`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}`];
+  const precondition = factText(step.contract?.pre);
+  const postcondition = factText(step.contract?.post);
+  const invariant = factText(step.contract?.invariants);
+  if (precondition) lines.push(`    - precondition: ${precondition}`);
+  if (postcondition) lines.push(`    - postcondition: ${postcondition}`);
+  if (invariant) lines.push(`    - invariant: ${invariant}`);
+  if (typeof step.contractProse === 'string' && step.contractProse.length > 0) {
+    lines.push(`    - contractProse: ${step.contractProse}`);
+  }
+  return lines.join('\n');
 }
 
 /**

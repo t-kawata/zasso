@@ -39,6 +39,7 @@ const { toHomeRelative } = require("../lib/path-utils");
 const { writeLine } = require("../lib/cli-output");
 const {
   buildDistributionIndex,
+  collectNodeFilePaths,
   collectNodePaths,
   verifyDistributionCoverage,
 } = require("./lib/distribution-index.js");
@@ -419,7 +420,7 @@ function resolveOutputPaths(graphDir, basename) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-319) --for-spec --no-implementation-order`.
 function main(testArgs) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs);
@@ -509,7 +510,7 @@ function main(testArgs) {
   // It is written only when graphify recorded a map digest, so a package that predates
   // the map keeps its old Dirs-Tree shape.
   if (typeof graph.distributionDigest === "string") {
-    dirsTree.distribution = buildDistributionIndex(graph, collectNodePaths(trees), graph.distributionDigest);
+    dirsTree.distribution = buildDistributionIndex(graph, collectNodePaths(trees), graph.distributionDigest, collectNodeFilePaths(trees));
     const coverage = verifyDistributionCoverage(dirsTree, graph);
     if (!coverage.ok) {
       const details = [

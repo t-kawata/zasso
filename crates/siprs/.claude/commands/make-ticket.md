@@ -311,6 +311,7 @@ Heal-loop targets:
 ### Step 9: Write spec file
 
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
+When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the precondition, postcondition, invariant and contract prose for every step. A step contract visible only in raw JSON is a spec defect.
 
 Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 

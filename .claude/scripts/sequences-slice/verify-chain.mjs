@@ -8,6 +8,8 @@
  * unit, a step, a boundary contract or a direction is named, not silently accepted.
  */
 import {
+  activeArtifactOperationsForPackage,
+  artifactSequencesForPackage,
   artifactStepsForSequences,
   collectViewUnits,
   declaredSequenceIds,
@@ -15,6 +17,8 @@ import {
   registryRowsForPackage,
   stepBearingRecords,
   stepContractMatches,
+  stepIdentityMatches,
+  validOperationResiduals,
   viewDigest,
 } from './lib/distribution-map.mjs';
 import { digestValue } from './lib/digest.mjs';
@@ -51,6 +55,9 @@ export const CHAIN_CODES = Object.freeze({
   DUPLICATE_UNIT_AT_TICKET: 'DUPLICATE_UNIT_AT_TICKET',
   MISSING_IMPLEMENTER: 'MISSING_IMPLEMENTER',
   STEP_CONTRACT_MISMATCH: 'STEP_CONTRACT_MISMATCH',
+  MISSING_OPERATION: 'MISSING_OPERATION',
+  MISSING_SEQUENCE: 'MISSING_SEQUENCE',
+  STEP_IDENTITY_MISMATCH: 'STEP_IDENTITY_MISMATCH',
   ACTIVE_OPERATION_RESIDUAL: 'ACTIVE_OPERATION_RESIDUAL',
 });
 
@@ -168,6 +175,7 @@ function ticketBoundaryContract(ticket, row) {
  * @returns {{ ok: boolean, findings: Array<{ code: string, subject: string|null, message: string }> }}
  */
 // [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function verifyChain(input = {}) {
   const {
     view,
@@ -177,6 +185,7 @@ export function verifyChain(input = {}) {
     tickets,
     registry = [],
     artifact = null,
+    treeManifest = null,
     stage = 'split',
     preflight = false,
     sidecarPath = null,
@@ -221,6 +230,23 @@ export function verifyChain(input = {}) {
     const dirsUnits = new Set(Object.keys(dirsTree?.distribution?.units ?? {}));
     compareUnitSets(dirsUnits, graphUnits, 'dirs', findings);
   }
+
+  const validResiduals = validOperationResiduals(artifact, map);
+  const artifactScoped = (treeManifest?.inventory?.objects ?? []).length > 0;
+  const declaredSequenceIdSet = declaredSequenceIds(view);
+  if (artifact !== null) {
+    for (const operation of activeArtifactOperationsForPackage(artifact, view?.packageId, treeManifest)) {
+      const unitId = `op-${operation.id}`;
+      if (viewUnits.has(unitId) || validResiduals.has(unitId)) continue;
+      findings.push(finding(CHAIN_CODES.MISSING_OPERATION, unitId, `active operation ${unitId} is absent from the view and is not a valid suppliedRule residual`));
+    }
+    for (const sequence of artifactSequencesForPackage(artifact, view?.packageId, treeManifest)) {
+      if (declaredSequenceIdSet.has(sequence.id)) continue;
+      if (residualUnits.has(`seq-${sequence.id}`) || residualUnits.has(`xdir-${sequence.id}`)) continue;
+      findings.push(finding(CHAIN_CODES.MISSING_SEQUENCE, `seq-${sequence.id}`, `sequence ${sequence.id} is absent from the view and is not a declared residual`));
+    }
+  }
+
   if (checkTickets) {
     const ticketUnits = new Set(allTickets(tickets).flatMap((ticket) => ticketUnitIds(ticket)));
     compareUnitSets(ticketUnits, graphUnits, 'tickets', findings);
@@ -241,21 +267,31 @@ export function verifyChain(input = {}) {
         findings.push(finding(CHAIN_CODES.DUPLICATE_UNIT_AT_TICKET, unitId, `unit ${unitId} is implemented by ${identities.join(', ')}`));
       }
     }
-    const viewUnitRecords = collectViewUnits(view);
-    for (const unitId of graphUnits) {
-      if (!unitId.startsWith('op-')) continue;
-      const mapRole = (map?.units ?? []).find((unit) => unit.unitId === unitId)?.role ?? null;
-      const viewRole = viewUnitRecords.get(unitId)?.record?.roleCandidate ?? null;
-      if ((mapRole ?? viewRole) !== 'implementer') continue;
-      if (!implementersByUnit.has(unitId)) {
-        findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `unit ${unitId} is an implementer and no ticket implements it`));
+    if (artifact !== null && artifactScoped) {
+      for (const operation of activeArtifactOperationsForPackage(artifact, view?.packageId, treeManifest)) {
+        const unitId = `op-${operation.id}`;
+        if (validResiduals.has(unitId)) continue;
+        if (!implementersByUnit.has(unitId)) {
+          findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `active operation ${unitId} has no implementing ticket`));
+        }
+      }
+    } else {
+      const viewUnitRecords = collectViewUnits(view);
+      for (const unitId of graphUnits) {
+        if (!unitId.startsWith('op-')) continue;
+        const mapRole = (map?.units ?? []).find((unit) => unit.unitId === unitId)?.role ?? null;
+        const viewRole = viewUnitRecords.get(unitId)?.record?.roleCandidate ?? null;
+        if ((mapRole ?? viewRole) !== 'implementer') continue;
+        if (!implementersByUnit.has(unitId)) {
+          findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `unit ${unitId} is an implementer and no ticket implements it`));
+        }
       }
     }
   }
 
   const declared = artifact === null
     ? declaredStepsFromView(view)
-    : artifactStepsBySequence(artifact, declaredSequenceIds(view));
+    : artifactStepsForSequences(artifact, declaredSequenceIdSet);
   const stepBearing = viewStepBearing(view);
   const viewSteps = new Map();
   for (const records of stepBearing.values()) {
@@ -289,8 +325,14 @@ export function verifyChain(input = {}) {
           findings.push(finding(CHAIN_CODES.SEQUENCE_STEPS_UNDISTRIBUTED, step.id, `sequence ${sequenceId} step ${step.id} has no step-bearing view record`));
         }
         const viewStep = viewSteps.get(step.id);
-        if (step.record !== undefined && viewStep !== undefined && !stepContractMatches(step.record, viewStep)) {
-          findings.push(finding(CHAIN_CODES.STEP_CONTRACT_MISMATCH, step.id, `sequence ${sequenceId} artifact step contract differs from the view step`));
+        if (step.record !== undefined && viewStep !== undefined && !stepIdentityMatches(step.record, viewStep)) {
+          const code = stepContractMatches(step.record, viewStep)
+            ? CHAIN_CODES.STEP_IDENTITY_MISMATCH
+            : CHAIN_CODES.STEP_CONTRACT_MISMATCH;
+          const message = code === CHAIN_CODES.STEP_CONTRACT_MISMATCH
+            ? `sequence ${sequenceId} artifact step contract differs from the view step`
+            : `sequence ${sequenceId} artifact step identity differs from the view step`;
+          findings.push(finding(code, step.id, message));
         }
       }
     }
@@ -317,9 +359,15 @@ export function verifyChain(input = {}) {
       const viewStep = viewSteps.get(stepId);
       if (viewStep === undefined) continue;
       for (const ticketStep of observed.steps) {
-        if (stepContractMatches(ticketStep, viewStep) || reported.has(stepId)) continue;
+        if (stepIdentityMatches(ticketStep, viewStep) || reported.has(stepId)) continue;
         reported.add(stepId);
-        findings.push(finding(CHAIN_CODES.STEP_CONTRACT_MISMATCH, stepId, `ticket step contract differs from the view step`));
+        const code = stepContractMatches(ticketStep, viewStep)
+          ? CHAIN_CODES.STEP_IDENTITY_MISMATCH
+          : CHAIN_CODES.STEP_CONTRACT_MISMATCH;
+        const message = code === CHAIN_CODES.STEP_CONTRACT_MISMATCH
+          ? `ticket step contract differs from the view step`
+          : `ticket step identity differs from the view step`;
+        findings.push(finding(code, stepId, message));
       }
     }
   }
@@ -404,14 +452,16 @@ export function verifyChain(input = {}) {
     }
   }
 
+  const steppedOperations = new Set((artifact?.steps ?? []).map((step) => `op-${step.operation}`));
   for (const operation of artifact?.operations ?? []) {
     if (operation?.disposition !== 'active') continue;
     const unitId = `op-${operation.id}`;
     if (!residualUnits.has(unitId)) continue;
     const suppliedRule = operation.position === 'suppliedRule'
-      && operation.grounding?.classification === 'designer_supplied';
+      && operation.grounding?.classification === 'designer_supplied'
+      && !steppedOperations.has(unitId);
     if (!suppliedRule) {
-      findings.push(finding(CHAIN_CODES.ACTIVE_OPERATION_RESIDUAL, unitId, `active operation ${unitId} is a declared residual without the suppliedRule/designer_supplied disposition`));
+      findings.push(finding(CHAIN_CODES.ACTIVE_OPERATION_RESIDUAL, unitId, `active operation ${unitId} is a declared residual without the suppliedRule/designer_supplied/zero-step disposition`));
     }
   }
 
@@ -495,6 +545,9 @@ export function main(argv = process.argv.slice(2)) {
   const dirsTree = readJson(dirsPath);
   const tickets = readJson(ticketsPath);
   const registry = registryPath === null ? [] : (readJson(registryPath)?.contract_registry ?? []);
+  const treeManifest = registryPath === null
+    ? null
+    : readJson(join(dirname(registryPath), 'WORKSPACIFY-TREE-MANIFEST.json'));
   const artifact = artifactPath === null ? null : readJson(artifactPath);
 
   if (view === null || map === null || graph === null) {
@@ -514,7 +567,7 @@ export function main(argv = process.argv.slice(2)) {
   // workspace-level, so a package graphify's Step 0 heading dedup does not invalidate the
   // next package's gate; a smooth rerun changes the status digest and does.
   const smoothFindings = inWorkspace ? verifySmoothReceipt(packagePath) : [];
-  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, stage, preflight, sidecarPath });
+  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, treeManifest, stage, preflight, sidecarPath });
   const findings = [...smoothFindings, ...result.findings];
   for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
   process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);

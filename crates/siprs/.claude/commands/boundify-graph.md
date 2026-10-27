@@ -107,7 +107,7 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 
 `begin-run` counts one invocation; `end-step 3` advances `generation` only when the Dirs-Tree digest changes. Audit mode appends `--audit` to the final `end-step 3`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
-`verify-chain` also requires the workspace-level `SMOOTH-VERDICT.json` written by graphify. `MISSING_SMOOTH_RECEIPT` → run graphify first; `STALE_SMOOTH_VERDICT` → smooth or the root artifact moved after the receipt, so rerun graphify, then boundify.
+`verify-chain` also requires the workspace-level `SMOOTH-VERDICT.json` written by graphify. `MISSING_SMOOTH_RECEIPT` → run graphify first; `STALE_SMOOTH_VERDICT` → smooth or the root artifact moved after the receipt, so rerun graphify, then boundify. The same preflight reports `MISSING_OPERATION` when an active artifact operation is absent from the view and is not a valid suppliedRule residual; the artifact is the denominator, not the view.
 
 ### Recovery on Error
 
@@ -233,12 +233,15 @@ Preview all languages; review; generate actual directories/template files.
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 3
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --dry-run
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
+node .claude/scripts/rfc-graph/verify-unit-file-coverage.js --graph="$graphPath" --dirs-tree="$dirsTreePath" --root="$(dirname "$graphPath")"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 3
 ```
 
 ### Structure of Generated Files
 
 - header: source graph, mapped nodes, language, timestamp; language-appropriate comment (PX-30).
+- header units line: every mapped node's `unitIds` are written as `units: <comma-separated ids>`; a file with no mapped units omits the line.
+- unit placement: every unit-bearing node resolves to a leaf file. An architecture node with units gets a designated entry file (`mod.rs`, `doc.go`, `index.ts`); a prose node with a unit is `UNIT_REQUIRES_FILE`. `verify-unit-file-coverage.js` reports `UNIT_WITHOUT_FILE`, `UNIT_WITHOUT_HEADER` and `HEADER_UNIT_NOT_ON_NODE`.
 - empty/unimplemented: language/kind declaration stub: struct declaration or function signature + implementation TODO comment (PX-28).
 - prose-node connection: header embeds design-intent reference; explicit `→`/`←`, connected file path (PX-30).
 

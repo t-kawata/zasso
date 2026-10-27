@@ -4,6 +4,8 @@
 // resolution every later layer reuses.
 import { digestValue } from './digest.mjs';
 import { isUnitId, normalizeHeading } from '../../rfc-graph/lib/unit-ids.mjs';
+import { classifyOperationOwnership, resolveOwningPackages } from './ownership.mjs';
+import { buildSequenceUnits, classifySequenceOwnership } from './units.mjs';
 
 /** The fenced-block info string that marks the map inside RFC.md. */
 export const DISTRIBUTION_MAP_FENCE = 'json distribution-map';
@@ -177,6 +179,124 @@ export function canonicalStepContract(step) {
 /** Whether two step records carry the same contract and prose. */
 export function stepContractMatches(left, right) {
   return JSON.stringify(canonicalStepContract(left)) === JSON.stringify(canonicalStepContract(right));
+}
+
+/**
+ * The complete identity of one step, independent of artifact/view field spelling.
+ *
+ * A contract-only comparison lets a view rebind a step to another operation or move
+ * its specification anchor without any gate noticing. This projection keeps every
+ * field the implementation reads, so a mismatch names the field that moved.
+ *
+ * @param {object} step
+ * @returns {object}
+ */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function canonicalStepIdentity(step) {
+  return normalizeDeep({
+    stepId: step?.stepId ?? step?.id ?? null,
+    operationId: step?.operationId ?? step?.operation ?? null,
+    order: step?.order ?? null,
+    line: step?.line ?? null,
+    quote: step?.quote ?? null,
+    subject: step?.subject ?? null,
+    predicate: step?.predicate ?? null,
+    object: step?.object ?? null,
+    contract: step?.contract ?? null,
+    contractProse: step?.contractProse ?? step?.contract_prose ?? '',
+  });
+}
+
+/** Whether two step records carry the same complete identity. */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function stepIdentityMatches(left, right) {
+  return JSON.stringify(canonicalStepIdentity(left)) === JSON.stringify(canonicalStepIdentity(right));
+}
+
+/**
+ * The active operations this package owns, read from the artifact and the tree manifest.
+ *
+ * The artifact is workspace-global, so a package must not report a foreign operation as
+ * local. The tree manifest's object ownership is the same join the view used; without it
+ * the package has no way to scope the artifact and returns nothing rather than guessing.
+ *
+ * @param {{ operations?: Array<object> }} artifact
+ * @param {string} packageId
+ * @param {{ inventory?: { objects?: Array<object> } }|null} treeManifest
+ * @returns {Array<object>}
+ */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function activeArtifactOperationsForPackage(artifact, packageId, treeManifest = null) {
+  const objects = treeManifest?.inventory?.objects;
+  if (!Array.isArray(objects) || objects.length === 0) return [];
+  const ownership = resolveOwningPackages(objects);
+  return (artifact?.operations ?? []).filter((operation) => {
+    if (operation?.disposition !== 'active') return false;
+    return classifyOperationOwnership(operation, ownership).ownerPackageIds.includes(packageId);
+  });
+}
+
+/**
+ * The artifact sequences this package owns, derived from the operations their steps name.
+ *
+ * A sequence absent from this package's view is a local omission only when one of its
+ * steps names an operation this package owns. A foreign sequence is not reported here.
+ *
+ * @param {{ sequences?: Array<object>, steps?: Array<object>, operations?: Array<object> }} artifact
+ * @param {string} packageId
+ * @param {{ inventory?: { objects?: Array<object> } }|null} treeManifest
+ * @returns {Array<object>}
+ */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function artifactSequencesForPackage(artifact, packageId, treeManifest = null) {
+  const objects = treeManifest?.inventory?.objects;
+  if (!Array.isArray(objects) || objects.length === 0) return [];
+  const ownership = resolveOwningPackages(objects);
+  const units = buildSequenceUnits({
+    sequences: artifact?.sequences ?? [],
+    steps: artifact?.steps ?? [],
+    operations: artifact?.operations ?? [],
+  });
+  const operationsBySequence = new Map();
+  for (const step of units.steps) {
+    const operations = operationsBySequence.get(step.sequence) ?? [];
+    operations.push(step.operation);
+    operationsBySequence.set(step.sequence, operations);
+  }
+  const operationById = new Map(units.operations.map((operation) => [operation.id, operation]));
+  return units.sequences.filter((sequence) => classifySequenceOwnership(
+    sequence,
+    operationsBySequence,
+    operationById,
+    ownership,
+  ).includes(packageId));
+}
+
+/**
+ * The residual units that legitimately account for an active operation.
+ *
+ * A residual removes a unit from distribution. For an active operation that is allowed
+ * only when the artifact records a supplied rule with no ordered procedure: the position
+ * is `suppliedRule`, the grounding is `designer_supplied`, and no step names the operation.
+ *
+ * @param {{ operations?: Array<object>, steps?: Array<object> }} artifact
+ * @param {{ residuals?: Array<object> }|null} map
+ * @returns {Set<string>}
+ */
+// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+export function validOperationResiduals(artifact, map) {
+  const stepped = new Set((artifact?.steps ?? []).map((step) => `op-${step.operation}`));
+  const residuals = new Set();
+  for (const residual of map?.residuals ?? []) {
+    const unitId = residual?.unit;
+    const operation = (artifact?.operations ?? []).find((candidate) => `op-${candidate.id}` === unitId);
+    if (operation?.disposition !== 'active') continue;
+    if (operation.position !== 'suppliedRule') continue;
+    if (operation.grounding?.classification !== 'designer_supplied') continue;
+    if (stepped.has(unitId)) continue;
+    residuals.add(unitId);
+  }
+  return residuals;
 }
 
 /** The stable projection of a view that the map's source digest binds. */

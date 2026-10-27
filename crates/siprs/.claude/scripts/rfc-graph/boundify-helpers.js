@@ -327,6 +327,13 @@ const LANGUAGE_EXTENSIONS = {
   typescript: '.ts'
 };
 
+/** The leaf file an architecture node uses when it carries a unit. */
+const DESIGNATED_ENTRY_FILE = {
+  rust: 'mod.rs',
+  go: 'doc.go',
+  typescript: 'index.ts',
+};
+
 /**
  * Language-specific separators (Rust/Go use underscore, TypeScript uses hyphen).
  * Slug follows lower_snake_case; separators are only used for directory names, etc.
@@ -409,28 +416,28 @@ const DECLARATION_STUB_TABLE = Object.freeze({
   }),
   state_machine: Object.freeze({
     rust: 'pub enum State {}',
-    go: 'type State int\n\nconst (\n\t// TODO: define states\n)',
+    go: 'type State int\n\nconst (\n\t// Stub: define states\n)',
     typescript: "type State = 'idle' | 'active' | 'done'",
   }),
   error_policy: Object.freeze({
     rust: 'pub enum Error {}',
-    go: 'type Error struct {\n\t// TODO: define error fields\n}',
+    go: 'type Error struct {\n\t// Stub: define error fields\n}',
     typescript: 'class Error extends Error {\n\tconstructor(message: string) {\n\t\tsuper(message);\n\t\tthis.name = "Error";\n\t}\n}',
   }),
   security: Object.freeze({
-    rust: 'pub fn authorize() {\n\t// TODO: implement authorization\n}',
-    go: 'func Authorize() {\n\t// TODO: implement authorization\n}',
-    typescript: 'function authorize(): void {\n\t// TODO: implement authorization\n}',
+    rust: 'pub fn authorize() {\n\t// Stub: implement authorization\n}',
+    go: 'func Authorize() {\n\t// Stub: implement authorization\n}',
+    typescript: 'function authorize(): void {\n\t// Stub: implement authorization\n}',
   }),
   test_policy: Object.freeze({
-    rust: '#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}',
-    go: 'func TestExample(t *testing.T) {\n\t// TODO: write test\n}',
-    typescript: "describe('Example', () => {\n\tit('should work', () => {\n\t\t// TODO: write test\n\t});\n});",
+    rust: '#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// Stub: write test\n\t}\n}',
+    go: 'func TestExample(t *testing.T) {\n\t// Stub: write test\n}',
+    typescript: "describe('Example', () => {\n\tit('should work', () => {\n\t\t// Stub: write test\n\t});\n});",
   }),
   build_ci: Object.freeze({
-    rust: 'fn main() {\n\t// TODO: implement build/CI entry point\n}',
-    go: 'func main() {\n\t// TODO: implement build/CI entry point\n}',
-    typescript: '// build/CI script entry point\n// TODO: implement',
+    rust: 'fn main() {\n\t// Stub: implement build/CI entry point\n}',
+    go: 'func main() {\n\t// Stub: implement build/CI entry point\n}',
+    typescript: '// build/CI script entry point\n// Stub: implement',
   }),
 });
 
@@ -571,7 +578,7 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319) --for-spec --no-implementation-order`.
 function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBasename, lang) {
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
   const L = syntax.line;
@@ -611,6 +618,14 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
   } else {
     lines.push(L + ' Mapped node(s):');
     lines.push(L + '   - No direct node mapping');
+  }
+
+  const unitIds = [...new Set((mappedNodeIds ?? []).flatMap((entry) =>
+    (typeof entry === 'object' && Array.isArray(entry.unitIds) ? entry.unitIds : [])))];
+  if (unitIds.length > 0) {
+    const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
+    lines.push(L + ' units: ' + unitIds.join(', '));
+    lines.push(L + '   → To show the unit contract: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
   }
 
   // Cross-references (prose node information)
@@ -662,6 +677,7 @@ module.exports = {
   DECLARATION_STUB_TABLE,
   DIRECTIONAL_EDGE_TYPES,
   LANGUAGE_EXTENSIONS,
+  DESIGNATED_ENTRY_FILE,
   LANGUAGE_SEPARATORS,
   MAX_FILE_NAME_LENGTH
 };

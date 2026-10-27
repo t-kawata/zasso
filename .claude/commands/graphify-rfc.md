@@ -147,7 +147,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 ```
 
 - The verdict gate runs before heading deduplication can change the source. It verifies `smooth-sequences/status.json`, the closure certificate and the frozen design snapshot, then writes the workspace-level `SMOOTH-VERDICT.json`.
-- `MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` → stop; repair the smooth run or the workspace, then `reset-to-step 0` and rerun.
+- The receipt records `viewDigests`: one SHA-256 per package `SEQUENCES.json`. A package view edited after the receipt is `STALE_SMOOTH_VERDICT`; an `RFC.md` heading insertion made by graphify is not, because the receipt binds the view smooth certified, not the whole design snapshot.
+- `MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` → stop; repair the smooth run or the workspace, then `reset-to-step 0` and rerun. A receipt without `viewDigests` is `MISSING_SMOOTH_RECEIPT`; rerun graphify Step 0 to rewrite it.
 - Outside a workspacify workspace the gate is skipped and reports `skipped:outside-workspace`.
 - changed source → overwrite + change log.
 - unchanged source → report unchanged.
@@ -269,6 +270,7 @@ G2 edge-assign:
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
 node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1" --view="$viewPath" --registry="$registryPath"
+node .claude/scripts/rfc-graph/project-step-contracts.js --graph="$graphPath" --view="$viewPath"
 node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
 node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath" --mode=attach
 node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
@@ -282,6 +284,8 @@ Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"s
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$1` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
+The artifact is the denominator. An active operation absent from the view and not a valid suppliedRule residual is `MISSING_OPERATION`; a sequence absent from the view is `MISSING_SEQUENCE`; a step whose operationId, order, line, quote, subject, predicate, object, contract or prose differs is `STEP_IDENTITY_MISMATCH`; a multi-owner operation with no implementer is `OWNER_ROLE_UNDECLARED` at smooth. `verify-chain --stage=graphify` reports these before node splitting is accepted.
+`project-step-contracts.js` writes `RFC-STEP-CONTRACTS.json` beside the graph and a short `step:<stepId>;row:<n>` note on an edge incident to the operation node. `verify-graph-contracts.js` reads the sidecar automatically; a missing row, a changed digest or a note naming no row is `CONTRACT_CHAIN_OPEN` or `STEP_CONTRACT_MISMATCH`. The sidecar is the full contract; the note is only the pointer.
 
 `project-boundary-contracts.js` projects only the registry rows whose `ctr-*` unit this package graph carries; a foreign row is skipped, not projected and not refused. It uses the view direction and prefers a `depends_on` / `constrains` / `conflicts_with` edge; more than one candidate is `AMBIGUOUS_BOUNDARY_EDGE`, and a missing edge is `MISSING_BOUNDARY_EDGE`. `verify-graph-contracts.js` reads the same carrying edge, never the first edge touching the ctr node.
 

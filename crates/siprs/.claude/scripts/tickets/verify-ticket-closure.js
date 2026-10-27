@@ -29,17 +29,22 @@ const {
   findAllocateManifest,
 } = require('../lib/package-artifacts');
 const { ticketIdentity } = require('./lib/ticket-identity.js');
+const { readStepContractSidecar } = require('../rfc-graph/lib/step-contracts.mjs');
 
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-314|PX-318) --for-spec --no-implementation-order`.
 function parseArgs(argv = process.argv.slice(2)) {
-  let ticketsPath, graphPath, registryPath = null, viewPath = null;
+  let ticketsPath, graphPath, registryPath = null, viewPath = null, stepSidecarPath = null;
   for (const a of argv) {
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
     if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
+    if (a.startsWith('--step-sidecar=')) {
+      const value = a.slice('--step-sidecar='.length);
+      stepSidecarPath = value === '' ? null : path.resolve(value);
+    }
     if (a.startsWith('--view=')) {
       const value = a.slice('--view='.length);
       viewPath = value === '' ? null : path.resolve(value);
@@ -62,7 +67,11 @@ function parseArgs(argv = process.argv.slice(2)) {
     const derivedViewPath = path.join(path.dirname(ticketsPath), 'SEQUENCES.json');
     viewPath = fs.existsSync(derivedViewPath) ? derivedViewPath : null;
   }
-  return { ticketsPath, graphPath, registryPath, viewPath };
+  if (stepSidecarPath === null) {
+    const derivedStepSidecar = path.join(path.dirname(graphPath), 'RFC-STEP-CONTRACTS.json');
+    stepSidecarPath = fs.existsSync(derivedStepSidecar) ? derivedStepSidecar : null;
+  }
+  return { ticketsPath, graphPath, registryPath, viewPath, stepSidecarPath };
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
@@ -96,16 +105,18 @@ function normalizeClause(value) {
 /**
  * Whether one postcondition satisfies a later precondition.
  *
- * The two clauses are prose, so equality alone would reject every paraphrase. Containment
- * is the mechanical relation the split can check: "token issued" satisfies "token", and
- * "token issued" does not satisfy "session active".
+ * The two clauses are prose, but prose containment is not a proof: `not ready` contains
+ * `ready` and `unauthenticated` contains `authenticated`. Closure therefore requires the
+ * same normalized clause or an explicit `satisfiedBy` link; a paraphrase is authored as a
+ * link rather than inferred from a substring.
  */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function postconditionSatisfiesPrecondition(postcondition, precondition) {
+// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+function contractIdentityMatches(postcondition, precondition, satisfiedBy = null) {
   const post = normalizeClause(postcondition);
   const pre = normalizeClause(precondition);
   if (post === '' || pre === '') return false;
-  return post === pre || post.includes(pre) || pre.includes(post);
+  if (post === pre) return true;
+  return typeof satisfiedBy === 'string' && normalizeClause(satisfiedBy) === pre;
 }
 
 /** The contracts an edge carries, or an empty list. */
@@ -126,7 +137,7 @@ function edgeLabelOf(contract) {
   return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
 
-// [::TICKET::] PX-306, PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-315, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-315|PX-318) --for-spec --no-implementation-order`.
 function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
@@ -153,7 +164,7 @@ function verifyClosure(tickets, graph, options = {}) {
         .filter((contract) => contract.precondition));
       if (incoming.length === 0 || outgoing.length === 0) continue;
       for (const next of outgoing) {
-        const satisfied = incoming.some((previous) => postconditionSatisfiesPrecondition(previous.postcondition, next.precondition));
+        const satisfied = incoming.some((previous) => contractIdentityMatches(previous.postcondition, next.precondition, next.satisfiedBy));
         if (!satisfied) {
           errors.push({
             ticket: ticketKey,
@@ -171,19 +182,28 @@ function verifyClosure(tickets, graph, options = {}) {
     const sourceTicket = nodeToTicket.get(edge.from);
     const targetTicket = nodeToTicket.get(edge.to);
     if (sourceTicket === undefined || targetTicket === undefined || sourceTicket === targetTicket) continue;
+    if (contractsOf(edge).length === 0) continue;
     const label = edge.from + '→' + edge.to;
     const sourceContracts = (sourceTicket && Array.isArray(sourceTicket.contracts) ? sourceTicket.contracts : [])
       .filter((contract) => edgeLabelOf(contract) === label && contract.postcondition);
     const targetContracts = (targetTicket && Array.isArray(targetTicket.contracts) ? targetTicket.contracts : [])
-      .filter((contract) => contract.precondition);
-    if (sourceContracts.length === 0 || targetContracts.length === 0) continue;
+      .filter((contract) => edgeLabelOf(contract) === label && contract.precondition);
+    if (sourceContracts.length === 0 || targetContracts.length === 0) {
+      errors.push({
+        ticket: ticketKeyOf(targetTicket),
+        code: 'INTER_TICKET_CLOSURE_OPEN',
+        detail: 'Inter-ticket edge ' + label + ': one side carries no contract for the edge',
+      });
+      continue;
+    }
     for (const target of targetContracts) {
-      const satisfied = sourceContracts.some((source) => postconditionSatisfiesPrecondition(source.postcondition, target.precondition));
+      const satisfied = sourceContracts.some((source) =>
+        contractIdentityMatches(source.postcondition, target.precondition, target.satisfiedBy));
       if (!satisfied) {
         errors.push({
           ticket: ticketKeyOf(targetTicket),
           code: 'INTER_TICKET_CLOSURE_OPEN',
-          detail: 'Inter-ticket edge ' + label + ': no source postcondition satisfies precondition "' + target.precondition + '"',
+          detail: 'Inter-ticket edge ' + label + ': no source postcondition matches precondition "' + target.precondition + '"',
         });
       }
     }
@@ -246,16 +266,18 @@ function verifyClosure(tickets, graph, options = {}) {
     ...registry,
     ...(options.registryContracts ?? []).map((row) => row.boundary_id),
   ]);
+  const stepIds = new Set(options.stepIds ?? []);
   for (const ticket of tickets) {
     for (const contract of Array.isArray(ticket.contracts) ? ticket.contracts : []) {
       const edgeResolves = edgeLabels.has(edgeLabelOf(contract));
       const registryResolves = registrySet.has(contract.boundaryId)
         || [...registrySet].some((boundaryId) => contract.id === 'contract-' + boundaryId || contract.id === boundaryId);
-      if (!edgeResolves && !registryResolves) {
+      const stepResolves = typeof contract.stepId === 'string' && stepIds.has(contract.stepId);
+      if (!edgeResolves && !registryResolves && !stepResolves) {
         errors.push({
           ticket: ticketKeyOf(ticket),
           code: 'INVENTED_TICKET_CONTRACT',
-          detail: 'Contract ' + (contract.id || '?') + ' names no graph edge and no registry boundary',
+          detail: 'Contract ' + (contract.id || '?') + ' names no graph edge, registry boundary or step-contract row',
         });
       }
     }
@@ -264,9 +286,9 @@ function verifyClosure(tickets, graph, options = {}) {
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, graphPath, registryPath, viewPath } = parseArgs();
+  const { ticketsPath, graphPath, registryPath, viewPath, stepSidecarPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -300,9 +322,11 @@ function main() {
     ? JSON.parse(fs.readFileSync(viewPath, 'utf8'))
     : null;
   const scopedRows = view === null ? rows : registryRowsForPackage(rows, view.packageId);
+  const stepSidecar = readStepContractSidecar(stepSidecarPath);
   const result = verifyClosure(allTickets, graph, {
     registryBoundaryIds: scopedRows.map((row) => row.boundary_id),
     registryContracts: scopedRows,
+    stepIds: (stepSidecar?.steps ?? []).map((row) => row.stepId),
   });
 
   if (!result.valid) {

@@ -80,6 +80,41 @@ function buildNodeToDirMap(dirsTree) {
   return nodeToDir;
 }
 
+/**
+ * The leaf file each mapped node owns.
+ *
+ * `default_files` is a list of implementation files, so a mapped directory is not a
+ * valid entry. A node mapped only to a directory keeps no entry here and the caller
+ * reports it rather than writing a directory into the ticket.
+ *
+ * @param {object} dirsTree
+ * @returns {Record<string, string>}
+ */
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+function buildNodeToFileMap(dirsTree) {
+  const nodeToFile = {};
+// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+  function walk(node, parentPath) {
+    if (!node || !node.name) return;
+    const currentPath = parentPath ? parentPath + '/' + node.name : node.name;
+    if (node.type === 'file' && node.mappedNodeIds) {
+      for (const entry of node.mappedNodeIds) {
+        const nid = entry.nodeId || entry;
+        if (nid && !nodeToFile[nid]) nodeToFile[nid] = currentPath;
+      }
+    }
+    if (node.type === 'directory' && node.children) {
+      for (const child of node.children) walk(child, currentPath);
+    }
+  }
+  if (dirsTree && dirsTree.trees) {
+    for (const lang of Object.keys(dirsTree.trees)) {
+      walk(dirsTree.trees[lang], '');
+    }
+  }
+  return nodeToFile;
+}
+
 // ============================================================
 // 6-check validation
 // ============================================================
@@ -383,11 +418,11 @@ function main() {
   }
 
   if (!parsed.tickets || !parsed.graph || !parsed['dirs-tree']) {
-    console.log(JSON.stringify({
+    process.stdout.write(JSON.stringify({
       valid: false,
       checks: {},
       errors: ['Usage: node validate-phasify.js --tickets=<PATH> --graph=<PATH> --dirs-tree=<PATH>'],
-    }));
+    }) + '\n');
     process.exit(2);
   }
 
@@ -398,14 +433,14 @@ function main() {
 
     const result = validateAll(ticketsData, graphData.nodes || [], graphData.edges || [], dirsTreeData);
 
-    console.log(JSON.stringify(result, null, 2));
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     process.exit(result.valid ? 0 : 1);
   } catch (e) {
-    console.log(JSON.stringify({
+    process.stdout.write(JSON.stringify({
       valid: false,
       checks: {},
       errors: ['File read error: ' + e.message],
-    }));
+    }) + '\n');
     process.exit(2);
   }
 }
@@ -423,6 +458,7 @@ module.exports = {
   checkDirsConstraint,
   checkNoOrphanNodes,
   buildNodeToDirMap,
+  buildNodeToFileMap,
   buildNodeToPhaseMap,
   HARD_EDGE_TYPES,
 };

@@ -26,6 +26,7 @@ const {
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { rowsFromBoundaryNote } = require('../rfc-graph/project-boundary-contracts.js');
+const { readStepContractSidecar, verifyStepContracts } = require('../rfc-graph/lib/step-contracts.mjs');
 const { collectViewUnits, registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 
@@ -35,13 +36,14 @@ const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with']
 /** Edge types that are optional (no contract requirement) */
 const TYPES_OPTIONAL = ['references', 'refines', 'extends', 'supersedes', 'triggers', 'precedes', 'part_of', 'validates', 'implements'];
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-314|PX-318) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let graphPath = null;
   let registryPath = null;
   let viewPath = null;
   let sidecarPath = null;
+  let stepSidecarPath = null;
   for (const a of args) {
     if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
     if (a.startsWith('--registry=')) {
@@ -56,6 +58,10 @@ function parseArgs() {
       const value = a.slice('--sidecar='.length);
       sidecarPath = value === '' ? null : path.resolve(value);
     }
+    if (a.startsWith('--step-sidecar=')) {
+      const value = a.slice('--step-sidecar='.length);
+      stepSidecarPath = value === '' ? null : path.resolve(value);
+    }
   }
   if (graphPath === null) {
     console.error('[ERROR] --graph=<path> is required');
@@ -63,7 +69,7 @@ function parseArgs() {
     console.error('Action: Re-run with --graph=<path-to-GRAPH.json>');
     process.exit(1);
   }
-  return { graphPath, registryPath, viewPath, sidecarPath };
+  return { graphPath, registryPath, viewPath, sidecarPath, stepSidecarPath };
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
@@ -215,9 +221,9 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315|PX-318) --for-spec --no-implementation-order`.
 function main() {
-  const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath } = parseArgs();
+  const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath, stepSidecarPath: explicitStepSidecarPath } = parseArgs();
   const sidecarPath = explicitSidecarPath ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');
   if (viewPath !== null && !fs.existsSync(viewPath)) {
     console.error('[ERROR] MISSING_VIEW: --view was supplied but the package view is not readable: ' + viewPath);
@@ -256,6 +262,19 @@ function main() {
     sidecarPath,
     view,
   });
+
+  const stepSidecarPath = explicitStepSidecarPath
+    ?? path.join(path.dirname(graphPath), 'RFC-STEP-CONTRACTS.json');
+  if (view !== null && fs.existsSync(stepSidecarPath)) {
+    const stepFindings = verifyStepContracts({
+      view,
+      graph,
+      sidecar: readStepContractSidecar(stepSidecarPath),
+    });
+    for (const finding of stepFindings) {
+      errors.push({ edge: finding.subject ?? 'step-contracts', code: finding.code, detail: finding.message });
+    }
+  }
   if (errors.length > 0) {
     for (const err of errors) {
       console.error('[ERROR] Edge ' + err.edge + ': ' + err.detail);

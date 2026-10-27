@@ -25,6 +25,10 @@ const {
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
 const {
+  readStepContractSidecar,
+  stepContractEntry,
+} = require('../rfc-graph/lib/step-contracts.mjs');
+const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
 } = require('../lib/package-artifacts');
@@ -32,12 +36,13 @@ const {
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-318) --for-spec --no-implementation-order`.
 function parseArgs(argv = process.argv.slice(2)) {
-  const args = argv.filter((entry) => !entry.startsWith('--registry='));
+  const args = argv.filter((entry) => !entry.startsWith('--registry=') && !entry.startsWith('--step-sidecar='));
   const registryArg = argv.find((entry) => entry.startsWith('--registry='));
+  const stepSidecarArg = argv.find((entry) => entry.startsWith('--step-sidecar='));
   if (args.length < 1) {
-    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>]');
+    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>] [--step-sidecar=<RFC-STEP-CONTRACTS.json>]');
     console.error('Cause: Missing arguments');
     console.error('Action: Provide the Tickets.json path');
     process.exit(1);
@@ -51,12 +56,16 @@ function parseArgs(argv = process.argv.slice(2)) {
     console.error('Action: pass GRAPH.json explicitly or keep exactly one *-GRAPH.json beside Tickets.json');
     process.exit(1);
   }
+  const defaultStepSidecar = path.join(path.dirname(graphPath), 'RFC-STEP-CONTRACTS.json');
   return {
     ticketsPath,
     graphPath,
     registryPath: registryArg === undefined
       ? findAllocateManifest(path.dirname(ticketsPath))
       : path.resolve(registryArg.slice('--registry='.length)),
+    stepSidecarPath: stepSidecarArg === undefined
+      ? (fs.existsSync(defaultStepSidecar) ? defaultStepSidecar : null)
+      : path.resolve(stepSidecarArg.slice('--step-sidecar='.length)),
   };
 }
 
@@ -132,8 +141,8 @@ function registryContractsForTicket(ticket, registry) {
  * @param {Array<object|string>} registryContracts
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function mergeContracts(tickets, graph, registryContracts = []) {
+// [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
+function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const edges = graph.edges || [];
 
   // Build nodeId → ticketId mapping for cross-ticket edge detection
@@ -188,6 +197,18 @@ function mergeContracts(tickets, graph, registryContracts = []) {
       else mergedContracts.push(contract);
     }
 
+    if (stepSidecar !== null) {
+      const unitIds = (ticket.distribution?.units ?? []).map((unit) => unit.unitId);
+      for (const [index, row] of (stepSidecar.steps ?? []).entries()) {
+        const carriesRow = (row.nodeIds ?? []).some((nodeId) => nodeSet.has(nodeId))
+          || unitIds.includes(`seq-${row.sequenceId}`)
+          || unitIds.includes(`xdir-${row.sequenceId}`);
+        if (!carriesRow) continue;
+        if (mergedContracts.some((entry) => entry.stepId === row.stepId)) continue;
+        mergedContracts.push(stepContractEntry(row, index));
+      }
+    }
+
     ticket.contracts = mergedContracts;
   }
 
@@ -207,13 +228,14 @@ function mergeContracts(tickets, graph, registryContracts = []) {
  * @param {string[]} [registryBoundaryIds]
  * @returns {Array<{code: string, ticketId: number|null, boundaryId?: string, contractId?: string}>}
  */
-// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
-function verifyMergedBoundaryContracts(tickets, graph, registryContracts = []) {
+// [::TICKET::] PX-306, PX-312, PX-313, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
+function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const findings = [];
   const edgeLabels = new Set((graph.edges || []).map((edge) => edge.from + '→' + edge.to));
   const rows = normalizeRegistryContracts(registryContracts);
   const rowById = new Map(rows.map((row) => [row.boundary_id, row]));
   const registryIds = new Set(rows.map((row) => row.boundary_id));
+  const stepEntries = new Map((stepSidecar?.steps ?? []).map((row, index) => [row.stepId, stepContractEntry(row, index)]));
   for (const ticket of tickets) {
     const unitIds = (ticket.nodeIds || []).filter(isUnitId);
     const contracts = Array.isArray(ticket.contracts) ? ticket.contracts : [];
@@ -238,6 +260,18 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = []) {
       }
     }
     for (const contract of contracts) {
+      const stepEntry = typeof contract.stepId === 'string' ? stepEntries.get(contract.stepId) : undefined;
+      if (typeof contract.stepId === 'string') {
+        if (stepEntry === undefined) {
+          findings.push({ code: 'INVENTED_TICKET_CONTRACT', ticketId: ticket.id, contractId: contract.id || null });
+        } else if (contract.digest !== stepEntry.digest
+            || contract.precondition !== stepEntry.precondition
+            || contract.postcondition !== stepEntry.postcondition
+            || contract.invariant !== stepEntry.invariant) {
+          findings.push({ code: 'STEP_CONTRACT_MISMATCH', ticketId: ticket.id, contractId: contract.stepId });
+        }
+        continue;
+      }
       const label = String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
       const registryMatch = registryIds.has(contract.boundaryId)
         || (typeof contract.registryContractId === 'string'
@@ -251,9 +285,9 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = []) {
   return findings;
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, graphPath, registryPath } = parseArgs();
+  const { ticketsPath, graphPath, registryPath, stepSidecarPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -273,18 +307,19 @@ function main() {
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const registry = registryContracts(registryPath);
+  const stepSidecar = readStepContractSidecar(stepSidecarPath);
 
   // Process all phases and tickets
   const allTickets = [];
   for (const phase of ticketsData.phases) {
     if (phase.tickets) {
-      mergeContracts(phase.tickets, graph, registry);
+      mergeContracts(phase.tickets, graph, registry, stepSidecar);
       allTickets.push(...phase.tickets);
     }
   }
 
   // A boundary unit without its contract, or a contract with no source, is a finding.
-  const findings = verifyMergedBoundaryContracts(allTickets, graph, registry);
+  const findings = verifyMergedBoundaryContracts(allTickets, graph, registry, stepSidecar);
   if (findings.length > 0) {
     for (const finding of findings) {
       console.error('[ERROR] ' + finding.code + ': ' + JSON.stringify(finding));
