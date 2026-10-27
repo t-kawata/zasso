@@ -258,6 +258,49 @@ function foreignTicket(overrides = {}) {
   });
 }
 
+// Gate S scans the Red tests for `@verifies <contract id>`. The make plan is where the
+// implementer learns that id, so a contract that reached `ticket.contracts` but whose id
+// never reached the test plan is planned only by accident.
+function localSequenceTicket({ contractId = 'C500', testUnit = ['UT: op-A returns the value'] } = {}) {
+  return ticket({
+    testUnit,
+    contracts: [{ id: contractId, stepId: 'S__s1', precondition: 'pre', postcondition: 'post', invariant: 'inv' }],
+    distribution: { units: [
+      { unitId: 'op-A', kind: 'operation', operationId: 'A', obligation: { mode: 'implement' } },
+      { unitId: 'seq-S', kind: 'sequence', obligation: { mode: 'steps', steps: [step('S__s1', 'A')] } },
+    ] },
+  });
+}
+
+test('C003 a step contract id absent from the test plan is STEP_CONTRACT_UNTESTED', () => {
+  const result = evaluateDistributionDelivery(localSequenceTicket());
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some((entry) => entry.code === 'STEP_CONTRACT_UNTESTED' && entry.subject === 'C500'));
+});
+
+test('C003 a step contract id named in the test plan passes', () => {
+  const result = evaluateDistributionDelivery(localSequenceTicket({ testUnit: ['UT: op-A returns the value @verifies C500'] }));
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+});
+
+test('C003 a boundary contract id absent from the test plan is BOUNDARY_CONTRACT_UNTESTED', () => {
+  const result = evaluateDistributionDelivery(ticket({
+    contracts: [{ id: 'contract-boundary-001', boundaryId: 'boundary-001', precondition: 'p', postcondition: 'q', invariant: 'r' }],
+    distribution: { units: [{ unitId: 'ctr-boundary-001', kind: 'boundary', obligation: { mode: 'obligation' } }] },
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some((entry) => entry.code === 'BOUNDARY_CONTRACT_UNTESTED' && entry.subject === 'contract-boundary-001'));
+});
+
+test('C003 a boundary contract id named in the test plan passes', () => {
+  const result = evaluateDistributionDelivery(ticket({
+    testUnit: ['UT: @verifies contract-boundary-001'],
+    contracts: [{ id: 'contract-boundary-001', boundaryId: 'boundary-001', precondition: 'p', postcondition: 'q', invariant: 'r' }],
+    distribution: { units: [{ unitId: 'ctr-boundary-001', kind: 'boundary', obligation: { mode: 'obligation' } }] },
+  }));
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+});
+
 test('PX-326 a boundary-crossing foreign step without an IT entry is SHARED_STEP_INTEGRATION_MISSING', () => {
   const result = evaluateDistributionDelivery(foreignTicket(), {
     view: foreignView(),

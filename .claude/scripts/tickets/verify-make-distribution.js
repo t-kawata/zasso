@@ -40,7 +40,9 @@ const EXIT_FAILURE = 1;
 const DELIVERY_CODES = Object.freeze({
   DISTRIBUTION_UNIT_UNTESTED: 'DISTRIBUTION_UNIT_UNTESTED',
   STEP_CONTRACT_NOT_DELIVERED: 'STEP_CONTRACT_NOT_DELIVERED',
+  STEP_CONTRACT_UNTESTED: 'STEP_CONTRACT_UNTESTED',
   BOUNDARY_CONTRACT_NOT_DELIVERED: 'BOUNDARY_CONTRACT_NOT_DELIVERED',
+  BOUNDARY_CONTRACT_UNTESTED: 'BOUNDARY_CONTRACT_UNTESTED',
   SHARED_WORK_UNDECLARED: 'SHARED_WORK_UNDECLARED',
   SHARED_STEP_INTEGRATION_MISSING: 'SHARED_STEP_INTEGRATION_MISSING',
   SHARED_STEP_OWNER_UNKNOWN: 'SHARED_STEP_OWNER_UNKNOWN',
@@ -107,12 +109,17 @@ function stepContractIsDelivered(step, contract) {
   });
 }
 
-/** Whether a ctr unit's registry projection is present. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-function boundaryContractIsDelivered(unit, ticket) {
+/** The contract a ctr unit projects, or undefined. */
+function boundaryContractForUnit(unit, ticket) {
   const boundaryId = String(unit?.unitId ?? '').replace(/^ctr-/, '');
-  return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).some((contract) => contract?.boundaryId === boundaryId
+  return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).find((contract) => contract?.boundaryId === boundaryId
     || contract?.registryContractId === `contract-${boundaryId}`
     || contract?.id === `contract-${boundaryId}`);
+}
+
+/** Whether a ctr unit's registry projection is present. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+function boundaryContractIsDelivered(unit, ticket) {
+  return boundaryContractForUnit(unit, ticket) !== undefined;
 }
 
 /** Whether a unit is a sequence whose steps may include a foreign step. */
@@ -287,6 +294,10 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
         const contract = contractForStep(ticket, step.stepId);
         if (!stepContractIsDelivered(step, contract)) {
           findings.push({ code: DELIVERY_CODES.STEP_CONTRACT_NOT_DELIVERED, subject: step.stepId, message: `step ${step.stepId} is carried by the ticket and its contract is not in ticket.contracts` });
+        } else if (typeof contract.id === 'string' && contract.id.length > 0 && !mentions(testText, contract.id)) {
+          // The id is what Gate S scans for. A plan that names the step but never its
+          // contract leaves the Red annotation to be invented at start time.
+          findings.push({ code: DELIVERY_CODES.STEP_CONTRACT_UNTESTED, subject: contract.id, message: `step ${step.stepId} contract ${contract.id} is in no test-plan entry` });
         }
       }
       findings.push(...stepAxisFindings({ ticket, unit, testText }));
@@ -295,8 +306,11 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
       }
     }
     if (unitId.startsWith('ctr-')) {
-      if (!boundaryContractIsDelivered(unit, ticket)) {
+      const boundaryContract = boundaryContractForUnit(unit, ticket);
+      if (boundaryContract === undefined) {
         findings.push({ code: DELIVERY_CODES.BOUNDARY_CONTRACT_NOT_DELIVERED, subject: unitId, message: `${unitId} is carried by the ticket and its registry projection is not in ticket.contracts` });
+      } else if (typeof boundaryContract.id === 'string' && boundaryContract.id.length > 0 && !mentions(testText, boundaryContract.id)) {
+        findings.push({ code: DELIVERY_CODES.BOUNDARY_CONTRACT_UNTESTED, subject: boundaryContract.id, message: `${unitId} contract ${boundaryContract.id} is in no test-plan entry` });
       }
     }
     if (unit?.obligation?.mode === 'reference') {
@@ -387,6 +401,7 @@ if (require.main === module) {
 module.exports = {
   DELIVERY_CODES,
   argumentFor,
+  boundaryContractForUnit,
   boundaryContractIsDelivered,
   evaluateDistributionDelivery,
   findTicket,

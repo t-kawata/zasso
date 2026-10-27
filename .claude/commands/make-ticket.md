@@ -65,7 +65,7 @@ Root: `.claude/scripts/tickets/`.
 |---|---|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]`; Step 1/9; emits ticket Markdown; Step 9 `--for-spec` emits spec content |
 | `check-ticket-prerequisites.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--workspace=<root>]`; Step 0; exit 0 = pass or skip, exit 1 = named `PREREQUISITE_*` failure |
-| `verify-make-distribution.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--spec=<path>]`; Step 9.5 (post-write); conditional delivery gate; `skipped:no-distribution` exits 0 |
+| `verify-make-distribution.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--tickets=<path>] [--spec=<path>]`; Step 9.5 (post-write); always run; `skipped:no-distribution` exits 0 |
 | `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]`; Step 2B; internally `add-ticket.js → show-ticket-context.js`; derives spec path only; does not create it |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 3; inserts markers in 11 fields; simultaneously sets `created_at`/`updated_at` |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 6; lists remaining `[::TEMPLATE-STUB::]` in natural language; exit 0: all replaced |
@@ -118,7 +118,7 @@ Output: every nonempty ticket field:
 | `## Test Plan` | unit/integration/exceptions |
 | `## Related Tickets` | related tickets |
 | `## Notes` | supplementary information |
-| `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners and the ctr boundary contracts |
+| `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners, each step's generated contract id and the ctr boundary contracts |
 | `## Implementation Prerequisites` | only when the ticket carries prerequisites; each prerequisite ticket or package with its status, source and boundary |
 | `## Pipeline Context` | normal mode only: resource paths/existence status |
 
@@ -130,7 +130,7 @@ Run only when Step 1 output contains `## Distribution Obligations` or `## Implem
 
 Treat the section as authoritative machine output. Read it in this order:
 
-1. **Own work** — units whose `obligation.mode` is `implement`, `steps`, `flow` or `obligation`. Implement every local step in the order shown; do not aggregate or reorder it.
+1. **Own work** — units whose `obligation.mode` is `implement`, `steps`, `flow` or `obligation`. Implement every local step in the order shown; do not aggregate or reorder it. The Work Share `contract` column carries the generated contract id (for example `C500`); name that id in the test plan because Gate S scans the Red tests for `@verifies <id>`.
 2. **Shared work** — `### Work Share` step owners that are another ticket key (`P{phaseID}-{ticketID}` or `PX-{id}`) or a package id (`package pkg-*`). Do not reimplement a shared step; the counterpart is an integration dependency and the boundary contract is the interface. A foreign step is an interface only when it crosses a boundary or exchanges a `consumes`/`produces` fact with a local step; other foreign steps are informational.
 3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Name the `implementer ticket` key or `provider packages` in `testIntegration` (or `testUnit` for a unit-level consumption assertion). A note alone does not satisfy the gate.
 4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on. The registry contract id is `contract-<boundary_id>`; the Gate S/R annotation uses that exact id.
@@ -264,10 +264,10 @@ Before remaining fields:
 Run only when Step 1.5 ran. For every distribution unit:
 
 - `implement` unit → at least one `testUnit` or `testIntegration` entry names the unit id or operation id. Every non-empty contract-bearing field in `Distribution Obligations` (`finalityPredicate`, `idempotencyScope`, `allowedStatusTransitions`, `initialStatus`, `cancellationRule`, `reversalOrRecoveryRule`, `rejectCodeFamilies`, `registryContribution`, `boundaryEffects`, `requiredAuthority`, `requiredPreStateCheckpoint`, `requiredProofClasses`, `requiresRemoteTimeHandshake`, `requiresSessionBinding`, `externalDependencyClass`, `resultObjectClasses`) and every non-empty surface field (`rest`, `websocket`, `cli`) is named in `testUnit`/`testIntegration` or in a justified `testException`. `verify-make-distribution` reports `OPERATION_OBLIGATION_UNPLANNED` by field name.
-- local sequence step → its precondition, postcondition and invariant, plus `consumes`, `produces`, `errors` and `crosses` when present, appear in the test plan (`testUnit` or `testIntegration`) in artifact order. Each non-empty axis fact is named in the test plan; `verify-make-distribution` reports `STEP_AXIS_NOT_DELIVERED` by step and axis.
+- local sequence step → its generated contract id, its precondition, postcondition and invariant, plus `consumes`, `produces`, `errors` and `crosses` when present, appear in the test plan (`testUnit` or `testIntegration`) in artifact order. Each non-empty axis fact is named in the test plan; `verify-make-distribution` reports `STEP_CONTRACT_UNTESTED` by contract id and `STEP_AXIS_NOT_DELIVERED` by step and axis.
 - shared sequence step that is interface-relevant (crosses a boundary, or exchanges a `consumes`/`produces` fact with a local step) → a `testIntegration` entry names the owner (counterpart ticket key or package id), the step id, and the crossed boundary id when present. Other foreign steps need no entry. Do not add an implementation test for a foreign step. `verify-make-distribution` reports `SHARED_STEP_INTEGRATION_MISSING` or `SHARED_STEP_OWNER_UNKNOWN`.
 - `reference` unit → a consumption test naming the `implementer ticket` or provider package in `testUnit`/`testIntegration`; a note alone is `SHARED_WORK_UNDECLARED`. Never implement the provider.
-- `ctr-*` unit → a test asserts its precondition, postcondition and invariant; keep the projected contract in `contracts` unchanged. The contract id is `contract-<boundary_id>` and the test carries `@verifies contract-<boundary_id>`.
+- `ctr-*` unit → a test asserts its precondition, postcondition and invariant; keep the projected contract in `contracts` unchanged. The contract id is `contract-<boundary_id>` and the test carries `@verifies contract-<boundary_id>`. The id must also appear in `testUnit` or `testIntegration`; `verify-make-distribution` reports `BOUNDARY_CONTRACT_UNTESTED` when it does not.
 - A sequence unit is checked against the package `SEQUENCES.json`; an unreadable view is `DISTRIBUTION_VIEW_MISSING`, not a silent skip of the foreign-step check.
 - A machine-projected step or boundary contract is never removed, shortened or re-derived by hand. If it is wrong, fix the producer and re-split; do not edit the ticket around it.
 
@@ -357,7 +357,7 @@ Heal-loop targets:
 ### Step 9: Write spec file
 
 `--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
-When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract visible only in raw JSON is a spec defect.
+When the ticket carries sequence-step contracts, the spec must contain them under `## Operation-Boundary Contracts` with the generated contract id and its `@verifies` annotation, the precondition, postcondition, invariant, the four typed axes (`consumes`, `produces`, `errors`, `crosses`) and the contract prose for every step. A step contract or its id visible only in raw JSON is a spec defect, because Gate S needs the id to prove Red coverage.
 When the ticket carries `prerequisites`, the spec must contain `## Implementation Prerequisites` with every prerequisite ticket or package and its source. A prerequisite visible only in raw JSON is a spec defect.
 When the ticket carries a sequence or ctr unit, the spec must also contain `## Distribution Obligations` and its `### Work Share` block: the own work, the shared/foreign owners and the ctr boundary contracts. An operation-only ticket carries `## Distribution Obligations` without a Work Share block. A unit or boundary contract visible only in raw JSON is a spec defect. A ticket with no distribution units writes no such section, so Case B is unchanged.
 
@@ -369,10 +369,12 @@ node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
-### Step 9.5: Distribution delivery gate (conditional, post-write)
+### Step 9.5: Distribution delivery gate (post-write, self-skipping)
 
-Run only when Step 1.5 ran. The spec must exist before this gate: the gate checks the
-written spec, not a remembered plan.
+Run this gate after every spec write. The spec must exist before this gate: the gate checks
+the written spec, not a remembered plan. The script decides from the ticket, so do not skip
+it on the belief that Step 1.5 did not run; a ticket with no distribution units exits 0 with
+`skipped:no-distribution`, which keeps Case B and a pre-split ticket unchanged.
 
 ```bash
 node .claude/scripts/tickets/verify-make-distribution.js \
@@ -380,7 +382,7 @@ node .claude/scripts/tickets/verify-make-distribution.js \
 ```
 
 - exit 0, or `skipped:no-distribution` → Step 10. The skip is the Case B path.
-- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `SHARED_WORK_UNDECLARED`, `SHARED_STEP_INTEGRATION_MISSING`, `SHARED_STEP_OWNER_UNKNOWN`, `STEP_AXIS_NOT_DELIVERED`, `OPERATION_OBLIGATION_UNPLANNED`, `DISTRIBUTION_VIEW_MISSING`, `DISTRIBUTION_SPEC_MISSING`, `DISTRIBUTION_SECTION_MISSING` or `WORK_SHARE_SECTION_MISSING` finding names the unit, step, field or section; repair Step 6 or Step 9 and re-run Step 9.5.
+- exit 1 → the named `DISTRIBUTION_UNIT_UNTESTED`, `STEP_CONTRACT_NOT_DELIVERED`, `STEP_CONTRACT_UNTESTED`, `BOUNDARY_CONTRACT_NOT_DELIVERED`, `BOUNDARY_CONTRACT_UNTESTED`, `SHARED_WORK_UNDECLARED`, `SHARED_STEP_INTEGRATION_MISSING`, `SHARED_STEP_OWNER_UNKNOWN`, `STEP_AXIS_NOT_DELIVERED`, `OPERATION_OBLIGATION_UNPLANNED`, `DISTRIBUTION_VIEW_MISSING`, `DISTRIBUTION_SPEC_MISSING`, `DISTRIBUTION_SECTION_MISSING` or `WORK_SHARE_SECTION_MISSING` finding names the unit, step, field or section; repair Step 6 and re-run Step 9 to regenerate the spec (or repair Step 9 directly), then re-run Step 9.5.
 
 ### Step 10: Update ticket status
 

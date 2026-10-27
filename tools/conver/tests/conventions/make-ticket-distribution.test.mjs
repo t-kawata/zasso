@@ -45,6 +45,14 @@ test('C007 the delivery gate runs after the spec is written', () => {
   assert.match(DOCUMENT, /WORK_SHARE_SECTION_MISSING/);
 });
 
+test('C007 the delivery gate runs on every make run and self-skips', () => {
+  // The gate decides from the ticket. Making its invocation conditional on the AI noticing
+  // a rendered section lets a distribution-bearing ticket with a rendering defect skip it.
+  assert.match(DOCUMENT, /### Step 9\.5: Distribution delivery gate \(post-write, self-skipping\)/);
+  assert.match(DOCUMENT, /Run this gate after every spec write/);
+  assert.doesNotMatch(DOCUMENT, /Run only when Step 1\.5 ran\. The spec must exist/);
+});
+
 test('C005 plan, start and review run the prerequisite gate at entry', () => {
   for (const command of ['plan-ticket.md', 'start-ticket.md', 'review-ticket.md']) {
     const document = readFileSync(new URL(`../../.claude/commands/${command}`, import.meta.url), 'utf8');

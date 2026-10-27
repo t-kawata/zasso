@@ -135,6 +135,21 @@ test('C004 the spec and distribution report render the step contract', () => {
   assert.match(report, /contractProse/);
 });
 
+test('C004 the spec exposes the step contract id and its Red annotation', () => {
+  // Gate S scans test files for `@verifies <contract id>`. A spec that renders the step
+  // contract without its generated C5xx id forces the implementer to open raw
+  // Tickets.json, so the id is part of the make deliverable, not an internal detail.
+  const ticket = ticketOwningBothNodes();
+  const { sidecar } = projectStepContracts({ view: viewWithTwoSteps(), graph: graphWithOperationNodes() });
+  ticket.contracts = sidecar.steps.map((row, index) => stepContractEntry(row, index));
+  const tickets = { phases: [{ id: 0, tickets: [ticket] }] };
+  const spec = buildTicketMarkdown('PX-1', ticket, tickets, '/tmp', true, false);
+  for (const contract of ticket.contracts) {
+    assert.match(spec, new RegExp(`### ${contract.id} — ${contract.stepId}`));
+    assert.match(spec, new RegExp(`@verifies ${contract.id}`));
+  }
+});
+
 test('C005 a negated postcondition does not satisfy a precondition', () => {
   const source = {
     id: 1,

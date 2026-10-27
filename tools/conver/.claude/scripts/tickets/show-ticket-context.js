@@ -602,14 +602,19 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
       : (Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []);
     lines.push(`#### Sequence ${unit.sequenceId ?? unit.unitId} — outcome: ${unit.obligation?.outcome ?? 'unknown'}`);
     lines.push('');
-    lines.push('| step | operation | owner | precondition | postcondition | invariant | axes |');
-    lines.push('|---|---|---|---|---|---|---|');
+    // The contract id is the key Gate S scans for in the Red test files. It is generated
+    // by the ticket merge, so the brief is the only place the implementer can read it
+    // without opening raw Tickets.json.
+    lines.push('| step | operation | owner | contract | precondition | postcondition | invariant | axes |');
+    lines.push('|---|---|---|---|---|---|---|---|');
     for (const step of steps) {
       const owner = stepOwnerLabel({ step, unit, ticket, ticketsDocument, view });
+      const contract = (Array.isArray(ticket.contracts) ? ticket.contracts : [])
+        .find((candidate) => candidate?.stepId === step?.stepId);
       const precondition = renderFactText(step?.contract?.pre) || '(none)';
       const postcondition = renderFactText(step?.contract?.post) || '(none)';
       const invariant = renderFactText(step?.contract?.invariants) || '(none)';
-      lines.push(`| ${step.stepId ?? '?'} | op-${step.operationId ?? step.operation ?? '?'} | ${owner} | ${precondition} | ${postcondition} | ${invariant} | ${renderStepAxes(step)} |`);
+      lines.push(`| ${step.stepId ?? '?'} | op-${step.operationId ?? step.operation ?? '?'} | ${owner} | ${contract?.id ?? '(none)'} | ${precondition} | ${postcondition} | ${invariant} | ${renderStepAxes(step)} |`);
     }
     if (unitInView === null) {
       lines.push('');
@@ -632,6 +637,7 @@ function renderWorkShare(ticket, { ticketsDocument = null, view = null } = {}) {
     if (contract === undefined) {
       lines.push('- contract: MISSING (the ticket carries the ctr unit without its registry projection)');
     } else {
+      lines.push(`- contract id: ${contract.id ?? `contract-${boundaryId}`}`);
       lines.push(`- precondition: ${contract.precondition || '(none)'}`);
       lines.push(`- postcondition: ${contract.postcondition || '(none)'}`);
       lines.push(`- invariant: ${contract.invariant || '(none)'}`);
@@ -1021,8 +1027,12 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('## Operation-Boundary Contracts — mandatory 100% test coverage in TDD Red phase');
     lines.push('');
     for (const c of stepContracts) {
-      lines.push('### ' + c.stepId + ' — sequence ' + (c.sequenceId || '?') + ' — operation ' + (c.operationId || '?'));
+      // The generated C5xx id is the identity Gate S checks in Red test annotations.
+      lines.push('### ' + (c.id || '?') + ' — ' + c.stepId + ' — sequence ' + (c.sequenceId || '?') + ' — operation ' + (c.operationId || '?'));
       lines.push('');
+      if (typeof c.id === 'string' && c.id.length > 0) {
+        lines.push('- **Red annotation**: `@verifies ' + c.id + '`');
+      }
       lines.push('- **Precondition**: ' + (c.precondition || '(none)'));
       lines.push('- **Postcondition**: ' + (c.postcondition || '(none)'));
       lines.push('- **Invariant**: ' + (c.invariant || '(none)'));

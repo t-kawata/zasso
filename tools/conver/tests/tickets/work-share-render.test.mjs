@@ -84,6 +84,19 @@ test('C002 Work Share prints the typed axes the delivery gate reads', () => {
   assert.match(text, /S__s1 .*consumes=fact:one/);
 });
 
+test('C002 Work Share names each step contract id and the boundary contract id', () => {
+  // The make brief must carry the ids Gate S will scan for. Rendering only the step id
+  // leaves the implementer unable to annotate the Red test without reading raw JSON.
+  const ticket = sharedTicket();
+  ticket.contracts = [
+    { id: 'C500', stepId: 'S__s1', precondition: 's-pre', postcondition: 's-post', invariant: 's-inv' },
+    { id: 'contract-boundary-001', boundaryId: 'boundary-001', precondition: 'b-pre', postcondition: 'b-post', invariant: 'b-inv' },
+  ];
+  const text = renderWorkShare(ticket, { ticketsDocument: ticketsDocument(), view: view() });
+  assert.match(text, /\| S__s1 \| op-A \| this ticket \| C500 \|/);
+  assert.match(text, /contract id: contract-boundary-001/);
+});
+
 test('C006 an unreadable view keeps the local steps and marks the rest not available', () => {
   const text = renderWorkShare(sharedTicket(), { ticketsDocument: ticketsDocument(), view: null });
   assert.match(text, /S__s1/);
