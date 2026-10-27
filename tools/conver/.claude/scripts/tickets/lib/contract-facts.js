@@ -92,12 +92,34 @@ function hasObligationValue(value) {
   return true;
 }
 
+/**
+ * The boundary ids a `crosses` axis names.
+ *
+ * The artifact states a crossing as `boundary:<id>`; older structured facts carry
+ * `boundaryId` or `boundary`. Both shapes resolve to the same registry row.
+ *
+ * @param {unknown} facts
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+function crossedBoundaryIds(facts) {
+  return (Array.isArray(facts) ? facts : [])
+    .map((fact) => {
+      if (typeof fact === 'string') {
+        return fact.startsWith('boundary:') ? fact.slice('boundary:'.length).split('/')[0] : fact;
+      }
+      return fact?.boundaryId ?? fact?.boundary ?? null;
+    })
+    .filter((boundaryId) => typeof boundaryId === 'string' && boundaryId.length > 0);
+}
+
 module.exports = {
   CONTRACT_AXES,
   CONTRACT_BEARING_OPERATION_FIELDS,
   SURFACE_OPERATION_FIELDS,
   DESCRIPTIVE_OPERATION_FIELDS,
   OPERATION_OBLIGATION_FIELDS,
+  crossedBoundaryIds,
   factTexts,
   hasObligationValue,
 };
