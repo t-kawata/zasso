@@ -16,6 +16,10 @@ const path = require('path');
 const { collectViewUnits } = require('../sequences-slice/lib/distribution-map.mjs');
 const { boundaryClauseDigest } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
+const {
+  OPERATION_OBLIGATION_FIELDS,
+  renderObligationValue,
+} = require('./show-ticket-context.js');
 
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
@@ -70,7 +74,7 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-321) --for-spec --no-implementation-order`.
 function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
@@ -116,6 +120,11 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
     if (!phaseUnitIds.has(unitId)) continue;
     const record = unit.record;
     lines.push(`- ${unitId}: role=${record.roleCandidate ?? 'undecided'} owner=${(record.ownerPackageIds ?? []).join(',') || '?'} obligation=${record.obligation?.kind ?? 'none'}`);
+    for (const field of OPERATION_OBLIGATION_FIELDS) {
+      if (field === 'kind') continue;
+      const rendered = renderObligationValue(record.obligation?.[field]);
+      if (rendered !== null) lines.push(`  - ${field}: ${rendered}`);
+    }
   }
 
   lines.push('', '## Boundaries');

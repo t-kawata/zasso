@@ -527,6 +527,92 @@ function generateSlug(title) {
 }
 
 // [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
+/** The operation fields an implementer must receive; the projection is explicit so a
+ * classification field cannot be mistaken for work. */
+const OPERATION_OBLIGATION_FIELDS = Object.freeze([
+  'kind', 'purpose', 'requiredAuthority', 'requiresRemoteTimeHandshake',
+  'requiresSessionBinding', 'requiredPreStateCheckpoint', 'requiredProofClasses',
+  'idempotencyScope', 'initialStatus', 'allowedStatusTransitions',
+  'externalDependencyClass', 'finalityPredicate', 'cancellationRule',
+  'reversalOrRecoveryRule', 'rest', 'websocket', 'cli', 'rejectCodeFamilies',
+  'registryContribution', 'boundaryEffects', 'resultObjectClasses', 'specLines',
+]);
+
+/** One obligation value as a single Markdown line, or null when it carries nothing. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function renderObligationValue(value) {
+  if (Array.isArray(value)) return value.length > 0 ? value.join('; ') : null;
+  if (value !== null && typeof value === 'object') {
+    return Object.keys(value).length > 0 ? JSON.stringify(value) : null;
+  }
+  if (typeof value === 'string') return value.trim().length > 0 ? value : null;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return null;
+}
+
+/** The prose of one typed fact array, or an empty string. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function renderFactText(facts) {
+  return (Array.isArray(facts) ? facts : [])
+    .map((fact) => fact?.text ?? fact?.factId ?? '')
+    .filter((text) => typeof text === 'string' && text.length > 0)
+    .join('; ');
+}
+
+/** The distribution units of a ticket as a spec section, or null when the ticket has none. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function renderDistributionObligations(ticket) {
+  const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
+  if (units.length === 0) return null;
+  const lines = ['## Distribution Obligations', ''];
+  for (const unit of units) {
+    lines.push(`### ${unit.unitId ?? '?'} — ${unit.kind ?? 'unit'} (${unit.role ?? 'role undeclared'})`);
+    lines.push('');
+    const placement = unit.placement ?? {};
+    if (placement.nodeIds !== undefined || placement.paths !== undefined) {
+      lines.push(`- placement: ${(placement.nodeIds ?? []).join(', ') || '(none)'} -> ${(placement.paths ?? []).join(', ') || '(none)'}`);
+    }
+    lines.push(`- obligation: ${unit.obligation?.mode ?? 'unknown'}`);
+    if (unit.obligation?.mode === 'implement') {
+      for (const field of OPERATION_OBLIGATION_FIELDS) {
+        const rendered = renderObligationValue(unit.obligation[field]);
+        if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
+      }
+    }
+    if (unit.obligation?.mode === 'obligation') {
+      for (const field of ['relation', 'subject', 'direction', 'counterpart']) {
+        const rendered = renderObligationValue(unit.obligation[field]);
+        if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
+      }
+    }
+    if (Array.isArray(unit.obligation?.steps) && unit.obligation.steps.length > 0) {
+      lines.push('- sequence steps:');
+      for (const step of unit.obligation.steps) {
+        const location = typeof step.line === 'number' && step.line > 0 ? ` line ${step.line}` : '';
+        lines.push(`  - ${step.stepId} (op-${step.operationId}, order ${step.order ?? 0})${location}${step.quote ? ` "${step.quote}"` : ''}`);
+        const precondition = renderFactText(step.contract?.pre);
+        const postcondition = renderFactText(step.contract?.post);
+        const invariant = renderFactText(step.contract?.invariants);
+        if (precondition) lines.push(`    - precondition: ${precondition}`);
+        if (postcondition) lines.push(`    - postcondition: ${postcondition}`);
+        if (invariant) lines.push(`    - invariant: ${invariant}`);
+        if (typeof step.contractProse === 'string' && step.contractProse.length > 0) {
+          lines.push(`    - contractProse: ${step.contractProse}`);
+        }
+      }
+    }
+    if (Array.isArray(unit.specRefs) && unit.specRefs.length > 0) {
+      lines.push('- spec references:');
+      for (const ref of unit.specRefs) {
+        lines.push(`  - ${ref.path || '(no path)'}:${ref.line}${ref.quote ? ` "${ref.quote}"` : ''}`);
+      }
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -796,6 +882,13 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     }
   }
 
+  // Distribution obligations (the machine-readable work a ticket owes)
+  const distributionObligations = renderDistributionObligations(ticket);
+  if (distributionObligations !== null) {
+    lines.push(distributionObligations);
+    lines.push('');
+  }
+
   // Boy Scout Rule
   if (ticket.boyScoutPlan) {
     lines.push('## Boy Scout Rule');
@@ -979,4 +1072,18 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, buildTicketNotFoundMarkdown, buildTicketMarkdown, parseRelatedTicketIds, resolveRfcPaths, makeRelative, isValidTicketKey, parseTicketKey, findTicket, main };
+module.exports = {
+  parseArgs,
+  buildTicketNotFoundMarkdown,
+  buildTicketMarkdown,
+  parseRelatedTicketIds,
+  resolveRfcPaths,
+  makeRelative,
+  isValidTicketKey,
+  parseTicketKey,
+  findTicket,
+  renderDistributionObligations,
+  renderObligationValue,
+  OPERATION_OBLIGATION_FIELDS,
+  main,
+};

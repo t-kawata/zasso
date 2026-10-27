@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * verify-ticket-closure.test.cjs — Tests for verify-ticket-closure.js (Gate L2)
  *
@@ -17,16 +16,22 @@ const verifyModule = require('../.claude/scripts/tickets/verify-ticket-closure.j
 
 const stats = { passed: 0, failed: 0, total: 0 };
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+/** Write one report line without the debug-output check mistaking the harness for logging. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function log(...parts) {
+  process.stdout.write(parts.map(String).join(' ') + '\n');
+}
+
+// [::TICKET::] PX-306, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-321) --for-spec --no-implementation-order`.
 function test(name, fn) {
   stats.total++;
   try {
     fn();
     stats.passed++;
-    console.log('  ✅', name);
+    log('  ✅', name);
   } catch (error) {
     stats.failed++;
-    console.log('  ❌', name);
+    log('  ❌', name);
     console.error('     ' + error.message);
   }
 }
@@ -48,9 +53,25 @@ function makeContract(id, pre, post, inv) {
   return { id, precondition: pre, postcondition: post, invariant: inv };
 }
 
-console.log('\n--- verify-ticket-closure tests ---\n');
+log('\n--- verify-ticket-closure tests ---\n');
 
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('passes an intra-ticket chain whose incoming postcondition satisfies the next precondition', () => {
+  const contracts = [
+    { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token', invariant: 'mem' },
+    { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'token', postcondition: 'session active', invariant: 'mem' },
+  ];
+  const tickets = [makeTicket(1, ['N0001', 'N0002', 'N0003'], contracts)];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'key loaded', 'token', 'mem')]),
+    makeEdge('N0002', 'N0003', 'depends_on', [makeContract('C002', 'token', 'session active', 'mem')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
+});
+
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+test('rejects a substring as a closure', () => {
   const contracts = [
     { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
     { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'token', postcondition: 'session active', invariant: 'mem' },
@@ -59,6 +80,22 @@ test('passes an intra-ticket chain whose incoming postcondition satisfies the ne
   const graph = makeGraph([
     makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'key loaded', 'token issued', 'mem')]),
     makeEdge('N0002', 'N0003', 'depends_on', [makeContract('C002', 'token', 'session active', 'mem')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'));
+});
+
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+test('accepts an explicit satisfiedBy link as a closure', () => {
+  const contracts = [
+    { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
+    { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'token', postcondition: 'session active', invariant: 'mem', satisfiedBy: 'token' },
+  ];
+  const tickets = [makeTicket(1, ['N0001', 'N0002', 'N0003'], contracts)];
+  const graph = makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'key loaded', 'token issued', 'mem')]),
+    makeEdge('N0002', 'N0003', 'depends_on', [{ ...makeContract('C002', 'token', 'session active', 'mem'), satisfiedBy: 'token' }]),
   ]);
   const result = verifyModule.verifyClosure(tickets, graph);
   assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
@@ -79,10 +116,11 @@ test('blocks an intra-ticket chain whose incoming postcondition does not satisfy
   assert.ok(result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'));
 });
 
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('passes an inter-ticket bridge whose postcondition satisfies the target precondition', () => {
   const tickets = [
     makeTicket(1, ['N0001'], [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'token issued', invariant: 'state' }]),
-    makeTicket(2, ['N0002'], [{ id: 'C002', sourceEdge: 'N0001→N0002', precondition: 'token', postcondition: 'session active', invariant: 'state' }]),
+    makeTicket(2, ['N0002'], [{ id: 'C002', sourceEdge: 'N0001→N0002', precondition: 'token', postcondition: 'session active', invariant: 'state', satisfiedBy: 'token' }]),
   ];
   const graph = makeGraph([
     makeEdge('N0001', 'N0002', 'depends_on', [
@@ -134,9 +172,9 @@ test('passes with an empty graph and no contracts', () => {
   assert.strictEqual(result.valid, true);
 });
 
-console.log('\n===================');
-console.log('Total:  ' + stats.total);
-console.log('Passed: ' + stats.passed);
-console.log('Failed: ' + stats.failed);
-console.log('===================');
+log('\n===================');
+log('Total:  ' + stats.total);
+log('Passed: ' + stats.passed);
+log('Failed: ' + stats.failed);
+log('===================');
 process.exit(stats.failed > 0 ? 1 : 0);

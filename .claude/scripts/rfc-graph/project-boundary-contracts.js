@@ -32,6 +32,10 @@ const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 const NOTE_LIMIT = 240;
 const CONTRACT_ID_BASE = 900;
+/** The id range for the second edge of a boundary a package holds on both sides. */
+const REVERSE_CONTRACT_ID_BASE = 700;
+/** The number of slots the reverse range reserves before it would overflow C7xx. */
+const REVERSE_CONTRACT_ID_COUNT = 100;
 
 const MESSAGES = Object.freeze({
   MISSING_BOUNDARY_EDGE: 'MISSING_BOUNDARY_EDGE',
@@ -40,6 +44,7 @@ const MESSAGES = Object.freeze({
   BOUNDARY_NOTE_TOO_LONG: 'BOUNDARY_NOTE_TOO_LONG',
   MISSING_BOUNDARY_CONTRACT: 'MISSING_BOUNDARY_CONTRACT',
   BOUNDARY_CONTRACT_MISMATCH: 'BOUNDARY_CONTRACT_MISMATCH',
+  BOUNDARY_DIRECTION_MISMATCH: 'BOUNDARY_DIRECTION_MISMATCH',
   MISSING_GRAPH: 'MISSING_GRAPH',
   MISSING_VIEW: 'MISSING_VIEW',
   MISSING_REGISTRY: 'MISSING_REGISTRY',
@@ -53,6 +58,17 @@ function finding(code, subject, message) {
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function contractIdFor(index) {
   return `C${String(CONTRACT_ID_BASE + index).padStart(3, '0')}`;
+}
+
+/** The contract id of the second direction edge, or a named refusal when the range is full. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function reverseContractIdFor(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= REVERSE_CONTRACT_ID_COUNT) {
+    const error = new Error(`${MESSAGES.CONTRACT_ID_COLLISION}: reverse range has no slot for registry row ${index}`);
+    error.code = MESSAGES.CONTRACT_ID_COLLISION;
+    throw error;
+  }
+  return `C${String(REVERSE_CONTRACT_ID_BASE + index).padStart(3, '0')}`;
 }
 
 /** The boundaries whose ctr unit is carried by either endpoint of an edge. */
@@ -86,10 +102,11 @@ function indexedLocalRows(graph, registry) {
     .filter((entry) => local.has(entry.row));
 }
 
-/** The view direction for a ctr unit, or null when the view does not declare one. */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
-function directionFor(view, ctrUnit) {
-  return collectViewUnits(view).get(ctrUnit)?.record?.direction ?? null;
+/** Every direction a view declares for a ctr unit, deduplicated. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function directionsForUnit(view, ctrUnit) {
+  const records = collectViewUnits(view).get(ctrUnit)?.records ?? [];
+  return [...new Set(records.map((record) => record.direction).filter((direction) => typeof direction === 'string'))];
 }
 
 /** The note that binds every boundary the edge carries. */
@@ -145,7 +162,7 @@ function writeBoundarySidecar(sidecarPath, indexedRows, rowsByEdge) {
  * @param {{ graph: object, registry: Array<object>, sidecarPath?: string|null }} input
  * @returns {object} the projected graph
  */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321) --for-spec --no-implementation-order`.
 function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPath = null }) {
   const next = JSON.parse(JSON.stringify(graph));
   const indexedLocal = indexedLocalRows(next, registry);
@@ -158,29 +175,36 @@ function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPa
   for (const { row, index } of indexedLocal) {
     const ctrUnit = `ctr-${row.boundary_id}`;
     const ctrNodes = (next.nodes ?? []).filter((node) => (node.unitIds ?? []).includes(ctrUnit));
-    const direction = directionFor(view, ctrUnit);
-    const edge = carryingEdgeFor(next, ctrNodes, row, { direction });
-    if (edge === undefined) {
-      const error = new Error(`${MESSAGES.MISSING_BOUNDARY_EDGE}: ${row.boundary_id} has no edge touching its ctr node`);
-      error.code = MESSAGES.MISSING_BOUNDARY_EDGE;
-      throw error;
+    const directions = directionsForUnit(view, ctrUnit);
+    const targets = directions.length > 0 ? directions : [null];
+    const projectedEdges = new Set();
+    for (const direction of targets) {
+      const edge = carryingEdgeFor(next, ctrNodes, row, { direction });
+      if (edge === undefined) {
+        const error = new Error(`${MESSAGES.MISSING_BOUNDARY_EDGE}: ${row.boundary_id} has no edge touching its ctr node`);
+        error.code = MESSAGES.MISSING_BOUNDARY_EDGE;
+        throw error;
+      }
+      if (edge === null) {
+        const error = new Error(`${MESSAGES.AMBIGUOUS_BOUNDARY_EDGE}: ${row.boundary_id} has more than one candidate edge`);
+        error.code = MESSAGES.AMBIGUOUS_BOUNDARY_EDGE;
+        throw error;
+      }
+      const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
+      if (projectedEdges.has(edgeKey)) continue;
+      if (!Array.isArray(edge.contracts)) edge.contracts = [];
+      const contractId = projectedEdges.size === 0 ? contractIdFor(index) : reverseContractIdFor(index);
+      const projected = boundaryContractProjection(row, contractId);
+      const existing = edge.contracts.findIndex((contract) => contract.id === contractId);
+      if (existing >= 0 && !projectionMatches(edge.contracts[existing], row)) {
+        const error = new Error(`${MESSAGES.CONTRACT_ID_COLLISION}: ${contractId} is already used by a different contract`);
+        error.code = MESSAGES.CONTRACT_ID_COLLISION;
+        throw error;
+      }
+      if (existing >= 0) edge.contracts[existing] = projected;
+      else edge.contracts.push(projected);
+      projectedEdges.add(edgeKey);
     }
-    if (edge === null) {
-      const error = new Error(`${MESSAGES.AMBIGUOUS_BOUNDARY_EDGE}: ${row.boundary_id} has more than one candidate edge`);
-      error.code = MESSAGES.AMBIGUOUS_BOUNDARY_EDGE;
-      throw error;
-    }
-    if (!Array.isArray(edge.contracts)) edge.contracts = [];
-    const contractId = contractIdFor(index);
-    const projected = boundaryContractProjection(row, contractId);
-    const existing = edge.contracts.findIndex((contract) => contract.id === contractId);
-    if (existing >= 0 && !projectionMatches(edge.contracts[existing], row)) {
-      const error = new Error(`${MESSAGES.CONTRACT_ID_COLLISION}: ${contractId} is already used by a different contract`);
-      error.code = MESSAGES.CONTRACT_ID_COLLISION;
-      throw error;
-    }
-    if (existing >= 0) edge.contracts[existing] = projected;
-    else edge.contracts.push(projected);
   }
 
   for (const edge of next.edges ?? []) {
@@ -222,7 +246,7 @@ function readBoundarySidecar(sidecarPath) {
  * @param {{ sidecarPath?: string|null }} [options]
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321) --for-spec --no-implementation-order`.
 function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null, view = null } = {}) {
   const findings = [];
   for (const row of localRegistryRows(graph, registry)) {
@@ -232,28 +256,41 @@ function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null, vie
       findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph node`));
       continue;
     }
-    const direction = directionFor(view, ctrUnit);
-    const edge = carryingEdgeFor(graph, ctrNodes, row, { direction });
-    if (edge === undefined) {
-      findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
-      continue;
-    }
-    if (edge === null) {
-      findings.push(finding(MESSAGES.AMBIGUOUS_BOUNDARY_EDGE, ctrUnit, `registry boundary ${row.boundary_id} has more than one candidate edge`));
-      continue;
-    }
-    const parsed = parseBoundaryNoteRows(edge.attributes?.note);
-    const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
-    const noteRows = parsed === null ? null : rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey);
-    if (noteRows === null || !noteRows.some((candidate) => candidate.boundary_id === row.boundary_id)) {
-      findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note does not name ${row.boundary_id}`));
-      continue;
-    }
-    if (parsed.digest !== combinedBoundaryDigest(noteRows)) {
-      findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note digest does not match the named registry rows`));
-    }
-    if (!(edge.contracts ?? []).some((contract) => projectionMatches(contract, row))) {
-      findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge has no contract matching the registry projection for ${row.boundary_id}`));
+    const directions = directionsForUnit(view, ctrUnit);
+    const targets = directions.length > 0 ? directions : [null];
+    const checkedEdges = new Set();
+    for (const direction of targets) {
+      const edge = carryingEdgeFor(graph, ctrNodes, row, { direction });
+      if (edge === undefined) {
+        findings.push(finding(MESSAGES.MISSING_BOUNDARY_CONTRACT, ctrUnit, `registry boundary ${row.boundary_id} has no graph edge`));
+        continue;
+      }
+      if (edge === null) {
+        findings.push(finding(MESSAGES.AMBIGUOUS_BOUNDARY_EDGE, ctrUnit, `registry boundary ${row.boundary_id} has more than one candidate edge`));
+        continue;
+      }
+      const ctrOnFrom = ctrNodes.some((node) => node.id === edge.from);
+      if (direction === 'provides' && !ctrOnFrom) {
+        findings.push(finding(MESSAGES.BOUNDARY_DIRECTION_MISMATCH, ctrUnit, `boundary ${row.boundary_id} is provided but the ctr node is not the edge source`));
+      }
+      if (direction === 'consumes' && ctrOnFrom) {
+        findings.push(finding(MESSAGES.BOUNDARY_DIRECTION_MISMATCH, ctrUnit, `boundary ${row.boundary_id} is consumed but the ctr node is the edge source`));
+      }
+      const edgeKey = `${edge.from}→${edge.to}(${edge.type})`;
+      if (checkedEdges.has(edgeKey)) continue;
+      checkedEdges.add(edgeKey);
+      const parsed = parseBoundaryNoteRows(edge.attributes?.note);
+      const noteRows = parsed === null ? null : rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey);
+      if (noteRows === null || !noteRows.some((candidate) => candidate.boundary_id === row.boundary_id)) {
+        findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note does not name ${row.boundary_id}`));
+        continue;
+      }
+      if (parsed.digest !== combinedBoundaryDigest(noteRows)) {
+        findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge note digest does not match the named registry rows`));
+      }
+      if (!(edge.contracts ?? []).some((contract) => projectionMatches(contract, row))) {
+        findings.push(finding(MESSAGES.BOUNDARY_CONTRACT_MISMATCH, ctrUnit, `edge has no contract matching the registry projection for ${row.boundary_id}`));
+      }
     }
   }
   return findings;

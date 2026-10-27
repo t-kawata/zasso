@@ -96,14 +96,17 @@ test('C002 a package view changed after the receipt is STALE_SMOOTH_VERDICT', ()
 });
 
 // [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('C002 an RFC-only edit after the receipt is not stale', () => {
   const fixture = createWorkspace();
   try {
     assert.deepEqual(verifySmoothVerdict({ packageDir: fixture.packageDir, writeReceipt: true }).findings, []);
     const receipt = JSON.parse(readFileSync(join(fixture.workspaceRoot, 'SMOOTH-VERDICT.json'), 'utf8'));
-    assert.equal(receipt.schemaVersion, 2);
+    assert.equal(receipt.schemaVersion, 3);
     assert.ok(receipt.viewDigests['pkg-0001']);
-    writeFileSync(join(fixture.packageDir, 'RFC.md'), '# Changed after receipt\n\n### inserted heading\n');
+    const rfcPath = join(fixture.packageDir, 'RFC.md');
+    const original = readFileSync(rfcPath, 'utf8');
+    writeFileSync(rfcPath, original.replace('# Package', '# Package\n\n### inserted heading\n\nprose edit'));
     assert.deepEqual(verifySmoothReceipt(fixture.packageDir), []);
   } finally {
     rmSync(fixture.workspaceRoot, { recursive: true, force: true });
@@ -130,6 +133,7 @@ test('C003 the certificate must be complete and bind the live artifact', () => {
   }
 });
 
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
   const fixture = createWorkspace();
   try {
@@ -140,7 +144,7 @@ test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     assert.deepEqual(Object.keys(receipt).sort(), [
       'artifactDigest', 'certificateStatus', 'checkedAt', 'generation', 'inputDigest',
-      'legacy', 'reportDigest', 'schemaVersion', 'statusDigest', 'verdictPass',
+      'legacy', 'mapDigests', 'reportDigest', 'schemaVersion', 'statusDigest', 'verdictPass',
       'viewDigests', 'workspaceRoot',
     ]);
     assert.equal(receipt.statusDigest, sha256File(fixture.statusPath));

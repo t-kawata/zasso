@@ -61,6 +61,8 @@ export const CHAIN_CODES = Object.freeze({
   MISSING_SEQUENCE: 'MISSING_SEQUENCE',
   STEP_IDENTITY_MISMATCH: 'STEP_IDENTITY_MISMATCH',
   ACTIVE_OPERATION_RESIDUAL: 'ACTIVE_OPERATION_RESIDUAL',
+  INVENTED_SEQUENCE: 'INVENTED_SEQUENCE',
+  INVENTED_SEQUENCE_STEP: 'INVENTED_SEQUENCE_STEP',
 });
 
 /** One named chain finding. */
@@ -198,6 +200,7 @@ function requireImplementerForRole({ unitId, map, view, implementersByUnit, find
  */
 // [::TICKET::] PX-312, PX-313, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 export function verifyChain(input = {}) {
   const {
     view,
@@ -310,6 +313,64 @@ export function verifyChain(input = {}) {
     ? declaredStepsFromView(view)
     : artifactStepsForSequences(artifact, declaredSequenceIdSet);
   const stepBearing = viewStepBearing(view);
+
+  // The artifact is the denominator in both directions. The loops below prove every
+  // artifact step reached the view; this block proves the view added nothing.
+  if (artifact !== null && Array.isArray(artifact.sequences)) {
+    const artifactSequenceIds = new Set(
+      (artifact.sequences ?? []).map((sequence) => sequence?.id).filter((id) => typeof id === 'string'),
+    );
+    const artifactStepIds = new Map();
+    for (const step of Array.isArray(artifact.steps) ? artifact.steps : []) {
+      if (!artifactSequenceIds.has(step?.sequence) || typeof step?.id !== 'string') continue;
+      const ids = artifactStepIds.get(step.sequence) ?? new Set();
+      ids.add(step.id);
+      artifactStepIds.set(step.sequence, ids);
+    }
+    const viewSequenceUnitIds = new Map();
+    for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
+      for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
+        if (typeof unit?.sequenceId === 'string' && typeof unit?.unitId === 'string') {
+          viewSequenceUnitIds.set(unit.sequenceId, unit.unitId);
+        }
+      }
+    }
+    for (const unit of Array.isArray(view?.obligationUnits) ? view.obligationUnits : []) {
+      const unitId = String(unit?.unitId ?? '');
+      const isSequence = unit?.kind === 'sequence'
+        || unit?.kind === 'cross-boundary-sequence'
+        || unitId.startsWith('seq-')
+        || unitId.startsWith('xdir-');
+      if (!isSequence) continue;
+      const sequenceId = typeof unit?.subject === 'string' ? unit.subject : unitId.replace(/^(seq|xdir)-/, '');
+      if (sequenceId.length > 0 && !viewSequenceUnitIds.has(sequenceId)) viewSequenceUnitIds.set(sequenceId, unitId);
+    }
+    for (const sequenceId of declaredSequenceIdSet) {
+      if (artifactSequenceIds.has(sequenceId)) continue;
+      findings.push(finding(
+        CHAIN_CODES.INVENTED_SEQUENCE,
+        viewSequenceUnitIds.get(sequenceId) ?? `seq-${sequenceId}`,
+        `sequence ${sequenceId} is declared by the view and absent from the artifact`,
+      ));
+    }
+    const reportedSteps = new Set();
+    for (const [sequenceId, records] of stepBearing) {
+      if (!artifactSequenceIds.has(sequenceId)) continue;
+      const expected = artifactStepIds.get(sequenceId) ?? new Set();
+      for (const record of records) {
+        for (const step of record.steps) {
+          if (expected.has(step.stepId) || reportedSteps.has(step.stepId)) continue;
+          reportedSteps.add(step.stepId);
+          findings.push(finding(
+            CHAIN_CODES.INVENTED_SEQUENCE_STEP,
+            step.stepId,
+            `sequence ${sequenceId} step ${step.stepId} is declared by the view and absent from the artifact`,
+          ));
+        }
+      }
+    }
+  }
+
   const viewSteps = new Map();
   for (const records of stepBearing.values()) {
     for (const record of records) {

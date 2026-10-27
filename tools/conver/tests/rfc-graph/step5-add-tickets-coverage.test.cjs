@@ -106,6 +106,7 @@ describe('verifyNodeCoverage', () => {
     assert.equal(result.ticketsWithoutNodeIds, 1);
   });
 
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
   it('should report nodeIds outside the phase as extraNodeIds', () => {
     const phase = {
       nodeIds: ['N0001'],
@@ -114,7 +115,7 @@ describe('verifyNodeCoverage', () => {
       ],
     };
     const result = verifyNodeCoverage(phase);
-    assert.equal(result.valid, true); // no missing nodes
+    assert.equal(result.valid, false); // a graph node outside the phase is a violation
     assert.deepEqual(result.extraNodeIds, ['N9999']);
   });
 });

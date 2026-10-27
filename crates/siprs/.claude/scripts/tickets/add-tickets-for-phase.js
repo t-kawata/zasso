@@ -48,6 +48,13 @@ const EXIT_SUCCESS = 0;
 /** Abnormal exit code */
 const EXIT_FAILURE = 1;
 
+/** The graph node id shape. Distribution unit ids share nodeIds with graph nodes, so a
+ * cross-phase check must filter to the graph-node shape before comparing. */
+const GRAPH_NODE_ID_PATTERN = /^N[0-9]{4}$/;
+
+/** The RFC basename a split-derived ticket references when it carries no specPath. */
+const DEFAULT_SPEC_BASENAME = 'RFC.md';
+
 // ============================================================
 // Auto-resolve default_files
 // ============================================================
@@ -135,6 +142,7 @@ function resolveReferenceSection(nodeIds, graphNodes, sourceFile) {
  *   ticketsWithoutNodeIds: number
  * }}
  */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function verifyNodeCoverage(phase) {
   const phaseNodeIds = new Set(phase.nodeIds || []);
   const coveredNodeIds = new Set();
@@ -158,15 +166,16 @@ function verifyNodeCoverage(phase) {
     }
   }
 
-  // Extra nodeIds (in tickets but not in phase)
+  // Extra nodeIds (in tickets but not in phase). Unit ids legitimately share the array
+  // with graph nodes, so only the graph-node shape is a cross-phase violation.
   const extraNodeIds = [];
   for (const nodeId of coveredNodeIds) {
-    if (!phaseNodeIds.has(nodeId)) {
+    if (GRAPH_NODE_ID_PATTERN.test(nodeId) && !phaseNodeIds.has(nodeId)) {
       extraNodeIds.push(nodeId);
     }
   }
 
-  const valid = missingNodeIds.length === 0;
+  const valid = missingNodeIds.length === 0 && extraNodeIds.length === 0;
 
   return { valid, missingNodeIds, extraNodeIds, ticketsWithoutNodeIds };
 }
@@ -194,6 +203,29 @@ function graphUnitsOfPhase(phase, graph) {
     }
   }
   return units;
+}
+
+/**
+ * The role each operation unit plays in this phase's distribution records.
+ *
+ * A consumer owner is a legitimate owner that does not implement the operation in this
+ * package; its implementer lives in another package. A missing role is treated as an
+ * implementer so a malformed record fails closed instead of silently dropping the
+ * obligation.
+ *
+ * @param {{ tickets?: Array<object> }} phase
+ * @returns {Map<string, string|null>}
+ */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function operationRolesOf(phase) {
+  const roles = new Map();
+  for (const ticket of phase?.tickets ?? []) {
+    for (const unit of ticket?.distribution?.units ?? []) {
+      if (unit?.kind !== 'operation') continue;
+      roles.set(unit.unitId, unit.role ?? null);
+    }
+  }
+  return roles;
 }
 
 /**
@@ -626,6 +658,15 @@ function specRefsFromSpecLines(specLines, quote, specPath) {
     .map((line) => ({ path: specPath, line, quote }));
 }
 
+/** The design source a split-derived ticket references when it carries no specPath. */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+function defaultSpecPathFor(graph) {
+  const sourceFile = graph?.sourceFile;
+  return typeof sourceFile === 'string' && sourceFile.trim().length > 0
+    ? path.basename(sourceFile)
+    : DEFAULT_SPEC_BASENAME;
+}
+
 /**
  * The specification references for one unit.
  *
@@ -634,11 +675,12 @@ function specRefsFromSpecLines(specLines, quote, specPath) {
  * @param {object} record — the view's unit record
  * @param {object} obligation
  * @param {object} ticket
+ * @param {string} defaultSpecPath — used when the ticket carries no specPath
  * @returns {Array<{ path: string, line: number, quote: string }>}
  */
-// [::TICKET::] PX-307, PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308) --for-spec --no-implementation-order`.
-function specRefsForUnit(unitId, kind, record, obligation, ticket) {
-  const specPath = ticket.specPath ?? '';
+// [::TICKET::] PX-307, PX-308, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-321) --for-spec --no-implementation-order`.
+function specRefsForUnit(unitId, kind, record, obligation, ticket, defaultSpecPath = DEFAULT_SPEC_BASENAME) {
+  const specPath = ticket.specPath ?? defaultSpecPath;
   const refs = [];
   for (const step of obligation.steps ?? []) {
     if (typeof step.line === 'number' && step.line > 0) refs.push({ path: specPath, line: step.line, quote: step.quote ?? '' });
@@ -665,11 +707,12 @@ function specRefsForUnit(unitId, kind, record, obligation, ticket) {
  * @param {object|null} map
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-307, PX-308, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-311) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-311, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-311|PX-321) --for-spec --no-implementation-order`.
 async function populateTicketDistribution(phase, graph, dirsTree, view, map = null) {
   const { viewDigest, kindOfUnit } = await import('../sequences-slice/lib/distribution-map.mjs');
 
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
+  const defaultSpecPath = defaultSpecPathFor(graph);
   const viewUnits = viewUnitMap(view);
   const mapUnits = new Map((map?.units ?? []).map((unit) => [unit.unitId, unit]));
   // A unit can be carried by several nodes. Ownership decides where a sequence step is
@@ -704,7 +747,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
         placement: placementOf(unitId, ticket, nodeById, dirsTree),
         obligation,
         obligationDigest: digestUnitObligation(obligation),
-        specRefs: specRefsForUnit(unitId, kind, record, obligation, ticket),
+        specRefs: specRefsForUnit(unitId, kind, record, obligation, ticket, defaultSpecPath),
       });
     };
 
@@ -722,7 +765,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
       if (existing !== undefined && existing.obligation.mode === 'flow') {
         existing.obligation = { mode: 'steps', outcome: record.outcome ?? null, steps: ownedSteps };
         existing.obligationDigest = digestUnitObligation(existing.obligation);
-        existing.specRefs = specRefsForUnit(unitId, kind, record, existing.obligation, ticket);
+        existing.specRefs = specRefsForUnit(unitId, kind, record, existing.obligation, ticket, defaultSpecPath);
       }
     }
 
@@ -781,7 +824,7 @@ function reconstructSequenceOrder(tickets) {
  * @param {object} dirsTree
  * @returns {Array<{ code: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-307, PX-308, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-315|PX-321) --for-spec --no-implementation-order`.
 function verifyTicketDistribution(phase, view, graph, dirsTree) {
   const findings = [];
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
@@ -808,11 +851,14 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
         ticketIds.push(ticket.id);
         implementersByUnit.set(unit.unitId, ticketIds);
       }
+      const refs = Array.isArray(unit.specRefs) ? unit.specRefs : [];
+      if (refs.some((ref) => typeof ref.path !== 'string' || ref.path.length === 0)) {
+        findings.push({ code: 'SPEC_REF_MISSING', unitId: unit.unitId, layer: 'ticket', message: `unit ${unit.unitId} has a specification reference with no path` });
+      }
       if (unit?.kind !== 'operation') continue;
       const specLines = viewUnits.get(unit.unitId)?.obligation?.specLines ?? [];
       const hasPositiveSpecLine = (Array.isArray(specLines) ? specLines : [])
         .some((line) => Number.isInteger(line) && line > 0);
-      const refs = Array.isArray(unit.specRefs) ? unit.specRefs : [];
       if (hasPositiveSpecLine && refs.every((ref) => !(ref.line > 0))) {
         findings.push({ code: 'SPEC_REF_MISSING', unitId: unit.unitId, layer: 'ticket', message: `unit ${unit.unitId} has spec lines and every ticket reference is line 0` });
       }
@@ -851,18 +897,21 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-319) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-319, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-319|PX-321) --for-spec --no-implementation-order`.
 function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
   // A step whose operation this phase does not carry belongs to another phase or package.
   // The phase-local check must not report it as missing; the owning phase and verifyChain
   // prove it reaches a ticket.
   const graphUnits = graphUnitsOfPhase(phase, graph);
+  const operationRoles = operationRolesOf(phase);
   const declaredByUnit = new Map();
+  const sequenceIdByUnit = new Map();
   for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
     for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
       if (typeof unit?.unitId !== 'string') continue;
       declaredByUnit.set(unit.unitId, [...(unit.steps ?? [])].sort((left, right) => (left.order ?? 0) - (right.order ?? 0)));
+      if (typeof unit.sequenceId === 'string') sequenceIdByUnit.set(unit.unitId, unit.sequenceId);
     }
   }
 
@@ -897,6 +946,41 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
     }
   }
 
+  // The artifact is the denominator in both directions. The block above proves every
+  // artifact step reached the view; this block proves the view added nothing.
+  if (artifact !== null && Array.isArray(artifact.sequences)) {
+    const artifactSequenceIds = new Set(
+      (artifact.sequences ?? []).map((sequence) => sequence?.id).filter((id) => typeof id === 'string'),
+    );
+    const artifactStepIds = new Map();
+    for (const step of Array.isArray(artifact.steps) ? artifact.steps : []) {
+      if (!artifactSequenceIds.has(step?.sequence) || typeof step?.id !== 'string') continue;
+      const ids = artifactStepIds.get(step.sequence) ?? new Set();
+      ids.add(step.id);
+      artifactStepIds.set(step.sequence, ids);
+    }
+    const viewSequenceUnits = new Map();
+    for (const [unitId, sequenceId] of sequenceIdByUnit) {
+      if (!viewSequenceUnits.has(sequenceId)) viewSequenceUnits.set(sequenceId, unitId);
+    }
+    for (const [sequenceId, unitId] of obligationSequenceUnits) {
+      if (!viewSequenceUnits.has(sequenceId)) viewSequenceUnits.set(sequenceId, unitId);
+    }
+    for (const [sequenceId, unitId] of viewSequenceUnits) {
+      if (artifactSequenceIds.has(sequenceId)) continue;
+      findings.push({ code: 'INVENTED_SEQUENCE', stepId: null, unitId, layer: 'ticket', message: `sequence ${sequenceId} is declared by the view and absent from the artifact` });
+    }
+    for (const [unitId, steps] of declaredByUnit) {
+      const sequenceId = sequenceIdByUnit.get(unitId);
+      if (!artifactSequenceIds.has(sequenceId)) continue;
+      const expected = artifactStepIds.get(sequenceId) ?? new Set();
+      for (const step of steps) {
+        if (expected.has(step.stepId)) continue;
+        findings.push({ code: 'INVENTED_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${sequenceId} step ${step.stepId} is declared by the view and absent from the artifact` });
+      }
+    }
+  }
+
   const observed = new Map();
   const implementedOperations = new Set();
   for (const ticket of phase?.tickets ?? []) {
@@ -917,7 +1001,11 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
     for (const step of steps) declaredStepIds.add(step.stepId);
     for (const step of steps) {
       const hit = observed.get(step.stepId);
-      const isPackageStep = graphUnits.has(`op-${step.operationId}`);
+      const operationUnitId = `op-${step.operationId}`;
+      // A consumer owner does not implement the step here; the implementation is owed by
+      // the other package. Missing and unowned steps are therefore not local failures.
+      const requiresImplementer = operationRoles.get(operationUnitId) !== 'consumer';
+      const isPackageStep = requiresImplementer && graphUnits.has(operationUnitId);
       if (hit === undefined) {
         if (isPackageStep) {
           findings.push({ code: 'MISSING_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} reaches no ticket` });
@@ -927,8 +1015,8 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
       if (hit.ticketIds.size > 1 || hit.occurrences > 1) {
         findings.push({ code: 'DUPLICATE_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} appears ${hit.occurrences} time(s) in tickets ${[...hit.ticketIds].join(', ')}` });
       }
-      if (isPackageStep && !implementedOperations.has(`op-${step.operationId}`)) {
-        findings.push({ code: 'SEQUENCE_STEP_WITHOUT_IMPLEMENTER', stepId: step.stepId, unitId, layer: 'ticket', message: `step ${step.stepId} owes operation op-${step.operationId} and no ticket implements it` });
+      if (isPackageStep && !implementedOperations.has(operationUnitId)) {
+        findings.push({ code: 'SEQUENCE_STEP_WITHOUT_IMPLEMENTER', stepId: step.stepId, unitId, layer: 'ticket', message: `step ${step.stepId} owes operation ${operationUnitId} and no ticket implements it` });
       }
     }
 

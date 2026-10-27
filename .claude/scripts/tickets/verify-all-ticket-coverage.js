@@ -142,6 +142,9 @@ const EXIT_SUCCESS = 0;
 /** Error exit code */
 const EXIT_FAILURE = 1;
 
+/** The graph node id shape. Unit ids share nodeIds with graph nodes and are not extras. */
+const GRAPH_NODE_ID_PATTERN = /^N[0-9]{4}$/;
+
 // ============================================================
 // Verification Logic
 // ============================================================
@@ -160,6 +163,7 @@ const EXIT_FAILURE = 1;
  *   ticketCount: number
  * }}
  */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function checkPhase(phase) {
   const phaseLabel = phase.id === -1 ? "PX" : "P" + phase.id;
   const phaseNodeIds = new Set(phase.nodeIds || []);
@@ -186,15 +190,16 @@ function checkPhase(phase) {
     }
   }
 
-  // Extra nodes (in tickets but not in phase)
+  // Extra nodes (in tickets but not in phase). Unit ids share the array with graph node
+  // ids and are not cross-phase violations.
   const extraNodeIds = [];
   for (const nodeId of coveredNodeIds) {
-    if (!phaseNodeIds.has(nodeId)) {
+    if (GRAPH_NODE_ID_PATTERN.test(nodeId) && !phaseNodeIds.has(nodeId)) {
       extraNodeIds.push(nodeId);
     }
   }
 
-  const valid = hasTickets && missingNodeIds.length === 0;
+  const valid = hasTickets && missingNodeIds.length === 0 && extraNodeIds.length === 0;
 
   return {
     phaseId: phase.id,
@@ -277,7 +282,7 @@ function verifyDistributionDigests(phase) {
  *   failedPhases: Array
  * }}
  */
-// [::TICKET::] PX-306, PX-307, PX-308, PX-309, PX-311, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309|PX-311|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-308, PX-309, PX-311, PX-312, PX-313, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-307|PX-308|PX-309|PX-311|PX-312|PX-313|PX-321) --for-spec --no-implementation-order`.
 function verifyAllTicketCoverage(ticketsData, material) {
   const phases = ticketsData.phases || [];
   const phaseResults = [];
@@ -323,7 +328,7 @@ function verifyAllTicketCoverage(ticketsData, material) {
   }
   // Per-ticket obligations are checked when the caller supplied the view, the graph and the
   // Dirs-Tree. The split stage checks the same records before writing; this is the final gate.
-  const distributionFindings = [];
+  let distributionFindings = [];
   if (material?.view !== undefined && material?.graph !== undefined && material?.dirs !== undefined) {
     const { verifyTicketDistribution, verifySequenceSteps } = require("./add-tickets-for-phase.js");
     for (const phase of phases) {
@@ -331,6 +336,15 @@ function verifyAllTicketCoverage(ticketsData, material) {
       distributionFindings.push(...verifyTicketDistribution(phase, material.view, material.graph, material.dirs));
       distributionFindings.push(...verifySequenceSteps(phase, material.view, material.graph, material.artifact ?? null));
     }
+    // A package-global view finding (an invented sequence or step) is produced by every
+    // phase that carries the sequence; report it once rather than once per phase.
+    const seen = new Set();
+    distributionFindings = distributionFindings.filter((finding) => {
+      const key = `${finding.code}|${finding.stepId ?? ''}|${finding.unitId ?? ''}|${finding.layer ?? ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   const findings = [...unitFindings, ...digestFindings, ...distributionFindings];
   const valid = failedPhases.length === 0 && findings.length === 0;

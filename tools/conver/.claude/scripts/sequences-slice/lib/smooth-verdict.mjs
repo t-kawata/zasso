@@ -18,7 +18,7 @@ const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../../lib/package-artifacts.js');
 
 /** The receipt schema this module writes and reads. */
-export const SMOOTH_VERDICT_SCHEMA_VERSION = 2;
+export const SMOOTH_VERDICT_SCHEMA_VERSION = 3;
 
 /** The tree manifest that names every package path. */
 const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
@@ -103,6 +103,39 @@ export function collectViewDigests(root) {
   return digests;
 }
 
+/** The fenced block that carries the authored distribution map inside an RFC. */
+const DISTRIBUTION_MAP_BLOCK = /```json\s+distribution-map\s*\n([\s\S]*?)\n```/;
+
+/**
+ * The digest of each package's authored distribution-map block.
+ *
+ * The view digest binds SEQUENCES.json, but the map is the authored bridge and lives in
+ * RFC.md. Binding the block, rather than the whole RFC, lets graphify insert headings
+ * while still making a post-receipt role or clause edit stale. A package without an RFC
+ * or without a map block records null, so the absence itself is visible.
+ *
+ * @param {string} root
+ * @returns {Record<string, string|null>}
+ */
+// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+export function collectMapDigests(root) {
+  const tree = readJsonOrNull(join(root, TREE_MANIFEST_FILE_NAME));
+  const digests = {};
+  for (const pkg of tree?.workspace?.packages ?? []) {
+    if (typeof pkg?.id !== 'string' || typeof pkg?.path !== 'string') continue;
+    const rfcPath = join(root, pkg.path, 'RFC.md');
+    if (!existsSync(rfcPath)) {
+      digests[pkg.id] = null;
+      continue;
+    }
+    const match = DISTRIBUTION_MAP_BLOCK.exec(readFileSync(rfcPath, 'utf8'));
+    digests[pkg.id] = match === null
+      ? null
+      : createHash('sha256').update(match[1]).digest('hex');
+  }
+  return digests;
+}
+
 /** The workspace root that owns the package, or null outside a workspacify workspace. */
 // [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function findWorkspaceRoot(packageDir) {
@@ -172,6 +205,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
   const artifactDigest = sha256File(artifactPath);
   const statusDigest = sha256File(statusPath);
   const viewDigests = collectViewDigests(workspaceRoot);
+  const mapDigests = collectMapDigests(workspaceRoot);
 
   const existing = readSmoothReceipt(workspaceRoot);
   if (existing !== null
@@ -179,6 +213,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
       && existing.statusDigest === statusDigest
       && existing.artifactDigest === artifactDigest
       && JSON.stringify(existing.viewDigests) === JSON.stringify(viewDigests)
+      && JSON.stringify(existing.mapDigests) === JSON.stringify(mapDigests)
       && existing.verdictPass === true) {
     return { ok: true, findings: [], receipt: existing };
   }
@@ -217,6 +252,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
     generation: status.generation ?? null,
     artifactDigest,
     viewDigests,
+    mapDigests,
     certificateStatus: certificate?.status ?? null,
     verdictPass: true,
     legacy: certificate === null,
@@ -247,6 +283,9 @@ export function verifySmoothReceipt(packageDir) {
     return [finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the receipt predates package-view binding; rerun graphify Step 0')];
   }
   const findings = [];
+  if (receipt.mapDigests === undefined || receipt.mapDigests === null) {
+    findings.push(finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the receipt does not bind the distribution-map blocks; rerun graphify Step 0'));
+  }
   if (receipt.verdictPass !== true) {
     findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_VERDICT_NOT_PASS, receiptPath, 'the receipt does not record a pass verdict'));
   }
@@ -273,6 +312,17 @@ export function verifySmoothReceipt(packageDir) {
   ])) {
     if (recordedViewDigests[packageId] !== liveViewDigests[packageId]) {
       findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, packageId, 'the package view changed after the receipt'));
+    }
+  }
+
+  const liveMapDigests = collectMapDigests(workspaceRoot);
+  const recordedMapDigests = receipt.mapDigests ?? {};
+  for (const packageId of new Set([
+    ...Object.keys(recordedMapDigests),
+    ...Object.keys(liveMapDigests),
+  ])) {
+    if (recordedMapDigests[packageId] !== liveMapDigests[packageId]) {
+      findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, packageId, 'the package distribution map changed after the receipt'));
     }
   }
   return findings;

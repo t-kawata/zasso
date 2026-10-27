@@ -20,6 +20,10 @@ const path = require('path');
 
 const { deriveGraphPathFromTickets } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
+const {
+  OPERATION_OBLIGATION_FIELDS,
+  renderObligationValue,
+} = require('./show-ticket-context.js');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -133,7 +137,7 @@ function renderStep(step) {
  * @param {object} unit
  * @returns {string[]}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-321) --for-spec --no-implementation-order`.
 function renderUnit(unit) {
   const lines = [];
   const surface = unit.surface ? `, surface: ${unit.surface}` : '';
@@ -142,6 +146,18 @@ function renderUnit(unit) {
   const placement = unit.placement ?? {};
   lines.push(`- placement: ${(placement.nodeIds ?? []).join(', ') || '(none)'} -> ${(placement.paths ?? []).join(', ') || '(none)'}`);
   lines.push(`- obligation: ${unit.obligation?.mode ?? 'unknown'}`);
+  if (unit.obligation?.mode === 'implement') {
+    for (const field of OPERATION_OBLIGATION_FIELDS) {
+      const rendered = renderObligationValue(unit.obligation[field]);
+      if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
+    }
+  }
+  if (unit.obligation?.mode === 'obligation') {
+    for (const field of ['relation', 'subject', 'direction', 'counterpart']) {
+      const rendered = renderObligationValue(unit.obligation[field]);
+      if (rendered !== null) lines.push(`- ${field}: ${rendered}`);
+    }
+  }
   if (Array.isArray(unit.obligation?.steps) && unit.obligation.steps.length > 0) {
     lines.push('- sequence steps:');
     for (const step of unit.obligation.steps) lines.push(renderStep(step));
