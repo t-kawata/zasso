@@ -139,9 +139,9 @@ export function resolveOperationClaims(claims) {
   for (const [operationId, entries] of claims) {
     const implementers = entries.filter((entry) => entry.role === OPERATION_ROLE.IMPLEMENTER);
     const implementerPackageIds = [...new Set(implementers.map((entry) => entry.packageId))].sort();
-    // A consumer package is a dependency of the implementer even when it does not own a
-    // step. The package order derives that edge from this list, so dropping it would
-    // leave the display and the ticket prerequisites reading different relations.
+    // A consumer package is a candidate for the reference relation. The relation is
+    // classified against the boundary registry before it becomes a package edge, because
+    // a consumer role can be an ownership fact rather than an implementation direction.
     const consumerPackageIds = [...new Set(
       entries
         .filter((entry) => entry.role === OPERATION_ROLE.CONSUMER)
@@ -350,22 +350,71 @@ export function deriveBoundaryPrecedence(registry = []) {
     }));
 }
 
-/** The provider-first edges a reference operation unit declares. */
+/**
+ * Whether a boundary already carries the relation between a reference's implementer and
+ * consumer.
+ *
+ * A reference role can be an ownership fact: the consumer package may own the operation's
+ * result classes while the implementer consumes a boundary the consumer provides. Turning
+ * that role into an implementation prerequisite would invert the boundary direction and
+ * close a cycle. The operation's crossed boundaries are the authority. When no step states
+ * a crossed boundary, a direct registry row between the packages is the only interface
+ * evidence the operation carries.
+ *
+ * @returns {{ covered: boolean, boundaries: string[] }}
+ */
 // [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
-export function deriveReferencePackagePrecedence(operationOwners = new Map()) {
+export function collectReferenceBoundaryEvidence({ artifact = null, registry = [], operationId = null, providerPackage = null, consumerPackage = null } = {}) {
+  if (typeof providerPackage !== 'string' || typeof consumerPackage !== 'string') {
+    return { covered: false, boundaries: [] };
+  }
+  const registryRowsForPair = (registry ?? []).filter((row) => (
+    (row?.provider_package === providerPackage && row?.consumer_package === consumerPackage)
+    || (row?.provider_package === consumerPackage && row?.consumer_package === providerPackage)
+  ));
+  if (registryRowsForPair.length === 0) return { covered: false, boundaries: [] };
+
+  const steps = (artifact?.steps ?? []).filter(
+    (step) => operationId !== null && (step.operation ?? step.operationId) === operationId,
+  );
+  const crossedBoundaries = new Set(
+    steps
+      .flatMap((step) => step?.contract?.crosses ?? [])
+      .map((fact) => boundaryIdOf(fact))
+      .filter((boundaryId) => typeof boundaryId === 'string' && boundaryId.length > 0),
+  );
+  if (crossedBoundaries.size > 0) {
+    const connecting = registryRowsForPair.filter((row) => crossedBoundaries.has(row.boundary_id));
+    return connecting.length > 0
+      ? { covered: true, boundaries: connecting.map((row) => row.boundary_id) }
+      : { covered: false, boundaries: [] };
+  }
+  return { covered: true, boundaries: registryRowsForPair.map((row) => row.boundary_id) };
+}
+
+/** The provider-first edges a reference unit declares when no boundary carries it. */
+// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+export function deriveReferencePackagePrecedence({ artifact = null, registry = [], operationOwners = new Map() } = {}) {
   const edges = [];
   const seen = new Set();
   for (const [operationId, owner] of operationOwners ?? []) {
     if (owner?.ambiguous === true || owner?.missingImplementer === true) continue;
-    const providers = owner.implementerPackageIds
-      ?? (typeof owner.packageId === 'string' ? [owner.packageId] : []);
+    const providers = owner.implementerPackageIds ?? [];
     for (const fromPackage of providers) {
       for (const toPackage of owner.consumerPackageIds ?? []) {
         if (fromPackage === toPackage) continue;
+        const evidence = collectReferenceBoundaryEvidence({
+          artifact,
+          registry,
+          operationId,
+          providerPackage: fromPackage,
+          consumerPackage: toPackage,
+        });
+        if (evidence.covered) continue;
         const source = `operation:${operationId}:reference`;
-        const key = `${fromPackage}->${toPackage}:${source}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+        const edgeKey = `${fromPackage}->${toPackage}:${source}`;
+        if (seen.has(edgeKey)) continue;
+        seen.add(edgeKey);
         edges.push({
           fromPackage,
           toPackage,
@@ -385,10 +434,12 @@ export function deriveReferencePackagePrecedence(operationOwners = new Map()) {
 }
 
 /**
- * The union of build, boundary, sequence and reference precedence.
+ * The union of build, boundary, sequence and uncovered-reference precedence.
  *
  * The build edges are retained as their own source so the display can still show the
- * published build order; the caller decides which order to present.
+ * published build order; the caller decides which order to present. A reference whose
+ * operation crosses a boundary connecting the two packages is carried by that boundary;
+ * only a reference with no connecting boundary adds an implementation edge.
  */
 // [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
@@ -401,10 +452,7 @@ export function derivePackagePrecedence({ treeManifest = null, registry = [], ar
       // A same-package step relation is a ticket-level prerequisite, not a package-level
       // edge; including it here would make the package order cycle on itself.
       ...sequence.edges.filter((edge) => edge.fromPackage !== edge.toPackage),
-      // A reference names its implementer directly, so it is an implementation
-      // prerequisite even when no build, boundary or sequence edge states it. The same
-      // relation feeds ticketPrerequisites, and the two layers must agree.
-      ...deriveReferencePackagePrecedence(operationOwners),
+      ...deriveReferencePackagePrecedence({ artifact, registry, operationOwners }),
     ],
     findings: sequence.findings,
   };
@@ -711,27 +759,44 @@ export function ticketPrerequisites({
 
       // The provider list is a record of the implementer packages. When the owner table
       // knows the implementers, a package that merely consumes the same operation is not
-      // a provider; keeping it would demand an order edge that does not exist.
+      // a provider; keeping it would demand an order edge that does not exist. A boundary
+      // that connects the two packages carries the reference instead, so it adds no
+      // implementation prerequisite in either direction.
       const knownImplementers = operationId === null
         ? null
         : (ownerOf(operationOwners, { operation: operationId })?.implementerPackageIds ?? null);
-      const externalProviders = (Array.isArray(unit.obligation.providers) ? unit.obligation.providers : [])
-        .filter((provider) => typeof provider === 'string' && provider.length > 0 && provider !== packageId)
-        .filter((provider) => knownImplementers === null || knownImplementers.includes(provider));
-      for (const provider of externalProviders) {
+      const declaredProviders = (Array.isArray(unit.obligation.providers) ? unit.obligation.providers : [])
+        .filter((provider) => typeof provider === 'string' && provider.length > 0);
+      const externalProviders = declaredProviders.filter((provider) => provider !== packageId);
+      const classifiedProviders = externalProviders.map((provider) => ({
+        provider,
+        evidence: collectReferenceBoundaryEvidence({
+          artifact,
+          registry,
+          operationId,
+          providerPackage: provider,
+          consumerPackage: packageId,
+        }),
+      }));
+      const uncoveredImplementers = classifiedProviders
+        .filter((entry) => entry.evidence.covered === false)
+        .filter((entry) => knownImplementers === null || knownImplementers.includes(entry.provider));
+      for (const { provider } of uncoveredImplementers) {
         addProviderOnce(ticket, {
           package: provider,
           kind: 'implementation',
           source: `reference:${unit.unitId}`,
         });
       }
-      if (externalProviders.length === 0) {
-        // A reference with no provider would be a satisfied prerequisite by silence. It is
-        // a distribution defect, and the split must stop rather than emit an incomplete set.
+      const boundaryCarried = classifiedProviders.some((entry) => entry.evidence.covered);
+      if (uncoveredImplementers.length === 0 && !boundaryCarried) {
+        // A reference with no provider and no boundary would be a satisfied prerequisite
+        // by silence. It is a distribution defect, and the split must stop rather than
+        // emit an incomplete set.
         findings.push(finding(
           PREREQUISITE_CODES.MISSING_IMPLEMENTER,
           unit.unitId,
-          `reference unit ${unit.unitId} names no implementer ticket or external provider package`,
+          `reference unit ${unit.unitId} names no implementer ticket, external provider package or connecting boundary`,
         ));
       }
     }
