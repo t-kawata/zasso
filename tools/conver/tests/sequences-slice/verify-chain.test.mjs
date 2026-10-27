@@ -21,7 +21,7 @@ const REGISTRY = [{
   },
 }];
 
-// [::TICKET::] PX-312, PX-313, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-317, PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-317|PX-320) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',
@@ -34,7 +34,7 @@ function fixture() {
       unitId: 'seq-A-1',
       sequenceId: 'A-1',
       ownerPackageIds: ['pkg-0001'],
-      steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }],
+      steps: [{ order: 0, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }],
     }],
     crossBoundarySequenceUnits: [],
     obligationUnits: [{
@@ -51,7 +51,7 @@ function fixture() {
     packageId: 'pkg-0001',
     sourceViewDigest: viewDigest(view),
     units: [
-      { unitId: 'op-ProduceFact', kind: 'operation', owners: ['pkg-0001'], sections: ['1.1'], ground: 'fixture' },
+      { unitId: 'op-ProduceFact', kind: 'operation', role: 'implementer', owners: ['pkg-0001'], sections: ['1.1'], ground: 'fixture' },
       { unitId: 'seq-A-1', kind: 'sequence', owners: ['pkg-0001'], sections: ['1.1'], ground: 'fixture' },
       { unitId: 'ctr-boundary-001', kind: 'contract', owners: ['pkg-0001'], sections: ['1.1'], ground: 'fixture' },
     ],
@@ -88,7 +88,7 @@ function fixture() {
 
   const ticketUnits = [
     { unitId: 'op-ProduceFact', kind: 'operation', obligation: { mode: 'implement' } },
-    { unitId: 'seq-A-1', kind: 'sequence', obligation: { mode: 'steps', steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }] } },
+    { unitId: 'seq-A-1', kind: 'sequence', obligation: { mode: 'steps', steps: [{ order: 0, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }] } },
     { unitId: 'ctr-boundary-001', kind: 'contract', obligation: { mode: 'obligation' } },
   ];
   const ticketDigest = digestValue({
@@ -183,7 +183,7 @@ test('the same step in two tickets is DUPLICATE_SEQUENCE_STEP', () => {
     distribution: {
       sourceMapDigest: input.map.digest,
       sourceViewDigest: input.map.sourceViewDigest,
-      units: [{ unitId: 'seq-A-1', obligation: { mode: 'steps', steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact' }] } }],
+      units: [{ unitId: 'seq-A-1', obligation: { mode: 'steps', steps: [{ order: 0, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact' }] } }],
       digest: input.tickets.phases[0].tickets[0].distribution.digest,
     },
     contracts: [],

@@ -13,11 +13,13 @@ import {
   artifactStepsForSequences,
   collectViewUnits,
   declaredSequenceIds,
+  isAdditiveEmptyDistribution,
   mapDigest,
   registryRowsForPackage,
   stepBearingRecords,
   stepContractMatches,
   stepIdentityMatches,
+  UNIT_ROLE_IMPLEMENTER,
   validOperationResiduals,
   viewDigest,
 } from './lib/distribution-map.mjs';
@@ -168,6 +170,26 @@ function ticketBoundaryContract(ticket, row) {
     || contract?.id === registryId);
 }
 
+/** The role the package map, or the view candidate, gives one operation unit. */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+function resolveUnitRole({ map, view, unitId }) {
+  const mapRole = (map?.units ?? []).find((unit) => unit.unitId === unitId)?.role ?? null;
+  const viewRole = collectViewUnits(view).get(unitId)?.record?.roleCandidate ?? null;
+  return mapRole ?? viewRole;
+}
+
+/** Require an implementing ticket only for the package that declares the operation. */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+function requireImplementerForRole({ unitId, map, view, implementersByUnit, findings }) {
+  if (resolveUnitRole({ map, view, unitId }) !== UNIT_ROLE_IMPLEMENTER) return;
+  if (implementersByUnit.has(unitId)) return;
+  findings.push(finding(
+    CHAIN_CODES.MISSING_IMPLEMENTER,
+    unitId,
+    `operation ${unitId} is an implementer and no ticket implements it`,
+  ));
+}
+
 /**
  * Verify the chain.
  *
@@ -194,26 +216,29 @@ export function verifyChain(input = {}) {
   const checkDirs = stage !== 'graphify' && !preflight && dirsTree !== undefined && dirsTree !== null;
   const checkTickets = stage === 'split' && tickets !== undefined && tickets !== null;
 
-  const computedViewDigest = viewDigest(view);
-  if (map?.sourceViewDigest !== computedViewDigest) {
-    findings.push(finding(CHAIN_CODES.STALE_DISTRIBUTION_MAP, map?.packageId, `map.sourceViewDigest does not equal viewDigest(view)`));
+  const additiveEmpty = isAdditiveEmptyDistribution(view, map);
+  if (!additiveEmpty) {
+    const computedViewDigest = viewDigest(view);
+    if (map?.sourceViewDigest !== computedViewDigest) {
+      findings.push(finding(CHAIN_CODES.STALE_DISTRIBUTION_MAP, map?.packageId, `map.sourceViewDigest does not equal viewDigest(view)`));
+    }
+    if (map?.digest !== mapDigest(map)) {
+      findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'map', 'map.digest does not equal mapDigest(map)'));
+    }
+    if (graph?.distributionDigest !== map?.digest) {
+      findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'graph', 'graph.distributionDigest does not equal map.digest'));
+    }
+    if (checkDirs && dirsTree?.distribution?.digest !== graph?.distributionDigest) {
+      findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'dirs', 'dirsTree.distribution.digest does not equal graph.distributionDigest'));
+    }
+    if (checkTickets && tickets?.distribution?.sourceMapDigest !== graph?.distributionDigest) {
+      findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'tickets', 'tickets.distribution.sourceMapDigest does not equal graph.distributionDigest'));
+    }
+    if (checkTickets && tickets?.distribution?.sourceViewDigest !== map?.sourceViewDigest) {
+      findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'tickets-view', 'tickets.distribution.sourceViewDigest does not equal map.sourceViewDigest'));
+    }
   }
-  if (map?.digest !== mapDigest(map)) {
-    findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'map', 'map.digest does not equal mapDigest(map)'));
-  }
-  if (graph?.distributionDigest !== map?.digest) {
-    findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'graph', 'graph.distributionDigest does not equal map.digest'));
-  }
-  if (checkDirs && dirsTree?.distribution?.digest !== graph?.distributionDigest) {
-    findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'dirs', 'dirsTree.distribution.digest does not equal graph.distributionDigest'));
-  }
-  if (checkTickets && tickets?.distribution?.sourceMapDigest !== graph?.distributionDigest) {
-    findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'tickets', 'tickets.distribution.sourceMapDigest does not equal graph.distributionDigest'));
-  }
-  if (checkTickets && tickets?.distribution?.sourceViewDigest !== map?.sourceViewDigest) {
-    findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'tickets-view', 'tickets.distribution.sourceViewDigest does not equal map.sourceViewDigest'));
-  }
-  if (checkTickets) {
+  if (checkTickets && (!additiveEmpty || tickets?.distribution !== undefined)) {
     const ticketDigests = tickets?.distribution?.ticketDigests ?? {};
     if (tickets?.distribution?.digest !== digestValue({ ticketDigests })) {
       findings.push(finding(CHAIN_CODES.DISTRIBUTION_DIGEST_MISMATCH, 'tickets-aggregate', 'tickets aggregate digest does not match ticketDigests'));
@@ -271,20 +296,12 @@ export function verifyChain(input = {}) {
       for (const operation of activeArtifactOperationsForPackage(artifact, view?.packageId, treeManifest)) {
         const unitId = `op-${operation.id}`;
         if (validResiduals.has(unitId)) continue;
-        if (!implementersByUnit.has(unitId)) {
-          findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `active operation ${unitId} has no implementing ticket`));
-        }
+        requireImplementerForRole({ unitId, map, view, implementersByUnit, findings });
       }
     } else {
-      const viewUnitRecords = collectViewUnits(view);
       for (const unitId of graphUnits) {
         if (!unitId.startsWith('op-')) continue;
-        const mapRole = (map?.units ?? []).find((unit) => unit.unitId === unitId)?.role ?? null;
-        const viewRole = viewUnitRecords.get(unitId)?.record?.roleCandidate ?? null;
-        if ((mapRole ?? viewRole) !== 'implementer') continue;
-        if (!implementersByUnit.has(unitId)) {
-          findings.push(finding(CHAIN_CODES.MISSING_IMPLEMENTER, unitId, `unit ${unitId} is an implementer and no ticket implements it`));
-        }
+        requireImplementerForRole({ unitId, map, view, implementersByUnit, findings });
       }
     }
   }
@@ -550,7 +567,8 @@ export function main(argv = process.argv.slice(2)) {
     : readJson(join(dirname(registryPath), 'WORKSPACIFY-TREE-MANIFEST.json'));
   const artifact = artifactPath === null ? null : readJson(artifactPath);
 
-  if (view === null || map === null || graph === null) {
+  const additiveEmpty = view !== null && isAdditiveEmptyDistribution(view, map);
+  if (view === null || graph === null || (map === null && !additiveEmpty)) {
     console.error('[ERROR] MISSING_LAYER: view, map and graph are required');
     return 1;
   }

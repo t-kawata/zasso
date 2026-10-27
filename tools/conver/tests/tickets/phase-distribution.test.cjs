@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { renderPhaseDistribution } = require('../../.claude/scripts/tickets/show-phase-distribution.js');
 const { viewDigest, mapDigest } = require('../../.claude/scripts/sequences-slice/lib/distribution-map.mjs');
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-320) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',
@@ -13,7 +13,7 @@ function fixture() {
       unitId: 'seq-A-1',
       sequenceId: 'A-1',
       ownerPackageIds: ['pkg-0001'],
-      steps: [{ order: 1, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }],
+      steps: [{ order: 0, stepId: 'A-1__ProduceFact', operationId: 'ProduceFact', line: 1 }],
     }],
     crossBoundarySequenceUnits: [],
     obligationUnits: [{ unitId: 'ctr-boundary-001', kind: 'contract', subject: 'boundary-001', direction: 'provides', counterpart: 'pkg-0002' }],

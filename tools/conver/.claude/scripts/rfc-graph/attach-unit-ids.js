@@ -25,6 +25,7 @@ const {
   artifactStepsForSequences,
   collectViewUnits,
   declaredSequenceIds,
+  isAdditiveEmptyDistribution,
   mapDigest,
   registryRowsForPackage,
   stepBearingRecords,
@@ -42,8 +43,22 @@ const {
  * @param {{ view: object, map: object, artifact?: object|null, registry?: Array<object> }} input
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+/** The registry boundaries a view fails to carry as ctr units. */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+function collectBoundaryContractFindings(view, registry) {
+  const viewUnitIds = new Set(collectViewUnits(view).keys());
+  return registryRowsForPackage(registry, view?.packageId)
+    .filter((row) => !viewUnitIds.has(`ctr-${row.boundary_id}`))
+    .map((row) => ({
+      code: 'MISSING_BOUNDARY_CONTRACT',
+      subject: `ctr-${row.boundary_id}`,
+      message: `registry boundary ${row.boundary_id} has no ctr unit in the view`,
+    }));
+}
+
+// [::TICKET::] PX-312, PX-313, PX-314, PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-320) --for-spec --no-implementation-order`.
 function verifyViewAgainstMap({ view, map, artifact = null, registry = [] } = {}) {
+  if (isAdditiveEmptyDistribution(view, map)) return collectBoundaryContractFindings(view, registry);
   const findings = [];
   if (map?.sourceViewDigest !== viewDigest(view)) {
     findings.push({ code: 'STALE_DISTRIBUTION_MAP', subject: map?.packageId ?? null, message: 'map.sourceViewDigest does not equal viewDigest(view)' });
@@ -75,12 +90,7 @@ function verifyViewAgainstMap({ view, map, artifact = null, registry = [] } = {}
     }
   }
 
-  for (const row of registryRowsForPackage(registry, view?.packageId)) {
-    const ctrUnit = `ctr-${row.boundary_id}`;
-    if (!viewUnitIds.has(ctrUnit)) {
-      findings.push({ code: 'MISSING_BOUNDARY_CONTRACT', subject: ctrUnit, message: `registry boundary ${row.boundary_id} has no ctr unit in the view` });
-    }
-  }
+  findings.push(...collectBoundaryContractFindings(view, registry));
 
   return findings;
 }

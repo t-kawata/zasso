@@ -37,6 +37,7 @@ function graphFixture() {
   };
 }
 
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function ticketFixture() {
   return [{
@@ -65,7 +66,7 @@ test('an obligation-only sequence step is SEQUENCE_STEPS_UNDISTRIBUTED', () => {
 
 test('a step-bearing owned sequence is not reported', () => {
   const view = {
-    ownedSequenceUnits: [{ unitId: 'seq-A-1', sequenceId: 'A-1', steps: [{ order: 1, stepId: 'A-1__1', operationId: 'ProduceFact' }] }],
+    ownedSequenceUnits: [{ unitId: 'seq-A-1', sequenceId: 'A-1', steps: [{ order: 0, stepId: 'A-1__1', operationId: 'ProduceFact' }] }],
     crossBoundarySequenceUnits: [],
     obligationUnits: [],
   };
@@ -75,7 +76,7 @@ test('a step-bearing owned sequence is not reported', () => {
   };
   const tickets = [{
     id: 1,
-    distribution: { units: [{ unitId: 'seq-A-1', obligation: { mode: 'steps', steps: [{ order: 1, stepId: 'A-1__1', operationId: 'ProduceFact' }] } }] },
+    distribution: { units: [{ unitId: 'seq-A-1', obligation: { mode: 'steps', steps: [{ order: 0, stepId: 'A-1__1', operationId: 'ProduceFact' }] } }] },
   }];
   const findings = verifySequenceSteps({ tickets }, view, { nodes: [{ id: 'N0001', unitIds: ['op-ProduceFact'] }] }, artifact);
   assert.deepEqual(findings.filter((finding) => finding.code === 'SEQUENCE_STEPS_UNDISTRIBUTED'), []);

@@ -86,6 +86,19 @@ export function collectViewUnits(view) {
 }
 
 /**
+ * Whether a package predates distribution: zero view units and no map to bind.
+ *
+ * The exemption is only the empty-to-empty case. A non-empty map or a non-empty graph
+ * still has to satisfy the unit-set equality that the caller keeps running.
+ */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+export function isAdditiveEmptyDistribution(view, map) {
+  if (collectViewUnits(view).size > 0) return false;
+  if (map === null || map === undefined) return true;
+  return (map.units ?? []).length === 0 && (map.residuals ?? []).length === 0;
+}
+
+/**
  * The sequence ids a view declares, whether or not a record carries steps.
  *
  * This is the graph stage's scope predicate. A step-bearing record is not the predicate:
@@ -137,22 +150,37 @@ export function sequenceStepsOf(record) {
     .sort((left, right) => (left.order ?? left.line ?? 0) - (right.order ?? right.line ?? 0));
 }
 
-/** The artifact steps for the sequences a view declares. */
-export function artifactStepsForSequences(artifact, sequenceIds) {
+/**
+ * The artifact steps for the sequences a view declares, grouped in artifact order.
+ *
+ * The artifact array order is the sequence order. A producer-supplied `order` is not
+ * trusted: it is overwritten with the zero-based position within the sequence so the
+ * view producer and this verifier derive the same value.
+ */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+function groupArtifactStepsBySequence(artifact, sequenceIds) {
+  const positions = new Map();
   const bySequence = new Map();
   for (const step of Array.isArray(artifact?.steps) ? artifact.steps : []) {
     if (!sequenceIds.has(step?.sequence)) continue;
+    const position = positions.get(step.sequence) ?? 0;
+    positions.set(step.sequence, position + 1);
     const steps = bySequence.get(step.sequence) ?? [];
     steps.push({
       id: step.id,
       operationId: step.operation,
-      order: step.order ?? step.line ?? 0,
-      record: step,
+      order: position,
+      record: { ...step, order: position },
     });
     bySequence.set(step.sequence, steps);
   }
-  for (const steps of bySequence.values()) steps.sort((left, right) => left.order - right.order);
   return bySequence;
+}
+
+/** The artifact steps for the sequences a view declares. */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+export function artifactStepsForSequences(artifact, sequenceIds) {
+  return groupArtifactStepsBySequence(artifact, sequenceIds);
 }
 
 /**

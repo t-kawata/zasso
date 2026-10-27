@@ -71,6 +71,8 @@ Root: `.claude/scripts/tickets/`; each script derives the fixed artifact paths o
 
 All ticket scripts: pre-write `validate-tickets.js`; failure → no save.
 
+Step 5-2 and Step 5-3 also invoke `rfc-graph/project-step-contracts.js --mode=verify` to re-prove the step-contract sidecar against the live graph and view.
+
 ## Analysis Procedure
 
 ### Step 0: Initialization (argument parsing + Malfeasance.json initialization + determine output destination) and RFC loading
@@ -84,6 +86,7 @@ BASENAME="$(basename "$DOC_PATH" .md)"
 TICKETS_PATH="${DOC_DIR}/Tickets.json"
 STATUS_PATH="${DOC_DIR}/${BASENAME}-SPLIT-Status.json"
 ARTIFACT_PATH="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$DOC_DIR');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
+GRAPH_PATH="$(node -e "process.stdout.write(require('./.claude/scripts/lib/package-artifacts').deriveGraphPathFromTickets(process.argv[1]) || '')" "$TICKETS_PATH")"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 RUN_ID="$(date +%s%N)-$$"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" begin-run --run-id="$RUN_ID"
@@ -335,6 +338,7 @@ After all 5-2 phase loops complete:
 
 ```bash
 node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH"
+node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify --graph="$GRAPH_PATH" --view="$DOC_DIR/SEQUENCES.json"
 node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH"
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 node .claude/scripts/tickets/show-ticket-distribution.js "$TICKETS_PATH"
@@ -360,6 +364,7 @@ Sequence: guard → validation → backward merge → ID re-index → `relatedTi
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
 node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH"
+node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify --graph="$GRAPH_PATH" --view="$DOC_DIR/SEQUENCES.json"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="$DOC_DIR" --artifact="$ARTIFACT_PATH" --require-tickets
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```

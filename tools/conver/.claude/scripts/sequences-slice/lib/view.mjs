@@ -66,6 +66,17 @@ function operationObligation(operation) {
   };
 }
 
+/** The zero-based position of each step within its own sequence. */
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+function assignSequencePositions(steps) {
+  const positions = new Map();
+  return (Array.isArray(steps) ? steps : []).map((step) => {
+    const position = positions.get(step.sequence) ?? 0;
+    positions.set(step.sequence, position + 1);
+    return { step, position };
+  });
+}
+
 /**
  * The units one package owns, and the ones it shares.
  *
@@ -88,6 +99,7 @@ function operationObligation(operation) {
  */
 // [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
 export function buildPackageView({ artifact, treeManifest, packageSegments, obligations = {} }, packageId) {
   const { allocateManifest = null, declared = [], record = null, sequenceAssignments = new Map() } = obligations;
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
@@ -97,12 +109,12 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
   // the work its implementers owe. The artifact order is the sequence order: a sequence
   // is defined by the order its steps appear, not by the order a ticket happens to own them.
   const stepsBySequence = new Map();
-  units.steps.forEach((step, order) => {
+  for (const { step, position } of assignSequencePositions(units.steps)) {
     const steps = stepsBySequence.get(step.sequence) ?? [];
     steps.push({
       stepId: step.id,
       operationId: step.operation,
-      order,
+      order: position,
       subject: step.subject ?? null,
       predicate: step.predicate ?? null,
       object: step.object ?? null,
@@ -112,7 +124,7 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
       quote: step.quote ?? null,
     });
     stepsBySequence.set(step.sequence, steps);
-  });
+  }
 
   const ownedOperationUnits = artifact.operations
     .map((operation) => {

@@ -47,6 +47,7 @@ function copy(value) {
 
 /** One consistent package chain plus one foreign step and boundary. */
 // [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
 export function multiPackageFixture(options = {}) {
   const stepContract = {
     pre: [{ factId: 'identity', text: 'identity present' }],
@@ -56,7 +57,7 @@ export function multiPackageFixture(options = {}) {
   const viewStep = {
     stepId: 'A-1__ProduceFact',
     operationId: 'ProduceFact',
-    order: 1,
+    order: 0,
     line: 1,
     quote: 'produce',
     contract: copy(stepContract),

@@ -90,6 +90,7 @@ Root: `.claude/scripts/rfc-graph/`.
 | `update-boundify-step-status.js --status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY status; `backup` / `cleanup` commands below are retained |
 | `show-graph-summary-markdown.js --graph=<path> --source=<path>` | kind-organized graph summary |
 | `query.js --graph=<path> --source=<path> --id=<id> --hops=<N>` | auxiliary regression query |
+| `project-step-contracts.js --mode=verify --graph=<path> --view=<path>` | read-only step-contract sidecar revalidation after graph repair |
 | `validate-slug.js --graph=<path>` | lower_snake_case / 25-char / leading-lowercase validation; error `remedy` has graph CRUD fix example |
 
 ## Step 0: Graph Loading, Language Collection (Pre-processing)
@@ -193,6 +194,7 @@ node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
   --dirs-tree="$dirsTreePath" \
   --graph="$graphPath"
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="$(dirname "$graphPath")"
+node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify --graph="$graphPath" --view="$(dirname "$graphPath")/SEQUENCES.json"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
 ```
 
