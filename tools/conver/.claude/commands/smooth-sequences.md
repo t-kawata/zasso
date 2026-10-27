@@ -183,6 +183,7 @@ Editable surfaces:
 ### Step 3 — In-place repair
 
 1. Open `where`; fragment identifies row. Generated `SEQUENCES.json` → edit package `RFC.md` or `OBLIGATION.json`, never view.
+   - `S7.owner-role-undeclared`: author the role in the package `Distribution ledger` Owner cell — `pkg-xxxx (implementer)` on the implementing package's row and `pkg-xxxx (consumer)` on the counterpart's row — then rerun the producer's render/complete-run and this command. Never edit the generated `json distribution-map` block or `SEQUENCES.json`; the renderer writes both.
    - `S7.sequence-steps-undistributed`: the sequence is only an `obligationUnits` row. Move it to `ownedSequenceUnits` or `crossBoundarySequenceUnits` with its ordered steps in `OBLIGATION.json`, or declare a grounded no-act residual; rerun `sequences-slice/run.mjs` and this command. An obligation row alone never satisfies step distribution.
 2. Apply `fix`.
 3. Run route's complete `rerun:` command; `<artifact>`/`<package>` already filled. Producer = detector → that run is Step 1.

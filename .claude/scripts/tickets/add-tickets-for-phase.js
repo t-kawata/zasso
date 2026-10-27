@@ -377,8 +377,8 @@ function implementingTicketFor(tickets, operationId) {
  * can fail closed instead of guessing.
  */
 // [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
-function buildOperationOwners({ view, workspaceRoot, tickets, rolesByPackage = {} }) {
+// [::TICKET::] PX-325, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-325|PX-328) --for-spec --no-implementation-order`.
+function buildOperationOwners({ view, workspaceRoot, tickets, rolesByPackage = {}, activeOperationIds = null }) {
   const {
     addOperationClaim,
     resolveOperationClaims,
@@ -400,6 +400,7 @@ function buildOperationOwners({ view, workspaceRoot, tickets, rolesByPackage = {
   const record = (unit, packageId, packageRoles) => {
     const operationId = unit?.operationId ?? (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-') ? unit.unitId.slice(3) : null);
     if (operationId === null) return;
+    if (activeOperationIds !== null && activeOperationIds !== undefined && !activeOperationIds.has(operationId)) return;
     const role = packageRoles.get(unit.unitId) ?? unit.roleCandidate ?? null;
     const ticketKey = packageId === view?.packageId && role === 'implementer' ? localImplementer(operationId) : undefined;
     addOperationClaim(claims, { operationId, packageId, role, ticketKey });
@@ -431,8 +432,8 @@ function buildOperationOwners({ view, workspaceRoot, tickets, rolesByPackage = {
  * The field is attached only when the distribution data exists; a package without a view,
  * graph or root artifact keeps the old ticket shape.
  */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
-async function attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory }) {
+// [::TICKET::] PX-323, PX-325, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-328) --for-spec --no-implementation-order`.
+async function attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory, map = null }) {
   if (view === null || graphData === null) return;
   const { ticketPrerequisites, ticketKeyOf } = require("../sequences-slice/lib/implementation-order.mjs");
   const allocatePath = findAllocateManifest(packageDirectory);
@@ -441,7 +442,10 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   const registry = allocatePath === null ? [] : (readJsonOrNull(allocatePath)?.contract_registry ?? []);
   const treeManifest = workspaceRoot === null ? null : readJsonOrNull(path.join(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'));
   const tickets = allTicketsOf(ticketsDocument);
-  const operationOwners = buildOperationOwners({ view, workspaceRoot, tickets });
+  const { activeOperationIdsOf } = require("../sequences-slice/lib/implementation-order.mjs");
+  const residualUnitIds = new Set((map?.residuals ?? []).map((residual) => residual?.unit).filter((unitId) => typeof unitId === 'string'));
+  const activeOperationIds = activeOperationIdsOf(artifact, { residualUnitIds });
+  const operationOwners = buildOperationOwners({ view, workspaceRoot, tickets, activeOperationIds });
   const { prerequisites, findings } = ticketPrerequisites({
     tickets,
     graph: graphData,
@@ -450,6 +454,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
     registry,
     packageId: view.packageId,
     treeManifest,
+    activeOperationIds,
   });
   if (findings.length > 0) {
     throw new Error(findings.map((entry) => `${entry.code}: ${entry.subject ?? ''} ${entry.message}`).join('\n'));
@@ -461,7 +466,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   }
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -665,7 +670,7 @@ async function main() {
       }
       process.exit(EXIT_FAILURE);
     }
-    await attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory });
+    await attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory, map });
     writeTicketDistributionAggregate(ticketsDocument);
   }
 

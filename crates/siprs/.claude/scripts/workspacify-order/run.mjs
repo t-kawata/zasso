@@ -4,9 +4,10 @@
  *
  * The stage-1 dependency DAG is the build order, not the implementation order. The
  * artifact-derived implementation order (sequences, step contracts and boundary contracts)
- * is shown when the sidecar or the artifact and views are present; otherwise the display
- * is the build order and says so. The two are separate concepts and the build order is
- * preserved beside the implementation order.
+ * is shown when the sidecar is fresh, or when the artifact and views yield an unambiguous
+ * derivation. When neither exists the display is the build order and says so; an
+ * ambiguous derivation is refused rather than shown. The two are separate concepts and
+ * the build order is preserved beside the implementation order.
  *
  * Usage:
  *   node .claude/scripts/workspacify-order/run.mjs
@@ -20,6 +21,7 @@
  * everything else. stdout is the picture and nothing else; a failure writes one line to
  * stderr and exits non-zero without having printed a partial plan.
  */
+// [::TICKET::] PX-327 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-327 --for-spec --no-implementation-order`.
 import { dirname, resolve } from 'node:path';
 
 import { ERROR_PREFIX, WorkspacifyOrderError } from './lib/errors.mjs';

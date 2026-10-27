@@ -69,13 +69,34 @@ function groundCell(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** The package ids an Owner cell names; a co-owned operation lists them with `+` or `,`. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+/**
+ * The owners and role annotations an Owner cell declares.
+ *
+ * The ledger is the authored authority for an operation's role. A row annotates its own
+ * package as `pkg-xxxx (implementer)` or `pkg-xxxx (consumer)`; the annotation on a
+ * co-owner's name in another package's row is informational because that package's own row
+ * carries its declaration. Anything else in parentheses is prose and is ignored.
+ */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+function parseOwnerCell(cell) {
+  const owners = [];
+  const roles = new Map();
+  for (const token of cleanCell(cell).split(/[+,]/).map((entry) => entry.trim()).filter((entry) => entry.length > 0)) {
+    const annotated = /^(.+?)\s*\(([^)]*)\)$/.exec(token);
+    const packageId = cleanCell(annotated === null ? token : annotated[1]);
+    if (packageId.length === 0) continue;
+    owners.push(packageId);
+    if (annotated !== null && (annotated[2] === 'implementer' || annotated[2] === 'consumer')) {
+      roles.set(packageId, annotated[2]);
+    }
+  }
+  return { owners, roles };
+}
+
+/** The package ids an Owner cell names, with the role annotations stripped. */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function ownerPackages(cell) {
-  return cleanCell(cell)
-    .split(/[+,]/)
-    .map((token) => cleanCell(token))
-    .filter((token) => token.length > 0);
+  return parseOwnerCell(cell).owners;
 }
 
 /** The section tokens a ledger location names. */
@@ -127,7 +148,7 @@ function indexByUnit(rows) {
 }
 
 /** Build a map from the existing Distribution ledger rows. */
-// [::TICKET::] PX-307, PX-309, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309|PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309, PX-317, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309|PX-317|PX-328) --for-spec --no-implementation-order`.
 function bootstrapFromLedger(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   const rows = readLedgerRows(rfcText) ?? [];
@@ -154,7 +175,8 @@ function bootstrapFromLedger(rfcText, view) {
     if (residualByUnit.has(unitId)) return refuse('RESIDUAL_IS_A_MAP_UNIT', { units: [unitId] });
     const row = matching[0];
     const kind = cleanCell(row.kind);
-    const owners = ownerPackages(row.owner);
+    const declaredOwner = parseOwnerCell(row.owner);
+    const owners = declaredOwner.owners;
     const ground = groundCell(row.ground);
     if (kind !== record.kind) return refuse('KIND_MISMATCH', { units: [unitId] });
     if (!owners.includes(view.packageId)) return refuse('OWNER_MISMATCH', { units: [unitId] });
@@ -170,7 +192,12 @@ function bootstrapFromLedger(rfcText, view) {
       sections: location.sections,
       ground,
     };
-    if (record.kind === 'operation' && record.record?.roleCandidate === 'implementer') {
+    const declaredRole = declaredOwner.roles.get(view.packageId) ?? null;
+    if (record.kind === 'operation' && (declaredRole === 'implementer' || declaredRole === 'consumer')) {
+      unit.role = declaredRole;
+      unit.roleAuthored = true;
+      if (declaredRole === 'implementer') unit.implementationSections = [...location.sections];
+    } else if (record.kind === 'operation' && record.record?.roleCandidate === 'implementer') {
       unit.role = 'implementer';
       unit.implementationSections = [...location.sections];
     }
@@ -296,6 +323,56 @@ function validateExistingMap(rfcText, map, view) {
 }
 
 /**
+ * Apply the authored ledger roles to an existing map.
+ *
+ * The map is a projection, and a map written before a role was authored is still valid
+ * against the view. The ledger is canonical for the role, so its annotations are read
+ * before the map digest is recomputed and before the ledger is rendered back.
+ */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+function applyLedgerRoles(rfcText, map, packageId, view) {
+  const rows = readLedgerRows(rfcText) ?? [];
+  const roles = new Map();
+  for (const row of rows) {
+    const unitId = cleanCell(row.unit);
+    const role = parseOwnerCell(row.owner).roles.get(packageId);
+    if (role === 'implementer' || role === 'consumer') roles.set(unitId, role);
+  }
+  if (roles.size === 0 && map.units.every((unit) => unit.roleAuthored !== true)) return map;
+  const viewUnits = collectViewUnits(view);
+  return {
+    ...map,
+    units: map.units.map((unit) => {
+      const role = roles.get(unit.unitId);
+      if (role !== undefined) {
+        const next = { ...unit, role, roleAuthored: true };
+        if (role === 'implementer') {
+          next.implementationSections = [...unit.sections];
+        } else {
+          delete next.implementationSections;
+        }
+        return next;
+      }
+      // The annotation was removed: the ledger no longer authorises a role, so the view
+      // candidate is the only answer left. Keeping the old role would make a deleted
+      // decision survive its deletion.
+      if (unit.roleAuthored === true) {
+        const next = { ...unit };
+        delete next.roleAuthored;
+        delete next.role;
+        delete next.implementationSections;
+        if (viewUnits.get(unit.unitId)?.record?.roleCandidate === 'implementer') {
+          next.role = 'implementer';
+          next.implementationSections = [...unit.sections];
+        }
+        return next;
+      }
+      return unit;
+    }),
+  };
+}
+
+/**
  * Render the ledger, the map block and the managed anchors from the view.
  *
  * Pure: the caller decides where to write. `wrote` is false when the view has no units,
@@ -346,6 +423,10 @@ export function renderDistribution(rfcText, view) {
   } else {
     return refuse(parsed.code, {});
   }
+
+  // The ledger is the authored authority for a role, so its annotations are applied to
+  // the map before the digest is recomputed and the ledger is rendered back.
+  map = applyLedgerRoles(rfcText, map, view.packageId, view);
 
   // Digest derives from the body, so every change recomputes it.
   const withoutDigest = { ...map };

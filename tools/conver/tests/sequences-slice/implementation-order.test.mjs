@@ -5,10 +5,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  activeOperationIdsOf,
   checkPlacement,
   derivePackagePrecedence,
+  deriveSequencePrecedence,
   evaluatePrerequisites,
   factTexts,
+  ownersFromViewsDetailed,
   ticketPrerequisites,
   topologicalOrder,
 } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
@@ -297,4 +300,74 @@ test('C006 a cross-package unfinished implementer is PREREQUISITE_NOT_DONE', () 
   });
   assert.equal(result.ok, false);
   assert.ok(result.findings.some((entry) => entry.code === 'PREREQUISITE_NOT_DONE'));
+});
+
+// PX-328 @verifies C002 — only an active operation is an implementation obligation.
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+function activeSetOf(operations) {
+  return activeOperationIdsOf({ operations });
+}
+
+test('C002 activeOperationIdsOf returns the active ids when dispositions are declared', () => {
+  const ids = activeSetOf([
+    { id: 'A', disposition: 'active' },
+    { id: 'B', disposition: 'framework' },
+    { id: 'C', disposition: 'excluded' },
+  ]);
+  assert.deepEqual([...ids], ['A']);
+});
+
+test('C002 activeOperationIdsOf returns null when no disposition is declared', () => {
+  assert.equal(activeSetOf([{ id: 'A' }, { id: 'B' }]), null);
+});
+
+test('C002 ownersFromViewsDetailed skips a non-active operation claim', () => {
+  const packages = [{ id: 'pkg-1' }, { id: 'pkg-2' }];
+  const operation = (id) => ({ unitId: `op-${id}`, operationId: id, roleCandidate: 'undecided' });
+  const views = {
+    'pkg-1': { packageId: 'pkg-1', ownedOperationUnits: [operation('A'), operation('B')], obligationUnits: [] },
+    'pkg-2': { packageId: 'pkg-2', ownedOperationUnits: [operation('A'), operation('B')], obligationUnits: [] },
+  };
+  const roles = { 'pkg-1': new Map(), 'pkg-2': new Map() };
+
+  const filtered = ownersFromViewsDetailed({ packages, views, roles, activeOperationIds: new Set(['A']) });
+  assert.deepEqual(filtered.findings.map((entry) => entry.subject), ['A']);
+
+  const unfiltered = ownersFromViewsDetailed({ packages, views, roles });
+  assert.deepEqual(unfiltered.findings.map((entry) => entry.subject).sort(), ['A', 'B']);
+});
+
+test('C002 deriveSequencePrecedence skips a non-active step', () => {
+  const artifact = {
+    sequences: [{ id: 'S', outcome: 'realized' }],
+    steps: [
+      step('s1', 'S', 'A', 1, { produces: ['object:X'] }),
+      step('s2', 'S', 'B', 2, { consumes: ['object:X'] }),
+      step('s3', 'S', 'C', 3, {}),
+    ],
+  };
+  // The framework operation B has no owner; without the active filter it is a finding.
+  const operationOwners = new Map([
+    ['A', { packageId: 'pkg-1' }],
+    ['C', { packageId: 'pkg-1' }],
+  ]);
+
+  const filtered = deriveSequencePrecedence({
+    artifact,
+    operationOwners,
+    activeOperationIds: new Set(['A', 'C']),
+  });
+  assert.equal(filtered.findings.some((entry) => entry.subject === 'B'), false);
+  assert.equal(filtered.edges.some((edge) => edge.fromOperation === 'B' || edge.toOperation === 'B'), false);
+
+  const unfiltered = deriveSequencePrecedence({ artifact, operationOwners });
+  assert.ok(unfiltered.findings.some((entry) => entry.subject === 'B'));
+});
+
+test('C002 activeOperationIdsOf skips a map-declared residual', () => {
+  const ids = activeOperationIdsOf(
+    { operations: [{ id: 'A', disposition: 'active' }, { id: 'R', disposition: 'active' }] },
+    { residualUnitIds: new Set(['op-R']) },
+  );
+  assert.deepEqual([...ids], ['A']);
 });

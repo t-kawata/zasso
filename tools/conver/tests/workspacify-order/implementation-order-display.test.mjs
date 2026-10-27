@@ -96,3 +96,39 @@ test('C003 an implementation sidecar that omits a package is refused', (t) => {
   }));
   assert.throws(() => modelOf(workspace), /omits pkg-0003/);
 });
+
+// PX-328 @verifies C002 — a framework operation does not block the derived display.
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+test('C002 an artifact with only a framework claim still derives an order', () => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001', 'pkg-0002'],
+    edges: [],
+    levels: [['pkg-0001', 'pkg-0002']],
+  });
+  try {
+    writeFileSync(join(workspace.root, 'DESIGN-sequences.json'), JSON.stringify({
+      operations: [{ id: 'Shared', disposition: 'framework' }],
+      sequences: [],
+      steps: [],
+    }));
+    for (const id of ['pkg-0001', 'pkg-0002']) {
+      writeFileSync(workspace.viewPathOf(id), JSON.stringify({
+        packageId: id,
+        ownedOperationUnits: [{
+          unitId: 'op-Shared',
+          operationId: 'Shared',
+          ownerPackageIds: ['pkg-0001', 'pkg-0002'],
+          roleCandidate: 'undecided',
+        }],
+        ownedSequenceUnits: [],
+        crossBoundarySequenceUnits: [],
+        obligationUnits: [],
+      }));
+    }
+    const model = modelOf(workspace);
+    assert.equal(model.orderSource, 'implementation');
+    assert.equal(model.orderSourceDetail, 'derived');
+  } finally {
+    workspace.remove();
+  }
+});

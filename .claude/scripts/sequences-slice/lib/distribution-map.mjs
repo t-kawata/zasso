@@ -557,7 +557,7 @@ export function ledgerRowOf(unit, packageId) {
   return {
     unit: unit.unitId,
     kind: unit.kind,
-    owner: ownerCellOf(unit.owners, packageId),
+    owner: ownerCellOf(unit.owners, packageId, unit.roleAuthored === true ? (unit.role ?? null) : null),
     location: unit.sections.map(sectionLabel).join(', '),
     ground: normalizeText(unit.ground),
   };
@@ -574,10 +574,13 @@ export function residualRowOf(residual, packageId) {
   };
 }
 
-/** The Owner cell: every co-owner when the map carries them, the package otherwise. */
-export function ownerCellOf(owners, packageId) {
+/** The Owner cell: every co-owner, and this package's role when the row declares one. */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+export function ownerCellOf(owners, packageId, role = null) {
   const named = (Array.isArray(owners) ? owners : []).filter((owner) => typeof owner === 'string' && owner.trim().length > 0);
-  return (named.length > 0 ? named : [packageId]).join(' + ');
+  return (named.length > 0 ? named : [packageId])
+    .map((owner) => (owner === packageId && (role === 'implementer' || role === 'consumer') ? `${owner} (${role})` : owner))
+    .join(' + ');
 }
 
 /** Compare a map with the view it was authored from. */

@@ -79,7 +79,7 @@ node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --
 node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
 ```
 
-- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` / `skipped:no-distribution` → Step 1.
+- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` → Step 1.
 - exit 1 → stop. The named `PREREQUISITE_*`, `OWNER_ROLE_UNDECIDED`, `MISSING_PACKAGE_VIEW` or `STALE_IMPLEMENTATION_ORDER` finding must be resolved before implementation starts.
 
 ### Step 1: Block unless /plan-ticket was executed immediately before in the same session

@@ -49856,6 +49856,222 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-27"
+        },
+        {
+          "id": 327,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Retract unverified implementation-order sidecars and verify ticket prerequisites workspace-wide",
+          "background": "### Goal\nMake the implementation-order gates publish a sidecar only after a clean verdict and verify every package's recorded ticket prerequisites at the workspace gate, so neither /split-to-tickets nor /workspacify-order can present an order the pipeline has not proved.\n\n### Purpose\nClose two holes found in the PX-326 audit. (1) verifyPackage and verifyWorkspace call writeJsonAtomically whenever write is true, before the verdict is considered; a gate that exits 1 on PREREQUISITE_NOT_BEFORE still leaves IMPLEMENTATION-ORDER.json and WORKSPACIFY-IMPLEMENTATION-ORDER.json, and workspacify-order reads the workspace sidecar (its source digests match) and prints it as the implementation order. (2) verifyWorkspace checks placement of the prerequisites a package already records but never re-derives them, so a Tickets.json with an empty prerequisites array passes the final workspace gate while verifyPackage rejects the same workspace. The workspace-wide guarantee /split-to-tickets claims is therefore not self-contained.\n\n### Motivation\nThe requirement is absolute: the directory order displayed by workspacify-order must be a safe implementation order, and ticket-level order must be checked at decomposition and after it. A failed gate that still publishes its answer converts a named failure into a trusted artifact. PX-325 already established that a silent skip is indistinguishable from a satisfied prerequisite; an empty prerequisites field has the same shape at the workspace layer.\n\n### Constraints\n- TDD Red-Green-Refactor; the Red tests must fail for the absence of the publication guard and the workspace re-derivation.\n- Case B, packages without a distribution, and packages without a view or graph keep their current skip behavior.\n- No new dependency; no schema change; the sidecar format is unchanged.\n- Only public behavior of verifyPackage and verifyWorkspace changes: write mode publishes a verified order and retracts an unverified one; read mode is unchanged.",
+          "scope": [
+            "**Publication guard:** `.claude/scripts/sequences-slice/verify-implementation-order.mjs` — verifyPackage and verifyWorkspace publish their sidecar only when `findings.length === 0`, and remove an existing sidecar when the verdict fails. Before: a PREREQUISITE_NOT_BEFORE verdict still wrote `IMPLEMENTATION-ORDER.json` / `WORKSPACIFY-IMPLEMENTATION-ORDER.json`, and workspacify-order displayed the workspace sidecar as `implementation order ... sidecar`. After: a failed gate leaves no sidecar and the display cannot inherit an unsafe order from it.",
+            "**Workspace prerequisite derivation:** the same file — verifyWorkspace re-derives each package's prerequisites with `buildOperationOwners` + `ticketPrerequisites`, the same functions verifyPackage uses, and reports `PREREQUISITE_SET_MISMATCH` per ticket when the recorded array differs from the derivation. Before: a package with an empty `prerequisites` array passed the workspace gate (verified: verifyPackage returned 1, verifyWorkspace returned 0 on the same workspace). After: the two layers agree.",
+            "**Helpers:** extract `packagePrerequisiteFindings({ workspaceRoot, pkg, view, graph, document, artifact, registry, treeManifest })` so the package gate and the workspace gate share one derivation and one comparison; no rule is duplicated.",
+            "**Entry-gate instructions:** `.claude/commands/plan-ticket.md`, `.claude/commands/start-ticket.md`, `.claude/commands/review-ticket.md` — the success list currently names `skipped:no-distribution`, which `check-ticket-prerequisites.js` never emits. Replace it with the verdicts the gate actually returns (`skipped:no-prerequisites`, `skipped:ticket-not-found`).",
+            "**Display comment:** `.claude/scripts/workspacify-order/run.mjs` — the header says the build order is displayed whenever the artifact and views are absent; an artifact with an unresolved owner actually makes the command refuse. Correct the comment to state that an ambiguous derivation is refused, while the build-order fallback is labelled.",
+            "**Tests:** `.claude/scripts/sequences-slice/verify-implementation-order.mjs` is covered by `tests/sequences-slice/verify-implementation-order.test.mjs`; add the publication and workspace-derivation cases there. `tests/tickets/check-ticket-prerequisites.test.mjs` and `tests/workspacify-order/implementation-order-display.test.mjs` are regression surfaces only.",
+            "**Out of scope:** per-step owner precision for three or more cross-package result-object owners (PX-325 residual); gaia's 20 consumer-only operation roles (upstream data, recorded at PX-325:400); any change to the sidecar schema or to the published build order."
+          ],
+          "invariants": "- [Normal establishment] A gate with zero findings writes its sidecar with source digests and returns 0; a workspace whose recorded prerequisites equal the derivation passes the workspace gate.\n- [Invariant on error] A gate with one or more findings returns 1 and leaves no sidecar at its path; a ticket whose prerequisites differ from the derivation reports PREREQUISITE_SET_MISMATCH and names the ticket key.\n- [Internal state invariant] The package gate and the workspace gate derive prerequisites with the same operation-owner table and the same ticketPrerequisites function; neither layer re-implements a rule the other applies.\n- [Boundary invariant] A package with no view, no graph or no Tickets.json keeps its skip behavior; a ticket with no distribution and no prerequisites keeps its Case B path; the published build order is never rewritten.",
+          "testUnit": [
+            "UT: C001 [Error] a failing package gate with --write retracts an existing IMPLEMENTATION-ORDER.json and returns 1",
+            "UT: C001 [Normal] a passing package gate with --write publishes IMPLEMENTATION-ORDER.json and returns 0",
+            "UT: C002 [Error] a failing workspace gate with --write retracts an existing WORKSPACIFY-IMPLEMENTATION-ORDER.json and returns 1",
+            "UT: C002 [Normal] a passing workspace gate with --write publishes WORKSPACIFY-IMPLEMENTATION-ORDER.json and returns 0",
+            "UT: C003 [Error] the workspace gate reports PREREQUISITE_SET_MISMATCH when a ticket's prerequisites array is empty but the derivation names a provider",
+            "UT: C003 [Normal] the workspace gate accepts a ticket whose prerequisites equal the derivation",
+            "UT: C003 [Boundary] a package without a view, graph or Tickets.json stays skipped and produces no finding"
+          ],
+          "testIntegration": [
+            "IT: a two-package workspace whose consumer ticket omits its provider prerequisite fails the workspace gate with PREREQUISITE_SET_MISMATCH and writes no WORKSPACIFY-IMPLEMENTATION-ORDER.json",
+            "IT: the same workspace with the prerequisite attached passes both the package and workspace gates and writes both sidecars; the published order is the build order union with the derived relation"
+          ],
+          "testExceptions": [],
+          "acceptanceCriteria": [
+            "Happy path: a workspace whose recorded prerequisites equal the derivation passes verifyPackage and verifyWorkspace, and both sidecars exist after --write.",
+            "Error case: a gate that returns PREREQUISITE_NOT_BEFORE with --write exits 1 and leaves no sidecar at the path it would publish.",
+            "Edge case: an empty prerequisites array with a derivable same-package provider is PREREQUISITE_SET_MISMATCH at the workspace gate, with an error message naming the ticket and the counts."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "verify-implementation-order.mjs#package-write",
+              "precondition": "verifyPackage is called with write true and one or more findings (for example PREREQUISITE_NOT_BEFORE).",
+              "postcondition": "The process result has code 1, and IMPLEMENTATION-ORDER.json does not exist beside Tickets.json; a pre-existing sidecar is removed.",
+              "invariant": "A package sidecar exists only for a zero-finding verdict."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "verify-implementation-order.mjs#workspace-write",
+              "precondition": "verifyWorkspace is called with write true and one or more findings.",
+              "postcondition": "The process result has code 1, and WORKSPACIFY-IMPLEMENTATION-ORDER.json does not exist at the workspace root; a pre-existing sidecar is removed.",
+              "invariant": "A workspace sidecar exists only for a zero-finding verdict, so workspacify-order cannot read an order the gate rejected."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "verify-implementation-order.mjs#workspace-prerequisites",
+              "precondition": "The workspace holds a package with a readable SEQUENCES.json, a readable GRAPH.json and a readable Tickets.json.",
+              "postcondition": "Each ticket whose recorded prerequisites differ from the buildOperationOwners + ticketPrerequisites derivation produces PREREQUISITE_SET_MISMATCH in the workspace gate; a ticket whose array equals the derivation produces none.",
+              "invariant": "The workspace gate and the package gate apply the same derivation, so one cannot pass where the other fails."
+            }
+          ],
+          "investigation": "Reproduced with a synthetic workspace holding pkg-1/pkg-2, a hard graph edge N0002->N0001, and a reversed ticket order. verifyPackage({write:true}) returned 1 with PREREQUISITE_NOT_BEFORE and still left crates/pkg-1/IMPLEMENTATION-ORDER.json; verifyWorkspace({write:true}) returned 1 with the same finding and still left WORKSPACIFY-IMPLEMENTATION-ORDER.json; workspacify-order/lib/levels.mjs buildModel then reported orderSource=implementation, orderSourceDetail=sidecar, implementationSerial ['pkg-1','pkg-2']. A second run with correctly ordered tickets but an empty prerequisites array returned verifyPackage=1 (PREREQUISITE_SET_MISMATCH) and verifyWorkspace=0 with no findings. Code sites: verify-implementation-order.mjs:259-268 (workspace write), :380-395 (package write), :245-257 (placement only), :310-322 (package derivation). PX-325 spec:150 states success writes a verifiable sidecar; PX-325 spec:131 states no unsafe order is labelled implementation order; PX-323 spec:24 states the order is provably safe at package and ticket granularity.",
+          "boyScoutPlan": "Extract the per-package derivation and comparison into packagePrerequisiteFindings so the two gates share one rule; name the publication decision in a comment that states why a failed verdict retracts rather than leaves the sidecar; keep the sidecar format and the build order untouched; correct the two now-false instruction lines instead of documenting around them.",
+          "notes": "### Implementation steps\n1. Red: add the four publication tests and the two workspace-derivation tests; confirm the publication tests fail because the sidecar is written and the derivation test fails because the empty array passes.\n2. Green: add the shared derivation helper, call it from verifyWorkspace for every package with view+graph+Tickets, and guard both write blocks with findings.length === 0; on failure remove an existing sidecar.\n3. Refactor: name the removal helper, keep the findings ordered deterministically, and correct the command/display comments.\n4. Run the impact set: tests/sequences-slice/verify-implementation-order.test.mjs, tests/sequences-slice/px325-implementation-order-chain.test.mjs, tests/tickets/check-ticket-prerequisites.test.mjs, tests/workspacify-order/implementation-order-display.test.mjs, tests/workspacify-order/integration/run.test.mjs, tests/conventions/make-ticket-distribution.test.mjs.\n\n### Risks\n- A package with a view and Tickets.json but no graph is skipped by the new workspace loop; its package gate still fails MISSING_DISTRIBUTION_LAYER, so the skip does not weaken the per-package guarantee.\n- Removing a sidecar on failure changes the state left by a failed --write run; the sidecar is a derived artifact and the next successful run recreates it.\n\n### Caveats\n- The display's digest check still cannot see a code-version change that alters derivation without changing the source documents; that is outside this ticket and does not affect the publication guard.\n- The unrelated packages' prerequisite findings are now emitted by the workspace gate; a workspace that already fails the package gate may see the same finding twice (once per gate). This is additive and named.\n\n### Open items\n- Per-step owner precision for three or more cross-package result-object owners remains the PX-325 residual; it is not exercised here.\nImplementation summary:\n- Changed files: .claude/scripts/sequences-slice/verify-implementation-order.mjs, .claude/scripts/workspacify-order/run.mjs, .claude/commands/{plan,start,review}-ticket.md, tests/sequences-slice/verify-implementation-order.test.mjs, Tickets.json, specs/PX-327.md.\n- Key changes: a failed gate retracts its sidecar instead of publishing it; the workspace gate re-derives every readable package's prerequisites with the package gate's own helper; the two stale instruction lines and the display comment are corrected.\n- Test results: the new 7 cases pass; impact set 53 pass; sequences-slice + workspacify-order 537 pass; tickets 166 pass; quality checks 0 issues.\nReview report:\n- Static quality check: passed (0 issues after the parameter-object refactor).\n- Translatability: packagePrerequisiteFindings names the shared derivation and removeSidecar names the retraction; no generic names or hardcoded paths added.\n- Dependencies: consistency verified; no new dependency, no schema change.\n- Issues found and fixes applied: the failed-gate sidecar publication is retracted; the workspace gate now re-derives each package's prerequisites; the three entry-gate instructions and the display header comment are corrected.\n- Tests: new 7 cases, impact set 53, sequences-slice + workspacify-order 537, tickets 166; all pass.\n- Deviation: no git commit was created because this session's harness rule forbids committing without an explicit user request; the working tree is left for the user to review and commit.",
+          "instrumentation": "The gates already print each finding to stderr and a JSON verdict to stdout; no new telemetry is added. The sidecar's source digests remain the only recorded evidence.",
+          "default_files": [
+            ".claude/scripts/sequences-slice/verify-implementation-order.mjs",
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/scripts/workspacify-order/run.mjs",
+            "tests/sequences-slice/verify-implementation-order.test.mjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 [Error] a failing package gate with --write retracts an existing sidecar\n```js\nconst root = workspace();\nwriteTickets(root, tickets(expected, true)); // P0-1 is placed after P0-2\nwriteFileSync(join(root, 'crates/pkg-1/IMPLEMENTATION-ORDER.json'), '{\"sentinel\":true}');\nconst result = verifyPackage({ packageDir: join(root, 'crates/pkg-1'), write: true });\nassert.equal(result.code, 1);\nassert.ok(result.findings.some((entry) => entry.code === 'PREREQUISITE_NOT_BEFORE'));\nassert.equal(existsSync(join(root, 'crates/pkg-1/IMPLEMENTATION-ORDER.json')), false);\n```",
+            "UT: C001 [Normal] a passing package gate with --write publishes the sidecar\n```js\nconst root = workspace();\nwriteTickets(root, tickets(expected));\nconst result = verifyPackage({ packageDir: join(root, 'crates/pkg-1'), write: true });\nassert.equal(result.code, 0);\nassert.equal(existsSync(join(root, 'crates/pkg-1/IMPLEMENTATION-ORDER.json')), true);\n```",
+            "UT: C002 [Error] a failing workspace gate with --write retracts an existing sidecar\n```js\nconst root = workspace();\nwriteTickets(root, tickets(expected, true));\nwriteFileSync(join(root, 'WORKSPACIFY-IMPLEMENTATION-ORDER.json'), '{\"sentinel\":true}');\nconst result = verifyWorkspace({ workspaceRoot: root, write: true });\nassert.equal(result.code, 1);\nassert.ok(result.findings.some((entry) => entry.code === 'PREREQUISITE_NOT_BEFORE'));\nassert.equal(existsSync(join(root, 'WORKSPACIFY-IMPLEMENTATION-ORDER.json')), false);\n```",
+            "UT: C002 [Normal] a passing workspace gate with --write publishes the sidecar\n```js\nconst root = workspace();\nwriteTickets(root, tickets(expected));\nconst result = verifyWorkspace({ workspaceRoot: root, write: true });\nassert.equal(result.code, 0);\nassert.equal(existsSync(join(root, 'WORKSPACIFY-IMPLEMENTATION-ORDER.json')), true);\n```",
+            "UT: C003 [Error] the workspace gate reports PREREQUISITE_SET_MISMATCH when the recorded array is empty\n```js\nconst root = workspace();\nwriteTickets(root, tickets(undefined));\nconst result = verifyWorkspace({ workspaceRoot: root, write: false });\nassert.equal(result.code, 1);\nassert.ok(result.findings.some((entry) => entry.code === 'PREREQUISITE_SET_MISMATCH'));\n```",
+            "UT: C003 [Normal] the workspace gate accepts a matching prerequisite array\n```js\nconst root = workspace();\nwriteTickets(root, tickets(expected));\nconst result = verifyWorkspace({ workspaceRoot: root, write: false });\nassert.equal(result.code, 0);\nassert.deepEqual(result.findings, []);\n```",
+            "UT: C003 [Boundary] a package without a readable Tickets.json is skipped by the derivation loop\n```js\nconst root = workspace(); // no crates/pkg-1/Tickets.json\nconst result = verifyWorkspace({ workspaceRoot: root, write: false });\nassert.equal(result.code, 0);\nassert.deepEqual(result.findings, []);\n```"
+          ],
+          "changes": [
+            {
+              "before": "verifyPackage and verifyWorkspace wrote their sidecar whenever --write was passed, even when the verdict carried PREREQUISITE_NOT_BEFORE or another finding.",
+              "after": "Both gates publish the sidecar only for a zero-finding verdict and remove an existing sidecar when the verdict fails, so /workspacify-order cannot read an order the gate rejected.",
+              "description": "Publication guard for the package and workspace implementation-order sidecars."
+            },
+            {
+              "before": "verifyWorkspace checked the placement of the prerequisites a package already recorded, so an empty prerequisites array passed the final workspace gate while verifyPackage rejected the same workspace.",
+              "after": "verifyWorkspace re-derives each package's prerequisites with buildOperationOwners and ticketPrerequisites and reports PREREQUISITE_SET_MISMATCH per ticket, using the same helper as the package gate.",
+              "description": "Workspace-wide prerequisite verification."
+            },
+            {
+              "before": "plan/start/review listed skipped:no-distribution as a success verdict of check-ticket-prerequisites, which that script never emits; run.mjs said the build order is displayed whenever artifact and views are absent.",
+              "after": "The three commands list only skipped:no-prerequisites and skipped:ticket-not-found; run.mjs states that a fresh sidecar or an unambiguous derivation is shown and an ambiguous one is refused.",
+              "description": "Instruction and comment accuracy."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-10-27"
+        },
+        {
+          "id": 328,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make the implementer role an authored distribution-ledger fact and filter non-active operations from the implementation order",
+          "background": "### Goal\nMake the distribution ledger the authored authority for an operation's implementer role, so a multi-owner operation can be resolved through the prescribed render -> split -> smooth pipeline without editing generated JSON, and make the implementation-order derivation honor the artifact's active-operation disposition so framework and excluded operations are not treated as implementer obligations.\n\n### Purpose\nClose the two blockers found while diagnosing gaia's OWNER_ROLE_UNDECIDED. (1) The map's `role` is derived only from the view's `roleCandidate`; a multi-owner operation is always `undecided`, so no prescribed surface can record which package implements it. The renderer reads the ledger only on a first bootstrap and then treats the existing map as the authority, so a role cannot be authored through the pipeline. (2) The order derivation records every view operation as needing an owner; smooth intentionally filters to `disposition === 'active'`, so framework and excluded operations (OBJECT_GET, TIME_HANDSHAKE_*, CreatePressReleasePackage, RecordHeatInterventionDecision) are false positives in `make order` and remain after the real roles are fixed.\n\n### Motivation\nThe requirement is absolute: every sequence and operation must be distributed and implemented, and a correction must flow through the prescribed commands, not through hand-edited generated data. The ledger already states the role in prose (for example gaia-commerce says the act of CreateServiceOrder is its own and the certificate package carries the copy); without a structured authored field the renderer discards that decision and the operator is left with hand-editing the map, which the pipeline overwrites. Separately, `make order` must not report an operation as unimplemented when the artifact says it is not an act to implement.\n\n### Constraints\n- TDD Red-Green-Refactor; no test weakening.\n- Existing five-column ledgers remain readable; a ledger with no role annotation keeps the current roleCandidate fallback.\n- The ledger is the authority for a role only when it carries the annotation; the map is always regenerated by the renderer.\n- Case B and workspaces without a distribution keep the current behavior.\n- No new dependency; the map schema is unchanged; only the Owner cell grammar is extended.\n- The prescribed flow is: install conver, author the ledger roles through the grill re-entry, run complete-run/render-distribution, then smooth; generated JSON is never edited by hand.",
+          "scope": [
+            "**Ledger role grammar:** `.claude/scripts/grill-me-for-rfc/render-distribution.mjs` — parse an Owner cell of the form `pkg-0002 (implementer) + pkg-0004 (consumer)`; the annotation on a row's own package declares that package's role. `bootstrapFromLedger` uses the annotated role over `roleCandidate`; an unannotated ledger keeps the current fallback. `ledgerRowOf`/`ownerCellOf` in `.claude/scripts/sequences-slice/lib/distribution-map.mjs` render the annotation for the row's own package.",
+            "**Ledger is canonical on every render:** `renderDistribution` reads the authored Owner annotations from the current ledger and overlays them onto an existing, otherwise-valid map before computing the digest and re-rendering the ledger. Before: a map that validated was kept unchanged and its ledger overwritten, so an authored role was discarded. After: the ledger's annotated role reaches the map and survives the round trip.",
+            "**Active-operation filter:** `.claude/scripts/sequences-slice/lib/implementation-order.mjs` — add `activeOperationIdsOf(artifact)` (null when the artifact declares no disposition, so old workspaces are unchanged); `ownersFromViewsDetailed`, `deriveSequencePrecedence`, `derivePackagePrecedence` and `ticketPrerequisites` accept it; `buildOperationOwners` in `.claude/scripts/tickets/add-tickets-for-phase.js` and `ownersFromWorkspace`/`verifyPackage`/`verifyWorkspace` in `.claude/scripts/sequences-slice/verify-implementation-order.mjs` compute and thread it; `workspacify-order/lib/levels.mjs` passes it to the ownership and precedence derivation. Non-active operations and their steps no longer produce OWNER_ROLE_UNDECIDED, MISSING_IMPLEMENTER or precedence edges.",
+            "**Scope of the filter:** only `disposition === 'active'` operations are obligations. A valid suppliedRule/designer_supplied residual already lives in the map's `residuals` and is covered by the existing residual rule; it is not required to carry an implementer when it is not a unit. The filter does not change the view, the map, the graph or the ticket unit set.",
+            "**Tests:** `.claude/scripts/grill-me-for-rfc/render-distribution.mjs` gains `tests/grill-me-for-rfc/ledger-role-authoring.test.mjs`; `.claude/scripts/sequences-slice/lib/implementation-order.mjs` gains cases in `tests/sequences-slice/implementation-order.test.mjs`; the workspace and display gates gain regression cases in `tests/sequences-slice/verify-implementation-order.test.mjs` and `tests/workspacify-order/implementation-order-display.test.mjs`.",
+            "**Command documentation:** `.claude/commands/grill-me-for-rfc.md` STEP 8 states the Owner-cell role grammar and that the ledger is canonical for the role; `.claude/commands/smooth-sequences.md` names the repair as authoring the ledger role, not editing the map.",
+            "**Out of scope:** the 13 gaia implementer decisions themselves are design content authored in the package ledgers, not conver code; the application step is the prescribed install -> grill re-entry -> smooth sequence, recorded in the Notes. No change to the sidecar schema, the ticket schema or the published build order."
+          ],
+          "invariants": "- [Normal establishment] A ledger row whose own package is annotated `(implementer)` produces a map unit with `role: implementer` and `implementationSections`; an annotated `(consumer)` produces `role: consumer`; an unannotated row keeps the view roleCandidate fallback.\n- [Invariant on error] A role annotation the grammar does not name is not treated as a role; a unit without any implementer remains OWNER_ROLE_UNDECLARED; the render writes nothing when a gate fails.\n- [Internal state invariant] The ledger is read before the map is written, and the map is regenerated from the view plus the ledger roles in one pass; the authored role survives a render round trip.\n- [Boundary invariant] An artifact that declares no disposition keeps every operation (null filter); an artifact that declares dispositions filters the order to active operations only; the view/map/graph unit sets are untouched.",
+          "testUnit": [
+            "UT: C001 [Normal] renderDistribution applies an Owner cell annotation `pkg-1 (implementer)` to the pkg-1 map unit and renders the annotation back into the ledger",
+            "UT: C001 [Normal] a ledger row annotated `pkg-2 (consumer)` produces role consumer while the implementer row remains implementer",
+            "UT: C001 [Error] an unknown annotation `(owner)` is not a role and the roleCandidate fallback remains",
+            "UT: C001 [Boundary] a legacy five-column ledger with no annotation keeps the existing roleCandidate fallback",
+            "UT: C002 [Normal] activeOperationIdsOf returns the set of active operation ids when the artifact declares dispositions",
+            "UT: C002 [Boundary] activeOperationIdsOf returns null when the artifact declares no disposition",
+            "UT: C002 [Normal] ownersFromViewsDetailed skips a framework operation claimed by two views and still reports an active operation with no implementer",
+            "UT: C002 [Normal] deriveSequencePrecedence skips a non-active step and does not report MISSING_IMPLEMENTER for it",
+            "UT: C002 [Normal] verifyWorkspace accepts a workspace whose only unresolved operation is framework and rejects one whose active operation has no implementer"
+          ],
+          "testIntegration": [
+            "IT: a two-package ledger with one annotated implementer renders maps that pass checkOwnerRoles, and the renderer round-trips the annotation",
+            "IT: a workspace artifact with one framework and one active operation produces no finding for the framework operation and the named OWNER_ROLE_UNDECIDED for the active one"
+          ],
+          "testExceptions": [],
+          "acceptanceCriteria": [
+            "Happy path: an authored ledger role reaches the map and checkOwnerRoles passes for one implementer.",
+            "Error case: an active operation with no implementer annotation or single-owner row remains a named failure; an unknown annotation is ignored.",
+            "Edge case: a legacy ledger and an artifact without dispositions keep their current behavior; a framework/excluded operation no longer appears in the order failure."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "render-distribution.mjs#ledger-role",
+              "precondition": "The Distribution ledger Owner cell annotates the row's own package as `(implementer)` or `(consumer)`.",
+              "postcondition": "renderDistribution produces a map whose unit for that package carries that role (and implementationSections for implementer), and the re-rendered ledger carries the annotation back.",
+              "invariant": "The ledger is read before the map is written; an unannotated legacy row falls back to roleCandidate and an unknown annotation is not a role."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "implementation-order.mjs#active-filter",
+              "precondition": "The artifact declares an operation disposition and the caller supplies activeOperationIds.",
+              "postcondition": "A non-active operation is skipped by owner resolution and sequence precedence; an active operation with no implementer still produces OWNER_ROLE_UNDECIDED.",
+              "invariant": "activeOperationIdsOf returns null when the artifact declares no disposition, so old workspaces keep every operation."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "verify-implementation-order.mjs#workspace-active",
+              "precondition": "The workspace gate reads an artifact with a framework operation and an active operation.",
+              "postcondition": "The framework operation contributes no prerequisite finding and the active operation still does; the workspace gate and package gate use the same active set.",
+              "invariant": "The active filter never changes the view, map, graph or ticket unit sets."
+            }
+          ],
+          "investigation": "Gaia diagnosis: the 20 OWNER_ROLE_UNDECIDED operations split into 13 active non-residual operations that need an implementer and 7 operations the artifact marks framework, excluded or a valid declared residual (OBJECT_GET; TIME_HANDSHAKE_COMPLETE/BEGIN/CONFIRM_BINDING; CreatePressReleasePackage; RecordHeatInterventionDecision; SubmitComputeResult, which both package maps already carry as a declared-residual). The authored ledger already states the act for many operations in prose (gaia-commerce §3.26/§3.28/§3.25 and its shared-operation list at lines 5370-5386; gaia-forum §3.6.7; gaia-asset's fifteen-act list), but the renderer ignores it. Only PerformNormalSuccession and PerformLostBodySuccession have a single-owner ledger row; the other 11 active operations carry only co-owner cells, so no mechanical rule can derive the implementer without a structured authored field.",
+          "boyScoutPlan": "Extract `parseOwnerCell` so the renderer has one grammar for owners and roles; keep `ownerPackages` as the package-id view of the same parser; name the active predicate once in implementation-order.mjs and import it everywhere; replace the branch-by-branch artifact passing with the set computed at the gate boundary.",
+          "notes": "### Implementation steps\n1. Red: add the ledger-role round-trip, fallback, unknown-annotation and active-filter tests; confirm the role tests fail because the renderer ignores the annotation and the filter tests fail because framework operations still raise OWNER_ROLE_UNDECIDED.\n2. Green: add the Owner-cell parser and overlay; add activeOperationIdsOf and thread it through ownersFromViewsDetailed, deriveSequencePrecedence, derivePackagePrecedence, ticketPrerequisites, buildOperationOwners and the two gates.\n3. Refactor and update the grill/smooth command documentation.\n4. Run the impact set: tests/grill-me-for-rfc, tests/sequences-slice, tests/tickets, tests/workspacify-order, tests/conventions.\n\n### Application (gaia)\nAfter the tests are green, run `make install-to-projects`, author the 13 implementer annotations in the package Distribution ledgers through the grill re-entry (ledger is the authored surface; the renderer writes the map), run complete-run/render-distribution for the affected packages, then `/smooth-sequences` and `make order`. The annotations are: pkg-0002 PerformNormalSuccession and PerformLostBodySuccession; pkg-0003 CreateRootEntry; pkg-0006 CreateAssetRecord and CreateCivicNeedAsset; pkg-0011 ForfeitUndistributedForumPool, IssuePaymentReceipt, CreateServiceOrder, ComputeLineageRoyaltySettlement, SetOriginLineageRoyaltyPolicy, AcceptCommercialOffer, CreateServiceFulfillment, IssueForumPoolContributionRecord. Each counterpart package row is annotated consumer. Evidence: gaia-commerce RFC lines 5370-5386, §3.25, §3.26, §3.28.2; gaia-forum §3.6.7 and §3.8.5; gaia-asset's fifteen-act list and its CreateCivicNeedAsset/CreateAssetRecord rows.\n\n### Risks\n- The overlay could overwrite a map role that was correct; it applies only when the ledger row carries a valid annotation, and an unannotated legacy ledger is a no-op.\n- The active filter must not hide an active operation whose disposition is missing; a missing disposition is treated as inactive only when the artifact declares dispositions at all.\n\n### Caveats\n- The ledger's prose ground is not parsed; the structured annotation is the contract. The AI authors the annotation from the ground and section evidence during the grill re-entry.\n- A suppliedRule residual that is declared in the map's residuals does not need an implementer; a suppliedRule operation that is still a map unit keeps the active obligation, as PX-317 measured.\n\n### Open items\n- Whether to collect every OWNER_ROLE_UNDECLARED finding in one smooth run instead of the current first-failure return is left for a later ticket; this ticket verifies the full set through workspacify-order.\nImplementation summary:\n- Changed files: render-distribution.mjs, distribution-map.mjs, implementation-order.mjs, verify-implementation-order.mjs, add-tickets-for-phase.js, workspacify-order/lib/{levels,workspace}.mjs, grill/smooth commands, and the tests.\n- Key changes: the ledger's Owner cell is the authored role; the renderer applies it before the map digest and regenerates the ledger; the order gates filter to active non-residual operations.\n- Test results: 964 grill/sequences/smooth pass (1 skipped), 328 tickets/workspacify-order pass, quality checks 0, red coverage 3/3, no ambiguous markers.\n- Application: after install, the 13 gaia roles are authored in the package ledgers and rendered by complete-run; smooth and make order are run from gaia.\n\nApplication evidence (gaia, prescribed path):\n- `make install-to-projects` succeeded.\n- The 13 implementer decisions were authored in the package Distribution ledgers: pkg-0002 PerformNormalSuccession and PerformLostBodySuccession; pkg-0003 CreateRootEntry; pkg-0006 CreateAssetRecord and CreateCivicNeedAsset; pkg-0011 ForfeitUndistributedForumPool, IssuePaymentReceipt, CreateServiceOrder, ComputeLineageRoyaltySettlement, SetOriginLineageRoyaltyPolicy, AcceptCommercialOffer, CreateServiceFulfillment, IssueForumPoolContributionRecord. Each counterpart row declares consumer.\n- The renderer was run through `complete-run.js` for the seven affected packages; the maps carry the roles and the ledgers round-trip the annotations. Non-authored rows stayed plain, so the five prior judgment basis quotes remained valid.\n- `node .claude/scripts/smooth-sequences/run.mjs` exits 0 with `verdict: pass`, 0 findings, 0 open, 0 effort debt.\n- `make order` exits 0 and prints the implementation order (29 dirs, 11 levels, 84 dependencies).\n- No generated `json distribution-map` block or `SEQUENCES.json` was hand-edited; the ledger was the authored surface and the renderer wrote the maps.\n",
+          "instrumentation": "The renderer already records the distribution generation and digest; the role annotation is covered by the map digest. The order gates emit the same named findings with the active operation set.",
+          "default_files": [
+            ".claude/scripts/grill-me-for-rfc/render-distribution.mjs",
+            ".claude/scripts/sequences-slice/lib/distribution-map.mjs",
+            ".claude/scripts/sequences-slice/lib/implementation-order.mjs",
+            ".claude/scripts/sequences-slice/verify-implementation-order.mjs",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/commands/grill-me-for-rfc.md",
+            ".claude/commands/smooth-sequences.md",
+            "tests/grill-me-for-rfc/ledger-role-authoring.test.mjs",
+            "tests/sequences-slice/implementation-order.test.mjs",
+            "tests/sequences-slice/verify-implementation-order.test.mjs",
+            "tests/workspacify-order/implementation-order-display.test.mjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 [Normal] the ledger annotation reaches the map\n```js\nconst rfc = ledgerRfc('| op-A | operation | pkg-1 (implementer) + pkg-2 (consumer) | §1 | ground |');\nconst result = renderDistribution(rfc, coOwnedView('pkg-1'));\nassert.equal(result.ok, true);\nconst unit = result.map.units.find((entry) => entry.unitId === 'op-A');\nassert.equal(unit.role, 'implementer');\nassert.match(result.rfc, /pkg-1 \\(implementer\\)/);\n```",
+            "UT: C001 [Normal] the counterpart annotation is consumer\n```js\nconst result = renderDistribution(ledgerRfc('| op-A | operation | pkg-2 (consumer) | §1 | ground |'), coOwnedView('pkg-2'), { packageId: 'pkg-2' });\nassert.equal(result.map.units[0].role, 'consumer');\n```",
+            "UT: C001 [Error] an unknown annotation is not a role\n```js\nconst result = renderDistribution(ledgerRfc('| op-A | operation | pkg-1 (owner) | §1 | ground |'), coOwnedView('pkg-1'));\nassert.notEqual(result.map.units[0].role, 'owner');\n```",
+            "UT: C001 [Boundary] a legacy five-column ledger keeps the fallback\n```js\nconst legacy = '| Unit | Kind | Owner | RFC location | Ground |\\n|---|---|---|---|---|\\n| op-A | operation | pkg-1 | §1 | ground |';\nconst result = renderDistribution(legacy, singleOwnerView('pkg-1'));\nassert.equal(result.map.units[0].role, 'implementer');\n```",
+            "UT: C002 [Normal] activeOperationIdsOf returns the active set\n```js\nconst ids = activeOperationIdsOf({ operations: [{ id: 'A', disposition: 'active' }, { id: 'B', disposition: 'framework' }] });\nassert.deepEqual([...ids], ['A']);\n```",
+            "UT: C002 [Boundary] no disposition means no filter\n```js\nassert.equal(activeOperationIdsOf({ operations: [{ id: 'A' }] }), null);\n```",
+            "UT: C002 [Normal] a framework claim is skipped while an active claim still fails\n```js\nconst result = ownersFromViewsDetailed({ packages, views, roles, activeOperationIds: new Set(['A']) });\nassert.equal(result.findings.some((entry) => entry.subject === 'B'), false);\nassert.equal(result.findings.some((entry) => entry.subject === 'A'), true);\n```",
+            "UT: C002 [Normal] a non-active step creates no missing-implementer finding\n```js\nconst result = deriveSequencePrecedence({ artifact, operationOwners: new Map(), registry: [], activeOperationIds: new Set(['A']) });\nassert.equal(result.findings.some((entry) => entry.subject === 'B'), false);\n```",
+            "UT: C002 [Normal] the workspace gate accepts a framework-only ambiguity\n```js\nconst result = verifyWorkspace({ workspaceRoot: root, write: false });\nassert.equal(result.code, 0);\nassert.deepEqual(result.findings, []);\n```"
+          ],
+          "changes": [
+            {
+              "before": "The distribution map's role came only from the view roleCandidate, so a multi-owner operation was always undecided and the renderer discarded any authored decision on every render.",
+              "after": "An Owner cell can annotate the row's own package as `(implementer)` or `(consumer)`; the renderer reads the ledger annotation before writing the map, overlays it onto an existing map, and renders it back.",
+              "description": "Authored implementer role in the Distribution ledger."
+            },
+            {
+              "before": "The implementation-order derivation treated every view operation as an implementer obligation, so framework, excluded and map-declared residual operations produced OWNER_ROLE_UNDECIDED in workspacify-order.",
+              "after": "activeOperationIdsOf returns the active, non-residual operation ids (or null when the artifact declares no disposition), and ownersFromViewsDetailed, deriveSequencePrecedence, derivePackagePrecedence, ticketPrerequisites, buildOperationOwners and both order gates use the same set.",
+              "description": "Active-operation filter shared by smooth and the order gates."
+            },
+            {
+              "before": "grill and smooth described the distribution map without an authored role surface.",
+              "after": "grill names the Owner-cell role grammar and the ledger's precedence; smooth routes S7.owner-role-undeclared to the ledger annotation and forbids editing the generated map or view.",
+              "description": "Command documentation."
+            },
+            {
+              "before": "The renderer annotated every map unit whose role was implementer or consumer, including roles derived from the view's roleCandidate, so re-rendering rewrote rows no author had touched and invalidated unrelated judgment basis quotes.",
+              "after": "Only a role authored in the ledger Owner cell sets `roleAuthored`; the renderer writes the annotation only for those units, and removing the annotation reverts the unit to the view candidate without keeping the deleted role.",
+              "description": "Authored-only ledger annotations, with removal fallback."
+            }
+          ],
+          "completedAt": "2026-10-27"
         }
       ]
     },

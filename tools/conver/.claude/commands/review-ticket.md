@@ -80,7 +80,7 @@ G0 status: `node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$A
 node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
 ```
 
-- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` / `skipped:no-distribution` → G1.
+- exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` → G1.
 - exit 1 → stop; the named `PREREQUISITE_*`, `OWNER_ROLE_UNDECIDED`, `MISSING_PACKAGE_VIEW` or `STALE_IMPLEMENTATION_ORDER` finding must be resolved before review.
 
 ### Step 1

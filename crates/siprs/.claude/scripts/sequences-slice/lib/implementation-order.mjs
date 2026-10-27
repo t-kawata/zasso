@@ -58,6 +58,37 @@ export function ticketKeyOf(ticket) {
   return phaseId === PX_PHASE_ID ? `PX-${ticket.id}` : `P${phaseId}-${ticket.id}`;
 }
 
+/**
+ * The operation ids the artifact marks as an implementation obligation.
+ *
+ * Only an active operation that is not a declared residual owes an owner. The null answer
+ * keeps every pre-disposition artifact on its old behavior: filtering to an empty set
+ * would erase the order for a workspace whose operations predate the field.
+ *
+ * @param {{ operations?: Array<{ id?: string, disposition?: string }> }|null} artifact
+ * @param {{ residualUnitIds?: Set<string>|null }} [options] — the units the package maps
+ *   declare as residuals; a residual is distributed by a declaration, not an implementer.
+ * @returns {Set<string>|null}
+ */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+export function activeOperationIdsOf(artifact, { residualUnitIds = null } = {}) {
+  const operations = Array.isArray(artifact?.operations) ? artifact.operations : [];
+  if (!operations.some((operation) => typeof operation?.disposition === 'string')) return null;
+  const active = new Set();
+  for (const operation of operations) {
+    if (operation?.disposition !== 'active' || typeof operation?.id !== 'string') continue;
+    if (residualUnitIds !== null && residualUnitIds !== undefined && residualUnitIds.has(`op-${operation.id}`)) continue;
+    active.add(operation.id);
+  }
+  return active;
+}
+
+/** Whether one operation is an implementation obligation under the supplied active set. */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+function isActiveOperation(activeOperationIds, operationId) {
+  return activeOperationIds === null || activeOperationIds === undefined || activeOperationIds.has(operationId);
+}
+
 /** The text of one typed fact array, or an empty array. */
 export function factTexts(facts) {
   return (Array.isArray(facts) ? facts : [])
@@ -208,7 +239,8 @@ function matchingBoundaryId(later, earlierPackages, laterPackages, boundaries) {
  *
  * @returns {{ edges: Array<object>, findings: Array<object> }}
  */
-export function deriveSequencePrecedence({ artifact = null, operationOwners = new Map(), registry = [] } = {}) {
+// [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+export function deriveSequencePrecedence({ artifact = null, operationOwners = new Map(), registry = [], activeOperationIds = null } = {}) {
   const edges = [];
   const findings = [];
   if (artifact === null) return { edges, findings };
@@ -230,7 +262,10 @@ export function deriveSequencePrecedence({ artifact = null, operationOwners = ne
 
   for (const sequence of artifact.sequences ?? []) {
     if (sequence?.outcome === 'notASequence') continue;
-    const steps = orderedSteps(artifact, sequence.id);
+    // A non-active operation is not an implementation obligation, so neither it nor its
+    // step can create a prerequisite; smooth applies the same active disposition filter.
+    const steps = orderedSteps(artifact, sequence.id)
+      .filter((step) => isActiveOperation(activeOperationIds, step?.operation ?? step?.operationId));
     for (let earlierIndex = 0; earlierIndex < steps.length; earlierIndex += 1) {
       for (let laterIndex = earlierIndex + 1; laterIndex < steps.length; laterIndex += 1) {
         const earlier = steps[earlierIndex];
@@ -305,8 +340,9 @@ export function deriveBoundaryPrecedence(registry = []) {
  * The build edges are retained as their own source so the display can still show the
  * published build order; the caller decides which order to present.
  */
-export function derivePackagePrecedence({ treeManifest = null, registry = [], artifact = null, operationOwners = new Map() } = {}) {
-  const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry });
+// [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+export function derivePackagePrecedence({ treeManifest = null, registry = [], artifact = null, operationOwners = new Map(), activeOperationIds = null } = {}) {
+  const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry, activeOperationIds });
   return {
     edges: [
       ...deriveBuildPrecedence(treeManifest),
@@ -380,11 +416,13 @@ export function topologicalOrder({ nodes = [], edges = [] } = {}) {
  *
  * @returns {{ owners: Map<string, object>, findings: Array<object> }}
  */
-export function ownersFromViewsDetailed({ packages = [], views = {}, roles = {} } = {}) {
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+export function ownersFromViewsDetailed({ packages = [], views = {}, roles = {}, activeOperationIds = null } = {}) {
   const claims = new Map();
   const record = (unit, packageId, packageRoles) => {
     const operationId = unit?.operationId ?? (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-') ? unit.unitId.slice(3) : null);
     if (typeof operationId !== 'string' || operationId.length === 0) return;
+    if (!isActiveOperation(activeOperationIds, operationId)) return;
     const role = packageRoles.get(unit.unitId) ?? unit.roleCandidate ?? null;
     addOperationClaim(claims, { operationId, packageId, role });
   };
@@ -440,6 +478,7 @@ function prerequisiteKey(entry) {
  *
  * @returns {{ prerequisites: Map<string, Array<object>>, findings: Array<object> }}
  */
+// [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
 export function ticketPrerequisites({
   tickets = [],
   graph = null,
@@ -448,6 +487,7 @@ export function ticketPrerequisites({
   registry = [],
   packageId = null,
   treeManifest = null,
+  activeOperationIds = null,
 } = {}) {
   const prerequisites = new Map();
   const findings = [];
@@ -480,7 +520,7 @@ export function ticketPrerequisites({
     });
   }
 
-  const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry });
+  const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry, activeOperationIds });
   findings.push(...sequence.findings);
   for (const edge of sequence.edges) {
     const provider = operationOwners.get(edge.fromOperation);

@@ -69,6 +69,23 @@ export function loadPackageRoles({ root, packagePath }) {
   return roles;
 }
 
+/** The unit ids a package's distribution map declares as residuals, or an empty set. */
+// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+export function loadPackageResidualUnits({ root, packagePath }) {
+  const residuals = new Set();
+  const rfcPath = join(root, packagePath, RFC_FILE_NAME);
+  if (!existsSync(rfcPath)) return residuals;
+  try {
+    const map = readDistributionMap(readFileSync(rfcPath, 'utf8'));
+    for (const residual of map?.residuals ?? []) {
+      if (typeof residual?.unit === 'string' && residual.unit.length > 0) residuals.add(residual.unit);
+    }
+  } catch {
+    return residuals;
+  }
+  return residuals;
+}
+
 /** Read the implementation-order sidecar, or null when it is absent or unreadable. */
 // [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export function loadImplementationOrder(root) {

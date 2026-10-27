@@ -22,6 +22,7 @@ import {
   artifactStem,
   findRootArtifact,
   loadPackageRoles,
+  loadPackageResidualUnits,
   loadPackageView,
   loadImplementationOrder,
   IMPLEMENTATION_ORDER_FILE_NAME,
@@ -29,6 +30,7 @@ import {
   TICKETS_FILE_NAME,
 } from './workspace.mjs';
 import {
+  activeOperationIdsOf,
   derivePackagePrecedence,
   ownersFromViewsDetailed,
   rolesFromTickets,
@@ -230,7 +232,7 @@ function assertImplementationOrderCoversPackages(levels, packages) {
  * It is used only when the sidecar is absent and the artifact exists, so the display can
  * show the implementation order instead of calling the build order by that name.
  */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-328) --for-spec --no-implementation-order`.
 function deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest }) {
   const artifactPath = findRootArtifact(root);
   if (artifactPath === null) return null;
@@ -256,12 +258,15 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
   }
 
   const roles = {};
+  const residualUnitIds = new Set();
   for (const pkg of packages) {
     const packageRoles = loadPackageRoles({ root, packagePath: pkg.path });
     rolesFromTickets(flattenPackageTickets(root, pkg.path), packageRoles);
     roles[pkg.id] = packageRoles;
+    for (const unitId of loadPackageResidualUnits({ root, packagePath: pkg.path })) residualUnitIds.add(unitId);
   }
-  const owners = ownersFromViewsDetailed({ packages, views, roles });
+  const activeOperationIds = activeOperationIdsOf(artifact, { residualUnitIds });
+  const owners = ownersFromViewsDetailed({ packages, views, roles, activeOperationIds });
   if (owners.findings.length > 0) {
     throw new WorkspacifyOrderError(
       owners.findings.map((entry) => `${entry.code}: ${entry.message}`).join('; '),
@@ -274,6 +279,7 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
     registry: allocateManifest?.contract_registry ?? [],
     artifact,
     operationOwners: owners.owners,
+    activeOperationIds,
   });
   if (precedence.findings.length > 0) {
     throw new WorkspacifyOrderError(
