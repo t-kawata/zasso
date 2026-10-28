@@ -36,6 +36,7 @@ const VERIFY = path.join(RFC_GRAPH_SCRIPTS, 'verify.js');
 const ANNOTATE = path.join(RFC_GRAPH_SCRIPTS, 'annotate-contracts.js');
 const DEDUPLICATE_HEADINGS = path.join(RFC_GRAPH_SCRIPTS, 'deduplicate-headings.js');
 const ANALYZE_SOURCE = path.join(RFC_GRAPH_SCRIPTS, 'analyze-source-structure.js');
+const VALIDATE_SLUG = path.join(RFC_GRAPH_SCRIPTS, 'validate-slug.js');
 
 /** A fixture RFC whose two sections can be covered by two nodes. */
 const FIXTURE_RFC = [
@@ -428,10 +429,35 @@ describe('graphify-rfc.md slash command integration tests', () => {
       assert.match(commandContent, /authoritative table/);
       assert.match(commandContent, /consumer/i);
       assert.match(commandContent, /never split/i);
+      assert.match(commandContent, /cannot be interrupted/i);
+      assert.equal(
+        commandContent.includes('that a downstream script reads whole'),
+        false,
+        'the exception must not be limited to tables a script reads whole',
+      );
       assert.equal(
         commandContent.includes('section >100 effective prose lines → mandatory split.'),
         false,
       );
+    });
+
+    it('the slug examples satisfy the validator and the command states its 25-character limit', () => {
+      const { checkSlugFormat, checkSlugLength } = require(VALIDATE_SLUG);
+      const examples = [...commandContent.matchAll(/`([a-z][a-z0-9_]*)`/g)]
+        .map((match) => match[1]);
+      assert.ok(examples.length > 0, 'the command names at least one lower_snake_case token');
+      for (const slug of examples) {
+        assert.equal(checkSlugFormat(slug).valid, true, `${slug} must be lower_snake_case`);
+        assert.equal(checkSlugLength(slug).valid, true, `${slug} must be at most 25 characters`);
+      }
+      assert.match(commandContent, /max length 25/);
+      assert.equal(commandContent.includes('Step 1 rule says 64'), false);
+    });
+
+    it('Step 3 names the level-2 heading scope verify.js checks', () => {
+      assert.match(commandContent, /uncovered level-2 heading/);
+      assert.equal(commandContent.includes('uncovered-line'), false);
+      assert.equal(commandContent.includes('uncovered lines'), false);
     });
 
     // @verifies C004
@@ -619,11 +645,11 @@ describe('graphify-rfc.md slash command integration tests', () => {
   // ==========================================================
 
   describe('verify.js result triage', () => {
-    it('should have reset-to-step 1 for uncovered line reporting', () => {
+    it('should have reset-to-step 1 for uncovered heading reporting', () => {
       assert.ok(
         commandContent.includes('reset-to-step 1') &&
         (commandContent.includes('未カバー') || commandContent.includes('uncovered')),
-        'should have reset-to-step 1 fallback for uncovered lines'
+        'should have reset-to-step 1 fallback for uncovered headings'
       );
     });
 

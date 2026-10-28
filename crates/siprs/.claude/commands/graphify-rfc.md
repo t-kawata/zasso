@@ -91,7 +91,7 @@ Root: `.claude/scripts/rfc-graph/`.
 | `crud.js --graph=<path> <subcommand>` | sole graph write: create/list/get/update/delete nodes; create/delete edges |
 | `deduplicate-headings.js <source>` | same-level/same-text heading dedup: append A-Z |
 | `resolve-by-heading.js <source> --target=<heading>` | headingRefs 4-level fallback resolution |
-| `verify.js --graph=<path> --source=<path>` | uncovered-line / orphan-node machine check |
+| `verify.js --graph=<path> --source=<path>` | uncovered level-2 heading / orphan-node machine check |
 | `validate-slug.js --graph=<path>` | Step 1 slug validation/self-healing input |
 | `query.js --graph=<path> --source=<path> --id=<id> --hops=<N>` | multi-hop Markdown graph query |
 | `test-query-all.js --graph=<path> --source=<path>` | all headingRefs check; exit 0/1; writes `_fix_graph_hints.json` |
@@ -137,7 +137,7 @@ The unit anchor — a section written for a distributed unit records the unit's 
   "kind": "architecture",
   "summary": "Defines the purpose of this crate...",
   "language": "rust",
-  "slug": "purpose_crate_responsibility",
+  "slug": "purpose_crate",
   "headingRefs": [
     { "refId": "REF001", "heading": 2, "texts": ["§1 Purpose"] }
   ]
@@ -151,7 +151,7 @@ The unit anchor — a section written for a distributed unit records the unit's 
 | `kind` | required; one 12-kind enum value |
 | `summary` | required; ≥1 char |
 | `language` | required in principle; one value, never array; `mainLanguage` fallback only if accidentally empty |
-| `slug` | required lower_snake_case; `^[a-z][a-z0-9_]*$`; never empty; file/directory-name base; **max length: schema says 25; Step 1 rule says 64—do not normalize without schema/script decision** |
+| `slug` | required lower_snake_case; `^[a-z][a-z0-9_]*$`; never empty; file/directory-name base; max length 25 |
 | `headingRefs` | required; ≥1 source-heading reference |
 
 ## Step 0: Heading Deduplication (Pre-processing)
@@ -242,11 +242,11 @@ Slug generation; deterministic priority:
 3. graph collision → `_2`, `_3`, …; first has no suffix.
 4. uppercase/hyphen/leading digit forbidden; normalize to lower_snake_case.
 
-Examples: `§1 Purpose — Responsibilities of this crate` → `purpose_crate_responsibility`; `§2.1 Tauri integration boundary` → `tauri_integration_boundary`; `§3 Glossary — Domain-specific definitions` → `section_3_glossary`; `API Design` → `api_design`; `3rd-party` → `third_party`.
+Examples: `§1 Purpose — Responsibilities of this crate` → `purpose_crate`; `§2.1 Tauri integration boundary` → `tauri_integration`; `§3 Glossary — Domain-specific definitions` → `section_3_glossary`; `API Design` → `api_design`; `3rd-party` → `third_party`.
 
 Granularity:
 - effective prose: ~30–50 lines/node; fenced code excluded.
-- section >100 effective prose lines → split, unless it is an authoritative table or ledger that a downstream script reads whole. Record the heading, the consumer and the reason in the completion report; never split a recorded section.
+- section >100 effective prose lines → split, unless it is an authoritative table or ledger whose rows cannot be interrupted without destroying it (for example a single contiguous Markdown table, or a ledger a downstream script reads whole). Record the heading, the consumer if any, and the reason in the completion report; never split a recorded section.
 - Run `analyze-source-structure.js "$sourcePath"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, split each listed section that is not a recorded exception, inserting `###` only, preserving all content, then re-run.
 
 ```bash
@@ -336,7 +336,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$sourcePath"
 ```
 
-- uncovered lines → reset 1; add/modify covering nodes.
+- uncovered level-2 headings → reset 1; add/modify covering nodes.
 - orphan nodes → reset 2; add edges.
 - `{\"ok\":true}` → end 3; Step 4.
 - other failure → repair per error; reset 3; re-run.
