@@ -309,9 +309,11 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **位置づけ**: `/graphify-rfc` はこの合格を `SMOOTH-VERDICT.json` として固定します。合格が無い・古い・不合格なら graphify は停止します（後述の「受理ゲート」）
 - **進化ループとの関係**: `/drill-rfc-down` は自前の staging / commit と6チェック検証を持ち、`/graphify-rfc` コマンドの Step 0 ゲートを通りません。進化が台帳・view を変えた場合は、次の前進 graphify の前に `/smooth-sequences` を再実行してください
 
-#### `/graphify-rfc <RFCファイルパス>`
+#### `/graphify-rfc`
 
 長大な Markdown 設計文書を **I/O 境界単位の細粒度ノード** に分割し、属性付きエッジで結んだグラフ構造（`*-GRAPH.json`）として永続化します。
+
+- **入力は固定**: 引数は取りません。カレントディレクトリの `./RFC.md` を唯一の入力とし、`./RFC.md` が無い場合は `MISSING_RFC` で停止します（レガシー名へのフォールバックはしません）
 
 - **Step 0〜5 進行制御**: 見出し重複排除（Step 0）→ ノード分割（Step 1、4軸: セクション階層 / 単一 kind / 外部依存の有無 / 言語割当）→ エッジ付与（Step 2、12種 + 契約 annotation）→ 機械検証（Step 3、未カバー行・孤立ノード）→ 自己検証と 5% 抜き打ち品質検査（Step 4、headingRefs 解決性）→ 最終品質検証（Step 5、全グラフ要約）
 - **Step 0 の受理ゲート**: `verify-smooth-verdict.mjs` が `smooth-sequences/status.json`・closure certificate・凍結した設計スナップショットを検証し、ワークスペース直下に `SMOOTH-VERDICT.json` を書きます。`MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` は停止です。ワークスペース外では `skipped:outside-workspace` になります

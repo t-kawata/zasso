@@ -13,8 +13,9 @@ const BOUNDIFY = readFileSync(path.join(ROOT, '.claude/commands/boundify-graph.m
 const SPLIT = readFileSync(path.join(ROOT, '.claude/commands/split-to-tickets.md'), 'utf8');
 
 test('C007 graphify runs the smooth verdict gate before heading deduplication', () => {
+// [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
   const gate = GRAPHIFY.indexOf('verify-smooth-verdict.mjs --package=');
-  const dedup = GRAPHIFY.indexOf('deduplicate-headings.js "$1"');
+  const dedup = GRAPHIFY.indexOf('deduplicate-headings.js "$sourcePath"');
   assert.ok(gate >= 0, 'the verdict gate must be present');
   assert.ok(dedup >= 0, 'heading deduplication must be present');
   assert.ok(gate < dedup, 'the gate must run before the source can change');

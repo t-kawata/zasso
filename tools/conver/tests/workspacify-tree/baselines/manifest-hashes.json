@@ -207,7 +207,7 @@
     "graphify-rfc": {
       "headings": [
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
-        "# /graphify-rfc <source-file-path>",
+        "# /graphify-rfc",
         "## Language Protocol",
         "## Arguments",
         "## Derived Paths",
@@ -234,7 +234,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "4cc63bfb5366498efae147ef5ffc31b1b38777bb4f4532815e5bc674665d0f9b"
+      "documentDigest": "4ecfb185dc3ed7d08217bb2df54694a627665a74a3ba564db63e532dfa8bc4f5"
     },
     "grill-me-for-rfc": {
       "headings": [

@@ -1,6 +1,5 @@
 ---
 description: Executes graph conversion via 7-step Step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
-argument-hint: </path/to/RFC-doc.md>
 allowed-tools: Read, Write, Bash
 disable-model-invocation: true
 ---
@@ -11,7 +10,7 @@ MUST run uninterrupted through the final Step. DO NOT end the turn except on fin
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
-# /graphify-rfc <source-file-path>
+# /graphify-rfc
 
 Role: split source Markdown into fine-grained I/O-boundary nodes; persist attributed-edge graph.
 Consumers: `/split-to-tickets`, `/boundify-graph`; reference pipeline: `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`.
@@ -20,7 +19,7 @@ Invariants:
 - graph granularity: finer than downstream ticket/directory allocation; downstream may aggregate, never need to split coarse nodes.
 - graph write: `crud.js` for nodes and edges; `attach-unit-ids.js` atomically writes only the `unitIds` / `distributionDigest` projection after the map digest check. No other script writes the graph.
 - status transition: `update-step-status.js --graphify-status="$statusPath"` only.
-- graph/query/verify args: `--graph="$graphPath" --source="$1"`.
+- graph/query/verify args: `--graph="$graphPath" --source="$sourcePath"`.
 - script/pre-write schema failure: stderr `[ERROR]` / `Cause:` / `Action:`; exit 1.
 - node: exactly one kind; one language; non-empty slug; ≥1 headingRef.
 - every node: ≥1 edge; no orphan.
@@ -41,14 +40,36 @@ Invariants:
 ## Arguments
 
 In:
-- arg: required source Markdown path; absolute | relative.
-- example: `RFC-GRAPHIFY.md` | `/absolute/path/to/rfc-doc.md`.
+- none. This command takes no argument; the source is fixed at `./RFC.md`.
+- a non-empty argument list is refused, because a caller-supplied path would select a document other than the package's canonical RFC.
+
+Preflight (runs before Step 0 writes anything):
+
+```bash
+sourcePath="RFC.md"
+
+if [ -n "$ARGUMENTS" ]; then
+  echo "[ERROR] UNEXPECTED_ARGUMENT: /graphify-rfc takes no argument; the source is ./RFC.md"
+  echo "Cause: a caller-supplied path would select a document other than the package's canonical RFC"
+  echo "Action: run /graphify-rfc with no argument"
+  exit 1
+fi
+
+if [ ! -f "$sourcePath" ]; then
+  echo "[ERROR] MISSING_RFC: ./RFC.md not found"
+  echo "Cause: /graphify-rfc reads only the package's canonical RFC"
+  echo "Action: run /grill-me-for-rfc to write ./RFC.md, then re-run /graphify-rfc"
+  exit 1
+fi
+```
+
+- No fallback to a legacy slug-named RFC; a package without `./RFC.md` must be re-driven through `/grill-me-for-rfc`.
 
 ## Derived Paths
 
 ```bash
-graphPath="$(dirname "$1")/$(basename "$1" .md)-GRAPH.json"
-statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
+graphPath="$(dirname "$sourcePath")/$(basename "$sourcePath" .md)-GRAPH.json"
+statusPath="$(dirname "$sourcePath")/$(basename "$sourcePath" .md)-GRAPHIFY-Status.json"
 ```
 
 - `graphPath`: generated graph JSON.
@@ -141,8 +162,8 @@ G0 heading-dedup: same-level/same-text headings cannot resolve uniquely; mechani
 RUN_ID="$(date +%s%N)-$$"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" begin-run --run-id="$RUN_ID"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 0
-node .claude/scripts/rfc-graph/verify-smooth-verdict.mjs --package="$(dirname "$1")" --write
-node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
+node .claude/scripts/rfc-graph/verify-smooth-verdict.mjs --package="$(dirname "$sourcePath")" --write
+node .claude/scripts/rfc-graph/deduplicate-headings.js "$sourcePath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
 ```
 
@@ -167,7 +188,7 @@ I/O boundary reference, if present, is current RFC-author design intent; respect
 
 ```bash
 echo "=== I/O Boundary Reference Information ==="
-node .claude/scripts/grill-me-for-rfc/extract-io-boundary.js "$1" || echo "(No I/O Boundary Reference Information)"
+node .claude/scripts/grill-me-for-rfc/extract-io-boundary.js "$sourcePath" || echo "(No I/O Boundary Reference Information)"
 echo "==========================================="
 ```
 
@@ -181,11 +202,11 @@ Use:
 Fail closed before splitting. No node, edge or contract is authored until this passes. `SEQUENCES.json`, the RFC distribution-map and the allocate manifest are read as digest-bound sidecars, not as a second design.
 
 ```bash
-viewPath="$(dirname "$1")/SEQUENCES.json"
-registryPath="$(node -e "process.stdout.write(require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")')||'')")"
-artifactPath="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$1")');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
+viewPath="$(dirname "$sourcePath")/SEQUENCES.json"
+registryPath="$(node -e "process.stdout.write(require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$sourcePath")')||'')")"
+artifactPath="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$sourcePath")');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
 if [ -n "$registryPath" ]; then
-  node .claude/scripts/rfc-graph/attach-unit-ids.js --admit --rfc="$1" --view="$viewPath" --registry="$registryPath" --artifact="$artifactPath"
+  node .claude/scripts/rfc-graph/attach-unit-ids.js --admit --rfc="$sourcePath" --view="$viewPath" --registry="$registryPath" --artifact="$artifactPath"
 else
   echo "(not a workspacify workspace: distribution admission skipped)"
 fi
@@ -224,12 +245,12 @@ Examples: `§1 Purpose — Responsibilities of this crate` → `purpose_crate_re
 Granularity:
 - effective prose: ~30–50 lines/node; fenced code excluded.
 - section >100 effective prose lines → mandatory split.
-- Run `analyze-source-structure.js "$1"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, insert `###` only, preserving all content, then re-run.
+- Run `analyze-source-structure.js "$sourcePath"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, insert `###` only, preserving all content, then re-run.
 
 ```bash
-node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
+node .claude/scripts/rfc-graph/analyze-source-structure.js "$sourcePath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 1
-node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$1"
+node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$sourcePath"
 node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 1
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
@@ -269,13 +290,13 @@ G2 edge-assign:
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
-node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$1" --ledger="$1" --view="$viewPath" --registry="$registryPath"
+node .claude/scripts/rfc-graph/attach-unit-ids.js --graph="$graphPath" --rfc="$sourcePath" --ledger="$sourcePath" --view="$viewPath" --registry="$registryPath"
 node .claude/scripts/rfc-graph/project-step-contracts.js --graph="$graphPath" --view="$viewPath"
-node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
+node .claude/scripts/rfc-graph/annotate-contracts.js "$graphPath"
 node .claude/scripts/rfc-graph/project-boundary-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath" --mode=attach
 node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
 node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath" --registry="$registryPath" --view="$viewPath"
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=graphify --package="$(dirname "$1")" --artifact="$artifactPath"
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=graphify --package="$(dirname "$sourcePath")" --artifact="$artifactPath"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
@@ -283,7 +304,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
-`attach-unit-ids.js` reads the `distribution-map` block from `$1` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
+`attach-unit-ids.js` reads the `distribution-map` block from `$sourcePath` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
 The artifact is the denominator. An active operation absent from the view and not a valid suppliedRule residual is `MISSING_OPERATION`; a sequence absent from the view is `MISSING_SEQUENCE`; a step whose operationId, order, line, quote, subject, predicate, object, contract or prose differs is `STEP_IDENTITY_MISMATCH`; a multi-owner operation with no implementer is `OWNER_ROLE_UNDECLARED` at smooth. `verify-chain --stage=graphify` reports these before node splitting is accepted.
 `project-step-contracts.js` writes `RFC-STEP-CONTRACTS.json` beside the graph and a bounded `step-sidecar;digest:<hex>` note on an edge incident to the operation node. The sidecar carries an `edges` map from each edge to the row indexes it binds, so one operation may carry any number of steps without exceeding the 240-character note. Verification accepts both the pointer and a legacy per-row `step:<stepId>;row:<n>` note. `verify-graph-contracts.js` reads the sidecar automatically; a missing row, a changed digest or a note naming no row is `CONTRACT_CHAIN_OPEN` or `STEP_CONTRACT_MISMATCH`. A view that carries step-bearing sequences and has no sidecar is `CONTRACT_CHAIN_OPEN`. The sidecar is the full contract; the note is only the pointer.
 
@@ -308,7 +329,7 @@ G3 structure:
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 3
-node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$1"
+node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$sourcePath"
 ```
 
 - uncovered lines → reset 1; add/modify covering nodes.
@@ -330,7 +351,7 @@ G4 headingRefs:
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 4
-node .claude/scripts/rfc-graph/test-query-all.js --graph="$graphPath" --source="$1"
+node .claude/scripts/rfc-graph/test-query-all.js --graph="$graphPath" --source="$sourcePath"
 ```
 
 - exit 0 → every headingRef resolvable; optional targeted structural queries allowed.
@@ -340,7 +361,7 @@ node .claude/scripts/rfc-graph/test-query-all.js --graph="$graphPath" --source="
 node .claude/scripts/rfc-graph/query-fix-hints.js --hints=_fix_graph_hints.json
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
-node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=N0001 --hops=2
+node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$sourcePath" --id=N0001 --hops=2
 ```
 
 ### AI Quality Inspection (Random Sampling Visual Check)
@@ -354,7 +375,7 @@ Q4 sample loop:
 - sufficient / no additional sample → end 4; delete `_quality/`; cleanup.
 
 ```bash
-bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
+bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$sourcePath"
 node .claude/scripts/rfc-graph/get-node-for-check.js Nxxxx
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --additional
@@ -378,7 +399,7 @@ G5 whole-graph:
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 5
-node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPath" --source="$1"
+node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPath" --source="$sourcePath"
 ```
 
 judge full summary:

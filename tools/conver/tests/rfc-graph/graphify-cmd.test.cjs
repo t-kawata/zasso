@@ -1,18 +1,20 @@
 // [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 /**
- * graphify-cmd.test.cjs — Integration tests for graphify-rfc.md slash command
+ * graphify-cmd.test.cjs — Command-surface and bounded script tests for graphify-rfc.md
  *
  * Test framework: Node.js standard node:test + node:assert/strict
- * Since slash commands are Markdown templates, validation is done via
- * lexical analysis and pattern matching of the file. Only testable items
- * are targeted; actual script execution behavior is delegated to existing
- * infrastructure script tests.
+ * The command is a Markdown template, so its contract is asserted by lexical
+ * analysis and pattern matching. The bounded script block runs the positional
+ * and graph scripts with the command's fixed source, so the Markdown contract
+ * and the real script interface are checked in one place.
  */
 
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 // ============================================================
@@ -23,6 +25,33 @@ const path = require('path');
 const COMMAND_PATH = path.resolve(
   __dirname, '../../.claude/commands/graphify-rfc.md'
 );
+
+/** Absolute path to the package root, for README and baseline lookups. */
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+
+/** Absolute paths to the scripts the command invokes with the fixed source. */
+const RFC_GRAPH_SCRIPTS = path.join(PROJECT_ROOT, '.claude/scripts/rfc-graph');
+const CRUD = path.join(RFC_GRAPH_SCRIPTS, 'crud.js');
+const VERIFY = path.join(RFC_GRAPH_SCRIPTS, 'verify.js');
+const ANNOTATE = path.join(RFC_GRAPH_SCRIPTS, 'annotate-contracts.js');
+const DEDUPLICATE_HEADINGS = path.join(RFC_GRAPH_SCRIPTS, 'deduplicate-headings.js');
+const ANALYZE_SOURCE = path.join(RFC_GRAPH_SCRIPTS, 'analyze-source-structure.js');
+
+/** A fixture RFC whose two sections can be covered by two nodes. */
+const FIXTURE_RFC = [
+  '# Fixture RFC', '', '## Purpose', '',
+  'The fixture proves relative source resolution.', '',
+  '## Contract', '',
+  'The fixture proves the graph accepts a relative source.', '',
+].join('\n');
+
+/** Create a temporary package containing the fixture RFC.md. */
+// [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
+function makePackageWithRfc() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px332-'));
+  fs.writeFileSync(path.join(dir, 'RFC.md'), FIXTURE_RFC);
+  return dir;
+}
 
 /** Command file content (loaded once before tests) */
 let commandContent;
@@ -94,10 +123,10 @@ describe('graphify-rfc.md slash command integration tests', () => {
   // ==========================================================
 
   describe('frontmatter', () => {
-    it('should have argument-hint set correctly', () => {
+    it('should not declare an argument-hint', () => {
       const fm = parseFrontmatter(commandContent);
-      assert.equal(fm['argument-hint'], '</path/to/RFC-doc.md>',
-        'argument-hint should be </path/to/RFC-doc.md>');
+      assert.equal(fm['argument-hint'], undefined,
+        'a no-argument command must not advertise a source path');
     });
 
     it('should include Read / Write / Bash in allowed-tools', () => {
@@ -155,6 +184,14 @@ describe('graphify-rfc.md slash command integration tests', () => {
         'should derive correct statusPath even without extension');
     });
 
+    it('should derive the fixed artifact names from RFC.md', () => {
+      const { graphPath, statusPath } = deriveGraphPaths('RFC.md');
+      assert.equal(graphPath, 'RFC-GRAPH.json',
+        'the fixed source must derive RFC-GRAPH.json');
+      assert.equal(statusPath, 'RFC-GRAPHIFY-Status.json',
+        'the fixed source must derive RFC-GRAPHIFY-Status.json');
+    });
+
     it('should have derivation formula described in the command file', () => {
       const hasGraphPathExpr = commandContent.includes('graphPath=');
       const hasStatusPathExpr = commandContent.includes('statusPath=');
@@ -164,6 +201,208 @@ describe('graphify-rfc.md slash command integration tests', () => {
         'derivation formula for graphPath / statusPath should be present');
       assert.ok(hasDirnameRef && hasBasenameRef,
         'derivation formula should use dirname / basename');
+    });
+  });
+
+  // ==========================================================
+  // No-argument source contract
+  // ==========================================================
+
+  describe('no-argument source contract', () => {
+    it('should title the command without a source path', () => {
+      assert.match(commandContent, /^# \/graphify-rfc$/m,
+        'the title must not advertise a path');
+      assert.doesNotMatch(commandContent, /^# \/graphify-rfc <source-file-path>$/m,
+        'the old title must be gone');
+    });
+
+    it('should fix the source to ./RFC.md and never read $1', () => {
+      assert.match(commandContent, /sourcePath="RFC\.md"/,
+        'the fixed source must be a named variable');
+      assert.doesNotMatch(commandContent, /"\$1"/,
+        'no script call may pass the positional $1');
+      assert.doesNotMatch(commandContent, /\$1\b/,
+        'no step may read the positional $1');
+    });
+
+    it('should stop before begin-run when RFC.md is absent or an argument is supplied', () => {
+      const missing = commandContent.indexOf('MISSING_RFC');
+      const unexpected = commandContent.indexOf('UNEXPECTED_ARGUMENT');
+      const beginRun = commandContent.indexOf('begin-run');
+      assert.ok(missing >= 0, 'MISSING_RFC must be present');
+      assert.ok(unexpected >= 0, 'UNEXPECTED_ARGUMENT must be present');
+      assert.ok(beginRun >= 0, 'begin-run must be present');
+      assert.ok(missing < beginRun, 'MISSING_RFC must precede begin-run');
+      assert.ok(unexpected < beginRun, 'UNEXPECTED_ARGUMENT must precede begin-run');
+      assert.match(commandContent, /\[ ! -f "\$sourcePath" \]/,
+        'the preflight must test the fixed source');
+      assert.match(commandContent, /\[ -n "\$ARGUMENTS" \]/,
+        'the preflight must reject a supplied argument');
+    });
+
+    it('should not fall back to a legacy slug-named RFC', () => {
+      assert.ok(commandContent.indexOf('MISSING_RFC') >= 0,
+        'the preflight must name the missing canonical RFC');
+      assert.doesNotMatch(commandContent, /RFC-\*\.md/,
+        'no glob fallback may select a non-canonical RFC');
+      assert.doesNotMatch(commandContent, /read -r .*RFC-.* \.md/,
+        'the command must not read a legacy name from the argument list');
+    });
+
+    it('should pass $sourcePath to every source-bearing invocation', () => {
+      const invocations = commandContent.split('\n')
+        .filter((line) => /^\s*(node|bash)\s/.test(line));
+      const sourceInvocations = invocations.filter((line) =>
+        line.includes('--source=') ||
+        line.includes('--rfc=') ||
+        line.includes('deduplicate-headings.js') ||
+        line.includes('extract-io-boundary.js') ||
+        line.includes('analyze-source-structure.js'));
+      assert.ok(sourceInvocations.length >= 8,
+        `expected at least 8 source-bearing invocations (actual: ${sourceInvocations.length})`);
+      const offenders = sourceInvocations.filter((line) => !line.includes('$sourcePath'));
+      assert.deepEqual(offenders, [],
+        'every source-bearing invocation must use $sourcePath');
+      assert.match(commandContent, /findAllocateManifest\('\$\(dirname "\$sourcePath"\)'\)/,
+        'the allocate manifest must be discovered from the fixed source');
+      assert.match(commandContent, /--package="\$\(dirname "\$sourcePath"\)"/,
+        'the package must be derived from the fixed source');
+    });
+
+    it('C004: annotate-contracts receives the graph, not the RFC', () => {
+      const attach = commandContent.indexOf('attach-unit-ids.js --graph=');
+      const annotate = commandContent.indexOf('annotate-contracts.js "$graphPath"');
+      const project = commandContent.indexOf('project-boundary-contracts.js --graph=');
+      assert.ok(attach >= 0, 'attach-unit-ids must be present');
+      assert.ok(annotate > attach, 'annotate must run after attach');
+      assert.ok(project > annotate, 'project-boundary-contracts must run after annotate');
+      assert.equal(commandContent.includes('annotate-contracts.js "$1"'), false,
+        'the RFC path must never be passed to the graph annotator');
+    });
+
+    it('C005: the frozen graphify headings and documentDigest match the command file', async () => {
+      const { digestCommandFiles } = await import(
+        '../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs'
+      );
+      const current = digestCommandFiles(PROJECT_ROOT)['graphify-rfc'];
+      const baseline = JSON.parse(fs.readFileSync(
+        path.join(PROJECT_ROOT, 'tests/workspacify-tree/baselines/manifest-hashes.json'),
+        'utf8',
+      ));
+      const frozen = baseline.commandFileDigests['graphify-rfc'];
+      assert.equal(frozen.headings.includes('# /graphify-rfc'), true,
+        'the frozen headings must carry the no-argument title');
+      assert.equal(frozen.headings.includes('# /graphify-rfc <source-file-path>'), false,
+        'the frozen headings must not carry the old title');
+      assert.equal(frozen.documentDigest, current.documentDigest,
+        'the frozen document digest must match the current command file');
+      assert.equal(frozen.languageProtocolDigest, current.languageProtocolDigest,
+        'the Language Protocol table must not move');
+      assert.equal(frozen.firstClassRuleDigest, current.firstClassRuleDigest,
+        'the First-Class Rule line must not move');
+    });
+
+    it('C005: README documents the no-argument form', () => {
+      const readme = fs.readFileSync(path.join(PROJECT_ROOT, 'README.md'), 'utf8');
+      assert.match(readme, /^#### `\/graphify-rfc`$/m,
+        'README must document the no-argument invocation');
+      assert.doesNotMatch(readme, /#### `\/graphify-rfc <RFCファイルパス>`/,
+        'README must not document the removed path argument');
+      assert.match(readme, /MISSING_RFC/,
+        'README must name the missing-RFC stop');
+    });
+  });
+
+  // ==========================================================
+  // Script integration with the fixed source
+  // ==========================================================
+
+  describe('script integration with the fixed source', () => {
+    it('C001/C002: the positional scripts accept the fixed relative source', () => {
+      const source = commandContent.match(/sourcePath="([^"]+)"/);
+      assert.equal(source && source[1], 'RFC.md',
+        'the command must fix the source before any script runs');
+      const dir = makePackageWithRfc();
+      try {
+        const dedup = spawnSync(process.execPath, [DEDUPLICATE_HEADINGS, source[1]], { cwd: dir, encoding: 'utf8' });
+        assert.equal(dedup.status, 0, dedup.stderr);
+        const structure = spawnSync(process.execPath, [ANALYZE_SOURCE, source[1]], { cwd: dir, encoding: 'utf8' });
+        assert.equal(structure.status, 0, structure.stderr);
+        assert.match(structure.stdout, /Structure Analysis Report/);
+        assert.match(structure.stdout, /Purpose/);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('C001/C002: the fixed source reaches crud and verify', () => {
+      const source = commandContent.match(/sourcePath="([^"]+)"/);
+      assert.equal(source && source[1], 'RFC.md',
+        'the command must fix the source before any script runs');
+      const dir = makePackageWithRfc();
+      try {
+        fs.writeFileSync(path.join(dir, 'RFC-GRAPH.json'), JSON.stringify({
+          sourceFile: source[1], mainLanguage: 'typescript', nodes: [], edges: [],
+        }));
+        const nodes = [
+          {
+            id: 'N0001', title: 'Purpose', kind: 'architecture', summary: 'Purpose section',
+            language: 'typescript', slug: 'purpose',
+            headingRefs: [{ heading: 2, texts: ['Purpose'] }],
+          },
+          {
+            id: 'N0002', title: 'Contract', kind: 'api_contract', summary: 'Contract section',
+            language: 'typescript', slug: 'contract',
+            headingRefs: [{ heading: 2, texts: ['Contract'] }],
+          },
+        ];
+        const edges = [{
+          from: 'N0001', to: 'N0002', type: 'depends_on',
+          attributes: { strength: 'hard', bidirectional: false },
+          contracts: [{
+            id: 'C001', precondition: 'N0001 exists',
+            postcondition: 'N0002 is reachable', invariant: 'the edge remains',
+          }],
+        }];
+        fs.writeFileSync(path.join(dir, '_temp_nodes.json'), JSON.stringify(nodes));
+        fs.writeFileSync(path.join(dir, '_temp_edges.json'), JSON.stringify(edges));
+        const created = spawnSync(process.execPath, [
+          CRUD, '--graph=RFC-GRAPH.json', 'create-nodes',
+          '--file=_temp_nodes.json', `--source=${source[1]}`,
+        ], { cwd: dir, encoding: 'utf8' });
+        assert.equal(created.status, 0, created.stderr);
+        const linked = spawnSync(process.execPath, [
+          CRUD, '--graph=RFC-GRAPH.json', 'create-edges',
+          '--file=_temp_edges.json', `--source=${source[1]}`,
+        ], { cwd: dir, encoding: 'utf8' });
+        assert.equal(linked.status, 0, linked.stderr);
+        const verified = spawnSync(process.execPath, [
+          VERIFY, '--graph=RFC-GRAPH.json', `--source=${source[1]}`,
+        ], { cwd: dir, encoding: 'utf8' });
+        assert.equal(verified.status, 0, verified.stderr);
+        assert.match(verified.stdout, /"ok":true/);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('C004: annotate-contracts accepts the graph and rejects the RFC Markdown', () => {
+      assert.match(commandContent, /annotate-contracts\.js "\$graphPath"/);
+      assert.equal(commandContent.includes('annotate-contracts.js "$1"'), false);
+      const dir = makePackageWithRfc();
+      try {
+        fs.writeFileSync(path.join(dir, 'RFC-GRAPH.json'), JSON.stringify({
+          sourceFile: 'RFC.md', mainLanguage: 'typescript', nodes: [], edges: [],
+        }));
+        const ok = spawnSync(process.execPath, [ANNOTATE, 'RFC-GRAPH.json'], { cwd: dir, encoding: 'utf8' });
+        assert.equal(ok.status, 0, ok.stderr);
+        assert.match(ok.stdout, /Edge Contract Annotation Guide/);
+        const bad = spawnSync(process.execPath, [ANNOTATE, 'RFC.md'], { cwd: dir, encoding: 'utf8' });
+        assert.equal(bad.status, 1, 'Markdown must not be accepted as graph JSON');
+        assert.match(bad.stderr, /Failed to parse graph JSON/);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
@@ -187,12 +426,12 @@ describe('graphify-rfc.md slash command integration tests', () => {
         'Step 3 heading should exist');
     });
 
-    it('should have Step 4 (marker embedding) section heading', () => {
+    it('should have Step 4 (self-verification) section heading', () => {
       assert.ok(commandContent.includes('Step 4'),
         'Step 4 heading should exist');
     });
 
-    it('should have Step 5 (self-verification) section heading', () => {
+    it('should have Step 5 (final quality verification) section heading', () => {
       assert.ok(commandContent.includes('Step 5'),
         'Step 5 heading should exist');
     });
@@ -332,7 +571,7 @@ describe('graphify-rfc.md slash command integration tests', () => {
         `reset-to-step procedures should appear at least 4 times (actual: ${resetLines.length})`);
     });
 
-    it('should describe recovery procedure for each Step and mention Step 4 (deprecated)', () => {
+    it('should mention Step 4 in the recovery guidance', () => {
       assert.ok(
         commandContent.includes('fail-step 4') ||
         (commandContent.includes('fail-step') && commandContent.includes('Step 4')),
@@ -393,14 +632,13 @@ describe('graphify-rfc.md slash command integration tests', () => {
   // ==========================================================
 
   describe('error cases', () => {
-    it('should have usage instructions for missing arguments or argument-related description', () => {
-      assert.ok(
-        commandContent.includes('argument') ||
-        commandContent.includes('1st argument') ||
-        commandContent.includes('source-file-path') ||
-        commandContent.includes('required'),
-        'should describe argument usage'
-      );
+    it('should state that the command takes no argument and fixes the source', () => {
+      assert.match(commandContent, /takes no argument/i,
+        'the command must say it accepts no argument');
+      assert.match(commandContent, /RFC\.md/,
+        'the command must name the fixed source');
+      assert.doesNotMatch(commandContent, /source-file-path/,
+        'the removed source-file-path token must be gone');
     });
 
     it('should reference scripts under .claude/scripts/rfc-graph/', () => {
