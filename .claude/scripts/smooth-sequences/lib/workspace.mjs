@@ -11,6 +11,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
+import { toHomeRelative } from '../../lib/path-utils.js';
 import { SmoothSequencesError } from './errors.mjs';
 import { loadVocabulary } from './vocabulary.mjs';
 
@@ -50,13 +51,14 @@ function findArtifactPath(root) {
     .map((name) => join(root, name));
   if (candidates.length === 1) return candidates[0];
   if (candidates.length === 0) {
-    throw new SmoothSequencesError(`no ${ARTIFACT_SUFFIX} file at ${root}`, {
+    throw new SmoothSequencesError(`no ${ARTIFACT_SUFFIX} file at ${toHomeRelative(root)}`, {
       code: 'NO_ARTIFACT',
       path: root,
       repair: 'Run /educe-sequences for the specification so the artifact sits beside the manifests.',
     });
   }
-  throw new SmoothSequencesError(`more than one ${ARTIFACT_SUFFIX} file at ${root}: ${candidates.join(', ')}`, {
+  const renderedCandidates = candidates.map((candidate) => toHomeRelative(candidate)).join(', ');
+  throw new SmoothSequencesError(`more than one ${ARTIFACT_SUFFIX} file at ${toHomeRelative(root)}: ${renderedCandidates}`, {
     code: 'AMBIGUOUS_ARTIFACT',
     path: root,
     repair: 'Keep exactly one sequences artifact at the workspace root.',
