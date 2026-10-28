@@ -20,25 +20,27 @@ const path = require('path');
  * @param {object} graph — Parsed graph JSON
  * @returns {string} Markdown string
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
 function generateMarkdown(graph) {
   const nodeMap = {};
-  for (const n of graph.nodes) nodeMap[n.id] = n;
+  for (const node of graph.nodes) {
+    nodeMap[node.id] = node;
+  }
 
   let md = '# Edge Contract Annotation Guide\n\n';
   for (let i = 0; i < graph.edges.length; i++) {
-    const e = graph.edges[i];
-    const fromNode = nodeMap[e.from] || {};
-    const toNode = nodeMap[e.to] || {};
+    const edge = graph.edges[i];
+    const fromNode = nodeMap[edge.from] || {};
+    const toNode = nodeMap[edge.to] || {};
 
-    md += '## Edge ' + (i + 1) + ': ' + e.from + ' → ' + e.to + ' (' + e.type + ')\n';
-    md += '- **Source node (' + e.from + ')**: kind=' + (fromNode.kind || '?') + ', title="' + (fromNode.title || '?') + '"\n';
+    md += '## Edge ' + (i + 1) + ': ' + edge.from + ' → ' + edge.to + ' (' + edge.type + ')\n';
+    md += '- **Source node (' + edge.from + ')**: kind=' + (fromNode.kind || '?') + ', title="' + (fromNode.title || '?') + '"\n';
     md += '  Summary: ' + (fromNode.summary || '(none)') + '\n';
-    md += '- **Target node (' + e.to + ')**: kind=' + (toNode.kind || '?') + ', title="' + (toNode.title || '?') + '"\n';
+    md += '- **Target node (' + edge.to + ')**: kind=' + (toNode.kind || '?') + ', title="' + (toNode.title || '?') + '"\n';
     md += '  Summary: ' + (toNode.summary || '(none)') + '\n';
-    md += '- **Strength**: ' + (e.attributes ? e.attributes.strength || 'hard' : 'hard')
-      + ', **Bidirectional**: ' + (e.attributes ? e.attributes.bidirectional || false : false) + '\n';
-    if (e.attributes && e.attributes.note) md += '- **Existing note**: ' + e.attributes.note + '\n';
+    md += '- **Strength**: ' + (edge.attributes ? edge.attributes.strength || 'hard' : 'hard')
+      + ', **Bidirectional**: ' + (edge.attributes ? edge.attributes.bidirectional || false : false) + '\n';
+    if (edge.attributes && edge.attributes.note) md += '- **Existing note**: ' + edge.attributes.note + '\n';
 
     md += '\n  **Proposed contracts (fill in below):**\n';
     md += '  ```json\n';
@@ -48,18 +50,18 @@ function generateMarkdown(graph) {
   return md;
 }
 
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
 function main() {
-  const arg = process.argv[2];
-  if (!arg) {
+  const graphPath = process.argv[2];
+  if (!graphPath) {
     console.error('[ERROR] Missing graph path argument');
     console.error('Cause: No argument provided');
     console.error('Action: Run with: node annotate-contracts.js <path-to-GRAPH.json>');
     process.exit(1);
   }
-  const graphPath = path.resolve(arg);
-  if (!fs.existsSync(graphPath)) {
-    console.error('[ERROR] Graph file not found: ' + graphPath);
+  const resolvedGraphPath = path.resolve(graphPath);
+  if (!fs.existsSync(resolvedGraphPath)) {
+    console.error('[ERROR] Graph file not found: ' + resolvedGraphPath);
     console.error('Cause: File does not exist at the specified path');
     console.error('Action: Verify the graph path and re-run');
     process.exit(1);
@@ -67,16 +69,16 @@ function main() {
 
   let graph;
   try {
-    graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    graph = JSON.parse(fs.readFileSync(resolvedGraphPath, 'utf8'));
   } catch (e) {
     console.error('[ERROR] Failed to parse graph JSON: ' + e.message);
-    console.error('Cause: Invalid JSON at ' + graphPath);
+    console.error('Cause: Invalid JSON at ' + resolvedGraphPath);
     console.error('Action: Fix the JSON syntax and re-run');
     process.exit(1);
   }
 
   const md = generateMarkdown(graph);
-  console.log(md);
+  process.stdout.write(md + '\n');
 }
 
 if (require.main === module) main();

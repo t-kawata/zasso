@@ -69,10 +69,10 @@ fi
 - status calls: `--status=<path>`.
 - main generator: `--graph=<path>`.
 - self-heal: script error/warning → graph fix per message → re-run; after graph fix → integrity regression check.
-- prose exclusion: `rationale` / `glossary` / `requirement`; connected implementation header embeds design-intent reference (PX-28/PX-30).
-- prune (PX-29): <2-child directory remove; single child flatten.
-- declaration stubs (PX-28): empty unimplemented file → language/kind signature + implementation TODO.
-- cross-references (PX-30): connected prose-node design intent in file header.
+- prose exclusion: `rationale` / `glossary` / `requirement`; connected implementation header embeds design-intent reference.
+- prune: <2-child directory remove; single child flatten.
+- declaration stubs: empty unimplemented file → language/kind signature + implementation TODO.
+- cross-references: connected prose-node design intent in file header.
 
 ## List of Scripts Used
 
@@ -241,11 +241,11 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 
 ### Structure of Generated Files
 
-- header: source graph, mapped nodes, language, timestamp; language-appropriate comment (PX-30).
+- header: source graph, mapped nodes, language, timestamp; language-appropriate comment.
 - header units line: every mapped node's `unitIds` are written as `units: <comma-separated ids>`; a file with no mapped units omits the line.
 - unit placement: every unit-bearing node resolves to a leaf file. An architecture node with units gets a designated entry file (`mod.rs`, `doc.go`, `index.ts`); a prose node with a unit is `UNIT_REQUIRES_FILE`. `verify-unit-file-coverage.js` reports `UNIT_WITHOUT_FILE`, `UNIT_WITHOUT_HEADER` and `HEADER_UNIT_NOT_ON_NODE`.
-- empty/unimplemented: language/kind declaration stub: struct declaration or function signature + implementation TODO comment (PX-28).
-- prose-node connection: header embeds design-intent reference; explicit `→`/`←`, connected file path (PX-30).
+- empty/unimplemented: language/kind declaration stub: struct declaration or function signature + implementation TODO comment.
+- prose-node connection: header embeds design-intent reference; explicit `→`/`←`, connected file path.
 
 ### Recovery on Error
 

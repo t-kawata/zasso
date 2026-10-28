@@ -440,7 +440,9 @@ describe('graphify-rfc.md slash command integration tests', () => {
       assert.match(commandContent, /STEP_IDENTITY_MISMATCH/);
       assert.match(commandContent, /sequences-slice\/run\.mjs/);
       assert.match(commandContent, /smooth-sequences/);
-      assert.match(commandContent, /PX-320/);
+      assert.match(commandContent, /per-sequence position/);
+      assert.doesNotMatch(commandContent, /\bPX-\d+\b/,
+        'the command is an operational contract, not a ticket log');
     });
 
     // @verifies C005

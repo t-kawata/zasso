@@ -325,7 +325,7 @@ node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" delete-edges --file=
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_add_edges.json
 ```
 
-`STEP_IDENTITY_MISMATCH` with only `order` differing is `STALE_VIEW_ORDER_CONVENTION`: the view carries the artifact global array index and predates PX-320. `verify-chain` is correct and is not edited. Re-project each named view with `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`, re-run `/smooth-sequences`, then reset Step 2.
+`STEP_IDENTITY_MISMATCH` with only `order` differing is `STALE_VIEW_ORDER_CONVENTION`: the view carries the artifact global array index instead of the per-sequence position. `verify-chain` is correct and is not edited. Re-project each named view with `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`, re-run `/smooth-sequences`, then reset Step 2.
 
 ## Step 3: Machine Verification
 
