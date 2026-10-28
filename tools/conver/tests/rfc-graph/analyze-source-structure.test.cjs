@@ -1,3 +1,4 @@
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 /**
  * analyze-source-structure.test.cjs — Tests for analyze-source-structure.js
  *
@@ -157,6 +158,13 @@ describe('extractCodeBlocks', () => {
     const lines = ['```', 'Unclosed'];
     const blocks = extractCodeBlocks(lines);
     assert.equal(blocks.length, 0, 'Unclosed blocks should not be detected');
+  });
+
+  // @verifies C001
+  it('boundary: a ~~~ block is not closed by a ``` line', () => {
+    const lines = ['~~~', '```', '# inside', '~~~', '## Real'];
+    const blocks = extractCodeBlocks(lines);
+    assert.deepEqual(blocks, [{ start: 0, end: 3 }]);
   });
 });
 
@@ -394,16 +402,15 @@ describe('generateCandidateHeadingRefs', () => {
 
 describe('formatReport', () => {
   it('normal: outputs natural language report with full information', () => {
-    const report = formatReport(
-      'test.md',
-      100,  // totalLines
-      30,   // codeLines
-      [{ level: 1, heading: 'Title', startLine: 1, endLine: 10, proseLines: 5, codeBlockCount: 1, bodyText: 'body' }],
-      [{ lineRange: 'L1-L10', kind: 'requirement', reason: '見出しマッチ' }],
-      [{ lineRange: 'L1-L10', labels: ['ファイルI/O'] }],
-      [{ lineRange: 'L1-L10', proseLines: 150, label: 'Title' }],
-      [{ lineRange: 'L1-L10', heading: 1, texts: ['Title'] }],
-    );
+    const report = formatReport('test.md', {
+      totalLines: 100,
+      codeLines: 30,
+      sections: [{ level: 1, heading: 'Title', startLine: 1, endLine: 10, proseLines: 5, codeBlockCount: 1, bodyText: 'body' }],
+      kindHints: [{ lineRange: 'L1-L10', kind: 'requirement', reason: '見出しマッチ' }],
+      deps: [{ lineRange: 'L1-L10', labels: ['ファイルI/O'] }],
+      longSections: [{ lineRange: 'L1-L10', proseLines: 150, label: 'Title' }],
+      headingRefCandidates: [{ lineRange: 'L1-L10', heading: 1, texts: ['Title'] }],
+    });
 
     // Basic info
     assert.ok(report.includes('Basic Information'));
@@ -425,15 +432,15 @@ describe('formatReport', () => {
   });
 
   it('normal: explicitly states "(none)" for empty data', () => {
-    const report = formatReport(
-      'empty.md',
-      5, 0,
-      [{ level: 1, heading: 'S1', startLine: 1, endLine: 5, proseLines: 3, codeBlockCount: 0, bodyText: 'hello' }],
-      [],
-      [],
-      [],
-      [], // headingRefCandidates
-    );
+    const report = formatReport('empty.md', {
+      totalLines: 5,
+      codeLines: 0,
+      sections: [{ level: 1, heading: 'S1', startLine: 1, endLine: 5, proseLines: 3, codeBlockCount: 0, bodyText: 'hello' }],
+      kindHints: [],
+      deps: [],
+      longSections: [],
+      headingRefCandidates: [],
+    });
 
     assert.ok(report.includes('None (all sections under 100 lines)'));
   });
@@ -512,7 +519,7 @@ describe('Integration: generateReport', () => {
 
 describe('KIND_PATTERNS completeness', () => {
   it('all 12 kinds are defined', () => {
-    const kinds = KIND_PATTERNS.map(p => p.kind);
+    const kinds = KIND_PATTERNS.map(pattern => pattern.kind);
     assert.equal(kinds.length, 12);
     const expectedKinds = [
       'requirement', 'api_contract', 'data_model', 'state_machine',
@@ -525,16 +532,16 @@ describe('KIND_PATTERNS completeness', () => {
   });
 
   it('each kind has at least one heading pattern', () => {
-    for (const p of KIND_PATTERNS) {
-      assert.ok(p.heading.length >= 1,
-        `kind "${p.kind}" has no heading pattern`);
+    for (const pattern of KIND_PATTERNS) {
+      assert.ok(pattern.heading.length >= 1,
+        `kind "${pattern.kind}" has no heading pattern`);
     }
   });
 });
 
 describe('DEP_PATTERNS completeness', () => {
   it('all 15 dependency patterns are defined', () => {
-    const depLabels = DEP_PATTERNS.map(p => p.label);
+    const depLabels = DEP_PATTERNS.map(pattern => pattern.label);
     assert.equal(depLabels.length, 15);
     const expectedLabels = [
       'ファイルI/O', 'ネットワーク', 'データベース', 'LLM/API',

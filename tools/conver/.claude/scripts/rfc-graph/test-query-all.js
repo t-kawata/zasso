@@ -20,6 +20,11 @@ const fs = require('fs');
 const path = require('path');
 
 const { resolveByHeading } = require('./resolve-by-heading.js');
+const {
+  findFencedBlocks,
+  isFencedLine,
+  extractHeadingsOutsideFences,
+} = require('./lib/markdown-headings.js');
 
 // ============================================================
 // Constants
@@ -63,7 +68,7 @@ const SOURCE_LINE_LIMIT_WARN = 10000;
 const HINTS_OUTPUT_FILENAME = '_fix_graph_hints.json';
 
 // ============================================================
-// Public functions
+// Public API
 // ============================================================
 
 /**
@@ -162,6 +167,7 @@ function validateAllHeadingRefs(graph, sourceLines) {
  * @param {{ heading: number, texts: string[] }} ref — headingRef object
  * @returns {{ diagnosis: string, score: number, details: Object, summary: string, remedyHint: string, remedyCommand: string }}
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function diagnoseBrokenRef(sourceLines, ref) {
   const { heading, texts } = ref;
 
@@ -171,10 +177,13 @@ function diagnoseBrokenRef(sourceLines, ref) {
 
   // M0: No lines found at the specified heading level
   if (headingLines.length === 0) {
-    return buildDiagnosisResult(DIAGNOSIS_LABELS.M0, 0, texts, [], [],
-      'Specified heading level not found.',
-      'The heading level is incorrect or the section was deleted.',
-      'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
+    return buildDiagnosisResult(DIAGNOSIS_LABELS.M0, 0, texts, {
+      bestLine: null,
+      candidateLines: [],
+      summary: 'Specified heading level not found.',
+      suggestion: 'The heading level is incorrect or the section was deleted.',
+      remedyCommand: 'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs',
+    });
   }
 
   // Calculate scores for each heading line
@@ -193,21 +202,25 @@ function diagnoseBrokenRef(sourceLines, ref) {
 
   // M9: Each token matches only different lines (mutually exclusive)
   if (isMutuallyExclusive(texts, headingLines)) {
-    return buildDiagnosisResult(DIAGNOSIS_LABELS.M9, bestScore, texts, lineScores[0],
-      lineScores.slice(0, 3),
-      'Tokens are spread across multiple headings and cannot all be satisfied in one line.',
-      'headingRefs texts span multiple sections. Consider splitting.',
-      'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
+    return buildDiagnosisResult(DIAGNOSIS_LABELS.M9, bestScore, texts, {
+      bestLine: lineScores[0],
+      candidateLines: lineScores.slice(0, 3),
+      summary: 'Tokens are spread across multiple headings and cannot all be satisfied in one line.',
+      suggestion: 'headingRefs texts span multiple sections. Consider splitting.',
+      remedyCommand: 'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs',
+    });
   }
 
   // M8: Another heading level scores higher
   const bestOtherLevel = checkOtherHeadingLevels(sourceLines, heading, texts);
   if (bestOtherLevel && bestOtherLevel.score > bestScore) {
-    return buildDiagnosisResult(DIAGNOSIS_LABELS.M8, bestScore, texts, lineScores[0],
-      lineScores.slice(0, 3),
-      `Another heading level (h${bestOtherLevel.level}) has a higher score (${bestOtherLevel.score}%).`,
-      `Heading level is incorrect. h${bestOtherLevel.level} may be correct.`,
-      `crud.js update --graph=<g> --source=<s> --id=<nodeId> --heading=${bestOtherLevel.level}`);
+    return buildDiagnosisResult(DIAGNOSIS_LABELS.M8, bestScore, texts, {
+      bestLine: lineScores[0],
+      candidateLines: lineScores.slice(0, 3),
+      summary: `Another heading level (h${bestOtherLevel.level}) has a higher score (${bestOtherLevel.score}%).`,
+      suggestion: `Heading level is incorrect. h${bestOtherLevel.level} may be correct.`,
+      remedyCommand: `crud.js update --graph=<g> --source=<s> --id=<nodeId> --heading=${bestOtherLevel.level}`,
+    });
   }
 
   // Score-based diagnosis (M1 through M7)
@@ -232,15 +245,17 @@ function diagnoseBrokenRef(sourceLines, ref) {
     diagnosis = DIAGNOSIS_LABELS.M10;
   }
 
-  return buildDiagnosisResult(diagnosis, bestScore, texts, lineScores[0],
-    lineScores.slice(0, 3),
-    generateSummary(diagnosis, texts, bestScore),
-    generateSuggestion(diagnosis, texts, bestScore),
-    generateRemedyCommand(diagnosis));
+  return buildDiagnosisResult(diagnosis, bestScore, texts, {
+    bestLine: lineScores[0],
+    candidateLines: lineScores.slice(0, 3),
+    summary: generateSummary(diagnosis, texts, bestScore),
+    suggestion: generateSuggestion(diagnosis, texts, bestScore),
+    remedyCommand: generateRemedyCommand(diagnosis),
+  });
 }
 
 // ============================================================
-// Diagnostic helper functions
+// Diagnostic helpers
 // ============================================================
 
 /**
@@ -250,18 +265,24 @@ function diagnoseBrokenRef(sourceLines, ref) {
  * @param {number} heading — Heading level (0 through 6)
  * @returns {Array<{ line: number, text: string }>}
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function collectHeadingLines(sourceLines, heading) {
-  const pattern = heading === 0
-    ? /^/
-    : new RegExp(`^#{${heading}}\\s+`);
+  if (heading > 0) {
+    return extractHeadingsOutsideFences(sourceLines)
+      .filter((candidate) => candidate.level === heading)
+      .map((candidate) => ({
+        line: candidate.line,
+        text: sourceLines[candidate.line - 1],
+      }));
+  }
 
+  const { blocks } = findFencedBlocks(sourceLines);
   const result = [];
-  for (let i = 0; i < sourceLines.length; i++) {
-    const line = sourceLines[i];
-    if (heading > 0 && pattern.test(line)) {
-      result.push({ line: i + 1, text: line });
-    } else if (heading === 0 && (i <= 5 || line.trim() !== '')) {
-      result.push({ line: i + 1, text: line });
+  for (let index = 0; index < sourceLines.length; index += 1) {
+    if (isFencedLine(blocks, index)) continue;
+    const line = sourceLines[index];
+    if (index <= 5 || line.trim() !== '') {
+      result.push({ line: index + 1, text: line });
     }
   }
   return result;
@@ -353,14 +374,19 @@ function checkOtherHeadingLevels(sourceLines, originalHeading, texts) {
  * @param {string} diagnosis — Diagnosis label
  * @param {number} score — Score
  * @param {string[]} texts — Token array
- * @param {Object|null} bestLine — Highest scoring line
- * @param {Array} candidateLines — Candidate heading lines
- * @param {string} summary — Summary message
- * @param {string} suggestion — Suggestion text
- * @param {string} remedyCommand — Example remedy command
+ * @param {{bestLine?: Object|null, candidateLines?: Array, summary: string, suggestion: string, remedyCommand: string}} evidence
+ *   Diagnosis evidence and operator guidance
  * @returns {Object}
  */
-function buildDiagnosisResult(diagnosis, score, texts, bestLine, candidateLines, summary, suggestion, remedyCommand) {
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+function buildDiagnosisResult(diagnosis, score, texts, evidence) {
+  const {
+    bestLine = null,
+    candidateLines = [],
+    summary,
+    suggestion,
+    remedyCommand,
+  } = evidence;
   const hasValidBestLine = bestLine && typeof bestLine.text === 'string';
   return {
     diagnosis,
@@ -519,7 +545,7 @@ function generateRemedyCommand(diagnosis) {
 }
 
 // ============================================================
-// Output helper functions
+// Output helpers
 // ============================================================
 
 /**

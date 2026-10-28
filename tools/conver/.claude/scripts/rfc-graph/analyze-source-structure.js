@@ -26,6 +26,16 @@ const {
   resolveSourcePath,
   reportResolvedPath,
 } = require("../lib/package-artifacts");
+const { findFencedBlocks } = require("./lib/markdown-headings.js");
+
+/** Maximum matched text length before the report truncates it. */
+const MAX_MATCHED_TEXT_LENGTH = 30;
+
+/** Write one line to stdout without console.log. */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+function writeLine(text = "") {
+  process.stdout.write(text + "\n");
+}
 
 // ============================================================
 // Kind estimation keyword table (Axis 2)
@@ -928,7 +938,7 @@ function exitWithError(summary, cause, action) {
  * @returns {{ sourcePath: string }} Parsing result
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-334|PX-335) --for-spec --no-implementation-order`.
 function parseArguments(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   if (argv.length < 3) {
@@ -937,13 +947,13 @@ function parseArguments(argv, options = {}) {
     return { sourcePath };
   }
   if (argv[2] === "--help" || argv[2] === "-h") {
-    console.log("Usage: analyze-source-structure.js [source-path]");
-    console.log("");
-    console.log(
+    writeLine("Usage: analyze-source-structure.js [source-path]");
+    writeLine("");
+    writeLine(
       "Outputs structural information (section tree, line count, kind candidates, external dependencies)",
     );
-    console.log("of a Markdown file to stdout as a natural language report.");
-    console.log("With no argument it reads ./RFC.md.");
+    writeLine("of a Markdown file to stdout as a natural language report.");
+    writeLine("With no argument it reads ./RFC.md.");
     process.exit(0);
   }
   if (argv.length > 3) {
@@ -998,25 +1008,14 @@ function readSourceFile(filePath) {
  * @param {string[]} sourceLines
  * @returns {{ start: number, end: number }[]}
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractCodeBlocks(sourceLines) {
-  const blocks = [];
-  let inBlock = false;
-  let blockStart = -1;
-
-  for (let i = 0; i < sourceLines.length; i++) {
-    const trimmed = sourceLines[i].trim();
-    if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
-      if (!inBlock) {
-        inBlock = true;
-        blockStart = i;
-      } else {
-        inBlock = false;
-        blocks.push({ start: blockStart, end: i });
-      }
-    }
-  }
-  // Ignore unclosed code blocks (do not treat until end of file as a code block)
-  return blocks;
+  // The analyzer's published behavior is to ignore an unclosed block. The shared
+  // extractor reports it as a block to EOF for the guarding readers, so filter it
+  // back out here rather than keeping a second fence parser.
+  return findFencedBlocks(sourceLines).blocks
+    .filter((block) => !block.unclosed)
+    .map((block) => ({ start: block.start, end: block.end }));
 }
 
 // ============================================================
@@ -1160,14 +1159,17 @@ function estimateKind(heading, bodyText) {
  * @param {RegExp[]} patterns — Array of regex patterns to match
  * @returns {string[]} Array of matched strings (including partial matches)
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function collectBodyMatches(bodyText, patterns) {
   const matches = [];
   for (const re of patterns) {
     const results = bodyText.match(re);
     if (results) {
-      for (const m of results.slice(0, 3)) {
-        if (m.length === 0) continue;
-        const truncated = m.length > 30 ? m.substring(0, 30) + "…" : m;
+      for (const matchedText of results.slice(0, 3)) {
+        if (matchedText.length === 0) continue;
+        const truncated = matchedText.length > MAX_MATCHED_TEXT_LENGTH
+          ? matchedText.substring(0, MAX_MATCHED_TEXT_LENGTH) + "…"
+          : matchedText;
         if (!matches.includes(truncated)) {
           matches.push(truncated);
         }
@@ -1250,31 +1252,41 @@ function generateCandidateHeadingRefs(sections) {
 }
 
 /**
- * 自然言語レポートとして整形する
+ * Format the measured structure as a natural-language report.
  *
- * 第2軸・第3軸の出力には「機械的な候補でありAIが判断を上書き可能」の但し書きを含める。
- * 第4軸（候補 headingRefs）も同様。
+ * The kind and dependency lines carry the machine-candidate disclaimer, and the
+ * candidate headingRefs section does the same.
  *
- * @param {string} sourcePath — 解析対象ファイルパス
- * @param {number} totalLines — 総行数
- * @param {number} codeLines — コードブロック行数
- * @param {Array} sections — セクション配列
- * @param {Array} kindHints — { lineRange, kind, reason }[]
- * @param {Array} deps — { lineRange, labels }[]
- * @param {Array} longSections — { lineRange, label, proseLines }[]
- * @param {Array} headingRefCandidates — { lineRange, heading, texts }[]
+ * @param {string} sourcePath — Source Markdown path
+ * @param {{totalLines:number, codeLines:number, sections:Array, kindHints:Array,
+ *   deps:Array, longSections:Array, headingRefCandidates:Array}|number} reportData
+ *   Measured sections, hints, dependencies and split candidates. A number is
+ *   accepted as the legacy positional totalLines form.
+ * @param {...*} [legacy] — Legacy positional codeLines through headingRefCandidates
  * @returns {string}
  */
-function formatReport(
-  sourcePath,
-  totalLines,
-  codeLines,
-  sections,
-  kindHints,
-  deps,
-  longSections,
-  headingRefCandidates,
-) {
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+function formatReport(sourcePath, reportData, ...legacy) {
+  const reportShape = typeof reportData === 'number'
+    ? {
+        totalLines: reportData,
+        codeLines: legacy[0],
+        sections: legacy[1],
+        kindHints: legacy[2],
+        deps: legacy[3],
+        longSections: legacy[4],
+        headingRefCandidates: legacy[5],
+      }
+    : reportData;
+  const {
+    totalLines,
+    codeLines,
+    sections,
+    kindHints,
+    deps,
+    longSections,
+    headingRefCandidates,
+  } = reportShape;
   const proseLines = totalLines - codeLines;
   const lines = [];
 
@@ -1315,48 +1327,6 @@ function formatReport(
   }
   lines.push("");
 
-  // // kind candidates (Axis 2) — already annotated inline on each section line
-  // lines.push(`## kind 候補（機械的推定。AI が判断を上書き可能）`);
-  // if (kindHints.length === 0) {
-  //   lines.push(
-  //     "該当なし（キーワード未マッチのため kind を推定できませんでした）",
-  //   );
-  // } else {
-  //   for (const hint of kindHints) {
-  //     lines.push(`${hint.lineRange}  ${hint.kind}  ← ${hint.reason}`);
-  //   }
-  // }
-  // lines.push("");
-  //
-  // // External dependencies (Axis 3) — already annotated inline on each section line
-  // lines.push(
-  //   `## 外部依存の可能性があるセクション（機械的検出。AIは参考にして自由に判断可。）`,
-  // );
-  // if (deps.length === 0) {
-  //   lines.push("検出なし");
-  // } else {
-  //   for (const dep of deps) {
-  //     lines.push(`${dep.lineRange}  ${dep.labels.join(", ")}`);
-  //   }
-  // }
-  // lines.push("");
-
-  // // Candidate headingRefs (Axis 4)
-  // lines.push(
-  //   `## ノード候補 headingRefs（機械的抽出。AI は参考にして独自に判断可。）`,
-  // );
-  // if (!headingRefCandidates || headingRefCandidates.length === 0) {
-  //   lines.push(
-  //     "該当なし（セクションが存在しないため候補を生成できませんでした）",
-  //   );
-  // } else {
-  //   for (const cand of headingRefCandidates) {
-  //     const headingLabel = cand.heading > 0 ? `h${cand.heading}` : "title";
-  //     lines.push(`${cand.lineRange}  ${headingLabel}: ${cand.texts.join(" ")}`);
-  //   }
-  // }
-  // lines.push("");
-
   // Sections exceeding 100 lines
   lines.push(
     `## Sections Exceeding 100 Lines (prose lines excl. code blocks — forced split candidates)`,
@@ -1384,6 +1354,7 @@ function formatReport(
  * @param {string[]} sourceLines
  * @returns {string}
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function generateReport(sourcePath, sourceLines) {
   const totalLines = sourceLines.length;
 
@@ -1460,8 +1431,7 @@ function generateReport(sourcePath, sourceLines) {
   // Candidate headingRefs
   const headingRefCandidates = generateCandidateHeadingRefs(sections);
 
-  return formatReport(
-    sourcePath,
+  return formatReport(sourcePath, {
     totalLines,
     codeLines,
     sections,
@@ -1469,13 +1439,14 @@ function generateReport(sourcePath, sourceLines) {
     deps,
     longSections,
     headingRefCandidates,
-  );
+  });
 }
 
 // ============================================================
 // Main
 // ============================================================
 
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   const { sourcePath } = parseArgumentsSafe(process.argv);
   let sourceLines;
@@ -1489,10 +1460,10 @@ function main() {
     );
   }
   const report = generateReport(sourcePath, sourceLines);
-  console.log(report);
+  writeLine(report);
 }
 
-// Export public functions for loading via require
+// Public API for require() consumers
 module.exports = {
   parseArguments,
   parseArgumentsSafe,

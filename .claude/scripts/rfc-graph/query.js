@@ -16,6 +16,7 @@
 const fs = require("fs");
 const path = require("path");
 const { resolveByHeading } = require("./resolve-by-heading.js");
+const { findFencedBlocks, isFencedLine } = require("./lib/markdown-headings.js");
 
 // ============================================================
 // Constant definitions
@@ -401,21 +402,26 @@ function renderChildTree(parentId, depth, childMap, graph, lines) {
  * @param {number} headingLineIndex — 0-based index of the heading line
  * @returns {string|null} Extracted body text, or null on failure
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractSectionContent(sourceLines, headingLineIndex) {
   if (!Array.isArray(sourceLines) || sourceLines.length === 0) return null;
   if (headingLineIndex < 0 || headingLineIndex >= sourceLines.length)
     return null;
+
+  const { blocks } = findFencedBlocks(sourceLines);
+  if (isFencedLine(blocks, headingLineIndex)) return null;
 
   const headingLine = sourceLines[headingLineIndex];
   const headingMatch = headingLine.match(/^(#+)\s/);
   if (!headingMatch) return null;
   const headingLevel = headingMatch[1].length;
 
-  // Scan until the next heading at the same level or higher (or EOF)
+  // Scan until the next real heading at the same level or higher (or EOF).
   let endIndex = sourceLines.length;
   for (let i = headingLineIndex + 1; i < sourceLines.length; i++) {
-    const m = sourceLines[i].match(/^(#+)\s/);
-    if (m && m[1].length <= headingLevel) {
+    if (isFencedLine(blocks, i)) continue;
+    const nextHeadingMatch = sourceLines[i].match(/^(#+)\s/);
+    if (nextHeadingMatch && nextHeadingMatch[1].length <= headingLevel) {
       endIndex = i;
       break;
     }
@@ -435,11 +441,20 @@ function extractSectionContent(sourceLines, headingLineIndex) {
  * @param {Object[]} edges — Edge array related to this node
  * @param {Object} graph — Full graph (for node name resolution)
  * @param {string} sourceText — Source text (for line number resolution)
- * @param {Map} [depthMap] — BFS visit record (for path display of surrounding node edges)
- * @param {Object|null} [nodeToDirMap] — nodeId→file path map (optional)
+ * @param {Map|{depthMap?: Map, nodeToDirMap?: Object|null}} [options]
+ *   BFS visit record and optional nodeId→file path map. A Map is accepted for
+ *   backward compatibility and is read as depthMap.
  * @returns {string} Markdown formatted string
  */
-function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirMap) {
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+function formatNodeMarkdown(node, edges, graph, sourceText, options = {}) {
+  const resolvedOptions = options ?? {};
+  const depthMap = resolvedOptions instanceof Map
+    ? resolvedOptions
+    : (resolvedOptions.depthMap ?? null);
+  const nodeToDirMap = resolvedOptions instanceof Map
+    ? null
+    : (resolvedOptions.nodeToDirMap ?? null);
   const lines = [];
 
   // Heading
@@ -574,6 +589,17 @@ function printError(message, cause, action) {
   );
 }
 
+/**
+ * Write one line to stdout. The CLI keeps console.log out of the graph scripts
+ * so the quality check can distinguish output from debug statements.
+ *
+ * @param {string} [text] — Line body
+ */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+function writeLine(text = '') {
+  process.stdout.write(text + '\n');
+}
+
 // ============================================================
 // Help display
 // ============================================================
@@ -581,8 +607,9 @@ function printError(message, cause, action) {
 /**
  * Display usage instructions
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(
+  writeLine(
     "query.js — Multi-hop graph exploration\n" +
       "\n" +
       "Usage:\n" +
@@ -627,6 +654,7 @@ function printUsage() {
  * On missing markers, output partial results + stderr notification, exit code 0.
  * Never modifies any files.
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   let graphPath, sourcePath, nodeIds, hops, dirsTreePath;
 
@@ -720,29 +748,28 @@ function main() {
       allEdges,
       graph,
       sourceText,
-      searchResult.depthMap,
-      nodeToDirMap,
+      { depthMap: searchResult.depthMap, nodeToDirMap },
     );
-    console.log(markdown);
+    writeLine(markdown);
 
     // Deep-dive guidance
-    console.log("");
-    console.log("---\n");
-    console.log("### Deep Dive Method");
-    console.log(
+    writeLine();
+    writeLine("---\n");
+    writeLine("### Deep Dive Method");
+    writeLine(
       "Use the following command to explore additional node information in depth.",
     );
-    console.log("```");
-    console.log(
+    writeLine("```");
+    writeLine(
       `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<target node ID to drill into (N??? format)> --hops=<drill depth>`,
     );
-    console.log("```");
+    writeLine("```");
 
     // Output separator when multiple nodes are specified
     if (nodeIds.length > 1 && nodeIds.indexOf(nodeId) < nodeIds.length - 1) {
-      console.log("");
-      console.log("---");
-      console.log("");
+      writeLine();
+      writeLine("---");
+      writeLine();
     }
   }
 

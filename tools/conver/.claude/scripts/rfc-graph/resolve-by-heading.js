@@ -21,6 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { findFencedBlocks, isFencedLine } = require('./lib/markdown-headings.js');
 
 function exitWithError(summary, cause, action) {
   process.stderr.write(`[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`);
@@ -37,8 +38,11 @@ function exitWithError(summary, cause, action) {
  *   line: 1-based line number. null if unresolvable
  *   confidence: "exact" | "partial" | null
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function resolveByHeading(sourceLines, heading, texts) {
   if (!Array.isArray(texts) || texts.length === 0) return null;
+
+  const { blocks } = findFencedBlocks(sourceLines);
 
   // Build heading level pattern (heading=0 is special: near file top)
   let headingPattern;
@@ -54,6 +58,7 @@ function resolveByHeading(sourceLines, heading, texts) {
     const matchingLines = [];
 
     for (let i = 0; i < sourceLines.length; i++) {
+      if (isFencedLine(blocks, i)) continue;
       const line = sourceLines[i];
       // Filter by heading level
       if (heading > 0 && !headingPattern.test(line)) continue;
@@ -127,6 +132,7 @@ function parseArguments(argv) {
   return result;
 }
 
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -141,12 +147,12 @@ function main() {
     // Batch resolve all nodes in the graph
     const graph = JSON.parse(fs.readFileSync(parsed.graphPath, 'utf8'));
     const results = resolveAllHeadings(graph, parsed.sourcePath);
-    console.log(JSON.stringify(results, null, 2));
+    process.stdout.write(JSON.stringify(results, null, 2) + '\n');
   } else if (parsed.heading !== undefined && parsed.texts) {
     // Single resolution
     const result = resolveByHeading(sourceLines, parsed.heading, parsed.texts);
     if (result) {
-      console.log(JSON.stringify(result, null, 2));
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     } else {
       exitWithError('Failed to identify heading.', `heading=${parsed.heading}, texts=[${parsed.texts.join(', ')}]`, 'The corresponding heading in the source file may have been deleted or renamed.');
     }

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 /**
  * query.test.cjs — Tests for query.js
  *
@@ -22,6 +23,7 @@ const {
   resolveNodeById,
   multiHopBFS,
   resolveCurrentLines,
+  extractSectionContent,
   formatNodeMarkdown,
   groupEdgesByType,
   getDirectionLabel,
@@ -765,7 +767,7 @@ describe('headingRefs warning removal', () => {
 });
 
 // ============================================================
-// Integration test — main function (actual file I/O)
+// Integration test — CLI entry path (actual file I/O)
 // ============================================================
 
 describe('main integration', () => {
@@ -777,7 +779,7 @@ describe('main integration', () => {
     const graphPath = writeGraphFile('graph.json', SIMPLE_GRAPH);
     const sourcePath = writeSourceFile('test.md', SOURCE_LINES);
 
-    // Parse arguments and call functions directly (main calls process.exit, so avoid it)
+    // Parse arguments and call the exported helpers directly (main calls process.exit, so avoid it)
     const parsed = parseArguments([
       `--graph=${graphPath}`,
       `--source=${sourcePath}`,
@@ -818,5 +820,36 @@ describe('main integration', () => {
   it('error: non-existent node ID returns null', () => {
     const node = resolveNodeById(SIMPLE_GRAPH, 'NX001');
     assert.equal(node, null);
+  });
+});
+
+// @verifies C004
+describe('query.js — fenced code blocks', () => {
+  it('normal: extractSectionContent keeps a fenced heading inside the body', () => {
+    const sourceLines = [
+      '## Section',
+      'body',
+      '```md',
+      '# Fenced',
+      '```',
+      'more',
+      '## Next',
+    ];
+    const body = extractSectionContent(sourceLines, 0);
+
+    assert.match(body, /# Fenced/);
+    assert.match(body, /more/);
+    assert.doesNotMatch(body, /## Next/);
+  });
+
+  it('error: a fenced start line returns null', () => {
+    const sourceLines = ['```md', '## Fenced', '```', '## Real'];
+    assert.equal(extractSectionContent(sourceLines, 1), null);
+  });
+
+  it('normal: resolveCurrentLines does not resolve a fenced-only ref', () => {
+    const sourceText = ['# Doc', '```md', '## Only', '```'].join('\n');
+    const headingRefs = [{ refId: 'REF001', heading: 2, texts: ['Only'] }];
+    assert.equal(resolveCurrentLines(sourceText, headingRefs, 'REF001'), undefined);
   });
 });

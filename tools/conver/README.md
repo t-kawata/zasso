@@ -916,6 +916,8 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 | boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `verify-unit-file-coverage.js` / `update-boundify-step-status.js` |
 | split | `phasify-graph-and-dirs-files-tree.js` / `show-phase-nodes.js` / `show-dirs-files-tree.js` / `show-all-nodes-title-summary.js` / `write-phase-name-summary.js` / `check-phase-names-summaries.js` / `consolidate-phase-tickets.js` / `project-step-contracts.js` / `update-split-step-status.js` |
 
+graphify の見出し抽出と Step 0 の重複解消は、コードフェンス（3連バッククォートまたは `~~~`）の内側を本文として扱い、見出しとして数えません。未閉鎖のフェンスは Step 0 が `UNCLOSED_FENCE` で停止し、ソースを書き換えません。
+
 上流ループのスクリプトは、カレントディレクトリの固定名（`RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `Tickets.json` / `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`）を既定値とします。明示パスは非標準レイアウト用の上書きであり、コマンド定義からは固定パスを渡しません。
 
 ### 実装ループ（`.claude/scripts/tickets/`）

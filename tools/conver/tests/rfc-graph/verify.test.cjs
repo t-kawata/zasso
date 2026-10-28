@@ -1,3 +1,4 @@
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 /**
  * verify.test.cjs — Tests for verify.js
  *
@@ -133,8 +134,11 @@ describe('verify.js — parseArguments', () => {
 
   it('normal: printUsage displays usage', () => {
     let logOutput = '';
-    const originalLog = console.log;
-    console.log = (msg) => { logOutput += msg; };
+    const originalWrite = process.stdout.write;
+    process.stdout.write = (chunk) => {
+      logOutput += chunk;
+      return true;
+    };
 
     try {
       printUsage();
@@ -142,7 +146,7 @@ describe('verify.js — parseArguments', () => {
       assert.ok(logOutput.includes('--graph'));
       assert.ok(logOutput.includes('--source'));
     } finally {
-      console.log = originalLog;
+      process.stdout.write = originalWrite;
     }
   });
 
@@ -603,5 +607,36 @@ describe('verify.js — exitWithResult', () => {
     } finally {
       // process.exit and console.log are explicitly restored inside try
     }
+  });
+});
+
+// @verifies C003
+describe('verify.js — fenced code blocks', () => {
+  it('normal: extractHeadings ignores a fenced ## heading', () => {
+    const sourceLines = ['# Doc', '```md', '## Fenced', '```', '## Real'];
+    const headings = extractHeadings(sourceLines);
+
+    assert.deepEqual(headings.map((heading) => heading.text), ['Real']);
+    assert.equal(headings[0].line, 5);
+  });
+
+  it('error: a fenced-only heading does not cover the real heading', () => {
+    const sourceLines = ['# Doc', '```md', '## Fenced', '```', '## Real'];
+    const nodes = [
+      createCoverageNode('N0001', [
+        { refId: 'REF001', heading: 2, texts: ['Fenced'] },
+      ]),
+    ];
+    const result = checkCoverage(sourceLines, nodes);
+
+    assert.equal(result.covered, false);
+    assert.deepEqual(result.uncoveredHeadings, ['Real']);
+  });
+
+  it('invariant: no fenced heading appears in uncoveredHeadings', () => {
+    const sourceLines = ['# Doc', '```md', '## Fenced', '```', '## Real'];
+    const result = checkCoverage(sourceLines, []);
+
+    assert.deepEqual(result.uncoveredHeadings, ['Real']);
   });
 });

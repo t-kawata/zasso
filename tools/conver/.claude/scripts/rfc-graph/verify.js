@@ -18,6 +18,10 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveByHeading } = require('./resolve-by-heading.js');
+const { extractHeadingsOutsideFences } = require('./lib/markdown-headings.js');
+
+/** Separators used to tokenise a level-2 heading for headingRef coverage. */
+const HEADING_TOKEN_SEPARATORS = /[\s、。，．・：；（）\[\]{}「」『』【】　]+/;
 
 // ============================================================
 // Constants
@@ -171,7 +175,7 @@ function readSourceFile(sourcePath) {
 }
 
 // ============================================================
-// Validation functions (pure)
+// Pure validation helpers
 // ============================================================
 
 /**
@@ -181,20 +185,14 @@ function readSourceFile(sourcePath) {
  * @returns {Array<{ line: number, level: number, text: string, tokens: string[] }>}
  *   List of level-2 headings (line number 1-indexed, heading level, heading text, token array)
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractHeadings(sourceLines) {
-  const headings = [];
-  for (let i = 0; i < sourceLines.length; i++) {
-    const match = sourceLines[i].match(/^#{2,2}\s+(.+)/);
-    if (match) {
-      headings.push({
-        line: i + 1,
-        level: 2,
-        text: match[1].trim(),
-        tokens: match[1].trim().split(/[\s、。，．・：；（）\[\]{}「」『』【】　]+/).filter(Boolean),
-      });
-    }
-  }
-  return headings;
+  return extractHeadingsOutsideFences(sourceLines)
+    .filter((heading) => heading.level === 2)
+    .map((heading) => ({
+      ...heading,
+      tokens: heading.text.split(HEADING_TOKEN_SEPARATORS).filter(Boolean),
+    }));
 }
 
 /**
@@ -330,6 +328,7 @@ function checkResolvability(sourceLines, nodes) {
  * @param {string[]} isolatedNodes — List of isolated node IDs
  * @param {Array} unresolvableRefs — List of unresolvable headingRefs
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) {
   const result = {
     ok,
@@ -338,7 +337,7 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
     unresolvableRefs,
   };
 
-  console.log(JSON.stringify(result));
+  process.stdout.write(JSON.stringify(result) + '\n');
 
   if (!ok) {
     const messages = [];
@@ -384,8 +383,9 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 /**
  * Display usage information
  */
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(
+  process.stdout.write(
     'verify.js — Coverage and isolated node validation (headingRefs method)\n' +
     '\n' +
     'Usage:\n' +

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 /**
  * test-query-all.test.cjs — Tests for test-query-all.js
  *
@@ -142,9 +143,9 @@ const DUPLICATE_GRAPH = {
 
 describe('parseArguments', () => {
   it('parses --graph + --source correctly', () => {
-    const r = parseArguments(['node', 'script', '--graph=g.json', '--source=s.md']);
-    assert.equal(r.graphPath, 'g.json');
-    assert.equal(r.sourcePath, 's.md');
+    const result = parseArguments(['node', 'script', '--graph=g.json', '--source=s.md']);
+    assert.equal(result.graphPath, 'g.json');
+    assert.equal(result.sourcePath, 's.md');
   });
 
   it('throws with --graph only', () => {
@@ -156,8 +157,8 @@ describe('parseArguments', () => {
   });
 
   it('parses --help correctly', () => {
-    const r = parseArguments(['node', 'script', '--help']);
-    assert.equal(r.help, true);
+    const result = parseArguments(['node', 'script', '--help']);
+    assert.equal(result.help, true);
   });
 
   it('throws with no arguments', () => {
@@ -430,5 +431,39 @@ describe('loadGraphAndSource', () => {
 
   it('throws on non-existent file path', () => {
     assert.throws(() => loadGraphAndSource('/nonexistent/file.json', '/nonexistent/file.md'));
+  });
+});
+
+// @verifies C004
+describe('test-query-all — fenced code blocks', () => {
+  it('normal: collectHeadingLines excludes a fenced heading', () => {
+    const sourceLines = ['# Doc', '```md', '## Fenced', '```', '## Real'];
+    const collected = collectHeadingLines(sourceLines, 2);
+
+    assert.deepEqual(collected.map((entry) => entry.line), [5]);
+    assert.equal(collected[0].text, '## Real');
+  });
+
+  it('error: validateAllHeadingRefs reports a fenced-only ref as broken', () => {
+    const sourceLines = ['# Doc', '```md', '## Only fenced', '```'];
+    const graph = {
+      nodes: [
+        {
+          id: 'N0001',
+          headingRefs: [{ refId: 'REF001', heading: 2, texts: ['Only fenced'] }],
+        },
+      ],
+    };
+    const result = validateAllHeadingRefs(graph, sourceLines);
+
+    assert.equal(result.broken.length, 1);
+    assert.equal(result.broken[0].refId, 'REF001');
+  });
+
+  it('invariant: a real heading diagnostic keeps the full source line', () => {
+    const sourceLines = ['# Doc', '```md', '## Fenced', '```', '## Real'];
+    const collected = collectHeadingLines(sourceLines, 2);
+
+    assert.equal(collected[0].text, '## Real');
   });
 });
