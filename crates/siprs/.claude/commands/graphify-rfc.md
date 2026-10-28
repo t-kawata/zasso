@@ -420,7 +420,7 @@ Adequacy report: concretely state section coverage/counts, kind distribution, de
 - The kind classification of <counts by kind> aligns with the design document
 - Dependencies form: "<concrete chain>"
 - <count> orphan nodes
-- Each edge is linked via headingRefs to its source location
+- Every node is linked via headingRefs to its source location; every edge joins two such nodes
 - Supplementary information: <concrete facts>
 ```
 
@@ -449,7 +449,7 @@ out:
 - edge count: graph `edges.length`.
 - headingRefs resolution: all N confirmed by `test-query-all.js`.
 - final `verify.js`: coverage + orphan result.
-- chain verdict: `verify-chain --stage=graphify` 0 findings; report view/map/graph/dirs/ticket unit counts and the 84-boundary projection count.
+- chain verdict: `verify-chain --stage=graphify` 0 findings; report view/map/graph/dirs/ticket unit counts and the boundary projection count.
 - stage counters: `runs` and `generation` from `statusPath`; an unchanged graph digest is a verification, not a new generation.
 - G5 adequacy: sufficient/reinforcement history.
 - split exceptions: each recorded authoritative table, its consumer and the reason it stayed whole.
