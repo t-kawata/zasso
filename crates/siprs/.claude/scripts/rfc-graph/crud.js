@@ -36,6 +36,12 @@ const FILE_ARG_PREFIX = '--file=';
 /** CLI argument prefix for specifying the source Markdown document path */
 const SOURCE_ARG_PREFIX = '--source=';
 
+/** CLI argument prefix for the main language a new graph root declares */
+const MAIN_LANGUAGE_ARG_PREFIX = '--main-language=';
+
+/** Error code for a first write that would create a graph with no main language */
+const MISSING_MAIN_LANGUAGE = 'MISSING_MAIN_LANGUAGE';
+
 /** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
   'create-nodes',
@@ -60,9 +66,25 @@ const EDGE_SCHEMA_FILE = 'edge.schema.json';
 /** Schema filename: full graph */
 const GRAPH_SCHEMA_FILE = 'graph.schema.json';
 
-/** Creates an empty graph data structure */
-function createEmptyGraph(sourceFile) {
-  return { sourceFile: toHomeRelative(sourceFile || ''), nodes: [], edges: [] };
+/**
+ * Creates an empty graph root.
+ *
+ * `mainLanguage` is not optional: graph.schema.json requires it, and a graph
+ * without it cannot pass the validation every write performs. The caller owns
+ * the value because only the source RFC states which language the project uses.
+ *
+ * @param {string} sourceFile — Source Markdown path recorded on the root
+ * @param {string} mainLanguage — Primary implementation language (e.g. rust)
+ * @returns {Object} Empty graph root carrying both required root facts
+ */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+function createEmptyGraph(sourceFile, mainLanguage) {
+  return {
+    sourceFile: toHomeRelative(sourceFile || ''),
+    mainLanguage,
+    nodes: [],
+    edges: [],
+  };
 }
 
 // ============================================================
@@ -72,10 +94,10 @@ function createEmptyGraph(sourceFile) {
 /**
  * Parses command line arguments
  *
- * @returns {{ graphPath: string, subcommand: string, nodeId: string|null, filePath: string|null }}
+ * @returns {{ graphPath: string, subcommand: string, nodeId: string|null, filePath: string|null, sourcePath: string|null, mainLanguage: string|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function parseArguments() {
   const args = process.argv.slice(2);
 
@@ -119,6 +141,7 @@ function parseArguments() {
   let nodeId = null;
   let filePath = null;
   let sourcePath = null;
+  let mainLanguage = null;
 
   for (let i = 2; i < args.length; i++) {
     const arg = args[i];
@@ -136,6 +159,11 @@ function parseArguments() {
       sourcePath = arg.slice(SOURCE_ARG_PREFIX.length);
       if (!sourcePath) {
         throw new Error('--source=<path> <path> is empty.');
+      }
+    } else if (arg.startsWith(MAIN_LANGUAGE_ARG_PREFIX)) {
+      mainLanguage = arg.slice(MAIN_LANGUAGE_ARG_PREFIX.length);
+      if (!mainLanguage) {
+        throw new Error('--main-language=<language> <language> is empty.');
       }
     } else {
       throw new Error(`Unknown argument: ${arg}`);
@@ -157,7 +185,7 @@ function parseArguments() {
     );
   }
 
-  return { graphPath, subcommand, nodeId, filePath, sourcePath };
+  return { graphPath, subcommand, nodeId, filePath, sourcePath, mainLanguage };
 }
 
 // ============================================================
@@ -167,22 +195,33 @@ function parseArguments() {
 /**
  * Reads the graph file. Generates an empty graph if the file does not exist.
  *
- * When creating for the first time (graph absent), sourcePath is required.
- * sourcePath is set in the graph root's sourceFile field.
+ * When creating for the first time (graph absent), sourcePath and mainLanguage
+ * are required: graph.schema.json requires mainLanguage, and there is no earlier
+ * file to read it from. Supplying mainLanguage for an existing graph is ignored,
+ * so the root fact is decided once, at creation.
  *
  * @param {string} graphPath — Path to the graph file
  * @param {string|null} sourcePath — Path to the source Markdown document (required for first creation)
+ * @param {string|null} mainLanguage — Primary implementation language (required for first creation)
  * @returns {Object} Graph data
- * @throws {Error} On file read error, or when sourcePath is missing for first creation
+ * @throws {Error} On file read error, or when a first creation lacks sourcePath or mainLanguage
  */
-function readGraph(graphPath, sourcePath) {
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+function readGraph(graphPath, sourcePath, mainLanguage = null) {
   if (!fs.existsSync(graphPath)) {
     if (!sourcePath) {
       throw new Error(
         '--source not specified. Specify --source=</path/to/RFC-???.md> for the source Markdown document path.'
       );
     }
-    return createEmptyGraph(sourcePath);
+    if (!mainLanguage) {
+      const error = new Error(
+        'Creating a graph requires --main-language=<rust|go|typescript>.'
+      );
+      error.code = MISSING_MAIN_LANGUAGE;
+      throw error;
+    }
+    return createEmptyGraph(sourcePath, mainLanguage);
   }
 
   const content = fs.readFileSync(graphPath, 'utf-8');
@@ -248,6 +287,7 @@ function validateWithSchema(data, schemaFileName, description) {
  * @param {Object[]} nodesData — Array of nodes to add
  * @throws {Error} On validation failure
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeCreateNodes(graph, nodesData) {
   // Step 1: Schema validate all nodes
   // Temporarily set headingRefs refId to a dummy value for validation to pass
@@ -304,7 +344,7 @@ function executeCreateNodes(graph, nodesData) {
 
   // Step 4: Execute addition
   graph.nodes.push(...nodesData);
-  console.log(JSON.stringify({ ok: true, created: nodesData.length, refStart: maxRefNumber + 1, refEnd: nextRefNumber - 1 }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, created: nodesData.length, refStart: maxRefNumber + 1, refEnd: nextRefNumber - 1 }, null, 2) + '\n');
 }
 
 /**
@@ -312,8 +352,9 @@ function executeCreateNodes(graph, nodesData) {
  *
  * @param {Object} graph — Graph data
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeListNodeIds(graph) {
-  console.log(JSON.stringify(graph.nodes, null, 2));
+  process.stdout.write(JSON.stringify(graph.nodes, null, 2) + '\n');
 }
 
 /**
@@ -323,6 +364,7 @@ function executeListNodeIds(graph) {
  * @param {string} nodeId — ID of the node to get
  * @throws {Error} If node not found
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeGetNode(graph, nodeId) {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) {
@@ -331,7 +373,7 @@ function executeGetNode(graph, nodeId) {
       `\n  Nodes in graph: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
     );
   }
-  console.log(JSON.stringify(node, null, 2));
+  process.stdout.write(JSON.stringify(node, null, 2) + '\n');
 }
 
 /**
@@ -345,6 +387,7 @@ function executeGetNode(graph, nodeId) {
  * @param {Object} patchData — Update content
  * @throws {Error} On validation failure
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeUpdateNode(graph, nodeId, patchData) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
@@ -362,7 +405,7 @@ function executeUpdateNode(graph, nodeId, patchData) {
 
   // Execute update
   graph.nodes[nodeIndex] = updatedNode;
-  console.log(JSON.stringify({ ok: true, id: nodeId }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, id: nodeId }, null, 2) + '\n');
 }
 
 /**
@@ -372,6 +415,7 @@ function executeUpdateNode(graph, nodeId, patchData) {
  * @param {string} nodeId — ID of the node to delete
  * @throws {Error} If node not found
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeDeleteNode(graph, nodeId) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
@@ -383,7 +427,7 @@ function executeDeleteNode(graph, nodeId) {
 
   // Execute deletion
   graph.nodes.splice(nodeIndex, 1);
-  console.log(JSON.stringify({ ok: true, removed: nodeId }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, removed: nodeId }, null, 2) + '\n');
 }
 
 /**
@@ -396,6 +440,7 @@ function executeDeleteNode(graph, nodeId) {
  * @param {Object[]} edgesData — Array of edges to add
  * @throws {Error} On validation failure
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeCreateEdges(graph, edgesData) {
   // Step 1: Schema validation for all edges
   for (const edge of edgesData) {
@@ -421,7 +466,7 @@ function executeCreateEdges(graph, edgesData) {
 
   // Step 3: Execute addition
   graph.edges.push(...edgesData);
-  console.log(JSON.stringify({ ok: true, created: edgesData.length }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, created: edgesData.length }, null, 2) + '\n');
 }
 
 /**
@@ -436,7 +481,7 @@ function executeCreateEdges(graph, edgesData) {
  * @param {Object} patchData — Contains from, to, type, and optionally contracts
  * @throws {Error} If edge not found or schema validation fails
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function executeUpdateEdge(graph, patchData) {
   const index = graph.edges.findIndex(
     (e) => e.from === patchData.from && e.to === patchData.to && e.type === patchData.type
@@ -453,7 +498,7 @@ function executeUpdateEdge(graph, patchData) {
   validateWithSchema(updatedEdge, EDGE_SCHEMA_FILE, 'Updated edge ' + patchData.from + '→' + patchData.to);
   // Execute update
   graph.edges[index] = updatedEdge;
-  console.log(JSON.stringify({ ok: true, edge: patchData.from + '→' + patchData.to + '(' + patchData.type + ')' }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, edge: patchData.from + '→' + patchData.to + '(' + patchData.type + ')' }, null, 2) + '\n');
 }
 
 /**
@@ -466,6 +511,7 @@ function executeUpdateEdge(graph, patchData) {
  * @param {Object} graph — Graph data
  * @param {Object[]} edgesData — Edge specifications to delete (containing from, to, type)
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeDeleteEdges(graph, edgesData) {
   let removedCount = 0;
   for (const target of edgesData) {
@@ -477,7 +523,7 @@ function executeDeleteEdges(graph, edgesData) {
       removedCount++;
     }
   }
-  console.log(JSON.stringify({ ok: true, removed: removedCount }, null, 2));
+  process.stdout.write(JSON.stringify({ ok: true, removed: removedCount }, null, 2) + '\n');
 }
 
 // ============================================================
@@ -491,6 +537,7 @@ function executeDeleteEdges(graph, edgesData) {
  * @param {string} reason — Why it happened
  * @param {string} action — Next action to take
  */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
   console.error('Cause: ' + reason);
@@ -501,9 +548,9 @@ function exitWithError(message, reason, action) {
 /**
  * Displays usage instructions
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(`
+  process.stdout.write(`
 crud.js — Graph file CRUD operations
 
 Usage:
@@ -528,6 +575,11 @@ Usage:
   node crud.js --graph=<path> update-edge --file=<patch.json>
     Update a single edge identified by from+to+type (update contracts field)
 
+First creation (graph file absent):
+  --source=<path>             source Markdown path recorded in the root
+  --main-language=<language>  primary implementation language
+                              (rust | go | typescript)
+
 All write operations execute atomic writes after passing schema validation.
 `);
 }
@@ -541,7 +593,7 @@ All write operations execute atomic writes after passing schema validation.
  *
  * All errors are caught in this function and output to stderr in 3-section template.
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -554,7 +606,7 @@ function main() {
     );
   }
 
-  const { graphPath, subcommand, nodeId, filePath, sourcePath } = parsed;
+  const { graphPath, subcommand, nodeId, filePath, sourcePath, mainLanguage } = parsed;
 
   try {
     // Subcommands requiring file input: read input JSON
@@ -568,7 +620,7 @@ function main() {
     const readOnlySubcommands = ['list-nodes', 'get-node'];
 
     if (readOnlySubcommands.includes(subcommand)) {
-      const graph = readGraph(graphPath, sourcePath);
+      const graph = readGraph(graphPath, sourcePath, mainLanguage);
       switch (subcommand) {
         case 'list-nodes':
           executeListNodeIds(graph);
@@ -581,7 +633,7 @@ function main() {
     }
 
     // Write subcommands (graph file modification)
-    const graph = readGraph(graphPath, sourcePath);
+    const graph = readGraph(graphPath, sourcePath, mainLanguage);
 
     // Schema validation of entire graph (verify existing data integrity)
     validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'Entire graph data');
@@ -618,10 +670,15 @@ function main() {
       try { fs.unlinkSync(filePath); } catch { /* Deletion failure does not affect the write operation itself */ }
     }
   } catch (operationError) {
+    const isMissingMainLanguage = operationError.code === MISSING_MAIN_LANGUAGE;
     exitWithError(
-      `Error during execution of ${subcommand}.`,
+      isMissingMainLanguage
+        ? 'MISSING_MAIN_LANGUAGE: a new graph requires a main language.'
+        : `Error during execution of ${subcommand}.`,
       operationError.message,
-      'Check input data and re-run.'
+      isMissingMainLanguage
+        ? 'Re-run with --main-language=<rust|go|typescript>.'
+        : 'Check input data and re-run.'
     );
   }
 }

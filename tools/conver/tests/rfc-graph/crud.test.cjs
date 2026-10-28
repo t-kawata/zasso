@@ -94,6 +94,31 @@ function createTestGraph(nodes = [], edges = []) {
   return { sourceFile: '/test/source.md', nodes, edges };
 }
 
+/**
+ * Run a function while capturing everything it writes to stdout.
+ *
+ * crud.js writes its CLI result to stdout rather than console.log, so the
+ * assertion reads the same bytes a caller would.
+ *
+ * @param {Function} run — Function whose stdout is captured
+ * @returns {string} Captured stdout
+ */
+// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+function captureStdout(run) {
+  const chunks = [];
+  const originalWrite = process.stdout.write;
+  process.stdout.write = (chunk) => {
+    chunks.push(String(chunk));
+    return true;
+  };
+  try {
+    run();
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+  return chunks.join('');
+}
+
 // ============================================================
 // Test Suites
 // ============================================================
@@ -183,6 +208,27 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, '/tmp/edges.json');
   });
 
+  // @verifies C001
+  it('parses --main-language for first creation', () => {
+    const result = testParse([
+      '--graph=/tmp/test.json', 'create-nodes', '--file=/tmp/nodes.json',
+      '--source=RFC.md', '--main-language=rust',
+    ]);
+    assert.equal(result.mainLanguage, 'rust');
+  });
+
+  // @verifies C001
+  it('rejects an empty --main-language value', () => {
+    assert.throws(
+      () => testParse([
+        '--graph=/tmp/test.json', 'create-nodes', '--file=/tmp/nodes.json',
+        '--main-language=',
+      ]),
+      (error) => /--main-language=<language> <language> is empty/.test(error.message)
+        && !/Unknown argument/.test(error.message),
+    );
+  });
+
   it('throws parse error on insufficient arguments', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json']),
@@ -230,9 +276,23 @@ describe('crud.js — readGraph', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('returns empty graph for non-existent file path', () => {
-    const graph = readGraph(path.join(tmpDir, 'nonexistent.json'), path.join(tmpDir, 'source.md'));
+  // @verifies C001
+  it('refuses to create a graph without a main language', () => {
+    assert.throws(
+      () => readGraph(path.join(tmpDir, 'nonexistent.json'), path.join(tmpDir, 'source.md')),
+      (error) => error.code === 'MISSING_MAIN_LANGUAGE',
+    );
+  });
+
+  // @verifies C001
+  it('returns an empty graph carrying the main language', () => {
+    const graph = readGraph(
+      path.join(tmpDir, 'nonexistent.json'),
+      path.join(tmpDir, 'source.md'),
+      'rust',
+    );
     assert.equal(graph.sourceFile, path.join(tmpDir, 'source.md'));
+    assert.equal(graph.mainLanguage, 'rust');
     assert.deepEqual(graph.nodes, []);
     assert.deepEqual(graph.edges, []);
   });
@@ -330,56 +390,25 @@ describe('crud.js — executeListNodeIds', () => {
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),
     ]);
-    // Capture stdout output
-    const logs = [];
-    const originalLog = console.log;
-    console.log = (msg) => logs.push(msg);
-
-    try {
-      executeListNodeIds(graph);
-      assert.equal(logs.length, 1);
-      const output = JSON.parse(logs[0]);
-      assert.equal(output.length, 2);
-      assert.equal(output[0].id, 'N0001');
-      assert.equal(output[1].id, 'N0002');
-    } finally {
-      console.log = originalLog;
-    }
+    const output = JSON.parse(captureStdout(() => executeListNodeIds(graph)));
+    assert.equal(output.length, 2);
+    assert.equal(output[0].id, 'N0001');
+    assert.equal(output[1].id, 'N0002');
   });
 
   it('outputs empty array for empty graph', () => {
     const graph = createTestGraph();
-    const logs = [];
-    const originalLog = console.log;
-    console.log = (msg) => logs.push(msg);
-
-    try {
-      executeListNodeIds(graph);
-      assert.equal(logs.length, 1);
-      const output = JSON.parse(logs[0]);
-      assert.deepEqual(output, []);
-    } finally {
-      console.log = originalLog;
-    }
+    const output = JSON.parse(captureStdout(() => executeListNodeIds(graph)));
+    assert.deepEqual(output, []);
   });
 });
 
 describe('crud.js — executeGetNode', () => {
   it('retrieves an existing node', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
-    const logs = [];
-    const originalLog = console.log;
-    console.log = (msg) => logs.push(msg);
-
-    try {
-      executeGetNode(graph, 'N0001');
-      assert.equal(logs.length, 1);
-      const output = JSON.parse(logs[0]);
-      assert.equal(output.id, 'N0001');
-      assert.equal(output.kind, 'requirement');
-    } finally {
-      console.log = originalLog;
-    }
+    const output = JSON.parse(captureStdout(() => executeGetNode(graph, 'N0001')));
+    assert.equal(output.id, 'N0001');
+    assert.equal(output.kind, 'requirement');
   });
 
   it('throws error on non-existent node ID', () => {

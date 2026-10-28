@@ -46,9 +46,9 @@ const FIXTURE_RFC = [
 ].join('\n');
 
 /** Create a temporary package containing the fixture RFC.md. */
-// [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-332, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-332|PX-333) --for-spec --no-implementation-order`.
 function makePackageWithRfc() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px332-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'graphify-cmd-'));
   fs.writeFileSync(path.join(dir, 'RFC.md'), FIXTURE_RFC);
   return dir;
 }
@@ -335,15 +335,14 @@ describe('graphify-rfc.md slash command integration tests', () => {
       }
     });
 
+    // @verifies C001
+    // @verifies C002
     it('C001/C002: the fixed source reaches crud and verify', () => {
       const source = commandContent.match(/sourcePath="([^"]+)"/);
       assert.equal(source && source[1], 'RFC.md',
         'the command must fix the source before any script runs');
       const dir = makePackageWithRfc();
       try {
-        fs.writeFileSync(path.join(dir, 'RFC-GRAPH.json'), JSON.stringify({
-          sourceFile: source[1], mainLanguage: 'typescript', nodes: [], edges: [],
-        }));
         const nodes = [
           {
             id: 'N0001', title: 'Purpose', kind: 'architecture', summary: 'Purpose section',
@@ -369,6 +368,7 @@ describe('graphify-rfc.md slash command integration tests', () => {
         const created = spawnSync(process.execPath, [
           CRUD, '--graph=RFC-GRAPH.json', 'create-nodes',
           '--file=_temp_nodes.json', `--source=${source[1]}`,
+          '--main-language=typescript',
         ], { cwd: dir, encoding: 'utf8' });
         assert.equal(created.status, 0, created.stderr);
         const linked = spawnSync(process.execPath, [
@@ -383,6 +383,98 @@ describe('graphify-rfc.md slash command integration tests', () => {
         assert.match(verified.stdout, /"ok":true/);
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    // @verifies C001
+    it('C001: a fresh graph is created only with a main language', () => {
+      const dir = makePackageWithRfc();
+      try {
+        const nodes = [{
+          id: 'N0001', title: 'Purpose', kind: 'architecture', summary: 'Purpose section',
+          language: 'typescript', slug: 'purpose',
+          headingRefs: [{ heading: 2, texts: ['Purpose'] }],
+        }];
+        fs.writeFileSync(path.join(dir, '_temp_nodes.json'), JSON.stringify(nodes));
+        const refused = spawnSync(process.execPath, [
+          CRUD, '--graph=RFC-GRAPH.json', 'create-nodes',
+          '--file=_temp_nodes.json', '--source=RFC.md',
+        ], { cwd: dir, encoding: 'utf8' });
+        assert.equal(refused.status, 1, 'a first write without a language must fail');
+        assert.match(refused.stderr, /MISSING_MAIN_LANGUAGE/);
+        assert.equal(fs.existsSync(path.join(dir, 'RFC-GRAPH.json')), false);
+        const created = spawnSync(process.execPath, [
+          CRUD, '--graph=RFC-GRAPH.json', 'create-nodes',
+          '--file=_temp_nodes.json', '--source=RFC.md', '--main-language=typescript',
+        ], { cwd: dir, encoding: 'utf8' });
+        assert.equal(created.status, 0, created.stderr);
+        const root = JSON.parse(fs.readFileSync(path.join(dir, 'RFC-GRAPH.json'), 'utf8'));
+        assert.equal(root.mainLanguage, 'typescript');
+        assert.equal(root.nodes.length, 1);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    // @verifies C002
+    it('C002: the command bootstraps mainLanguage from the RFC', () => {
+      assert.match(commandContent, /--main-language="\$mainLanguage"/);
+      assert.match(commandContent, /implementation language the RFC states/);
+      assert.match(commandContent, /`rust`, `go`, or `typescript`/);
+    });
+
+    // @verifies C003
+    it('C003: the split gate records an authoritative-table exception', () => {
+      assert.match(commandContent, /authoritative table/);
+      assert.match(commandContent, /consumer/i);
+      assert.match(commandContent, /never split/i);
+      assert.equal(
+        commandContent.includes('section >100 effective prose lines → mandatory split.'),
+        false,
+      );
+    });
+
+    // @verifies C004
+    it('C004: Step 2 names the stale-view diagnosis and repair', () => {
+      assert.match(commandContent, /STALE_VIEW_ORDER_CONVENTION/);
+      assert.match(commandContent, /STEP_IDENTITY_MISMATCH/);
+      assert.match(commandContent, /sequences-slice\/run\.mjs/);
+      assert.match(commandContent, /smooth-sequences/);
+      assert.match(commandContent, /PX-320/);
+    });
+
+    // @verifies C005
+    it('C005: the frozen baseline follows the edited command', async () => {
+      assert.match(commandContent, /--main-language="\$mainLanguage"/);
+      const { digestCommandFiles } = await import(
+        '../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs'
+      );
+      const current = digestCommandFiles(PROJECT_ROOT)['graphify-rfc'];
+      const frozen = JSON.parse(fs.readFileSync(
+        path.join(PROJECT_ROOT, 'tests/workspacify-tree/baselines/manifest-hashes.json'), 'utf8'
+      )).commandFileDigests['graphify-rfc'];
+      for (const heading of frozen.headings) {
+        assert.ok(current.headings.includes(heading), `frozen heading lost: ${heading}`);
+      }
+      assert.equal(frozen.documentDigest, current.documentDigest);
+      assert.equal(frozen.languageProtocolDigest, current.languageProtocolDigest);
+      assert.equal(frozen.firstClassRuleDigest, current.firstClassRuleDigest);
+    });
+
+    // @verifies C005
+    it('C005: the installed command and script copies match conver', () => {
+      const readText = (file) => fs.readFileSync(file, 'utf8');
+      for (const rel of [
+        '../../../../.claude/commands/graphify-rfc.md',
+        '../../../../crates/siprs/.claude/commands/graphify-rfc.md',
+      ]) {
+        assert.equal(readText(path.resolve(__dirname, rel)), readText(COMMAND_PATH));
+      }
+      for (const rel of [
+        '../../../../.claude/scripts/rfc-graph/crud.js',
+        '../../../../crates/siprs/.claude/scripts/rfc-graph/crud.js',
+      ]) {
+        assert.equal(readText(path.resolve(__dirname, rel)), readText(CRUD));
       }
     });
 

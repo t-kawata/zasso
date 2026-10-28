@@ -112,7 +112,7 @@ Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `attach-uni
 
 ```json
 {
-  "sourceFile": "RFC-ROOT.md",
+  "sourceFile": "RFC.md",
   "mainLanguage": "rust",
   "nodes": [...],
   "edges": [...]
@@ -234,6 +234,8 @@ Kinds: `requirement` / `api_contract` / `data_model` / `state_machine` / `archit
 
 Languages: `rust` | `go` | `typescript`; no other value.
 
+Graph bootstrap: the first `create-nodes` creates `RFC-GRAPH.json`. Set `mainLanguage` to the implementation language the RFC states — `rust`, `go`, or `typescript` — and pass `--main-language="$mainLanguage"` on that call. The value is authored from the RFC, not from a manifest: a spec-only package may carry no implementation manifest. Every later crud call omits the flag.
+
 Slug generation; deterministic priority:
 1. English words/numbers from title → lower_snake_case.
 2. insufficient/no English → section number, dots → `_`; kind suffix when needed.
@@ -244,8 +246,8 @@ Examples: `§1 Purpose — Responsibilities of this crate` → `purpose_crate_re
 
 Granularity:
 - effective prose: ~30–50 lines/node; fenced code excluded.
-- section >100 effective prose lines → mandatory split.
-- Run `analyze-source-structure.js "$sourcePath"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, insert `###` only, preserving all content, then re-run.
+- section >100 effective prose lines → split, unless it is an authoritative table or ledger that a downstream script reads whole. Record the heading, the consumer and the reason in the completion report; never split a recorded section.
+- Run `analyze-source-structure.js "$sourcePath"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, split each listed section that is not a recorded exception, inserting `###` only, preserving all content, then re-run.
 
 ```bash
 node .claude/scripts/rfc-graph/analyze-source-structure.js "$sourcePath"
@@ -322,6 +324,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" delete-edges --file=_remove_edges.json
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_add_edges.json
 ```
+
+`STEP_IDENTITY_MISMATCH` with only `order` differing is `STALE_VIEW_ORDER_CONVENTION`: the view carries the artifact global array index and predates PX-320. `verify-chain` is correct and is not edited. Re-project each named view with `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`, re-run `/smooth-sequences`, then reset Step 2.
 
 ## Step 3: Machine Verification
 
@@ -448,6 +452,7 @@ out:
 - chain verdict: `verify-chain --stage=graphify` 0 findings; report view/map/graph/dirs/ticket unit counts and the 84-boundary projection count.
 - stage counters: `runs` and `generation` from `statusPath`; an unchanged graph digest is a verification, not a new generation.
 - G5 adequacy: sufficient/reinforcement history.
+- split exceptions: each recorded authoritative table, its consumer and the reason it stayed whole.
 - graph summary: kind-organized node list + edge relationships.
 
 Done: graph available to `/split-to-tickets` and `/boundify-graph` through `show-graph-summary-markdown.js --with-cli-examples`; referenced by `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`.
