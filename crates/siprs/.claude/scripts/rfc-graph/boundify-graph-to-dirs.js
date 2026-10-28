@@ -36,6 +36,10 @@ const treeBuilder = require("./boundify-tree.js");
 const { validateFiles } = require("./validate-dirs-tree-schema.js");
 const { createDefaultStatus, atomicWrite } = require("./update-boundify-step-status.js");
 const { toHomeRelative } = require("../lib/path-utils");
+const {
+  resolveGraphPath,
+  reportResolvedPath,
+} = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 const {
   buildDistributionIndex,
@@ -124,11 +128,14 @@ Flags:
  * @returns {{ graphPath: string, graphDir: string, basename: string, flags: { json: boolean, dryRun: boolean, force: boolean, quiet: boolean } }}
  * @throws {never} — Exits via process.exit(EXIT_FAILURE) on failure
  */
-function parseArguments(testArgs) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
+  const cwd = options.cwd || process.cwd();
 
-  // If no arguments or --help/-h, show usage and exit
-  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+  // `--help` still explains the override surface; a bare invocation now means the
+  // canonical graph in the invocation directory.
+  if (args[0] === "--help" || args[0] === "-h") {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
@@ -138,12 +145,14 @@ function parseArguments(testArgs) {
   const graphFlagArg = args.find(function (a) {
     return a.startsWith(GRAPH_FLAG_PREFIX);
   });
+  const positionalPath =
+    args.length > 0 && !args[0].startsWith("--") ? args[0] : null;
   const rawPath = graphFlagArg
     ? graphFlagArg.slice(GRAPH_FLAG_PREFIX.length)
-    : args[0];
+    : positionalPath;
 
   // Error on empty string
-  if (!rawPath) {
+  if (rawPath === "") {
     reportError(
       "Graph file path is empty",
       "--graph= was specified without a path argument",
@@ -152,16 +161,21 @@ function parseArguments(testArgs) {
     process.exit(EXIT_FAILURE);
   }
 
-  // Resolve graph path
-  const graphPath = path.resolve(rawPath);
-  if (!fs.existsSync(graphPath)) {
-    reportError(
-      `Graph file not found: ${graphPath}`,
-      "The specified path does not point to an existing file",
-      "Provide the correct path to the graph JSON file" +
-        " (e.g. node boundify-graph-to-dirs.js --graph=./RFC-ROOT-GRAPH.json)",
-    );
-    process.exit(EXIT_FAILURE);
+  let graphPath;
+  if (rawPath) {
+    graphPath = path.resolve(cwd, rawPath);
+    if (!fs.existsSync(graphPath)) {
+      reportError(
+        `Graph file not found: ${graphPath}`,
+        "The specified path does not point to an existing file",
+        "Provide the correct path to the graph JSON file" +
+          " (e.g. node boundify-graph-to-dirs.js --graph=./RFC-ROOT-GRAPH.json)",
+      );
+      process.exit(EXIT_FAILURE);
+    }
+  } else {
+    graphPath = resolveGraphPath({ cwd });
+    reportResolvedPath("graph", graphPath);
   }
 
   const flags = {
@@ -420,10 +434,10 @@ function resolveOutputPaths(graphDir, basename) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307, PX-308, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-319) --for-spec --no-implementation-order`.
-function main(testArgs) {
+// [::TICKET::] PX-307, PX-308, PX-319, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-319|PX-334) --for-spec --no-implementation-order`.
+function main(testArgs, options = {}) {
   // ---- Step 1-2: Argument parsing and graph loading ----
-  const { graphPath, graphDir, basename, flags } = parseArguments(testArgs);
+  const { graphPath, graphDir, basename, flags } = parseArguments(testArgs, options);
   const graph = loadGraph(graphPath);
 
   // ---- Step 3: Collect languages present in graph ----

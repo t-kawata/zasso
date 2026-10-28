@@ -608,13 +608,10 @@ function findRootArtifact(packagePath) {
  * missing Tickets.json into a failure at the post-5-2 gate.
  */
 // [::TICKET::] PX-312, PX-313, PX-315, PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-316) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const stage = argumentFor(argv, 'stage') ?? 'split';
-  const packagePath = argumentFor(argv, 'package');
-  if (packagePath === null) {
-    console.error('[ERROR] --package=<package-directory> is required');
-    return 2;
-  }
+  const packagePath = argumentFor(argv, 'package') ?? '.';
   const preflight = argv.includes('--preflight');
   const viewPath = argumentFor(argv, 'view') ?? join(packagePath, 'SEQUENCES.json');
   const graphPath = argumentFor(argv, 'graph') ?? findSingleSiblingPath(packagePath, '-GRAPH.json');

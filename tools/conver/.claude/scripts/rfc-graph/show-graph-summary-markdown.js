@@ -22,6 +22,7 @@ const path = require('path');
 
 const { resolveByHeading } = require('./resolve-by-heading.js');
 const { deriveGraphPathFromDoc } = require('../lib/package-artifacts');
+const { resolveSourcePath, reportResolvedPath } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
 
 // ============================================================
@@ -65,8 +66,10 @@ const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 /** Default hop count for traversal */
 const DEFAULT_HOPS = 2;
 
-function parseArguments(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(argv, options = {}) {
   const args = argv.slice(2);
+  const cwd = options.cwd || process.cwd();
   let graphPath = null;
   let sourcePath = null;
   let withCliExamples = false;
@@ -88,9 +91,8 @@ function parseArguments(argv) {
   }
 
   if (!sourcePath) {
-    throw new Error(
-      'Insufficient arguments.\nUsage: show-graph-summary-markdown.js --source=<path> [--graph=<path>] [--with-cli-examples]'
-    );
+    sourcePath = resolveSourcePath({ cwd });
+    reportResolvedPath('source', sourcePath);
   }
   if (!graphPath) {
     graphPath = deriveGraphPathFromDoc(sourcePath);

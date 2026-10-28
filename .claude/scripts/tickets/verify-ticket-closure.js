@@ -27,6 +27,8 @@ const { registryRowsForPackage } = require('../sequences-slice/lib/distribution-
 const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
+  resolveTicketsPath,
+  reportResolvedPath,
 } = require('../lib/package-artifacts');
 const { ticketIdentity } = require('./lib/ticket-identity.js');
 const { readStepContractSidecar } = require('../rfc-graph/lib/step-contracts.mjs');
@@ -34,27 +36,26 @@ const { readStepContractSidecar } = require('../rfc-graph/lib/step-contracts.mjs
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-314|PX-318) --for-spec --no-implementation-order`.
-function parseArgs(argv = process.argv.slice(2)) {
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-314, PX-318, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-314|PX-318|PX-334) --for-spec --no-implementation-order`.
+function parseArgs(argv = process.argv.slice(2), options = {}) {
+  const cwd = options.cwd || process.cwd();
   let ticketsPath, graphPath, registryPath = null, viewPath = null, stepSidecarPath = null;
   for (const a of argv) {
-    if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
-    if (a.startsWith('--graph=')) graphPath = path.resolve(a.slice('--graph='.length));
-    if (a.startsWith('--registry=')) registryPath = path.resolve(a.slice('--registry='.length));
+    if (a.startsWith('--tickets=')) ticketsPath = path.resolve(cwd, a.slice('--tickets='.length));
+    if (a.startsWith('--graph=')) graphPath = path.resolve(cwd, a.slice('--graph='.length));
+    if (a.startsWith('--registry=')) registryPath = path.resolve(cwd, a.slice('--registry='.length));
     if (a.startsWith('--step-sidecar=')) {
       const value = a.slice('--step-sidecar='.length);
-      stepSidecarPath = value === '' ? null : path.resolve(value);
+      stepSidecarPath = value === '' ? null : path.resolve(cwd, value);
     }
     if (a.startsWith('--view=')) {
       const value = a.slice('--view='.length);
-      viewPath = value === '' ? null : path.resolve(value);
+      viewPath = value === '' ? null : path.resolve(cwd, value);
     }
   }
   if (!ticketsPath) {
-    console.error('[ERROR] --tickets=<path> is required');
-    console.error('Cause: Missing arguments');
-    console.error('Action: Provide the Tickets.json path');
-    process.exit(1);
+    ticketsPath = resolveTicketsPath({ cwd });
+    reportResolvedPath('tickets', ticketsPath);
   }
   if (!graphPath) graphPath = deriveGraphPathFromTickets(ticketsPath);
   if (!graphPath) {

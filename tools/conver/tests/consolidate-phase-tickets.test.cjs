@@ -13,6 +13,8 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const {
   guardPhaseCount,
   validateAllNodeIdsCovered,
@@ -482,6 +484,7 @@ function testUpdateStatusJson() {
 // テスト: parseCliArgs
 // ============================================================
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function testParseCliArgs() {
   console.log('\n=== parseCliArgs ===');
 
@@ -497,9 +500,14 @@ function testParseCliArgs() {
   assert(result3.error === null, '3引数(--dry-run): error=null');
   assert(result3.dryRun === true, '3引数(--dry-run): dryRun=true');
 
-  // 異常系: 引数不足
-  const result0 = parseCliArgs([]);
-  assert(result0.error !== null, '0引数: errorあり');
+  // 正常系: 引数なしは canonical な Tickets.json と RFC-SPLIT-Status.json を使う
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'consolidate-default-'));
+  fs.writeFileSync(path.join(cwd, 'RFC-GRAPH.json'), '{}');
+  fs.writeFileSync(path.join(cwd, 'Tickets.json'), '{"phases":[]}');
+  const result0 = parseCliArgs([], { cwd });
+  assert(result0.error === null, '0引数: canonical default');
+  assert(result0.ticketsPath.endsWith('Tickets.json'), '0引数: ticketsPath');
+  assert(result0.statusPath.endsWith('RFC-SPLIT-Status.json'), '0引数: statusPath');
 
   const result1 = parseCliArgs(['tickets.json']);
   assert(result1.error !== null, '1引数: errorあり');

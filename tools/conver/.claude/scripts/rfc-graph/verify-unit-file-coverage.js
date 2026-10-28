@@ -13,6 +13,11 @@
  */
 const fs = require('fs');
 const path = require('path');
+const {
+  resolveGraphPath,
+  resolveDirsTreePath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 const {
   readHeaderNodeId,
@@ -91,14 +96,25 @@ function verifyUnitFileCoverage({ graph, dirsTree, root }) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const graphPath = argumentFor(argv, 'graph');
-  const dirsTreePath = argumentFor(argv, 'dirs-tree');
-  if (graphPath === null || dirsTreePath === null) {
-    console.error('[ERROR] MISSING_ARGUMENT: --graph=<GRAPH.json> and --dirs-tree=<Dirs-Tree.json> are required');
+  const graphFlag = argumentFor(argv, 'graph');
+  const dirsTreeFlag = argumentFor(argv, 'dirs-tree');
+  let graphPath;
+  let dirsTreePath;
+  try {
+    graphPath = graphFlag !== null
+      ? path.resolve(graphFlag)
+      : resolveGraphPath({ cwd: process.cwd() });
+    if (graphFlag === null) reportResolvedPath('graph', graphPath);
+    dirsTreePath = dirsTreeFlag !== null
+      ? path.resolve(dirsTreeFlag)
+      : resolveDirsTreePath({ cwd: process.cwd(), graphPath });
+    if (dirsTreeFlag === null) reportResolvedPath('dirs-tree', dirsTreePath);
+  } catch (error) {
+    console.error('[ERROR] ' + (error.code || 'MISSING_ARTIFACT') + ': ' + error.message);
     console.error('Cause: the coverage gate reads both layers');
-    console.error('Action: pass both paths and re-run');
+    console.error('Action: ' + (error.remedy || 'pass both paths and re-run'));
     return EXIT_FAILURE;
   }
   const root = argumentFor(argv, 'root') ?? path.dirname(graphPath);

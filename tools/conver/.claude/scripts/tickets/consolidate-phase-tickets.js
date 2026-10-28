@@ -33,7 +33,12 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadGraphEdgesFromTickets } = require('./generate-related-ticket-ids.js');
-const { deriveStatusPathFromTickets } = require('../lib/package-artifacts');
+const {
+  deriveStatusPathFromTickets,
+  resolveTicketsPath,
+  resolveStageStatusPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 // ============================================================
 // Constants
@@ -568,7 +573,9 @@ function atomicWriteJson(targetPath, data) {
  * @param {string[]} argv — equivalent to process.argv.slice(2)
  * @returns {{ ticketsPath: string, statusPath: string, dryRun: boolean, error: string|null }}
  */
-function parseCliArgs(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseCliArgs(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const positional = [];
   let dryRun = false;
 
@@ -588,17 +595,22 @@ function parseCliArgs(argv) {
   }
 
   if (positional.length < 1) {
+    // Canonical form: no argument means this package's Tickets.json and SPLIT status.
+    const ticketsPath = resolveTicketsPath({ cwd });
+    reportResolvedPath('tickets', ticketsPath);
+    const statusPath = resolveStageStatusPath('split', { cwd });
+    reportResolvedPath('status', statusPath);
     return {
-      ticketsPath: '',
-      statusPath: '',
-      dryRun: false,
-      error: 'Insufficient arguments. Usage: node consolidate-phase-tickets.js <Tickets.json> [status.json] [--dry-run]',
+      ticketsPath,
+      statusPath,
+      dryRun: dryRun,
+      error: null,
     };
   }
 
-  const ticketsPath = path.resolve(positional[0]);
+  const ticketsPath = path.resolve(cwd, positional[0]);
   const statusPath = positional.length >= 2
-    ? path.resolve(positional[1])
+    ? path.resolve(cwd, positional[1])
     : deriveStatusPathFromTickets(ticketsPath);
 
   if (!statusPath) {

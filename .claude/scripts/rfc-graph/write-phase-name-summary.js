@@ -20,19 +20,32 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  resolveTicketsPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 /**
  * Main entry point.
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.error('[ERROR] Usage: echo \'{"name":"...","summary":"..."}\' | node write-phase-name-summary.js <Tickets.json> <phaseId>');
+  if (args.length < 1) {
+    console.error('[ERROR] Usage: echo \'{"name":"...","summary":"..."}\' | node write-phase-name-summary.js [Tickets.json] <phaseId>');
     process.exit(2);
   }
 
-  const ticketsPath = path.resolve(args[0]);
-  const phaseId = args[1];
+  let ticketsPath;
+  let phaseId;
+  if (args.length === 1) {
+    ticketsPath = resolveTicketsPath({ cwd: process.cwd() });
+    reportResolvedPath('tickets', ticketsPath);
+    phaseId = args[0];
+  } else {
+    ticketsPath = path.resolve(process.cwd(), args[0]);
+    phaseId = args[1];
+  }
 
   // Read JSON from stdin
   let inputData = '';

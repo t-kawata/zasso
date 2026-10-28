@@ -39,6 +39,12 @@ const DIRS_TREE_ARG_PREFIX = "--dirs-tree=";
 /** Default hop count when not specified */
 const DEFAULT_HOPS = 1;
 
+const {
+  resolveGraphPath,
+  resolveSourcePath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
+
 /** Success exit code */
 const EXIT_SUCCESS = 0;
 
@@ -56,8 +62,10 @@ const EXIT_FAILURE = 1;
  * @returns {{ graphPath: string, sourcePath: string, nodeIds: string[], hops: number }}
  * @throws {Error} When arguments are invalid
  */
-function parseArguments(testArgs) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
+  const cwd = options.cwd || process.cwd();
 
   // --help option
   if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
@@ -89,10 +97,25 @@ function parseArguments(testArgs) {
     }
   }
 
-  // Required flag validation
-  if (!graphPath) throw new Error("--graph=<path> is required.");
-  if (!sourcePath) throw new Error("--source=<path> is required.");
+  // The node id is the only genuine input; it is validated before the canonical
+  // artifacts are resolved so a missing id never triggers a path error.
   if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> is required.");
+
+  if (args.some((arg) => arg === GRAPH_PATH_ARG_PREFIX)) {
+    throw new Error("--graph=<path> is empty.");
+  }
+  if (args.some((arg) => arg === SOURCE_PATH_ARG_PREFIX)) {
+    throw new Error("--source=<path> is empty.");
+  }
+
+  if (!graphPath) {
+    graphPath = resolveGraphPath({ cwd });
+    reportResolvedPath('graph', graphPath);
+  }
+  if (!sourcePath) {
+    sourcePath = resolveSourcePath({ cwd });
+    reportResolvedPath('source', sourcePath);
+  }
 
   return { graphPath, sourcePath, nodeIds, hops, dirsTreePath };
 }

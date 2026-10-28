@@ -7,18 +7,20 @@
  *
  * If no section is found, outputs nothing and exits 0 (not an error, just no info).
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 import fs from "node:fs";
 import path from "node:path";
 // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
+import packageArtifacts from '../lib/package-artifacts.js';
 
-const RFC_PATH = process.argv[2];
-if (!RFC_PATH) {
-  console.error("Usage: extract-io-boundary.js <rfc-file>");
-  process.exit(1);
+let resolvedPath;
+if (process.argv[2]) {
+  resolvedPath = path.resolve(process.argv[2]);
+} else {
+  resolvedPath = packageArtifacts.resolveSourcePath({ cwd: process.cwd() });
+  packageArtifacts.reportResolvedPath('source', resolvedPath);
 }
-
-const resolvedPath = path.resolve(RFC_PATH);
 if (!fs.existsSync(resolvedPath)) {
   console.error(`Error: RFC file not found: ${toHomeRelative(resolvedPath)}`);
   process.exit(1);

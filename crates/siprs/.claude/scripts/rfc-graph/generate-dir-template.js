@@ -28,6 +28,7 @@ const fs = require('fs');
 const path = require('path');
 const helpers = require('./boundify-helpers.js');
 const { fromHomeRelative } = require('../lib/path-utils');
+const { resolveDirsTreePath } = require('../lib/package-artifacts');
 
 // ============================================================
 // Constants
@@ -42,6 +43,9 @@ const ERROR_MISSING_ARGS = '[ERROR] Insufficient arguments\nCause: --dirs-tree=<
 /** Three-line template error -- unsupported language */
 const ERROR_UNSUPPORTED_LANG = (lang) =>
   `[ERROR] Unsupported language: ${lang}\nCause: specify one of rust/go/typescript\nAction: Specify a valid language`;
+
+/** The stub line every generated implementation file starts with. */
+const DECLARATION_STUB_TODO_PREFIX = '// TODO: [::STUB::] MUST implement NODE_ID=';
 
 /** Three-line template error -- file not found */
 const ERROR_FILE_NOT_FOUND = (filePath) =>
@@ -76,7 +80,9 @@ const ERROR_CREATE_FAILED = (filePath, message) =>
  * @returns {object} Result. Success: {ok:true, dirsTreePath, rootDir, lang, isDryRun, isForce, isDelete}
  *                   Failure: {ok:false, error:string}
  */
-function parseArgs(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArgs(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const dirsTreeFlag = argv.find(a => a.startsWith('--dirs-tree='));
   const rootDirFlag = argv.find(a => a.startsWith('--root-dir='));
   const langFlag = argv.find(a => a.startsWith('--lang='));
@@ -84,10 +90,7 @@ function parseArgs(argv) {
   const isForce = argv.includes('--force');
   const isDelete = argv.includes('--delete');
 
-  if (!dirsTreeFlag) {
-    return { ok: false, error: ERROR_MISSING_ARGS };
-  }
-  if (!rootDirFlag) {
+  if (dirsTreeFlag === '--dirs-tree=' || rootDirFlag === '--root-dir=') {
     return { ok: false, error: ERROR_MISSING_ARGS };
   }
   if (!langFlag) {
@@ -99,10 +102,26 @@ function parseArgs(argv) {
     return { ok: false, error: ERROR_UNSUPPORTED_LANG(lang) };
   }
 
+  let dirsTreePath;
+  try {
+    dirsTreePath = dirsTreeFlag
+      ? path.resolve(cwd, dirsTreeFlag.slice('--dirs-tree='.length))
+      : resolveDirsTreePath({ cwd });
+  } catch (error) {
+    return {
+      ok: false,
+      error: '[ERROR] ' + (error.code || 'MISSING_DIRS_TREE') + ': ' + error.message
+        + '\nCause: The canonical Dirs-Tree could not be resolved.'
+        + '\nAction: ' + (error.remedy || 'Run /boundify-graph in this directory.'),
+    };
+  }
+
   return {
     ok: true,
-    dirsTreePath: path.resolve(dirsTreeFlag.slice('--dirs-tree='.length)),
-    rootDir: path.resolve(rootDirFlag.slice('--root-dir='.length)),
+    dirsTreePath,
+    rootDir: rootDirFlag
+      ? path.resolve(cwd, rootDirFlag.slice('--root-dir='.length))
+      : path.dirname(dirsTreePath),
     lang,
     isDryRun,
     isForce,
@@ -129,7 +148,7 @@ function parseArgs(argv) {
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   Array of items to generate (no file creation)
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334) --for-spec --no-implementation-order`.
 function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
@@ -189,7 +208,7 @@ function discover(node, currentPath, headerContext) {
       content += '\n';
       for (let si = 0; si < stubEntries.length; si++) {
         const entry = stubEntries[si];
-        content += '// TODO: [::STUB::] MUST implement NODE_ID=' + entry.nodeId + ': ' + (entry.title || '') + '\n';
+        content += DECLARATION_STUB_TODO_PREFIX + entry.nodeId + ': ' + (entry.title || '') + '\n';
       }
     }
     created.push({ type: 'file', path: fullPath, size: content.length, content });
@@ -393,6 +412,7 @@ function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
  *
  * @param {string[]} [testArgs] - Test argument array (defaults to process.argv.slice(2))
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 async function main(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
@@ -422,7 +442,10 @@ async function main(testArgs) {
   const tree = dirsTree.trees && dirsTree.trees[lang];
   if (!tree) {
     const msg = `${lang} has no definition in Dirs-Tree.json, exiting normally without creating anything.`;
-    console.log(msg);
+    // stdout is the machine contract generate-all-dir-templates.js parses; the
+    // human-readable sentence stays on stderr so the JSON stays valid.
+    console.error(msg);
+    console.log(JSON.stringify({ ok: true, skipped: true, language: lang, message: msg }));
     process.exit(0);
     return;
   }

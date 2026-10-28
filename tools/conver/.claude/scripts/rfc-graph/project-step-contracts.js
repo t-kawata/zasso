@@ -15,6 +15,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const {
+  resolveGraphPath,
+  resolveViewPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 const {
   STEP_NOTE_LIMIT,
@@ -72,15 +77,26 @@ function attachNotes(graphPath, sidecar) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const graphPath = argumentFor(argv, 'graph');
-  const viewPath = argumentFor(argv, 'view');
+  const graphFlag = argumentFor(argv, 'graph');
+  const viewFlag = argumentFor(argv, 'view');
   const mode = argumentFor(argv, 'mode') ?? 'attach';
-  if (graphPath === null || viewPath === null) {
-    console.error('[ERROR] MISSING_ARGUMENT: --graph=<GRAPH.json> and --view=<SEQUENCES.json> are required');
+  let graphPath;
+  let viewPath;
+  try {
+    graphPath = graphFlag !== null
+      ? path.resolve(graphFlag)
+      : resolveGraphPath({ cwd: process.cwd() });
+    if (graphFlag === null) reportResolvedPath('graph', graphPath);
+    viewPath = viewFlag !== null
+      ? path.resolve(viewFlag)
+      : resolveViewPath({ cwd: process.cwd(), allowMissing: false });
+    if (viewFlag === null) reportResolvedPath('view', viewPath);
+  } catch (error) {
+    console.error('[ERROR] ' + (error.code || 'MISSING_ARTIFACT') + ': ' + error.message);
     console.error('Cause: the step projection reads both the graph and the package view');
-    console.error('Action: pass both paths and re-run');
+    console.error('Action: ' + (error.remedy || 'pass both paths and re-run'));
     return EXIT_FAILURE;
   }
   const sidecarPath = argumentFor(argv, 'sidecar') ?? path.join(path.dirname(graphPath), 'RFC-STEP-CONTRACTS.json');

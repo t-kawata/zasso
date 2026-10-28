@@ -19,6 +19,10 @@
 const fs = require('fs');
 const path = require('path');
 const { MAX_FILE_NAME_LENGTH } = require('./boundify-helpers.js');
+const {
+  resolveGraphPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 // ============================================================
 // Constants
@@ -53,12 +57,20 @@ const EXIT_FAILURE = 1;
  * @returns {{ graphPath: string }}
  * @throws {Error} If arguments are invalid
  */
-function parseArguments(testArgs) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
+  const cwd = options.cwd || process.cwd();
 
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(EXIT_SUCCESS);
+  }
+
+  if (args.length === 0) {
+    const graphPath = resolveGraphPath({ cwd });
+    reportResolvedPath('graph', graphPath);
+    return { graphPath };
   }
 
   if (args.length !== 1) {
@@ -80,7 +92,7 @@ function parseArguments(testArgs) {
     throw new Error('--graph=<path> is empty.');
   }
 
-  return { graphPath };
+  return { graphPath: path.resolve(cwd, graphPath) };
 }
 
 /**

@@ -18,7 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { deriveGraphPathFromTickets } = require('../lib/package-artifacts');
+const { deriveGraphPathFromTickets, resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
 const {
   OPERATION_OBLIGATION_FIELDS,
@@ -218,12 +218,12 @@ function renderTicketDistribution(records) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-334) --for-spec --no-implementation-order`.
 function main() {
-  const ticketsPath = process.argv[2];
+  let ticketsPath = process.argv[2];
   if (!ticketsPath) {
-    process.stderr.write('Usage: node show-ticket-distribution.js <path to Tickets.json>\n');
-    process.exit(EXIT_FAILURE);
+    ticketsPath = resolveTicketsPath({ cwd: process.cwd() });
+    reportResolvedPath('tickets', ticketsPath);
   }
 
   const resolvedPath = path.resolve(ticketsPath);

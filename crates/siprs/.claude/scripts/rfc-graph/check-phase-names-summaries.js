@@ -19,17 +19,19 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
-  if (args.length < 1) {
-    console.error('[ERROR] Usage: node check-phase-names-summaries.js <Tickets.json>');
-    process.exit(2);
-  }
+  const ticketsPath = args.length >= 1
+    ? path.resolve(args[0])
+    : resolveTicketsPath({ cwd: process.cwd() });
+  if (args.length < 1) reportResolvedPath('tickets', ticketsPath);
 
   let ticketsData;
   try {
-    ticketsData = JSON.parse(fs.readFileSync(path.resolve(args[0]), 'utf8'));
+    ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   } catch (e) {
     console.error('[ERROR] Tickets.json failed to load: ' + e.message);
     process.exit(2);

@@ -23,6 +23,10 @@
 const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
+const {
+  resolveGraphPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 // Use verify.js validation functions directly
 let verify;
@@ -48,15 +52,27 @@ function formatError(problem, cause, remedy) {
 /**
  * Parse CLI arguments
  */
-function parseArgs(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArgs(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const afterFlag = argv.find(a => a.startsWith('--graph-after='));
   const beforeFlag = argv.find(a => a.startsWith('--graph-before='));
   const sourceFlag = argv.find(a => a.startsWith('--source='));
 
+  const graphAfter = afterFlag
+    ? path.resolve(cwd, afterFlag.slice('--graph-after='.length))
+    : resolveGraphPath({ cwd });
+  if (!afterFlag) reportResolvedPath('graph-after', graphAfter);
+
+  const backupCandidate = graphAfter + '.bak';
+  const graphBefore = beforeFlag
+    ? path.resolve(cwd, beforeFlag.slice('--graph-before='.length))
+    : (fs.existsSync(backupCandidate) ? backupCandidate : null);
+
   return {
-    graphAfter: afterFlag ? path.resolve(afterFlag.slice('--graph-after='.length)) : null,
-    graphBefore: beforeFlag ? path.resolve(beforeFlag.slice('--graph-before='.length)) : null,
-    sourcePath: sourceFlag ? path.resolve(fromHomeRelative(sourceFlag.slice('--source='.length))) : null,
+    graphAfter,
+    graphBefore,
+    sourcePath: sourceFlag ? path.resolve(cwd, fromHomeRelative(sourceFlag.slice('--source='.length))) : null,
   };
 }
 
@@ -255,21 +271,37 @@ function checkDistributionIntegrity(graphAfter, graphBefore) {
  *
  * @param {string[]} [testArgs] — argument array for testing
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
-function main(testArgs) {
+// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
+function main(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
-  const { graphAfter, graphBefore, sourcePath } = parseArgs(args);
-
-  // At minimum, graphAfter is required
-  if (!graphAfter && !sourcePath) {
-    console.error('[ERROR] Insufficient arguments\nCause: --graph-after=<path> or --source=<path> is required\nAction: Specify both arguments and re-run.');
+  const cwd = options.cwd || process.cwd();
+  let parsed;
+  try {
+    parsed = parseArgs(args, { cwd });
+  } catch (error) {
+    process.stderr.write('[ERROR] ' + (error.code || 'CANONICAL_PATH') + ': ' + error.message + '\n');
+    process.stderr.write('Cause: The canonical graph could not be resolved.\n');
+    process.stderr.write('Action: ' + (error.remedy || 'Run /graphify-rfc in this directory, then re-run.') + '\n');
     process.exit(1);
   }
+  const { graphAfter, graphBefore } = parsed;
 
   const allErrors = [];
   const allRemedies = [];
-  const graphAfterData = graphAfter ? loadGraph(graphAfter) : null;
+  const graphAfterData = loadGraph(graphAfter);
   const graphBeforeData = graphBefore ? loadGraph(graphBefore) : null;
+
+  let sourcePath = parsed.sourcePath;
+  if (!sourcePath) {
+    const recorded = graphAfterData && graphAfterData.sourceFile
+      ? path.resolve(path.dirname(graphAfter), graphAfterData.sourceFile)
+      : null;
+    const canonical = path.join(cwd, 'RFC.md');
+    sourcePath = recorded && fs.existsSync(recorded)
+      ? recorded
+      : (fs.existsSync(canonical) ? canonical : null);
+    if (sourcePath) reportResolvedPath('source', sourcePath);
+  }
 
   // Axis 1: nodes integrity
   const nodesResult = checkNodesIntegrity(graphAfterData, graphBeforeData);

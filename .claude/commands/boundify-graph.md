@@ -1,6 +1,5 @@
 ---
 description: Generates a directory tree and Dirs-Tree.json from graph JSON produced by /graphify-rfc.
-argument-hint: </path/to/*-GRAPH.json>
 disable-model-invocation: true
 ---
 
@@ -10,7 +9,7 @@ MUST run uninterrupted through the final Step. DO NOT end the turn except on fin
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
-# /boundify-graph <graph-file-path>
+# /boundify-graph
 
 Role: accept `/graphify-rfc` graph; verify/heal graph junction; generate safe implementation directory tree.
 
@@ -37,37 +36,54 @@ Invariants:
 ## Arguments
 
 In:
-- arg: required graph JSON path, absolute | relative; output of `/graphify-rfc`.
-- example: `RFC-BOUNDIFY-GRAPH.json` | `/absolute/path/to/rfc-graph.json`.
+- none. This command takes no argument; the graph is fixed at `./RFC-GRAPH.json`.
+- a non-empty argument list is refused, because a caller-supplied path would select a graph other than the package's canonical graph.
 
-## Derived Paths
+Preflight (runs before Step 0 writes anything):
 
 ```bash
-graphPath="$1"
-graphDir="$(dirname "$1")"
-basename="$(basename "$1" -GRAPH.json)"
-dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"
-statusPath="${graphDir}/${basename}-BOUNDIFY-Status.json"
+graphPath="RFC-GRAPH.json"
+dirsTreePath="RFC-Dirs-Tree.json"
+statusPath="RFC-BOUNDIFY-Status.json"
 
-# Extract sourceFile (original Markdown document path) from the graph JSON
+if [ -n "$ARGUMENTS" ]; then
+  echo "[ERROR] UNEXPECTED_ARGUMENT: /boundify-graph takes no argument; the graph is ./RFC-GRAPH.json"
+  echo "Cause: a caller-supplied path would select a graph other than the package's canonical graph"
+  echo "Action: run /boundify-graph with no argument"
+  exit 1
+fi
+
+if [ ! -f "$graphPath" ]; then
+  echo "[ERROR] MISSING_GRAPH: ./RFC-GRAPH.json not found"
+  echo "Cause: /boundify-graph reads only the package's canonical graph"
+  echo "Action: run /graphify-rfc in this directory, then re-run /boundify-graph"
+  exit 1
+fi
+
 sourcePath=$(node -p "JSON.parse(require('fs').readFileSync('${graphPath}','utf8')).sourceFile||''")
-if [ -z "$sourcePath" ]; then
-  echo "[ERROR] sourceFile not found in graph JSON"
+if [ -z "$sourcePath" ] || [ ! -f "$sourcePath" ]; then
+  echo "[ERROR] MISSING_SOURCE: the graph records no readable source document"
+  echo "Cause: verify-graph-integrity needs the Markdown the graph was built from"
+  echo "Action: re-run /graphify-rfc in this directory so RFC-GRAPH.json records RFC.md"
   exit 1
 fi
 ```
 
-- `graphPath`: input graph JSON.
-- `dirsTreePath`: output Dirs-Tree JSON.
-- `statusPath`: BOUNDIFY status; `update-boundify-step-status.js` reads/writes it.
+- `graphPath`: fixed input graph.
+- `dirsTreePath`: fixed output Dirs-Tree.
+- `statusPath`: fixed BOUNDIFY status; `update-boundify-step-status.js` reads/writes it.
 - `sourcePath`: graph `sourceFile`; original Markdown path.
+
+## Derived Paths
+
+Every fixed path above is derived from the invocation directory. The scripts also default to the same names, so the Step calls do not pass them. An explicit `--graph=`, `--dirs-tree=`, `--status=` or `--source=` remains accepted as an override for non-canonical callers.
 
 ## Guidelines
 
 - `/boundify-graph` takes `/graphify-rfc` output as sole input.
 - scripts: `.claude/scripts/rfc-graph/`.
-- status calls: `--status=<path>`.
-- main generator: `--graph=<path>`.
+- status calls: default `./RFC-BOUNDIFY-Status.json`; `--status=<path>` overrides.
+- main generator: default `./RFC-GRAPH.json`; `--graph=<path>` overrides.
 - self-heal: script error/warning → graph fix per message → re-run; after graph fix → integrity regression check.
 - prose exclusion: `rationale` / `glossary` / `requirement`; connected implementation header embeds design-intent reference.
 - prune: <2-child directory remove; single child flatten.
@@ -80,18 +96,18 @@ Root: `.claude/scripts/rfc-graph/`.
 
 | Script | Contract |
 |---|---|
-| `boundify-graph-to-dirs.js --graph=<path> [--json\|--quiet\|--dry-run\|--force]` | graph load, language collection, tree generation, edge projection, cycle detection, file output, modes |
-| `validate-dirs-tree-schema.js --dirs-tree=<path> --graph=<path>` | Dirs-Tree nodes/edges/trees/dependencyDirections schema validation |
-| `verify-graph-integrity.js --graph-after=<path> --graph-before=<path> --source=<path>` | regression: nodes/edges/headingRefs/orphans/coverage |
-| `generate-all-dir-templates.js --dirs-tree=<path> [--dry-run] [--delete]` | all-language batch generation/deletion |
-| `generate-dir-template.js --dirs-tree=<path> --root-dir=<path> --lang=<lang> [--dry-run] [--force] [--delete]` | one-language directory/file generation/deletion |
+| `boundify-graph-to-dirs.js [--graph=<path>] [--json\|--quiet\|--dry-run\|--force]` | graph load, language collection, tree generation, edge projection, cycle detection, file output, modes |
+| `validate-dirs-tree-schema.js [--dirs-tree=<path>] [--graph=<path>]` | Dirs-Tree nodes/edges/trees/dependencyDirections schema validation |
+| `verify-graph-integrity.js [--graph-after=<path>] [--graph-before=<path>] [--source=<path>]` | regression: nodes/edges/headingRefs/orphans/coverage |
+| `generate-all-dir-templates.js [--dirs-tree=<path>] [--dry-run] [--delete]` | all-language batch generation/deletion |
+| `generate-dir-template.js [--dirs-tree=<path>] [--root-dir=<path>] --lang=<lang> [--dry-run] [--force] [--delete]` | one-language directory/file generation/deletion |
 | `boundify-helpers.js` | library: edge projection, Tarjan SCC, filenames, language collection |
 | `boundify-tree.js` | library: domain hierarchy, tree build, report |
-| `update-boundify-step-status.js --status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY status; `backup` / `cleanup` commands below are retained |
-| `show-graph-summary-markdown.js --graph=<path> --source=<path>` | kind-organized graph summary |
-| `query.js --graph=<path> --source=<path> --id=<id> --hops=<N>` | auxiliary regression query |
-| `project-step-contracts.js --mode=verify --graph=<path> --view=<path>` | read-only step-contract sidecar revalidation after graph repair |
-| `validate-slug.js --graph=<path>` | lower_snake_case / 25-char / leading-lowercase validation; error `remedy` has graph CRUD fix example |
+| `update-boundify-step-status.js [--status=<path>] <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY status; `backup` / `cleanup` commands below are retained |
+| `show-graph-summary-markdown.js [--graph=<path>] [--source=<path>]` | kind-organized graph summary |
+| `query.js [--graph=<path>] [--source=<path>] --id=<id> [--hops=<N>]` | auxiliary regression query |
+| `project-step-contracts.js --mode=verify [--graph=<path>] [--view=<path>]` | read-only step-contract sidecar revalidation after graph repair |
+| `validate-slug.js [--graph=<path>]` | lower_snake_case / 25-char / leading-lowercase validation; error `remedy` has graph CRUD fix example |
 
 ## Step 0: Graph Loading, Language Collection (Pre-processing)
 
@@ -99,11 +115,11 @@ Confirm valid graph; collect all node `language` fields.
 
 ```bash
 RUN_ID="$(date +%s%N)-$$"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" begin-run --run-id="$RUN_ID"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 0
-node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --dry-run
+node .claude/scripts/rfc-graph/update-boundify-step-status.js begin-run --run-id="$RUN_ID"
+node .claude/scripts/rfc-graph/update-boundify-step-status.js start-step 0
+node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --dry-run
 node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --preflight --package="$(dirname "$graphPath")"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 0
+node .claude/scripts/rfc-graph/update-boundify-step-status.js end-step 0
 ```
 
 `begin-run` counts one invocation; `end-step 3` advances `generation` only when the Dirs-Tree digest changes. Audit mode appends `--audit` to the final `end-step 3`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
@@ -115,7 +131,7 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 fail → fix graph per script output; always regression check; reset 0; re-run Step 0.
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 0
+node .claude/scripts/rfc-graph/update-boundify-step-status.js reset-to-step 0
 ```
 
 ## Step 1: Verification and Self-Healing Loop (New)
@@ -135,8 +151,8 @@ Verify graphify→boundify junction. Graph problem → script fix instructions �
 Start Step 1; replace previous backup with `$graphPath.bak`.
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 1
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" backup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js start-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js backup
 ```
 
 Heal-loop junction; max 5:
@@ -148,25 +164,22 @@ Heal-loop junction; max 5:
 Checks:
 
 ```bash
-node .claude/scripts/rfc-graph/verify-graph-integrity.js \
-  --graph-after="$graphPath" \
-  --graph-before="$graphPath.bak" \
-  --source="$sourcePath"
-node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
+node .claude/scripts/rfc-graph/verify-graph-integrity.js
+node .claude/scripts/rfc-graph/validate-slug.js
 ```
 
 Success only:
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js cleanup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js end-step 1
 ```
 
 Exhausted:
 
 ```bash
 echo "[ERROR] Self-healing loop reached maximum attempts (5)."
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js reset-to-step 1
 ```
 
 ### Recovery on Error
@@ -174,7 +187,7 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 Fix graph per `verify-graph-integrity.js` / `validate-slug.js` `remedies`; slug → exact `remedy` CRUD command; run Checks again to prove disappearance. Start over only when required: reset 1.
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js reset-to-step 1
 ```
 
 ## Step 2: Dirs-Tree.json Generation + Schema Validation
@@ -187,15 +200,13 @@ Automatic:
 - prose exclusion: `rationale` / `glossary` / `requirement` not file targets.
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 2
-node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath"
+node .claude/scripts/rfc-graph/update-boundify-step-status.js start-step 2
+node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js
 test -f "$dirsTreePath" && echo "Dirs-Tree.json: OK" || echo "Dirs-Tree.json: MISSING"
-node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
-  --dirs-tree="$dirsTreePath" \
-  --graph="$graphPath"
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="$(dirname "$graphPath")"
-node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify --graph="$graphPath" --view="$(dirname "$graphPath")/SEQUENCES.json"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
+node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js
+node .claude/scripts/sequences-slice/verify-chain.mjs --stage=boundify --package="."
+node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify
+node .claude/scripts/rfc-graph/update-boundify-step-status.js end-step 2
 ```
 
 When the graph carries `distributionDigest`, `boundify-graph-to-dirs.js` also writes the top-level `distribution` index from `mappedNodeIds`. The index is derived, never hand-edited. A unit-bearing node that resolves to no directory or file fails `MISSING_UNIT_AT_LAYER`; the node must be mapped or the unit recorded as a declared residual in the RFC.
@@ -214,7 +225,7 @@ After graph repair per any script error: re-run; resolved → run `verify-graph-
 
 ```bash
 rm -f "$dirsTreePath"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 2
+node .claude/scripts/rfc-graph/update-boundify-step-status.js reset-to-step 2
 ```
 
 ### Mode Switching
@@ -223,8 +234,8 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 - `--json`: stdout JSON only; pipeline chaining.
 
 ```bash
-node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --json
-node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --quiet
+node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --json
+node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --quiet
 ```
 
 ## Step 3: Batch File Generation
@@ -232,11 +243,11 @@ node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --
 Preview all languages; review; generate actual directories/template files.
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 3
-node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --dry-run
-node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
-node .claude/scripts/rfc-graph/verify-unit-file-coverage.js --graph="$graphPath" --dirs-tree="$dirsTreePath" --root="$(dirname "$graphPath")"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 3
+node .claude/scripts/rfc-graph/update-boundify-step-status.js start-step 3
+node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dry-run
+node .claude/scripts/rfc-graph/generate-all-dir-templates.js
+node .claude/scripts/rfc-graph/verify-unit-file-coverage.js
+node .claude/scripts/rfc-graph/update-boundify-step-status.js end-step 3
 ```
 
 ### Structure of Generated Files
@@ -252,9 +263,9 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 generation fail → fix per error; re-run generator. Full output rebuild if required: `--delete`; then generate. Unavoidable restart: reset 3.
 
 ```bash
-node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --delete
-node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 3
+node .claude/scripts/rfc-graph/generate-all-dir-templates.js --delete
+node .claude/scripts/rfc-graph/generate-all-dir-templates.js
+node .claude/scripts/rfc-graph/update-boundify-step-status.js reset-to-step 3
 ```
 
 ## Completion Report
@@ -262,7 +273,7 @@ node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusP
 Clean remaining backup files:
 
 ```bash
-node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js cleanup
 ```
 
 Report:
@@ -289,10 +300,10 @@ The implementation exists, so the tree exists: boundify describes it instead of 
 
 ```bash
 # Plan only. Nothing is written to the measured tree, which is the default.
-node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir"
+node .claude/scripts/rfc-graph/reverse-boundify.js --root="$projectRoot" --out="$outDir"
 
 # Attach the headers. --apply is required before anything is written.
-node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir" --apply
+node .claude/scripts/rfc-graph/reverse-boundify.js --root="$projectRoot" --out="$outDir" --apply
 ```
 
 | Gate | FAIL | PASS |

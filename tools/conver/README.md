@@ -322,9 +322,11 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - 生成されたグラフは `/boundify-graph` と `/split-to-tickets` の入力となり、`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
 - **逆対応（リバースモード）**: GF1 / GF2 ゲートを持ち、差分を方向別に数えます。**差分ゼロは信じる対象ではなく精査する対象**として報告されます
 
-#### `/boundify-graph <GRAPHファイルパス>`
+#### `/boundify-graph`
 
 `/graphify-rfc` が生成したグラフ JSON を入力に、検証・自己修復ループを経て**安全な境界を持つ実装ディレクトリツリー**（`*-Dirs-Tree.json`）とテンプレートファイルを生成します。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成します。
+
+引数はありません。カレントディレクトリの `./RFC-GRAPH.json` を唯一の入力とし、`./RFC-Dirs-Tree.json` と `./RFC-BOUNDIFY-Status.json` を導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、グラフが無い場合は `MISSING_GRAPH` で停止します。
 
 - **自己修復ループ**: 5軸検証（ノードID/エッジ/headingRefs/孤立ノード/ソース網羅）で graphify→boundify 接合部の整合を確認し、問題があればスクリプトの指示に従って修正・再実行。`/graphify-rfc` へ戻る必要なし
 - **受理証明の再確認**: `verify-chain` はワークスペース直下の `SMOOTH-VERDICT.json` を要求します。無い場合は `MISSING_SMOOTH_RECEIPT`、smooth またはルート成果物が動いた後は `STALE_SMOOTH_VERDICT` で停止し、graphify → boundify の再実行を求めます
@@ -334,9 +336,9 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - 循環依存の検出と警告
 - **逆対応（B1/B2/B3）**: 逆モードの処理はファイルを生成せず、欠けている `Initial Design Artifact` ヘッダを付与し、差分をヘッダのみに制限します。**既存ヘッダは1バイトも書き換えません**（最高法規4）。`--apply` を付けない限り、測った木には何も書きません
 
-#### `/split-to-tickets <RFCファイルパス>`
+#### `/split-to-tickets`
 
-設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。GRAPH・Dirs-Tree・Tickets.json・SPLIT status は RFC のパスから命名規則で導出されるため、引数は RFC 1 本だけです。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
+設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。引数はありません。カレントディレクトリの `./RFC.md` を唯一の入力とし、GRAPH・Dirs-Tree・Tickets.json・SPLIT status・`SEQUENCES.json` はスクリプトが同じディレクトリから導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、RFC が無い場合は `MISSING_RFC`、GRAPH が無い場合は `MISSING_GRAPH`、Dirs-Tree が無い場合は `MISSING_DIRS_TREE` で停止します。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
 
 - **fail-closed 前処理**: Step 0 が `verify-chain` と `SMOOTH-VERDICT.json` を要求します。`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` / `MISSING_SMOOTH_RECEIPT` / `STALE_SMOOTH_VERDICT` は停止で、チケットを1枚も作りません
 - **機械的フェーズ設計**: `phasify-graph-and-dirs-files-tree.js` が GRAPH と Dirs-Tree を入力に、重み付きトポロジカルソート + SCC 縮約で全ノードを実装フェーズへグループ化

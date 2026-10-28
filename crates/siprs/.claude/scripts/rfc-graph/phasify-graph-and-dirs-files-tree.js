@@ -40,6 +40,8 @@ const { toHomeRelative } = require('../lib/path-utils');
 const {
   deriveGraphPathFromDoc,
   deriveDirsTreePathFromGraph,
+  resolveSourcePath,
+  reportResolvedPath,
 } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
 
@@ -102,7 +104,9 @@ const { validateAll } = require('./validate-phasify.js');
  * @param {string[]} argv — Equivalent to process.argv.slice(2)
  * @returns {CliOptions}
  */
-function parseArguments(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const positionalArgs = [];
   const flags = {};
 
@@ -113,7 +117,7 @@ function parseArguments(argv) {
         flags[flagName] = true;
       } else {
         console.error('[ERROR] Unknown flag: ' + arg);
-        console.error('Usage: node phasify-graph-and-dirs-files-tree.js <GRAPH.json> <Dirs-Tree.json> [--dry-run] [--verbose]');
+        console.error('Usage: node phasify-graph-and-dirs-files-tree.js [RFC.md|-GRAPH.json] [Dirs-Tree.json] [--dry-run] [--verbose]');
         process.exit(2);
       }
     } else {
@@ -121,19 +125,26 @@ function parseArguments(argv) {
     }
   }
 
+  let anchorPath;
   if (positionalArgs.length < 1) {
-    console.error('[ERROR] Insufficient arguments. Pass the RFC or the GRAPH.json.');
-    console.error('Usage: node phasify-graph-and-dirs-files-tree.js <RFC.md|-GRAPH.json> [Dirs-Tree.json] [--dry-run] [--verbose]');
-    process.exit(2);
+    try {
+      anchorPath = resolveSourcePath({ cwd });
+    } catch (error) {
+      console.error('[ERROR] ' + (error.code || 'MISSING_SOURCE') + ': ' + error.message);
+      console.error('Cause: no argument was given and the canonical RFC could not be resolved.');
+      console.error('Action: ' + (error.remedy || 'Run /grill-me-for-rfc in this directory, or pass an RFC or GRAPH.json.'));
+      process.exit(2);
+    }
+    reportResolvedPath('source', anchorPath);
+  } else {
+    anchorPath = path.resolve(cwd, positionalArgs[0]);
   }
-
-  const anchorPath = path.resolve(positionalArgs[0]);
   let graphPath;
   let dirsTreePath;
 
   if (positionalArgs.length >= 2) {
     graphPath = anchorPath;
-    dirsTreePath = path.resolve(positionalArgs[1]);
+    dirsTreePath = path.resolve(cwd, positionalArgs[1]);
   } else if (anchorPath.endsWith('-GRAPH.json')) {
     graphPath = anchorPath;
     dirsTreePath = deriveDirsTreePathFromGraph(anchorPath);
@@ -142,7 +153,7 @@ function parseArguments(argv) {
     dirsTreePath = deriveDirsTreePathFromGraph(graphPath);
   } else {
     console.error('[ERROR] A single argument must be an RFC (.md) or a GRAPH.json.');
-    console.error('Usage: node phasify-graph-and-dirs-files-tree.js <RFC.md|-GRAPH.json> [Dirs-Tree.json] [--dry-run] [--verbose]');
+    console.error('Usage: node phasify-graph-and-dirs-files-tree.js [RFC.md|-GRAPH.json] [Dirs-Tree.json] [--dry-run] [--verbose]');
     process.exit(2);
   }
 
@@ -180,11 +191,11 @@ function resolveTicketsPath(graphPath, dirsTreePath) {
  *
  * @param {string} dirsTreePath — Absolute path to Dirs-Tree.json
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function checkDirsTreeExists(dirsTreePath) {
   if (!fs.existsSync(dirsTreePath)) {
     console.error('[ERROR] Dirs-Tree.json not found: ' + dirsTreePath);
-    console.error('Run boundify-graph first.');
-    console.error('  Example: /boundify-graph ' + dirsTreePath.replace(/-Dirs-Tree\.json$/, '') + '-GRAPH.json');
+    console.error('Run /boundify-graph in this directory first (it takes no argument).');
     process.exit(3);
   }
 }

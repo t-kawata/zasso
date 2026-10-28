@@ -61,7 +61,7 @@
     "boundify-graph": {
       "headings": [
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
-        "# /boundify-graph <graph-file-path>",
+        "# /boundify-graph",
         "## Language Protocol",
         "## Arguments",
         "## Derived Paths",
@@ -85,7 +85,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "b115f4ebe692c0e0bdc31d4ca52669115f9c96ed3411c89ba4882860710466b9"
+      "documentDigest": "924bf153eeb14ca6461ca8abfa7713fdf2372fda6f8c0d0d473f17f85e78b648"
     },
     "consolidate-stubs": {
       "headings": [

@@ -22,6 +22,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  resolveSourcePath,
+  reportResolvedPath,
+} = require("../lib/package-artifacts");
 
 // ============================================================
 // Kind estimation keyword table (Axis 2)
@@ -924,27 +928,30 @@ function exitWithError(summary, cause, action) {
  * @returns {{ sourcePath: string }} Parsing result
  * @throws {Error} If arguments are invalid
  */
-function parseArguments(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   if (argv.length < 3) {
-    throw new Error(
-      "Specify the source file path.\nUsage: analyze-source-structure.js <source-path>",
-    );
+    const sourcePath = resolveSourcePath({ cwd });
+    reportResolvedPath("source", sourcePath);
+    return { sourcePath };
   }
   if (argv[2] === "--help" || argv[2] === "-h") {
-    console.log("Usage: analyze-source-structure.js <source-path>");
+    console.log("Usage: analyze-source-structure.js [source-path]");
     console.log("");
     console.log(
       "Outputs structural information (section tree, line count, kind candidates, external dependencies)",
     );
     console.log("of a Markdown file to stdout as a natural language report.");
+    console.log("With no argument it reads ./RFC.md.");
     process.exit(0);
   }
   if (argv.length > 3) {
     throw new Error(
-      `Excess arguments: ${argv.slice(3).join(" ")}\nUsage: analyze-source-structure.js <source-path>`,
+      `Excess arguments: ${argv.slice(3).join(" ")}\nUsage: analyze-source-structure.js [source-path]`,
     );
   }
-  return { sourcePath: argv[2] };
+  return { sourcePath: path.resolve(cwd, argv[2]) };
 }
 
 /**

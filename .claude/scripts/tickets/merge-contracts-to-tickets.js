@@ -31,26 +31,29 @@ const {
 const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
+  resolveTicketsPath,
+  reportResolvedPath,
 } = require('../lib/package-artifacts');
 const { crossedBoundaryIds } = require('./lib/contract-facts');
 
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-318) --for-spec --no-implementation-order`.
-function parseArgs(argv = process.argv.slice(2)) {
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-318, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-318|PX-334) --for-spec --no-implementation-order`.
+function parseArgs(argv = process.argv.slice(2), options = {}) {
+  const cwd = options.cwd || process.cwd();
   const args = argv.filter((entry) => !entry.startsWith('--registry=') && !entry.startsWith('--step-sidecar='));
   const registryArg = argv.find((entry) => entry.startsWith('--registry='));
   const stepSidecarArg = argv.find((entry) => entry.startsWith('--step-sidecar='));
+  let ticketsPath;
   if (args.length < 1) {
-    console.error('[ERROR] Usage: merge-contracts-to-tickets.js <Tickets.json> [GRAPH.json] [--registry=<ALLOCATE-MANIFEST.json>] [--step-sidecar=<RFC-STEP-CONTRACTS.json>]');
-    console.error('Cause: Missing arguments');
-    console.error('Action: Provide the Tickets.json path');
-    process.exit(1);
+    ticketsPath = resolveTicketsPath({ cwd });
+    reportResolvedPath('tickets', ticketsPath);
+  } else {
+    ticketsPath = path.resolve(cwd, args[0]);
   }
-  const ticketsPath = path.resolve(args[0]);
   const graphPath = args.length >= 2
-    ? path.resolve(args[1])
+    ? path.resolve(cwd, args[1])
     : deriveGraphPathFromTickets(ticketsPath);
   if (!graphPath) {
     console.error('[ERROR] Cannot derive GRAPH.json beside ' + ticketsPath);

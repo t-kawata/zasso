@@ -18,7 +18,7 @@ const path = require("path");
 
 const { checkUnitCoverage } = require("../sequences-slice/lib/unit-provenance.mjs");
 const { collectLedgerResidualUnitIds, collectLedgerUnitIds, collectViewUnitIds } = require("../rfc-graph/lib/unit-ids.mjs");
-const { findSingleSiblingPath, findAllocateManifest } = require("../lib/package-artifacts");
+const { findSingleSiblingPath, findAllocateManifest, resolveTicketsPath, reportResolvedPath } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
 /** The single root `*-sequences.json` the split's step gate reads, or null. */
@@ -414,15 +414,13 @@ function formatReport(report) {
 // Main Entry Point
 // ============================================================
 
-// [::TICKET::] PX-306, PX-308, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-308|PX-314) --for-spec --no-implementation-order`.
-function main() {
-  const ticketsJsonPath = process.argv[2];
+// [::TICKET::] PX-306, PX-308, PX-314, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-308|PX-314|PX-334) --for-spec --no-implementation-order`.
+function main(argv = process.argv.slice(2)) {
+  let ticketsJsonPath = argv[2] ?? null;
 
   if (!ticketsJsonPath) {
-    console.error(
-      "Usage: node verify-all-ticket-coverage.js <path to Tickets.json>"
-    );
-    process.exit(EXIT_FAILURE);
+    ticketsJsonPath = resolveTicketsPath({ cwd: process.cwd() });
+    reportResolvedPath("tickets", ticketsJsonPath);
   }
 
   let ticketsData;
@@ -435,7 +433,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  const material = readUnitMaterial(process.argv.slice(2));
+  const material = readUnitMaterial(argv.slice(2));
   const workspaceManifest = findAllocateManifest(path.dirname(path.resolve(ticketsJsonPath)));
   if (workspaceManifest !== null && material.artifact === undefined) {
     console.error('[ERROR] MISSING_SIDECAR: the workspace has an allocate manifest, and the root *-sequences.json is missing or unreadable');

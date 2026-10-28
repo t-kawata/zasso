@@ -6,6 +6,7 @@
  * in-memory data directly. main() is tested with minimal file I/O only.
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -95,18 +96,21 @@ describe('parseArgs — CLI argument parsing', () => {
     assert.strictEqual(result.isForce, true);
   });
 
-  it('should detect missing --dirs-tree', () => {
-    const args = ['--root-dir=/out', '--lang=rust'];
-    const result = parseArgs(args);
-    assert.strictEqual(result.ok, false);
-    assert.ok(result.error.includes('--dirs-tree='));
+  it('should default --dirs-tree to the canonical tree', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gendir-default-'));
+    fs.writeFileSync(path.join(cwd, 'RFC-GRAPH.json'), '{}');
+    fs.writeFileSync(path.join(cwd, 'RFC-Dirs-Tree.json'), '{}');
+    const result = parseArgs(['--root-dir=/out', '--lang=rust'], { cwd });
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.dirsTreePath, path.join(cwd, 'RFC-Dirs-Tree.json'));
   });
 
-  it('should detect missing --root-dir', () => {
-    const args = ['--dirs-tree=/dt', '--lang=rust'];
-    const result = parseArgs(args);
-    assert.strictEqual(result.ok, false);
-    assert.ok(result.error.includes('--root-dir='));
+  it('should default --root-dir to the Dirs-Tree directory', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'gendir-root-'));
+    const dirsTreePath = path.join(cwd, 'RFC-Dirs-Tree.json');
+    const result = parseArgs([`--dirs-tree=${dirsTreePath}`, '--lang=rust'], { cwd });
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.rootDir, cwd);
   });
 
   it('should detect missing --lang', () => {
@@ -384,6 +388,31 @@ describe('main — Integration test', () => {
       process.stdout.write = origStdout;
       process.exit = origExit;
       fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('should emit a JSON skip when the language has no definition', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gendir-skip-'));
+    const dirsTreePath = path.join(dir, 'RFC-Dirs-Tree.json');
+    fs.writeFileSync(dirsTreePath, JSON.stringify({ trees: { rust: null } }));
+
+    let capturedStdout = '';
+    const origStdout = process.stdout.write;
+    process.stdout.write = (chunk) => { capturedStdout += chunk; return true; };
+    let exitCode = null;
+    const origExit = process.exit;
+    process.exit = (code) => { exitCode = code; };
+
+    try {
+      await main([`--dirs-tree=${dirsTreePath}`, '--lang=rust']);
+      assert.strictEqual(exitCode, 0);
+      const parsed = JSON.parse(capturedStdout.trim());
+      assert.strictEqual(parsed.skipped, true);
+      assert.strictEqual(parsed.language, 'rust');
+    } finally {
+      process.stdout.write = origStdout;
+      process.exit = origExit;
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 

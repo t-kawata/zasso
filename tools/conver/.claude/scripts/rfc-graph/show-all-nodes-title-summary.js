@@ -29,12 +29,15 @@ const fs = require('fs');
 const path = require('path');
 
 const { deriveGraphPathFromTickets } = require('../lib/package-artifacts');
+const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 const { writeLine } = require('../lib/cli-output');
 
 /**
  * Parse CLI arguments.
  */
-function parseArguments(argv) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseArguments(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const parsed = {};
   for (const arg of argv) {
     const match = arg.match(/^--(.+?)=(.+)$/);
@@ -42,8 +45,12 @@ function parseArguments(argv) {
       parsed[match[1]] = match[2];
     }
   }
-  if (!parsed.tickets || !parsed.phase) {
-    console.error('[ERROR] Usage: node show-all-nodes-title-summary.js --tickets=<PATH> [--graph=<PATH>] --phase=<phaseId>');
+  if (!parsed.tickets) {
+    parsed.tickets = resolveTicketsPath({ cwd });
+    reportResolvedPath('tickets', parsed.tickets);
+  }
+  if (!parsed.phase) {
+    console.error('[ERROR] Usage: node show-all-nodes-title-summary.js [--tickets=<PATH>] [--graph=<PATH>] --phase=<phaseId>');
     process.exit(2);
   }
   if (!parsed.graph) {

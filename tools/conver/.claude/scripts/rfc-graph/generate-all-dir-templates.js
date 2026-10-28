@@ -13,12 +13,14 @@
  */
 'use strict';
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const SCRIPT_DIR = __dirname;
 const GENERATE_SCRIPT = path.join(SCRIPT_DIR, 'generate-dir-template.js');
+const { resolveCanonicalPathOrExit } = require('../lib/package-artifacts');
 
 // ============================================================
 // Argument parsing
@@ -29,12 +31,14 @@ const dirsTreeFlag = args.find(a => a.startsWith('--dirs-tree='));
 const isDryRun = args.includes('--dry-run');
 const isDelete = args.includes('--delete');
 
-if (!dirsTreeFlag) {
+if (dirsTreeFlag === '--dirs-tree=') {
   console.error('[ERROR] --dirs-tree=<path> is required');
   process.exit(1);
 }
 
-const dirsTreePath = path.resolve(dirsTreeFlag.slice('--dirs-tree='.length));
+const dirsTreePath = dirsTreeFlag
+  ? path.resolve(dirsTreeFlag.slice('--dirs-tree='.length))
+  : resolveCanonicalPathOrExit('dirsTree', { cwd: process.cwd() });
 
 // ============================================================
 // Read Dirs-Tree.json

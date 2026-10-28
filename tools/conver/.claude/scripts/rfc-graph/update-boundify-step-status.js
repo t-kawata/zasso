@@ -23,6 +23,10 @@ const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative, toHomeRelative } = require('../lib/path-utils');
 const {
+  resolveStageStatusPath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
+const {
   beginRun,
   completeGeneration,
   coverageFor,
@@ -93,9 +97,9 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
-function parseArguments() {
-  const args = process.argv.slice(2);
+// [::TICKET::] PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-313|PX-334) --for-spec --no-implementation-order`.
+function parseArguments(argv = process.argv.slice(2)) {
+  const args = [...argv];
 
   // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
@@ -103,30 +107,30 @@ function parseArguments() {
     process.exit(0);
   }
 
-  // Minimum args: --graphify-status=<path> subcommand [N]
-  if (args.length < 2) {
+  // `--status=` remains the override; omitted means the canonical status file.
+  let statusPath;
+  const statusFlag = args[0];
+  if (statusFlag && (statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) || statusFlag.startsWith(FLAG_ALIAS_STATUS))) {
+    statusPath = statusFlag.split('=', 2)[1];
+    if (!statusPath) {
+      throw new Error(
+        'Path is empty. Specify a valid path for --graphify-status=<path> or --status=<path>.'
+      );
+    }
+    args.shift();
+  } else {
+    statusPath = resolveStageStatusPath('boundify', { cwd: process.cwd() });
+    reportResolvedPath('status', statusPath);
+  }
+
+  if (args.length < 1) {
     throw new Error(
       'Insufficient arguments.\n' +
-      '  Usage: update-boundify-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]'
+      '  Usage: update-boundify-step-status.js [--graphify-status=<path>|--status=<path>] <subcommand> [N]'
     );
   }
 
-  // Parse --graphify-status=<path> or --status=<path>
-  const statusFlag = args[0];
-  if (!statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) && !statusFlag.startsWith(FLAG_ALIAS_STATUS)) {
-    throw new Error(
-      'First argument must be --graphify-status=<path> or --status=<path>.\n' +
-      `  Actual value: ${statusFlag}`
-    );
-  }
-  const statusPath = statusFlag.split('=', 2)[1];
-  if (!statusPath) {
-    throw new Error(
-      'Path is empty. Specify a valid path for --graphify-status=<path> or --status=<path>.'
-    );
-  }
-
-  const subcommand = args[1];
+  const subcommand = args[0];
 
   // Validate subcommand
   if (!ALLOWED_SUBCOMMANDS.includes(subcommand)) {
@@ -138,15 +142,15 @@ function parseArguments() {
   // Read step-number (required except for status/cleanup/backup/begin-run)
   let stepNumber = null;
   if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup' && subcommand !== 'begin-run') {
-    if (args.length < 3) {
+    if (args.length < 2) {
       throw new Error(
         `Subcommand "${subcommand}" requires a step number.`
       );
     }
-    stepNumber = parseInt(args[2], 10);
+    stepNumber = parseInt(args[1], 10);
     if (isNaN(stepNumber)) {
       throw new Error(
-        `Step number is not a number: ${args[2]}`
+        `Step number is not a number: ${args[1]}`
       );
     }
   }
@@ -345,17 +349,21 @@ function executeStatus(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeCleanup(status) {
   const removed = [];
 
-  // .bak file (same directory as graph file)
-  const bakPath = status.graphFile + '.bak';
+  // .bak file (same directory as graph file); a stored record is home-relative.
+  const graphFile = fromHomeRelative(status.graphFile);
+  const bakPath = graphFile + '.bak';
   try {
     if (fs.existsSync(bakPath)) {
       fs.unlinkSync(bakPath);
       removed.push(bakPath);
     }
-  } catch (_) { /* Deletion race, etc. — ignore and continue */ }
+  } catch (err) {
+    console.warn(`cleanup: could not remove ${bakPath}: ${err.message}`);
+  }
 
   // CWD temp files
   const cwd = process.cwd();
@@ -391,18 +399,20 @@ function executeCleanup(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeBackup(status) {
-  const bakPath = status.graphFile + '.bak';
+  const graphFile = fromHomeRelative(status.graphFile);
+  const bakPath = graphFile + '.bak';
   try {
     if (fs.existsSync(bakPath)) {
       fs.unlinkSync(bakPath);
     }
-    fs.copyFileSync(status.graphFile, bakPath);
-    console.log(`backup: ${status.graphFile} → ${bakPath}`);
+    fs.copyFileSync(graphFile, bakPath);
+    console.log(`backup: ${graphFile} → ${bakPath}`);
   } catch (err) {
     exitWithError(
       `Backup creation failed: ${err.message}`,
-      `graphFile=${status.graphFile}`,
+      `graphFile=${graphFile}`,
       'Check disk space and write permissions.'
     );
   }

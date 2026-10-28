@@ -1,4 +1,5 @@
 const fs = require('fs'), path = require('path');
+const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 const CB = {
   todo: '[ ]',
   made: '[_]',
@@ -86,18 +87,21 @@ function persistPxFirstOrder(filePath, data) {
   return true;
 }
 
-// [::TICKET::] PX-99, PX-100, PX-101, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101|PX-114) --for-spec --no-implementation-order`.
 /**
  * Load Tickets.json, ensure the PX phase (id === -1) is first — persisting the
  * reorder to the file only when needed — then print the phase/ticket markdown listing.
  */
+// [::TICKET::] PX-99, PX-100, PX-101, PX-114, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101|PX-114|PX-334) --for-spec --no-implementation-order`.
 function main() {
-  const jp = process.argv[2];
-  if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
-  const rp = path.resolve(jp);
-  const data = JSON.parse(fs.readFileSync(rp, 'utf8'));
-  persistPxFirstOrder(rp, data);
-  console.log(renderTicketLines(data).join('\n'));
+  let ticketsPath = process.argv[2];
+  if (!ticketsPath) {
+    ticketsPath = resolveTicketsPath({ cwd: process.cwd() });
+    reportResolvedPath('tickets', ticketsPath);
+  }
+  const resolvedPath = path.resolve(ticketsPath);
+  const ticketsData = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+  persistPxFirstOrder(resolvedPath, ticketsData);
+  console.log(renderTicketLines(ticketsData).join('\n'));
 }
 if (require.main === module) main();
 module.exports = { main, CB, resolveCheckbox, renderTicketLines, orderPhasesPxFirst, persistPxFirstOrder };

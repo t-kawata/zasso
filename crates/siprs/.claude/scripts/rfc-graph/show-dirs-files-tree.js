@@ -20,6 +20,10 @@ const fs = require("fs");
 const path = require("path");
 
 const { deriveDirsTreePathFromDoc } = require("../lib/package-artifacts");
+const {
+  resolveDirsTreePath: resolveCanonicalDirsTreePath,
+  reportResolvedPath,
+} = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
 const EXIT_SUCCESS = 0;
@@ -34,17 +38,23 @@ const EXIT_FAILURE = 1;
  * @param {string[]} args — process.argv.slice(2)
  * @returns {string|null}
  */
-function resolveDirsTreePath(args) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function resolveDirsTreePath(args, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const docArgument = args.find(function (arg) { return arg.startsWith("--doc="); });
   if (docArgument) {
-    return deriveDirsTreePathFromDoc(docArgument.slice("--doc=".length));
+    return deriveDirsTreePathFromDoc(path.resolve(cwd, docArgument.slice("--doc=".length)));
   }
   const positional = args.filter(function (arg) { return !arg.startsWith("--"); });
-  if (positional.length === 0) return null;
-  if (positional[0].endsWith(".md")) {
-    return deriveDirsTreePathFromDoc(positional[0]);
+  if (positional.length === 0) {
+    const derived = resolveCanonicalDirsTreePath({ cwd });
+    reportResolvedPath("dirs-tree", derived);
+    return derived;
   }
-  return path.resolve(positional[0]);
+  if (positional[0].endsWith(".md")) {
+    return deriveDirsTreePathFromDoc(path.resolve(cwd, positional[0]));
+  }
+  return path.resolve(cwd, positional[0]);
 }
 
 /**
@@ -93,17 +103,20 @@ function renderTree(nodes, depth, lines) {
 /**
  * Main entry point
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
 
-  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+  if (args[0] === "--help" || args[0] === "-h") {
     writeLine("show-dirs-files-tree.js — Display directory/file tree from Dirs-Tree.json");
     writeLine("");
     writeLine("Usage:");
+    writeLine("  show-dirs-files-tree.js");
     writeLine("  show-dirs-files-tree.js </path/to/RFC-ROOT-Dirs-Tree.json>");
     writeLine("  show-dirs-files-tree.js --doc=</path/to/RFC-ROOT.md>");
     writeLine("");
     writeLine("Options:");
+    writeLine("  (no argument)  Read ./RFC-Dirs-Tree.json beside ./RFC-GRAPH.json");
     writeLine("  --doc=<RFC>  Derive the Dirs-Tree from the RFC path");
     writeLine("  --help, -h  Show this help");
     process.exit(EXIT_SUCCESS);

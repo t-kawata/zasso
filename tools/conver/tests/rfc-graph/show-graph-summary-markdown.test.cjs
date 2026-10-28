@@ -4,6 +4,7 @@
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -86,8 +87,11 @@ describe('parseArguments', () => {
     assert.equal(result.sourcePath, '/s.md');
   });
 
-  it('throws on missing arguments', () => {
-    assert.throws(() => parseArguments(['node', 'script.js', '--graph=/g.json']), /Insufficient arguments/i);
+  it('defaults the source when only --graph is supplied', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'summary-default-'));
+    fs.writeFileSync(path.join(cwd, 'RFC.md'), '# RFC\n');
+    const result = parseArguments(['node', 'script.js', '--graph=/g.json'], { cwd });
+    assert.equal(result.sourcePath, path.join(cwd, 'RFC.md'));
   });
 
   it('throws on wrong --graph prefix', () => {

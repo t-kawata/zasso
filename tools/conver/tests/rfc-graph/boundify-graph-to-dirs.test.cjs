@@ -4,6 +4,7 @@
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -138,8 +139,9 @@ describe('parseArguments', () => {
     assert.strictEqual(result.flags.force, true);
   });
 
-  it('should exit when no arguments given', () => {
-    assert.throws(() => parseArguments([]), /exit/);
+  it('should resolve the canonical graph when no arguments are given', () => {
+    const result = parseArguments([], { cwd: tempDir });
+    assert.strictEqual(result.graphPath, path.join(tempDir, 'RFC-GRAPH.json'));
   });
 
   it('should exit when --help is given', () => {
@@ -482,8 +484,13 @@ describe('main', () => {
     assert.throws(() => main([invalidPath]), /exit/);
   });
 
-  it('should fail without arguments', () => {
-    assert.throws(() => main([]), /exit/);
+  it('should run without arguments on the canonical graph', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'RFC-GRAPH.json'),
+      JSON.stringify({ sourceFile: 'RFC.md', mainLanguage: 'rust', nodes: [], edges: [] }),
+      'utf-8',
+    );
+    assert.doesNotThrow(() => main([], { cwd: tempDir }));
   });
 });
 

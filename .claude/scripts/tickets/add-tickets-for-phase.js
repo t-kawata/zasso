@@ -37,6 +37,8 @@ const {
   deriveGraphPathFromTickets,
   findAllocateManifest,
   findSingleSiblingPath,
+  resolveTicketsPath,
+  reportResolvedPath,
 } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
@@ -288,15 +290,38 @@ async function appendNodeUnitIds(tickets, graph) {
  * @param {string[]} argv — process.argv (typically pass process.argv directly)
  * @returns {{ ticketsJsonPath: string|null, dirsTreePath: string|null, phaseArg: string|null, error: string|null }}
  */
-function parseCliArguments(argv) {
-  const ticketsJsonPath = argv[2] || null;
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseCliArguments(argv, options = {}) {
+  const cwd = options.cwd || process.cwd();
+  const ticketsFlag = argv.find((arg) => arg.startsWith("--tickets="));
+  let ticketsJsonPath = null;
   let dirsTreePath = null;
   let phaseArg = null;
   let graphPath = null;
 
-  // `<Tickets.json> <P{id}>` is the pipeline form: both artifacts are beside Tickets.json.
-  if (ticketsJsonPath && /^P[0-9]+$/.test(argv[3] || "")) {
-    phaseArg = argv[3];
+  if (ticketsFlag) {
+    // Flag form: `--tickets=<path> <P{id}>`; the artifacts are derived beside it.
+    ticketsJsonPath = path.resolve(cwd, ticketsFlag.slice("--tickets=".length));
+    const positionals = argv.slice(2).filter((arg) => !arg.startsWith("--"));
+    phaseArg = positionals[0] || null;
+    dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
+    graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
+    if (!dirsTreePath || !graphPath) {
+      return {
+        ticketsJsonPath: null,
+        dirsTreePath: null,
+        phaseArg: null,
+        graphPath: null,
+        error:
+          "Cannot derive Dirs-Tree.json and GRAPH.json beside " + ticketsJsonPath +
+          ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
+      };
+    }
+  } else if (/^P[0-9]+$/.test(argv[2] || "")) {
+    // Canonical form: `<P{id}>`; the ledger and its siblings are in this directory.
+    ticketsJsonPath = resolveTicketsPath({ cwd });
+    reportResolvedPath("tickets", ticketsJsonPath);
+    phaseArg = argv[2];
     dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
     graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
     if (!dirsTreePath || !graphPath) {
@@ -311,12 +336,31 @@ function parseCliArguments(argv) {
       };
     }
   } else {
-    // Legacy form: <Tickets.json> <Dirs-Tree.json> <P{id}> [GRAPH.json]
-    dirsTreePath = argv[3] || null;
-    phaseArg = argv[4] || null;
-    graphPath = argv[5] || null;
-    if (ticketsJsonPath && dirsTreePath && !graphPath) {
+    // Legacy form: `<Tickets.json> <P{id}>` and the four-positional variant.
+    ticketsJsonPath = argv[2] ? path.resolve(cwd, argv[2]) : null;
+    if (ticketsJsonPath && /^P[0-9]+$/.test(argv[3] || "")) {
+      phaseArg = argv[3];
+      dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
       graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
+      if (!dirsTreePath || !graphPath) {
+        return {
+          ticketsJsonPath: null,
+          dirsTreePath: null,
+          phaseArg: null,
+          graphPath: null,
+          error:
+            "Cannot derive Dirs-Tree.json and GRAPH.json beside " + ticketsJsonPath +
+            ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
+        };
+      }
+    } else {
+      // Legacy form: <Tickets.json> <Dirs-Tree.json> <P{id}> [GRAPH.json]
+      dirsTreePath = argv[3] ? path.resolve(cwd, argv[3]) : null;
+      phaseArg = argv[4] || null;
+      graphPath = argv[5] ? path.resolve(cwd, argv[5]) : null;
+      if (ticketsJsonPath && dirsTreePath && !graphPath) {
+        graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
+      }
     }
   }
 

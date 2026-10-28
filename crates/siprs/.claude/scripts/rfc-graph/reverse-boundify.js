@@ -25,7 +25,7 @@
  * files, so a body-modifying bug is a 150-file corruption rather than a small mistake.
  *
  * Usage:
- *   node reverse-boundify.js --graph=<path> --root=<path> [--dirs-tree=<path>]
+ *   node reverse-boundify.js --root=<path> [--graph=<path>] [--dirs-tree=<path>]
  *                            [--out=<dir>] [--correspondence=<path>] [--candidate=<path>] [--apply] [--json]
  */
 'use strict';
@@ -35,6 +35,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const { generateHeaderComment, resolveHeaderPaths } = require('./boundify-helpers.js');
+const { resolveGraphPath, reportResolvedPath } = require('../lib/package-artifacts');
 const {
   DISPOSITIONS,
   GATE_STATUS,
@@ -525,15 +526,18 @@ function reportOutcome(plan, options) {
   return true;
 }
 
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
-  if (!options.graphPath || !options.root) {
+  if (!options.root) {
     printUsage();
     process.exit(EXIT_CODES.USAGE);
   }
 
-  const graphPath = path.resolve(options.graphPath);
+  const graphPath = options.graphPath
+    ? path.resolve(options.graphPath)
+    : resolveGraphPath({ cwd: process.cwd() });
+  if (!options.graphPath) reportResolvedPath('graph', graphPath);
   const root = path.resolve(options.root);
 
   let dirsTree;

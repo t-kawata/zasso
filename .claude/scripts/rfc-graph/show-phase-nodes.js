@@ -28,6 +28,8 @@ const { fromHomeRelative } = require("../lib/path-utils");
 const {
   deriveGraphPathFromTickets,
   deriveDirsTreePathFromTickets,
+  resolveTicketsPath,
+  reportResolvedPath,
 } = require("../lib/package-artifacts");
 const { writeLine } = require("../lib/cli-output");
 
@@ -66,7 +68,9 @@ const EXIT_FAILURE = 1;
  * @param {string[]} args — process.argv.slice(2)
  * @returns {{ ticketsPath: string, graphPath: string, dirsTreePath: string, phaseArg: string }}
  */
-function parseCliArguments(args) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function parseCliArguments(args, options = {}) {
+  const cwd = options.cwd || process.cwd();
   let ticketsPath = null;
   let graphPath = null;
   let dirsTreePath = null;
@@ -74,20 +78,22 @@ function parseCliArguments(args) {
 
   for (const arg of args) {
     if (arg.startsWith(TICKETS_PATH_ARG_PREFIX)) {
-      ticketsPath = arg.slice(TICKETS_PATH_ARG_PREFIX.length);
+      ticketsPath = path.resolve(cwd, arg.slice(TICKETS_PATH_ARG_PREFIX.length));
     } else if (arg.startsWith(GRAPH_PATH_ARG_PREFIX)) {
-      graphPath = arg.slice(GRAPH_PATH_ARG_PREFIX.length);
+      graphPath = path.resolve(cwd, arg.slice(GRAPH_PATH_ARG_PREFIX.length));
     } else if (arg.startsWith(DIRS_TREE_ARG_PREFIX)) {
-      dirsTreePath = arg.slice(DIRS_TREE_ARG_PREFIX.length);
+      dirsTreePath = path.resolve(cwd, arg.slice(DIRS_TREE_ARG_PREFIX.length));
     } else if (arg.startsWith(PHASE_ARG_PREFIX)) {
       phaseArg = arg.slice(PHASE_ARG_PREFIX.length);
     }
   }
 
-  if (ticketsPath !== null) {
-    if (graphPath === null) graphPath = deriveGraphPathFromTickets(ticketsPath);
-    if (dirsTreePath === null) dirsTreePath = deriveDirsTreePathFromTickets(ticketsPath);
+  if (ticketsPath === null) {
+    ticketsPath = resolveTicketsPath({ cwd });
+    reportResolvedPath("tickets", ticketsPath);
   }
+  if (graphPath === null) graphPath = deriveGraphPathFromTickets(ticketsPath);
+  if (dirsTreePath === null) dirsTreePath = deriveDirsTreePathFromTickets(ticketsPath);
 
   return { ticketsPath, graphPath, dirsTreePath, phaseArg };
 }

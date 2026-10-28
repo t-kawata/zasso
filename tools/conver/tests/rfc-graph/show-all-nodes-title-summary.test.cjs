@@ -4,8 +4,12 @@
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const { parseArguments, getPhaseNodeIds } = require('../../.claude/scripts/rfc-graph/show-all-nodes-title-summary.js');
 
@@ -21,12 +25,11 @@ describe('parseArguments', () => {
     assert.strictEqual(result.phase, 'P0');
   });
 
-  it('should exit 2 when tickets missing', () => {
-    assert.throws(function() {
-      const orig = process.exit; process.exit = function(c) { throw new Error('exit:' + c); };
-      try { parseArguments(['--graph=/a/g.json', '--phase=P0']);
-      } finally { process.exit = orig; }
-    });
+  it('should default the tickets path when omitted', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'show-nodes-default-'));
+    fs.writeFileSync(path.join(cwd, 'Tickets.json'), '{"phases":[]}');
+    const result = parseArguments(['--graph=/a/g.json', '--phase=P0'], { cwd });
+    assert.strictEqual(result.tickets, path.join(cwd, 'Tickets.json'));
   });
 
   it('should exit 2 when graph missing', () => {

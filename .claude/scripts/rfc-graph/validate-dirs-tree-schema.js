@@ -26,6 +26,9 @@ const fs = require('fs');
 const path = require('path');
 // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
+const {
+  resolveCanonicalPathOrExit,
+} = require('../lib/package-artifacts');
 
 // ============================================================
 // Constants
@@ -458,19 +461,28 @@ function validateFiles(dirsTreePath, graphPath) {
  *
  * @param {string[]} [testArgs] — Argument array for testing (defaults to process.argv)
  */
-function validate(testArgs) {
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+function validate(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
+  const cwd = options.cwd || process.cwd();
 
   const dirsTreeFlag = args.find(arg => arg.startsWith('--dirs-tree='));
   const graphFlag = args.find(arg => arg.startsWith('--graph='));
 
-  if (!dirsTreeFlag || !graphFlag) {
+  if (
+    (dirsTreeFlag && dirsTreeFlag === '--dirs-tree=') ||
+    (graphFlag && graphFlag === '--graph=')
+  ) {
     console.error(ERROR_MISSING_ARGS);
     process.exit(1);
   }
 
-  const dirsTreePath = path.resolve(dirsTreeFlag.slice('--dirs-tree='.length));
-  const graphPath = path.resolve(graphFlag.slice('--graph='.length));
+  const graphPath = graphFlag
+    ? path.resolve(cwd, graphFlag.slice('--graph='.length))
+    : resolveCanonicalPathOrExit('graph', { cwd });
+  const dirsTreePath = dirsTreeFlag
+    ? path.resolve(cwd, dirsTreeFlag.slice('--dirs-tree='.length))
+    : resolveCanonicalPathOrExit('dirsTree', { cwd, graphPath });
 
   const result = validateFiles(dirsTreePath, graphPath);
 

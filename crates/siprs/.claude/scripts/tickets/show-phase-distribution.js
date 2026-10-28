@@ -16,6 +16,7 @@ const path = require('path');
 const { collectViewUnits } = require('../sequences-slice/lib/distribution-map.mjs');
 const { boundaryClauseDigest } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
+const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 const {
   OPERATION_OBLIGATION_FIELDS,
   renderObligationValue,
@@ -153,12 +154,16 @@ function findPhase(tickets, phaseArg) {
   return match ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const ticketsPath = argumentFor(argv, 'tickets');
+  let ticketsPath = argumentFor(argv, 'tickets');
   const phaseArg = argumentFor(argv, 'phase');
-  if (ticketsPath === null || phaseArg === null) {
-    console.error('[ERROR] --tickets=<Tickets.json> and --phase=P0 are required');
+  if (ticketsPath === null) {
+    ticketsPath = resolveTicketsPath({ cwd: process.cwd() });
+    reportResolvedPath('tickets', ticketsPath);
+  }
+  if (phaseArg === null) {
+    console.error('[ERROR] --phase=P0 is required');
     return 2;
   }
   const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));

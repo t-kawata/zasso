@@ -7,6 +7,7 @@
  * Test framework: Node.js built-in node:test + node:assert/strict
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -256,12 +257,13 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   // Missing arguments
   // ----------------------------------------------------------
   describe('missing arguments', () => {
-    it('should exit with code 2 when no arguments', () => {
+    it('should exit with code 2 and name MISSING_SOURCE when no argument can resolve', () => {
       const result = spawnSync('node', [
         PHASIFY_SCRIPT,
-      ], { encoding: 'utf8', timeout: 10000 });
+      ], { encoding: 'utf8', timeout: 10000, cwd: tmpDir });
 
       assert.strictEqual(result.status, 2, 'should exit with code 2');
+      assert.match(result.stderr, /MISSING_SOURCE/);
     });
 
     it('should exit with code 2 when only one argument', () => {

@@ -25,6 +25,7 @@
  * a renumbered document fails on the citation. Adding an entry is how a new
  * load-bearing pointer joins the set.
  */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -59,7 +60,7 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
   { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
-  { asWritten: '.claude/commands/split-to-tickets.md:47', path: '.claude/commands/split-to-tickets.md', line: 47, token: 'docs/Tickets.json' },
+  { asWritten: '.claude/commands/split-to-tickets.md:84', path: '.claude/commands/split-to-tickets.md', line: 84, token: 'docs/Tickets.json' },
   { asWritten: "`ROOT_PACKAGE_PATH = '.'` (line 69)", path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 69, token: "ROOT_PACKAGE_PATH = '.'" },
   { asWritten: 'lines 126-131', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 131, token: 'ROOT_PACKAGE_PATH : relativeDir' },
   { asWritten: 'line 172', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 172, token: 'function packageOwnsPath' },

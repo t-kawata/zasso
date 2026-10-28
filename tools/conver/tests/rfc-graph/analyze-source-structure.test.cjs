@@ -6,6 +6,7 @@
  * Includes actual file I/O tests using a temporary directory.
  */
 
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -74,8 +75,11 @@ describe('parseArguments', () => {
     assert.equal(result.sourcePath, '/path/to/doc.md');
   });
 
-  it('error: throws on insufficient arguments', () => {
-    assert.throws(() => parseArguments(['node', 'script.js']), /Specify the source file path/);
+  it('default: resolves RFC.md when the source is omitted', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'analyze-default-'));
+    fs.writeFileSync(path.join(cwd, 'RFC.md'), '# RFC\n');
+    const result = parseArguments(['node', 'script.js'], { cwd });
+    assert.equal(result.sourcePath, path.join(cwd, 'RFC.md'));
   });
 
   it('error: throws on extra arguments', () => {

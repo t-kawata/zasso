@@ -536,6 +536,7 @@ function verifyPackage({ packageDir, write }) {
 }
 
 /** The CLI entry point. */
+// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const write = argv.includes('--write');
   const workspaceArg = argumentFor(argv, 'workspace');
@@ -546,10 +547,8 @@ export function main(argv = process.argv.slice(2)) {
   } else if (packageArg !== null && packageArg !== '') {
     result = verifyPackage({ packageDir: resolve(packageArg), write });
   } else {
-    console.error('[ERROR] MISSING_ARGUMENT: --package=<dir> or --workspace=<root> is required');
-    console.error('Cause: the gate needs one layer to check');
-    console.error('Action: pass --package=<dir> for the ticket order or --workspace=<root> for the package order');
-    return 2;
+    // No path argument means the invocation directory is the package under test.
+    result = verifyPackage({ packageDir: resolve('.'), write });
   }
   for (const entry of result.findings ?? []) {
     console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
