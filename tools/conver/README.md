@@ -25,7 +25,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 ```mermaid
 flowchart TD
     L5["適合ループ（第五層・workspacify・人間＋AI 実行）<br/>入力: 空＋仕様書（パターン4） / 既存実装（パターン1・2・3）<br/>/workspacify-reverse → /workspacify-tree<br/>→ /workspacify-allocate<br/>→ 実ディレクトリ ＋ 各パッケージの RFC-SEED.md<br/>workspacify-order: 実装順を表示・検査<br/>/educe-sequences: 全シーケンス・全オペレーションを台帳化<br/>→ 各パッケージの SEQUENCES.md / SEQUENCES.json"]
-    UP["上流ループ（分解・人間＋AI 実行）<br/>各パッケージで /explain-seed → /grill-me-for-rfc<br/>ワークスペースルートで /smooth-sequences（受理証明）<br/>各パッケージで /graphify-rfc → /boundify-graph<br/>→ /split-to-tickets<br/>→ 正典RFC → RFC-GRAPH.json<br/>→ RFC-Dirs-Tree.json → Tickets.json"]
+    UP["上流ループ（分解・人間＋AI 実行）<br/>各パッケージで /explain-seed → /grill-me-for-rfc<br/>→ 正典 RFC.md<br/>ワークスペースルートで /smooth-sequences（受理証明）<br/>各パッケージで /graphify-rfc → /boundify-graph<br/>→ /split-to-tickets<br/>→ RFC-GRAPH.json → RFC-Dirs-Tree.json<br/>→ Tickets.json"]
     IM["実装ループ（収束・AI 自動実行）<br/>make → plan → start → review<br/>→ resolve → consolidate → find<br/>→ omission を Tickets.json へマージ<br/>収束するまで再実装"]
     SH["出荷ループ（商品化判定・人間＋AI 実行）<br/>/crystalize-readme RFC-GRAPH.json<br/>使い方 README をセクション単位で判定"]
     EV["進化ループ（再投資・適応・人間＋AI 実行）<br/>/drill-rfc-down<br/>入力: RESIDUE / 自由会話 / 資料<br/>grill → graphify → boundify<br/>→ split → verify<br/>台帳・view を変えたら次の graphify 前に<br/>/smooth-sequences を再実行"]
@@ -60,7 +60,7 @@ flowchart TD
 - `RFC-SEED.md` は**全パッケージディレクトリにちょうど1つ**置かれます。これは完成 RFC ではなく `/grill-me-for-rfc` の**種**で、14見出し固定。**§1（Identity/Position）と §2（Coupling Contracts）は機械注入で、AI は書けません**。人間は `/explain-seed` でこの種を先に説明され（事実と説明の2文書）、そこで書いた答えが後段の grill の先行記録になります
 - `Tickets.json` は**その設計文書と同じディレクトリ**に生成されます
 - グラフと Dirs-Tree は**自分の RFC の隣**に座ります
-- **正典 RFC のファイル名は `RFC.md` に固定**です。どのパッケージでも同じ名前で、パッケージ名はファイル名に入りません（ディレクトリの識別子は manifest の `packages[].path` が持ちます）。`/grill-me-for-rfc` はこの名前だけを書き、後段もこの名前から `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` を導出します
+- **正典 RFC のファイル名は `RFC.md` に固定**です。どのパッケージでも同じ名前で、パッケージ名はファイル名に入りません（ディレクトリの識別子は manifest の `packages[].path` が持ちます）。`/grill-me-for-rfc` はこの名前だけを書き、後段はカレントディレクトリの固定名（`RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `Tickets.json`）を読み書きします。固定名は引数では変えられません
 - **ワークスペースルート自身がパッケージ（path `.`）**です。ルートも `src/auth` も、自分の `RFC.md` の隣に `RFC-GRAPH.json` と `Tickets.json` を持ちます
 
 ### 終端状態 — 4つの入口が到達すべき形
@@ -207,7 +207,7 @@ flowchart TD
 - **上流ループを終える前** — 正典 RFC はまだ唯一の設計成果物です。`/grill-me-for-rfc` に新しい資料を渡して再実行すると、その資料はセッションに記録されて読み取り段に届き、確定した差分が RFC に反映されます。書き直しの直前には旧 RFC の退避が取られるため、反映後に差分を確認できます。
 - **上流ループを終えた後** — RFC からグラフ・ディレクトリ境界・チケットが既に導出されています。ここで RFC だけを書き換えると、派生成物は古い設計を抱えたまま取り残され、しかもそれを検出できません。進化は `/drill-rfc-down` が担います。RFC への追記を差分として読み、grill → graphify → boundify → split → verify を通して派生成物と歩調を合わせるためです。
 
-**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `*-GRAPH.json` を書いた瞬間**です。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`*-Dirs-Tree.json` / `Tickets.json` / `README.md`）が揃わず起動しません。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
+**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `RFC-GRAPH.json` を書いた瞬間**です（旧名の木では `*-GRAPH.json`）。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`RFC-Dirs-Tree.json` / `Tickets.json` / `README.md`）が揃わず起動しません。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
 
 **編集方針**:
 
@@ -292,7 +292,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 
 - **入力**: material（ファイル、またはすべてのファイルが material であるディレクトリ）。**0個でも可**（事前成果物と会話のみから始める）。**RFC 出力先は引数ではありません**。これに加えて STEP 0 が、実行したディレクトリ（`$RFC_DIR`）と隣接ディレクトリの先行記録 — `RFC.md`・`RFC-SEED.md`・`INFO-RFC-SEED.md`・`EXPLAIN-RFC-SEED.md` — を読みます（既存の木では正典が旧名 `RFC-<SLUG>.md` のこともあるため、読み取りはその綴りも受け付けます）
 - **要求台帳を与える**: `*-sequences.json`（`/educe-sequences` の成果物）を material の1つとして渡すと、STEP 0 がこのパッケージぶんの単位を `$RFC_DIR/SEQUENCES.md` / `SEQUENCES.json` に射影し、それを material として読みます。渡さなければ、走は今までと1バイトも変わりません（検出器は常に exit 0、義務集合は空、第六の一貫性は空配列を返します）。詳しくは[要求台帳の配布と波及](#要求台帳の配布と波及--単位idが4ループをどう通るか)
-- **出力**: 正典 RFC は常に `$RFC_DIR/RFC.md`。**名前は固定で、引数でも走査でも変えられません**。派生する成果物名も固定です（`/graphify-rfc` → `RFC-GRAPH.json`、`/boundify-graph` → `RFC-Dirs-Tree.json`）
+- **出力**: 正典 RFC は常に `$RFC_DIR/RFC.md`。**名前は固定で、引数でも走査でも変えられません**。派生する成果物名も固定です（`/graphify-rfc` → `RFC-GRAPH.json`、`/boundify-graph` → `RFC-Dirs-Tree.json`、`/split-to-tickets` → `Tickets.json` / `RFC-SPLIT-Status.json`）
 - **プロセス**: `init.js "$RFC_DIR" $ARGUMENTS` が DesignTree / Status.json / CheckList.md を初期化 → STEP 0 の先行走査と `settle-run.js "$RFC_DIR" prior` → はしごで確定できる点を確定 → 確定できない点だけを束ねて（1ラウンド最大3軸・最大5ラウンド）7行の塊で聞く → 答えが含意する点を `settle` で確定 → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
 - **質問ゲート**: 「決定・根拠・覆す条件」の3行が書けて**落ちる**まで、問いは起草できません。根拠は**この走で実際に読んだ記録**に限られ、読んでいない記録を根拠にした確定は拒否されます。この規則ブロックは `/explain-seed`・`/drill-rfc-down` と**バイト同一**（3ファイルで共有する1つのブロック）で、3コマンドが別々の問い方へ drift しないことをテストが保証します
 - **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
@@ -311,7 +311,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 
 #### `/graphify-rfc`
 
-長大な Markdown 設計文書を **I/O 境界単位の細粒度ノード** に分割し、属性付きエッジで結んだグラフ構造（`*-GRAPH.json`）として永続化します。
+長大な Markdown 設計文書を **I/O 境界単位の細粒度ノード** に分割し、属性付きエッジで結んだグラフ構造（`RFC-GRAPH.json`）として永続化します。
 
 - **入力は固定**: 引数は取りません。カレントディレクトリの `./RFC.md` を唯一の入力とし、`./RFC.md` が無い場合は `MISSING_RFC` で停止します（レガシー名へのフォールバックはしません）
 
@@ -319,14 +319,14 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **Step 0 の受理ゲート**: `verify-smooth-verdict.mjs` が `smooth-sequences/status.json`・closure certificate・凍結した設計スナップショットを検証し、ワークスペース直下に `SMOOTH-VERDICT.json` を書きます。`MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` は停止です。ワークスペース外では `skipped:outside-workspace` になります
 - **分布の受入**: Step 1 の前に `attach-unit-ids.js --admit` が `SEQUENCES.json` / 配布マップ / allocate manifest を digest 束縛のサイドカーとして読み、`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` で停止します。**グラフは単位IDを発明せず、受領したものだけを運びます**
 - **常にチケット粒度より細かく分割（発散）** する。後段 `/split-to-tickets` / `/boundify-graph` が粗い粒度で抽出・束ねる
-- 生成されたグラフは `/boundify-graph` と `/split-to-tickets` の入力となり、`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
+- 生成されたグラフは `/boundify-graph` の入力となり、`/split-to-tickets` は同じディレクトリの `RFC-GRAPH.json` と `RFC-Dirs-Tree.json` を導出して読む。`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
 - **逆対応（リバースモード）**: GF1 / GF2 ゲートを持ち、差分を方向別に数えます。**差分ゼロは信じる対象ではなく精査する対象**として報告されます
 
 #### `/boundify-graph`
 
-`/graphify-rfc` が生成したグラフ JSON を入力に、検証・自己修復ループを経て**安全な境界を持つ実装ディレクトリツリー**（`*-Dirs-Tree.json`）とテンプレートファイルを生成します。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成します。
+`/graphify-rfc` が生成したグラフ JSON を入力に、検証・自己修復ループを経て**安全な境界を持つ実装ディレクトリツリー**（`RFC-Dirs-Tree.json`）とテンプレートファイルを生成します。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成します。
 
-引数はありません。カレントディレクトリの `./RFC-GRAPH.json` を唯一の入力とし、`./RFC-Dirs-Tree.json` と `./RFC-BOUNDIFY-Status.json` を導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、グラフが無い場合は `MISSING_GRAPH` で停止します。
+引数はありません。カレントディレクトリの `./RFC-GRAPH.json` を唯一の入力とし、`./RFC-Dirs-Tree.json` と `./RFC-BOUNDIFY-Status.json` を導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、グラフが無い場合は `MISSING_GRAPH`、`sourceFile` が読めない場合は `MISSING_SOURCE` で停止します。スクリプト群は同じ固定名を既定値とし、非標準レイアウトでは `--graph=` / `--dirs-tree=` / `--status=` を上書きとして受け付けます。
 
 - **自己修復ループ**: 5軸検証（ノードID/エッジ/headingRefs/孤立ノード/ソース網羅）で graphify→boundify 接合部の整合を確認し、問題があればスクリプトの指示に従って修正・再実行。`/graphify-rfc` へ戻る必要なし
 - **受理証明の再確認**: `verify-chain` はワークスペース直下の `SMOOTH-VERDICT.json` を要求します。無い場合は `MISSING_SMOOTH_RECEIPT`、smooth またはルート成果物が動いた後は `STALE_SMOOTH_VERDICT` で停止し、graphify → boundify の再実行を求めます
@@ -338,7 +338,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 
 #### `/split-to-tickets`
 
-設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。引数はありません。カレントディレクトリの `./RFC.md` を唯一の入力とし、GRAPH・Dirs-Tree・Tickets.json・SPLIT status・`SEQUENCES.json` はスクリプトが同じディレクトリから導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、RFC が無い場合は `MISSING_RFC`、GRAPH が無い場合は `MISSING_GRAPH`、Dirs-Tree が無い場合は `MISSING_DIRS_TREE` で停止します。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
+設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。引数はありません。呼び出し側が与える入力はカレントディレクトリの `./RFC.md` だけで、GRAPH・Dirs-Tree・Tickets.json・SPLIT status・`SEQUENCES.json` はスクリプトが同じディレクトリから導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、RFC が無い場合は `MISSING_RFC`、GRAPH が無い場合は `MISSING_GRAPH`、Dirs-Tree が無い場合は `MISSING_DIRS_TREE` で停止します。非標準レイアウトでは `--tickets=` / `--status=` などを上書きとして受け付けます。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
 
 - **fail-closed 前処理**: Step 0 が `verify-chain` と `SMOOTH-VERDICT.json` を要求します。`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` / `MISSING_SMOOTH_RECEIPT` / `STALE_SMOOTH_VERDICT` は停止で、チケットを1枚も作りません
 - **機械的フェーズ設計**: `phasify-graph-and-dirs-files-tree.js` が GRAPH と Dirs-Tree を入力に、重み付きトポロジカルソート + SCC 縮約で全ノードを実装フェーズへグループ化
@@ -653,14 +653,14 @@ OMISSIONS-<timestamp>.json
 ### 上流ループの成果物（GRAPH / Dirs-Tree / SEQUENCES / SMOOTH）
 
 ```
-*-GRAPH.json（/graphify-rfc の出力）
+RFC-GRAPH.json（/graphify-rfc の出力。旧名の木は *-GRAPH.json を読み取り互換）
 ├── sourceFile: string
 ├── mainLanguage: string
 ├── nodes[]: { id(N0001〜), title, kind(12種), summary, language, slug, headingRefs,
 │             unitIds[]（op-|seq-|xdir-|ctr-） }
 └── edges[]: { from, to, type(12種), attributes(strength/bidirectional), contracts[] }
 
-*-Dirs-Tree.json（/boundify-graph の出力）
+RFC-Dirs-Tree.json（/boundify-graph の出力。旧名の木は *-Dirs-Tree.json を読み取り互換）
 ├── nodes[], edges[], trees[], dependencyDirections[]
 ├── 実装ディレクトリ境界（languageRules による言語別可視性）
 └── 各ファイルの Initial Design Artifact ヘッダが units: 行で単位を名指しする
@@ -905,7 +905,7 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 
 ### 配布・実装順（`.claude/scripts/sequences-slice/`、`shared-obligations/`、`workspacify-order/`）
 
-`sequences-slice/run.mjs`（台帳と tree manifest の接合からパッケージ view を書く）/ `verify-chain.mjs`（graphify / boundify / split の各段で単位・契約・view の鎖を検査する）/ `verify-implementation-order.mjs`（`--package` は `IMPLEMENTATION-ORDER.json`、`--workspace` は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` を書き、前提違反・循環で fail-closed）/ `lib/implementation-order.mjs`（前提・役割・トポロジカル順序の規則）。`shared-obligations/` は closure mode の judgment / attack / effort / evidence を扱い、`evidence-writer.mjs` が `EVIDENCE-MANIFEST.json` に書き込み証跡を残します。`workspacify-order/lib/` は level 導出・公開順との照合・端末描画を持ちます。
+`sequences-slice/run.mjs`（台帳と tree manifest の接合からパッケージ view を書く）/ `verify-chain.mjs`（graphify / boundify / split の各段で単位・契約・view の鎖を検査する）/ `verify-implementation-order.mjs`（`--package`（省略時はカレントディレクトリ）は `IMPLEMENTATION-ORDER.json`、`--workspace` は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` を書き、前提違反・循環で fail-closed）/ `lib/implementation-order.mjs`（前提・役割・トポロジカル順序の規則）。`shared-obligations/` は closure mode の judgment / attack / effort / evidence を扱い、`evidence-writer.mjs` が `EVIDENCE-MANIFEST.json` に書き込み証跡を残します。`workspacify-order/lib/` は level 導出・公開順との照合・端末描画を持ちます。
 
 ### 上流ループ（`.claude/scripts/rfc-graph/`）
 
@@ -913,8 +913,10 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 |----------|-----------|
 | グラフ CRUD（唯一の書き込み経路） | `crud.js` |
 | graphify | `deduplicate-headings.js` / `resolve-by-heading.js` / `verify.js` / `validate-slug.js` / `query.js` / `test-query-all.js` / `query-fix-hints.js` / `analyze-source-structure.js` / `show-graph-summary-markdown.js` / `update-step-status.js` / `verify-smooth-verdict.mjs`（Step 0 の受理ゲート） / `attach-unit-ids.js`（分布の受入） |
-| boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `update-boundify-step-status.js` |
+| boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `verify-unit-file-coverage.js` / `update-boundify-step-status.js` |
 | split | `phasify-graph-and-dirs-files-tree.js` / `show-phase-nodes.js` / `show-dirs-files-tree.js` / `show-all-nodes-title-summary.js` / `write-phase-name-summary.js` / `check-phase-names-summaries.js` / `consolidate-phase-tickets.js` / `project-step-contracts.js` / `update-split-step-status.js` |
+
+上流ループのスクリプトは、カレントディレクトリの固定名（`RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `Tickets.json` / `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`）を既定値とします。明示パスは非標準レイアウト用の上書きであり、コマンド定義からは固定パスを渡しません。
 
 ### 実装ループ（`.claude/scripts/tickets/`）
 
@@ -1054,8 +1056,8 @@ install.js -t /path/to/target/.claude
 1. `/educe-sequences <仕様書パス>` で要求台帳（`<spec>-sequences.json`）を作る（仕様書がある場合）
 2. `/explain-seed` に `RFC-SEED.md` を説明させ（事実と説明の2文書）、`/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く。台帳を material として渡すと、パッケージぶんの `SEQUENCES.md` / `SEQUENCES.json` が射影される
 3. `/smooth-sequences` をワークスペースルートで実行し、列挙・契約・配布の閉包を受理する。`pass` しなければ graphify へ進めない
-4. `/graphify-rfc` で RFC を論理グラフ化（`*-GRAPH.json`）。Step 0 が `SMOOTH-VERDICT.json` を固定する
-5. `/boundify-graph` で実装ディレクトリツリーを生成（`*-Dirs-Tree.json`）
+4. `/graphify-rfc` で RFC を論理グラフ化（`RFC-GRAPH.json`）。Step 0 が `SMOOTH-VERDICT.json` を固定する
+5. `/boundify-graph` で実装ディレクトリツリーを生成（`RFC-Dirs-Tree.json`）
 6. `/split-to-tickets` でフェーズ・チケットに分解（`Tickets.json`）。単位・契約・前提・実装順がチケットへ機械投影される
 7. `conver.js` が実装ループを自動実行（make → plan → start → review → resolve）。各コマンドの冒頭で前提ゲートが走る
 8. `/consolidate-stubs` が `[::STUB::]` マーカーをチケット単位へ束ね直す（`/find-omissions` の必須前提）
@@ -1094,7 +1096,7 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 4. 全パッケージの grill が終わったら、ワークスペースルートで /smooth-sequences を実行し、`pass` になるまで修復する
 5. /graphify-rfc -> /boundify-graph -> /split-to-tickets（上流パイプライン）を手動で実行し、
 6. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
-7. `node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json` でチケット一覧を目視せよ。
+7. `node .claude/scripts/tickets/list-phases-and-tickets.js` でチケット一覧を目視せよ。
 8. 一つ一つのチケットに対して、/make-ticket -> /plan-ticket -> /start-ticket -> /review-ticket（実装パイプライン）を手動実行。各コマンドの冒頭で前提ゲートが走ることを確認せよ
 9. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
 10. 3チケットくらいの単位で /resolve-ticket を手動実行
@@ -1104,7 +1106,7 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 
 ->>> これで１周のラウンドが完了。  
 ->>> /find-omissions によって Tickets.json にチケットが追加されている場合は、  
-->>> `node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json` で確認できる。  
+->>> `node .claude/scripts/tickets/list-phases-and-tickets.js` で確認できる。  
 ->>> 未済チケットがあるならば、「２周目が必要かもしれない」という「示唆」。  
 ->>> あくまで「示唆」である。絶対に「AIに判断させよう」とするな！  
 ->>> 「２周目が必要かどうか」は、人間である自分が完全に判断せよ。  
