@@ -294,8 +294,7 @@ Fill `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `inst
 String: replace whole string per marker line. Array: replace marker elements.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 # string
 echo '{"invariants":"- 【Normal establishment】Input values must pass schema validation\n- 【Invariant on error】DB integrity is maintained even on error"}' | node "$CLAUDE_DIR/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 

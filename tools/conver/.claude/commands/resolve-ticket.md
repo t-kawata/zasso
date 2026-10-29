@@ -146,8 +146,7 @@ gate: do not declare command complete until all crimes confirmed resolved.
 ### Step 9 (mandatory)
 Step 9a (enumerate) + Step 9b (validate) — run only if `$ARGUMENTS` non-empty:
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 if [ -n "$ARGUMENTS" ]; then
   node "$CLAUDE_DIR/scripts/tickets/enumerate-ticket-targets.js" \
     --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
@@ -161,8 +160,7 @@ absent `$ARGUMENTS` → skip directly to Step 9c (default-mode backward compatib
 
 Step 9c (unconditional):
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
 .claude/scripts/tickets/scan-crimes.sh
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
@@ -195,8 +193,8 @@ Convergence loop: Step 9b or 9c reports issues → resolve, re-run the Gate. loo
 ### Step 10
 G-final: re-run compilation + tests (Step 1 fallback rule) + no-excuse validator must exit0:
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel)}"
+CLAUDE_DIR="${CLAUDE_DIR:-$REPO_ROOT/.claude}"
 (cd "$REPO_ROOT" && make check-be)
 (cd "$REPO_ROOT" && make test)
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse

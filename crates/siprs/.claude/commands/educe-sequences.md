@@ -163,8 +163,7 @@ Reader task: **find the sentence that says when a procedure counts**; quote verb
 Same declaration: **name the weakest link** = the one judgement in this run's apparatus whose failure takes the guarantee down + the declared check that tightens it. named here, four Steps before Step 9 writes artifact: link tightened after artifact declared = rework, not verification.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" span   # shape of the ask
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 2
 ```
@@ -301,8 +300,7 @@ Also compares artifact about to write with the artifact it replaces; refuses whe
 Reader attacks rulings; not checking them.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adversarial
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 10
 ```
@@ -316,8 +314,7 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: o
 Entry was bound to a window because a name or result object appeared near it. This phase undoes that binding.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" reroute
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 11
 ```
@@ -329,8 +326,7 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`: names
 ### Step 12 — adjudicate `[read]` (AI judgment)
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adjudicate
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 12
 ```
@@ -344,8 +340,7 @@ Ruling whose `subject` = name artifact no longer carries is written here; admits
 ### Step 13 — inquest `[read]` (AI judgment)
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" inquest
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 13
 ```
@@ -393,8 +388,7 @@ Every mutation in corpus must redden the check it names, for a reason attributab
 Defect class no existing check was written for → ad-hoc phase handles it = the one genuinely non-mechanical act in the command. author dispatched with checked brief, same way as a reader:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adhoc
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" scaffold "$1" <check-name> "<the defect that motivated it>"
 ```
@@ -423,8 +417,7 @@ Marks record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; 
 ### Step 17 — report and product `[det]`
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" through "$1"
 node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" report "$1"
 ```

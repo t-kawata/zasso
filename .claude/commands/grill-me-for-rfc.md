@@ -265,8 +265,7 @@ out:
 ### STEP 0: Initialization
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/init.js" "$RFC_DIR" $ARGUMENTS
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" begin-run
 ```
@@ -350,8 +349,7 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-ob
 The gate names every demand no relation and no recorded judgment covers, by axis and id. Resolve each one by the cheapest faithful route first: a side of a boundary the allocate manifest already names, a surface route through an interface the package declares, an ownership reach. Only where no route exists does the run make the judgment itself, and it records that judgment in the package's obligation record — `OBLIGATION.json` beside the package's own documents — with a ground naming the specification evidence it rests on. The record is writable; the stage-1 inputs and the generated views are not, and a judgment written into one of those would be indistinguishable from the material it was derived from.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/sequences-slice/run.mjs" "<workspace>/<spec>-sequences.json" "<package-dir>"
 node "$CLAUDE_DIR/scripts/sequences-slice/run.mjs" "<workspace>/<spec>-sequences.json"
 ```
@@ -412,8 +410,7 @@ gate**, **The ladder**, **The question block, in order**, **The loop** and **Gat
 It is not restated here. What this section adds is the mechanics of this command.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/settle-run.js" "$RFC_DIR" next <n>
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" bind <n> '<block_json>'
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" settle <node_id> '<settlement_json>'
@@ -457,8 +454,7 @@ ask; stop — the grill loop itself: present each validated question, wait for t
 ## DesignTree Updates (run after every user answer)
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" resolve "<node_id>" "<answer_summary>"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" batch-resolve '["id1","id2","id3"]' "<answer_summary>"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" add '<node_json>'
@@ -472,8 +468,7 @@ node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" open-count
 
 `tree-query.js` (read-only, no schema validation needed):
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" tree
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" search "<keyword>"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" path "<node_id>"
@@ -492,8 +487,7 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-s
 
 `open-count`==0 → propose ending the grill session; ask; stop — ask the user: "Shall I start generating the RFC requirements checklist?"
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" open-count
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state CHECKLIST_PENDING
 ```
@@ -610,8 +604,7 @@ out: report to the user once all items pass.
 
 new unresolved nodes / required design-tree expansion discovered while writing → back to STEP 2, re-grill.
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state GRILLING
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" inc-loop
 ```
@@ -731,8 +724,7 @@ command handles it — the human is never asked to run anything again.
    ```
    Then reopen the grill and re-run STEP 2 to STEP 8:
    ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
    node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state GRILLING
    node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" inc-loop
    ```

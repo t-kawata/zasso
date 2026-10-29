@@ -208,8 +208,7 @@ Create exactly one JSON object with exactly six keys; writer, never hand-write d
 **Run**:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" decide --answers=<path>
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" gate
 ```
@@ -225,8 +224,7 @@ node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" gate
 Unit: every package × every 21 items. Every cell: reading or reasoned decline; `N/A`/`none` refused. Reading is inference, not measurement; `basis` is existing measured-claim-id array; falsification is executable `file:line` or command; no measurement repetition, duplicate cell sentence, or reopening claim via id/type/evidence.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" readings
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" readings --scope=src/api --item=purpose
 ```
@@ -250,8 +248,7 @@ Re-read source where basis changed.
 Repair evidence: record repaired cell, inspected source, locator `file:line`. Changed wording without opening described source is rewording, not repair.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" decide --answers=<same path>
 node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" gate
 ```

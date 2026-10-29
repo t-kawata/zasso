@@ -76,8 +76,7 @@ Closure mode runs the strict evidence path automatically: it resolves the workli
 cmd (once, workspace root):
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/smooth-sequences/calibrate.mjs"
 node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs" --audit
@@ -248,8 +247,7 @@ Preconditions:
 Write candidate outside frozen files using copies above; then drive transaction:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 # 1. Write the candidate (the copy commands are above).
 $EDITOR regeneration/candidates/<id>.md
 
@@ -283,8 +281,7 @@ node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue
 Recovery/inspection commands:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open ...      # stage a candidate
 node "$CLAUDE_DIR/scripts/regeneration/run.mjs" status        # id, state, staging, spec, next
 node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue      # derive -> verify -> commit, or one handoff
@@ -446,8 +443,7 @@ Crash/refusal/terminal-record states only; handled by Step 4 commands. Diagnosti
 ## Appendix E — Example
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 cd /path/to/workspace
 node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 1 finding(s) in 1 repair route(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json

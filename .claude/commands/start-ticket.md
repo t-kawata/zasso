@@ -149,8 +149,7 @@ Before starting implementation, check for resolvable stubs:
 1. List stubs via `find-all-stubs.js`
 2. Identify stubs that have become resolvable with this ticket (e.g., dependency tickets completed)
    ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
    # List done/resolved tickets to cross-reference with STUB markers
    node "$CLAUDE_DIR/scripts/tickets/search-tickets.js" Tickets.json done
    node "$CLAUDE_DIR/scripts/tickets/review/find-stubs-with-ticket-ref.js" --dir=.
@@ -421,8 +420,7 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/run-qualit
 Generate a report via pipe:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$CLAUDE_DIR/scripts/tickets/review/generate-report.js"
 ```
 

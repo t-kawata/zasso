@@ -28,8 +28,7 @@ Role: inspect every reviewed ticket — verify its contracts are fully and accur
 
 Gate:
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/validate-graph-arg.js" "$ARGUMENTS" || exit 2
 node "$CLAUDE_DIR/scripts/tickets/require-consolidated-manifest.js" || exit 2
 ```
@@ -82,8 +81,7 @@ invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already g
 
 cwd = Tickets.json root (source root).
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)
 cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js" --no-write   # review (zero side effects)
 cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js"               # commit
@@ -108,8 +106,7 @@ Batch-write ticket (post-creation rewrite):
 
 Residual safety net (after commit) — sweep markers the consolidation didn't cover (added after consolidate, or left UNASSIGNED):
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
@@ -306,8 +303,7 @@ gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → 
 
 Run the `rename-phases.js` commands from Step 9's stdout. each re-implementation phase name **must** start with `"Omissions: "`.
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-CLAUDE_DIR="$REPO_ROOT/.claude"
+CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=6 --name="Omissions: Storage & Connection Layer"
 node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=7 --name="Omissions: Migration Runner"
 ```
