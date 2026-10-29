@@ -215,7 +215,7 @@ G0 input:
 `$ARGUMENTS` is deliberately unquoted: shell passes each space-separated arg as argv; script splits/drops empty tokens; no args → no materials, never cwd.
 
 ```bash
-node .claude/scripts/drill-rfc-down/preflight.cjs $ARGUMENTS || exit 1
+node "$(git rev-parse --show-toplevel)/.claude/scripts/drill-rfc-down/preflight.cjs" $ARGUMENTS || exit 1
 ```
 
 ### Step 1: grill
@@ -612,7 +612,7 @@ A record is only as current as the artefacts it was read from. When a dependency
 # Mark the claims whose recorded reference hashes no longer match, and emit
 # their re-examination conditions as material. Nothing is written unless --out
 # is given, and the measured tree is never written to at all.
-node .claude/scripts/workspacify-reverse/lib/staleness.mjs \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/lib/staleness.mjs" \
   --claim-ledger="<directory holding CLAIM-LEDGER.json>" \
   --changed=graph="<the GRAPH as it stands now>" \
   --changed=dirs_tree="<the Dirs-Tree as it stands now>" \

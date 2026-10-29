@@ -69,14 +69,14 @@ Located under `.claude/scripts/tickets/`.
 Before proceeding, verify that the ticket's current status in Tickets.json is `"planned"` (i.e., `/plan-ticket` has completed). If the status is not `"planned"`, the command blocks with an error message.
 
 ```bash
-node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=start
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/check-ticket-status.js" --ticket-key="$ARGUMENTS" --phase=start
 ```
 
 - **Exit 0** (status is `"planned"`) → run the prerequisite gate below, then Step 1.
 - **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /start-ticket cannot proceed until the ticket status is 'planned'. Run /plan-ticket first." and abort.
 
 ```bash
-node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/check-ticket-prerequisites.js" --ticket-key="$ARGUMENTS"
 ```
 
 - exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` → Step 1.
@@ -91,7 +91,7 @@ If `/plan-ticket` was NOT executed immediately before in the same session, respo
 Record the implementation start date in the `startedAt` field:
 
 ```bash
-echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 ### Step 3: Emergency crime resolution (highest priority — First-Class Rule)
@@ -127,7 +127,7 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
 #   --file:                Target source file path
 #   --line:                1-indexed line number to insert at
 #   --tickets-path:        Path to Tickets.json
-node .claude/scripts/tickets/insert-stub.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/insert-stub.js" \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
   --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
@@ -150,8 +150,8 @@ Before starting implementation, check for resolvable stubs:
 2. Identify stubs that have become resolvable with this ticket (e.g., dependency tickets completed)
    ```bash
    # List done/resolved tickets to cross-reference with STUB markers
-   node .claude/scripts/tickets/search-tickets.js Tickets.json done
-   node .claude/scripts/tickets/review/find-stubs-with-ticket-ref.js --dir=.
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/search-tickets.js" Tickets.json done
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-stubs-with-ticket-ref.js" --dir=.
    ```
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 4. Include resolvable stubs in the implementation scope, replace them with actual implementation, then remove the resolved marker via `remove-stub.js`
@@ -159,13 +159,13 @@ Before starting implementation, check for resolvable stubs:
 
 ```bash
 # Search for stubs
-node .claude/scripts/tickets/review/find-all-stubs.js .
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" .
 ```
 
 **Pre-cleanup sweep** (before implementation): run the preflight classification to remove resolved-but-stale markers and surface terminal excuses:
 
 ```bash
-node .claude/scripts/tickets/preflight-stub-cleanup.js
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/preflight-stub-cleanup.js"
 ```
 
 - `resolvedCandidates` → verify in code, then `remove-stub.js`
@@ -226,7 +226,7 @@ Code must justify itself. If you need a paragraph-long comment to explain why a 
 
 If you encounter a `[::STUB::]` marker whose dependencies have been resolved during implementation, **resolve it immediately (replace with real implementation) even if it was not in the plan**. If resolution is impossible, leave the `[::STUB::]` marker with the reason and record it in the implementation summary.
 
-After replacing the stub code, remove the resolved marker by running `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>` (or `--lines=<N1,N2,...>` for multiple). Do NOT delete the marker line by hand — let `remove-stub.js` verify and remove it.
+After replacing the stub code, remove the resolved marker by running `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/remove-stub.js" --file=<path> --line=<N>` (or `--lines=<N1,N2,...>` for multiple). Do NOT delete the marker line by hand — let `remove-stub.js` verify and remove it.
 
 #### **ABSOLUTE PROHIBITION — NEVER DELETE OR EDIT THE `Initial Design Artifact` HEADER**
 
@@ -239,7 +239,7 @@ After completing the implementation but before the incomplete-implementation sca
 **Phase 1 — Inject annotations:**
 
 ```bash
-node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/annotate-ticket-context-by-git-diff.js" \
   --ticket-key="$ARGUMENTS" --verbose
 ```
 
@@ -251,7 +251,7 @@ Some files may contain syntax patterns the annotation script cannot parse. In th
 
 ```bash
 # Check for unresolved AMBIGUOUS markers
-node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/annotate-ticket-context-by-git-diff.js" \
   --ticket-key="$ARGUMENTS" --check-ambiguous
 ```
 
@@ -260,7 +260,7 @@ If the `--check-ambiguous` command exits with code 1 (unresolved markers found),
 **Phase 2a — AI reviews available definitions (script is read-only, mechanical):**
 
 ```bash
-node .claude/scripts/tickets/resolve-ambiguous-markers.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/resolve-ambiguous-markers.js" \
   --mode=list-definitions --file="<file-path>" --ticket-key="$ARGUMENTS"
 ```
 
@@ -269,7 +269,7 @@ This outputs JSON with every definition's line number, name, and kind, plus the 
 **Phase 2b — Script injects `[::TICKET::]` annotation(s) (format guaranteed by `buildAnnotation()`):**
 
 ```bash
-node .claude/scripts/tickets/resolve-ambiguous-markers.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/resolve-ambiguous-markers.js" \
   --mode=inject-at --file="<file-path>" --ticket-key="$ARGUMENTS" \
   --definition-line=<AI-chosen-line-number(s)>
 ```
@@ -287,7 +287,7 @@ Before proceeding to Green (implementation), verify all contract IDs have @verif
 
 ```bash
 # Verify all contract IDs have @verifies in test files
-node .claude/scripts/tickets/verify-red-coverage.js --ticket-key="$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-red-coverage.js" --ticket-key="$ARGUMENTS"
 ```
 
 If BLOCKed: return to Step 5 (Red) and add missing @verifies annotations, then re-run.
@@ -301,7 +301,7 @@ After all crimes and stubs are resolved in Steps 3-5, validate that targetStubs/
 **Step 5c-2 — Validate targets:**
 
 ```bash
-node .claude/scripts/tickets/validate-ticket-targets.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-ticket-targets.js" \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
@@ -330,7 +330,7 @@ The seed shape the core receives is `{ type: "crimeDeferral", sourceKey: <starte
 ```bash
 # Example (replace $ARGUMENTS with the started ticket key and TC-1 with the real crimeId):
 echo '{"title":"Port PJMEDIA to the conver crate","scope":["vendor/pjmedia","src/media"],"background":"Blocked by FFI linkage; needs a dedicated implementation ticket"}' \
-  | node .claude/scripts/tickets/create-crime-deferral-ticket.js \
+  | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/create-crime-deferral-ticket.js" \
       --source-key="$ARGUMENTS" --crime-id="TC-1"
 ```
 
@@ -370,7 +370,7 @@ If an incomplete implementation is found:
 
 ```bash
 # Record a crime
-node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/malfeasance-create.js" "<file>" <line> "<description>"
 ```
 
 After recording, re-run `scan-crimes.sh` to verify the crime has been correctly reflected in Malfeasance.json:
@@ -413,13 +413,13 @@ the AI determines the approach based on the situation:
 After implementation, enumerate the changed files and execute:
 
 ```bash
-node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs
 ```
 
 Generate a report via pipe:
 
 ```bash
-node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node ".claude/scripts/tickets/review/generate-report.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/generate-report.js"
 ```
 
 ### Step 9: Save implementation results
@@ -430,7 +430,7 @@ After passing compilation verification, tests, and quality checks, save a summar
 echo '{
   "changes": [{"before":"old state","after":"new state","description":"change description"}],
   "notes": "Implementation summary:\n- Changed files: a.rs, b.rs\n- Key changes: ...\n- Test results: all xx tests passed"
-}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
+}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
 This makes it possible to trace "how the implementation was done" when checking the ticket later.
@@ -441,7 +441,7 @@ Re-export the spec file to reflect the newly added `[::TICKET::]` annotations as
 
 ```bash
 mkdir -p specs && \
-node .claude/scripts/tickets/show-ticket-context.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
@@ -450,13 +450,13 @@ node .claude/scripts/tickets/show-ticket-context.js \
 After passing compilation verification, tests, and quality checks, run the **no-excuse gate** — a ticket must not be marked `done` while a terminal-excuse stub referencing it survives:
 
 ```bash
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 
 If it exits non-zero, fix each reported marker (remove / rewrite the plan / rewrite the key) and re-run until exit 0. Then:
 
 ```bash
-echo '{"status":"done"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"status":"done"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 If there are quality issues, fix them before transitioning to `done`.

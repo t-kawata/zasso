@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
 /**
@@ -271,9 +272,9 @@ describe('graphify-rfc.md slash command integration tests', () => {
     });
 
     it('C004: annotate-contracts receives the graph, not the RFC', () => {
-      const attach = commandContent.indexOf('attach-unit-ids.js --graph=');
-      const annotate = commandContent.indexOf('annotate-contracts.js "$graphPath"');
-      const project = commandContent.indexOf('project-boundary-contracts.js --graph=');
+      const attach = commandContent.indexOf('attach-unit-ids.js" --graph=');
+      const annotate = commandContent.indexOf('annotate-contracts.js" "$graphPath"');
+      const project = commandContent.indexOf('project-boundary-contracts.js" --graph=');
       assert.ok(attach >= 0, 'attach-unit-ids must be present');
       assert.ok(annotate > attach, 'annotate must run after attach');
       assert.ok(project > annotate, 'project-boundary-contracts must run after annotate');
@@ -507,7 +508,7 @@ describe('graphify-rfc.md slash command integration tests', () => {
     });
 
     it('C004: annotate-contracts accepts the graph and rejects the RFC Markdown', () => {
-      assert.match(commandContent, /annotate-contracts\.js "\$graphPath"/);
+      assert.match(commandContent, /annotate-contracts\.js" "\$graphPath"/);
       assert.equal(commandContent.includes('annotate-contracts.js "$1"'), false);
       const dir = makePackageWithRfc();
       try {
@@ -802,9 +803,9 @@ describe('graphify-rfc.md slash command integration tests', () => {
 
     it('should carry the distribution admission and chain commands', () => {
 // [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
-      assert.match(commandContent, /attach-unit-ids\.js --admit/);
+      assert.match(commandContent, /attach-unit-ids\.js"? --admit/);
       assert.match(commandContent, /project-boundary-contracts\.js/);
-      assert.match(commandContent, /verify-chain\.mjs --stage=graphify/);
+      assert.match(commandContent, /verify-chain\.mjs"? --stage=graphify/);
       assert.match(commandContent, /STALE_DISTRIBUTION_MAP/);
       assert.match(commandContent, /SEQUENCE_STEPS_UNDISTRIBUTED/);
       assert.match(commandContent, /begin-run/);

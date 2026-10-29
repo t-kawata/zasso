@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // PX-315 graph-side contracts: package-scoped boundary projection, carrying edge,
 // execution order and fail-closed error shape.
 // @verifies C001
@@ -200,9 +201,9 @@ test('C008 admission refuses an unreadable view with a named code', () => {
 test('C009 the graphify command orders attach, annotate and project', () => {
 // [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
   const content = readFileSync(path.join(ROOT, '.claude/commands/graphify-rfc.md'), 'utf8');
-  const attach = content.indexOf('attach-unit-ids.js --graph=');
-  const annotate = content.indexOf('annotate-contracts.js "$graphPath"');
-  const project = content.indexOf('project-boundary-contracts.js --graph=');
+  const attach = content.indexOf('attach-unit-ids.js" --graph=');
+  const annotate = content.indexOf('annotate-contracts.js" "$graphPath"');
+  const project = content.indexOf('project-boundary-contracts.js" --graph=');
   assert.ok(attach >= 0, 'attach-unit-ids --graph must be present');
   assert.ok(annotate >= 0, 'annotate-contracts must be present');
   assert.ok(project >= 0, 'project-boundary-contracts must be present');

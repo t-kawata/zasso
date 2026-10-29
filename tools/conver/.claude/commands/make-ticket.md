@@ -83,7 +83,7 @@ Invariants:
 ### Step 0: Implementation-prerequisite gate (conditional)
 
 ```bash
-node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key=$ARGUMENTS
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/check-ticket-prerequisites.js" --ticket-key=$ARGUMENTS
 ```
 
 - exit 0 → Step 1.
@@ -96,7 +96,7 @@ node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key=$ARGUMEN
 ### Step 1: Display context (show-ticket-context.js)
 
 ```bash
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=$ARGUMENTS
 ```
 
 Output: every nonempty ticket field:
@@ -151,7 +151,7 @@ Keep Step 1 Markdown; continue Step 3. auto; never ask.
 Use all agreed conversation information:
 
 ```bash
-node .claude/scripts/tickets/ensure-ticket.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-ticket.js" \
   --ticket-key=$ARGUMENTS \
   --title="(title confirmed from conversation)" \
   [--background="(background explanation from conversation)"] \
@@ -177,7 +177,7 @@ Reply exactly: `No prior information available to create ticket & spec, so /make
 ### Step 3: Insert template markers
 
 ```bash
-node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 Markers: `[::TEMPLATE-STUB::<field-name>::]` in 11 fields.
@@ -295,16 +295,16 @@ String: replace whole string per marker line. Array: replace marker elements.
 
 ```bash
 # string
-echo '{"invariants":"- 【Normal establishment】Input values must pass schema validation\n- 【Invariant on error】DB integrity is maintained even on error"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"invariants":"- 【Normal establishment】Input values must pass schema validation\n- 【Invariant on error】DB integrity is maintained even on error"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 
 # array
-echo '{"testUnit":["UT: [Normal] Valid input returns correct result","UT: [Error] Invalid input returns an error"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"testUnit":["UT: [Normal] Valid input returns correct result","UT: [Error] Invalid input returns an error"]}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 Heal-loop stubs:
 
 ```bash
-node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 - exit 1 → continue Step 6 replacements; re-run
@@ -315,7 +315,7 @@ node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENT
 Order: verify Contracts → validate STUB targets → write spec after pass → update status.
 
 ```bash
-node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-make-contracts.js" --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
 - 0 → Step 8.
@@ -328,7 +328,7 @@ No spec write before every gate passes.
 **Step 8a — Enumerate STUBs**
 
 ```bash
-node .claude/scripts/tickets/enumerate-ticket-targets.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" \
   --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
@@ -337,14 +337,14 @@ Enumerates source-tree `[::STUB::]` markers and validates structural tracking by
 **Step 8b — Validate targets**
 
 ```bash
-node .claude/scripts/tickets/validate-ticket-targets.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-ticket-targets.js" \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
 **Step 8c — No-excuse gate**
 
 ```bash
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 
 This ticket must own neither terminal-excuse STUB (Check A/B) nor stale-key STUB (Check C); owning one turns implementation into solving an excuse and prevents convergence.
@@ -366,7 +366,7 @@ Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 
 ```bash
 mkdir -p specs && \
-node .claude/scripts/tickets/show-ticket-context.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
@@ -378,7 +378,7 @@ it on the belief that Step 1.5 did not run; a ticket with no distribution units 
 `skipped:no-distribution`, which keeps Case B and a pre-split ticket unchanged.
 
 ```bash
-node .claude/scripts/tickets/verify-make-distribution.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-make-distribution.js" \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json" --spec="specs/$ARGUMENTS.md"
 ```
 
@@ -388,5 +388,5 @@ node .claude/scripts/tickets/verify-make-distribution.js \
 ### Step 10: Update ticket status
 
 ```bash
-echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"status":"made"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```

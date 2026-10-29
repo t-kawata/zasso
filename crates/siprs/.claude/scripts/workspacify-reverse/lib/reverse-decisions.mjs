@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * The reverse rotation's decisions, and the gate that reads them.
  *
@@ -325,7 +326,7 @@ export function renderDecisionsAdvice(findings, { path }) {
     .flatMap((kind) => findings.filter((finding) => finding.kind === kind))
     .find((finding) => finding.step)?.step ?? ENTRANCE_STEP;
   lines.push(`Return to: ${returnStep}`);
-  lines.push('Then re-run: node .claude/scripts/workspacify-reverse/run.mjs gate');
+  lines.push('Then re-run: node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate');
 
   return lines.join('\n');
 }

@@ -497,7 +497,7 @@ function withPreservedRunAccounting(status, statusPath) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339|PX-341) --for-spec --no-implementation-order`.
 function main(testArgs, options = {}) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs, options);
@@ -553,8 +553,8 @@ function main(testArgs, options = {}) {
           `     In that case, the warning can remain recorded as a known constraint and proceed to the next step\n` +
           `\n` +
           `  3. For edges that can be made unidirectional, fix them with crud.js:\n` +
-          `     node .claude/scripts/rfc-graph/crud.js --graph="<graphPath>" delete-edges --file=_remove.json\n` +
-          `     node .claude/scripts/rfc-graph/crud.js --graph="<graphPath>" create-edges --file=_add.json\n` +
+          `     node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/crud.js" --graph="<graphPath>" delete-edges --file=_remove.json\n` +
+          `     node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/crud.js" --graph="<graphPath>" create-edges --file=_add.json\n` +
           `\n` +
           `  4. If the cycle is a design error, check the source RFC to identify the correct dependency direction and fix edge definitions directly with crud.js\n` +
           `\n` +

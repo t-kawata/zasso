@@ -1,6 +1,7 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -43,7 +44,7 @@ test('a downgrade withdraws a finding the v3 generation carried', () => {
     where: 'spec.md#1',
     why: 'why',
     fix: 'fix',
-    producer: 'node .claude/scripts/smooth-sequences/run.mjs',
+    producer: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
   };
   try {
     const report = buildReport({

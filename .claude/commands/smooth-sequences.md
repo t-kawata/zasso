@@ -59,7 +59,7 @@ Only human surface: delegated design command's direction questions within its ow
 
 Closure mode is a v3 artifact or an evidence manifest, with both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` present. In closure mode the four grill mechanical gates are run here — `check-obligation-coverage.js`, `check-contribution-completeness.js`, `check-distribution-completeness.js` and `defect-report.js --gate` — so a pass from this command means the closure they measure holds too. A failing gate keeps the certificate incomplete with an open entry `CLOSURE:<script>` carrying the gate's first refusal line, and the run exits `4`. `--legacy` does not run them. A command that is not in closure mode is not claiming that closure; say so in the report rather than reading its exit as the pipeline's.
 
-Closure mode runs the strict evidence path automatically: it resolves the worklist, requires an effort trace, checks the generation and the write receipts, and reports `evidence: strict`. A structural-only run is not closure evidence and cannot report `pass` or `complete`. `--legacy` is the only weak path; it keeps the old report shape, writes `evidence: legacy`, and cannot claim closure. `--require-effort` and `--strict-freshness` remain accepted for compatibility and are implied in closure mode; to reproduce the closure policy explicitly, run `node .claude/scripts/smooth-sequences/run.mjs <root> --require-effort`.
+Closure mode runs the strict evidence path automatically: it resolves the worklist, requires an effort trace, checks the generation and the write receipts, and reports `evidence: strict`. A structural-only run is not closure evidence and cannot report `pass` or `complete`. `--legacy` is the only weak path; it keeps the old report shape, writes `evidence: legacy`, and cannot claim closure. `--require-effort` and `--strict-freshness` remain accepted for compatibility and are implied in closure mode; to reproduce the closure policy explicitly, run `node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs" <root> --require-effort`.
 
 ## Generations
 
@@ -76,10 +76,10 @@ Closure mode runs the strict evidence path automatically: it resolves the workli
 cmd (once, workspace root):
 
 ```bash
-node .claude/scripts/smooth-sequences/calibrate.mjs
-node .claude/scripts/smooth-sequences/run.mjs
-node .claude/scripts/smooth-sequences/run.mjs --audit
-node .claude/scripts/smooth-sequences/run.mjs --advisory-readings
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/calibrate.mjs"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs" --audit
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs" --advisory-readings
 ```
 
 Judge current directory; no parent search.
@@ -92,8 +92,8 @@ Calibration writes `smooth-sequences/CALIBRATION.json`: one seeded defect per ch
 |---|---|---|
 | `0` | no finding, or audit mode | Step 6 |
 | `1` | findings; report written | Step 2 |
-| `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node .claude/scripts/regeneration/run.mjs status` to identify it (`state: none` = none); `node .claude/scripts/regeneration/run.mjs continue`; follow `next:`; Step 1 |
-| `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node .claude/scripts/regeneration/run.mjs continue`; Step 1 |
+| `2` | misuse/refusal; no new report | Read stderr cause + `next:`. Broken chain → follow `next:`: restore generation from `regeneration/archive/<id>/` or open regeneration. Open transaction → `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status` to identify it (`state: none` = none); `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue`; follow `next:`; Step 1 |
+| `3` | AI handoff: ground / educe | Ground → Step 5. Educe → read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (full contract: Step 4); `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue`; Step 1 |
 | `4` | unproven: report written | Step 2: restore each blocked surface with its named producer, resolve the readings, or repair the design-authoring gate named `CLOSURE:<script>`; never read exit 4 as completion |
 
 Open transaction → resume; never abandon.
@@ -108,7 +108,7 @@ Every finding has a repair class:
 
 | class | surfaces | action |
 |---|---|---|
-| `in-place` | package `RFC.md` (distribution ledger, boundary name), obligation, view | Edit authored file; run route `rerun:` (view: `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>`); rerun this command |
+| `in-place` | package `RFC.md` (distribution ledger, boundary name), obligation, view | Edit authored file; run route `rerun:` (view: `node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" <artifact> <package>`); rerun this command |
 | `regeneration` | specification-derived artifact findings; allocate decisions | No live-spec edit. Copy to candidate; change candidate or decisions; run transaction |
 | `judgment-required` | unresolved RFC/obligation ground | Step 5: owning AI command in staging; then `continue` |
 | `blocked` | a required surface is absent, migration-synthesized, or has unknown provenance | Step 2: restore the surface with its producer (`migrate-v3 --annotations` for the v3 evidence surfaces; specification regeneration for vocabulary); rerun |
@@ -116,7 +116,7 @@ Every finding has a repair class:
 Blocked surfaces have no authored file of their own. Every blocked line names its producer. The v3 evidence surfaces (`operations[].allowed_status_transitions`, `operations[].registry_contribution`, `operations[].boundary_effects`, `steps[].contract`, `steps[].contract.authored`, `steps[].contract.crosses`) are restored by an annotations document:
 
 ```bash
-node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<annotations-file>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=<annotations-file>
 ```
 
 **Authoring annotations.** The document carries `contracts`, `operations` and `boundary_grounds`:
@@ -170,12 +170,12 @@ Editable surfaces:
 
 | surface | authored file | producer or verifier |
 |---|---|---|
-| package RFC | `<package>/RFC.md` | authored — edit it directly; `node .claude/scripts/smooth-sequences/run.mjs` verifies it |
-| package obligation | `<package>/OBLIGATION.json` | authored — edit it directly; `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` writes the view from it |
-| package view | `<package>/SEQUENCES.json` (generated) | `node .claude/scripts/sequences-slice/run.mjs <artifact> <package>` |
-| specification (candidate) | `regeneration/candidates/<id>.md` | `node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=...` |
-| allocate decisions (candidate) | `regeneration/candidates/<id>-ALLOCATE.json` | `node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=...` |
-| tree decisions (candidate) | `regeneration/candidates/<id>-TREE.json` | `node .claude/scripts/regeneration/run.mjs open --tree-decisions=<candidate> --reason=...` |
+| package RFC | `<package>/RFC.md` | authored — edit it directly; `node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"` verifies it |
+| package obligation | `<package>/OBLIGATION.json` | authored — edit it directly; `node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" <artifact> <package>` writes the view from it |
+| package view | `<package>/SEQUENCES.json` (generated) | `node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" <artifact> <package>` |
+| specification (candidate) | `regeneration/candidates/<id>.md` | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=...` |
+| allocate decisions (candidate) | `regeneration/candidates/<id>-ALLOCATE.json` | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --allocate-decisions=<candidate> --reason=...` |
+| tree decisions (candidate) | `regeneration/candidates/<id>-TREE.json` | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --tree-decisions=<candidate> --reason=...` |
 
 `<artifact>` = single root `*-sequences.json`.
 `<package>` = view directory; path before `/SEQUENCES.json` on `route:`.
@@ -231,7 +231,7 @@ Supplied document with no live counterpart = change; `open` accepts.
 **Annotations candidate.** When a blocked line names `migrate-v3 --annotations`, write the annotations document described in Step 2 to `regeneration/candidates/<id>-ANNOTATIONS.json` and open with `--annotations=<candidate>`. The file is hashed at open; editing the candidate or the staged copy after open raises `CANDIDATE_CHANGED`. The staging producer applies `migrate-v3` after educe and before the views, so a specification change does not lose the authored contracts.
 
 ```bash
-node .claude/scripts/regeneration/run.mjs open \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open \
   --spec=regeneration/candidates/<id>.md \
   --annotations=regeneration/candidates/<id>-ANNOTATIONS.json \
   --reason="<checkId>: <evidence and why the change is correct>"
@@ -240,8 +240,8 @@ node .claude/scripts/regeneration/run.mjs open \
 Preconditions:
 
 - `pwd` = workspace root.
-- `node .claude/scripts/smooth-sequences/run.mjs` exits 0/1; exit 2 → resolve named broken chain/open transaction first.
-- No active transaction: `node .claude/scripts/regeneration/run.mjs status` prints `state: none`, `committed` or `aborted`.
+- `node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"` exits 0/1; exit 2 → resolve named broken chain/open transaction first.
+- No active transaction: `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status` prints `state: none`, `committed` or `aborted`.
 
 Write candidate outside frozen files using copies above; then drive transaction:
 
@@ -250,26 +250,26 @@ Write candidate outside frozen files using copies above; then drive transaction:
 $EDITOR regeneration/candidates/<id>.md
 
 # 2. Open the transaction.
-node .claude/scripts/regeneration/run.mjs open \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open \
   --spec=regeneration/candidates/<id>.md \
   --reason="<checkId>: <evidence and why the change is correct>"
 
 # 3. Read the state and the staging specification path.
-node .claude/scripts/regeneration/run.mjs status
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status
 
 # 4. Drive derive, verify and commit in one command.
-node .claude/scripts/regeneration/run.mjs continue
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
 ```
 
 `continue` prints `id`, `state`, `staging`, `spec`, exact `next:` command; stops only at handoff:
 
 | printed state | meaning | exact next command |
 |---|---|---|
-| `educe-pending` | artifact does not record staged specification | Read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (contract below); pass writes `<spec-dir>/<spec-base>-sequences.json` beside spec. Then `node .claude/scripts/regeneration/run.mjs continue` |
-| `derived` / `verified` | advanced; unfinished; unexpected from `continue` | `node .claude/scripts/regeneration/run.mjs continue` |
+| `educe-pending` | artifact does not record staged specification | Read `.claude/commands/educe-sequences.md`; execute with printed `spec:` as first argument (contract below); pass writes `<spec-dir>/<spec-base>-sequences.json` beside spec. Then `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue` |
+| `derived` / `verified` | advanced; unfinished; unexpected from `continue` | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue` |
 | `judgment-required` | mechanically unsettled ground | Step 5; then `continue` |
-| `unverified` | chain refused, or the staging result adds debt (`DEBT_INCREASED`) | `node .claude/scripts/regeneration/run.mjs verify` prints every failed `link:`/`finding:` and the first new finding, blocked check or reading subject; its `next:` advisory only. No staging-tree repair: `abort`; amend candidate; open from current baseline |
-| `derive-failed` | producer refused | `node .claude/scripts/regeneration/run.mjs abort`; fix candidate; `open` again |
+| `unverified` | chain refused, or the staging result adds debt (`DEBT_INCREASED`) | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify` prints every failed `link:`/`finding:` and the first new finding, blocked check or reading subject; its `next:` advisory only. No staging-tree repair: `abort`; amend candidate; open from current baseline |
+| `derive-failed` | producer refused | `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort`; fix candidate; `open` again |
 | `commit-failed` | live tree restored | Inspect `regeneration/archive/<id>/`; open new transaction |
 | `committed` | generation live | Step 1 |
 | `aborted` | staging discarded | Open new transaction |
@@ -279,18 +279,18 @@ node .claude/scripts/regeneration/run.mjs continue
 Recovery/inspection commands:
 
 ```bash
-node .claude/scripts/regeneration/run.mjs open ...      # stage a candidate
-node .claude/scripts/regeneration/run.mjs status        # id, state, staging, spec, next
-node .claude/scripts/regeneration/run.mjs continue      # derive -> verify -> commit, or one handoff
-node .claude/scripts/regeneration/run.mjs derive        # one derive step
-node .claude/scripts/regeneration/run.mjs verify        # chain, grounds and detector
-node .claude/scripts/regeneration/run.mjs commit        # the only live write
-node .claude/scripts/regeneration/run.mjs abort         # discard staging
-node .claude/scripts/regeneration/run.mjs recover       # resolve an interrupted commit
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open ...      # stage a candidate
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status        # id, state, staging, spec, next
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue      # derive -> verify -> commit, or one handoff
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" derive        # one derive step
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify        # chain, grounds and detector
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" commit        # the only live write
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort         # discard staging
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" recover       # resolve an interrupted commit
 ```
 
 Educe handoff belongs to this step.
-`derive`: from staging root, run `node .claude/scripts/educe-sequences/rail/phase.mjs through <staged-spec>` through all deterministic phases; stop at first reader phase.
+`derive`: from staging root, run `node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <staged-spec>` through all deterministic phases; stop at first reader phase.
 Stopped phase = handoff, not derive failure.
 
 Artifact still lacks staged specification → `continue` prints `state: educe-pending` + staging `spec:`; settle:
@@ -298,7 +298,7 @@ Artifact still lacks staged specification → `continue` prints `state: educe-pe
 1. Read `.claude/commands/educe-sequences.md` (`disable-model-invocation: true`); execute document as this AI; no session slash invocation.
 2. Execute Steps in order through every gate; staged spec path = first argument; trailing material → `<spec-dir>/educe-sequences/supplied/`.
 3. Confirm passing artifact: `<spec-dir>/<spec-base>-sequences.json`, beside spec (`spec.md` → `spec-sequences.json`); records staged spec's raw digest.
-4. Run `node .claude/scripts/regeneration/run.mjs continue`; resume without setup rerun.
+4. Run `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue`; resume without setup rerun.
 
 Live-spec artifact → reject: different digest.
 Ledger `pending` names stopped phase + resume command.
@@ -314,7 +314,7 @@ Failure handling:
 - `BASELINE_CHANGED`: live design changed since open → abort; open from current baseline.
 
 Interrupted commit: detector calls `recover` before reading.
-Manual: `node .claude/scripts/regeneration/run.mjs recover`.
+Manual: `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" recover`.
 Journal `prepared`/`applying` → rollback; `verifying` + valid live chain → complete.
 Never delete `regeneration/GENERATIONS.json` or `regeneration/COMMIT-JOURNAL.json`.
 
@@ -343,11 +343,11 @@ Owners: settle every point possible from specification, code, documents.
 Only human surface: owners may ask direction questions only, within own limits (3 questions/round, 5 rounds).
 `/smooth-sequences`: never ask; never delegate ground itself.
 
-`continue` prints only handoff → `node .claude/scripts/regeneration/run.mjs verify` exposes ground as `reason:`.
+`continue` prints only handoff → `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify` exposes ground as `reason:`.
 Detector exit 3 → ground on `transaction:` line.
 Ground text defines what owner must settle.
 
-Owner settles → run `node .claude/scripts/regeneration/run.mjs continue`; grounds rerun.
+Owner settles → run `node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue`; grounds rerun.
 Observable settlement: advance to commit or return `judgment-required` with new reason.
 State = repair route; never terminal/completion.
 Owner cannot settle → ground/spec defective: abort; amend candidate; open new transaction; never hand ground to human.
@@ -379,7 +379,7 @@ J1. Run the gate. `smooth-sequences/JUDGMENT-WORKLIST.json` lists every open sem
 
 J2. Answer the worklist in `educe-sequences/readings-judgment.jsonl` and `educe-sequences/readings-attack.jsonl`. A judgment record carries `schemaVersion: 2`, `obligationId`, `contextDigest`, `worklistDigest`, `artifactDigest`, a closing verdict from the item vocabulary, a kind-specific `basis`, `reader: <worklist reader>` and a `recordId` equal to the digest of the body. A Tier 1 item also owes an attack with `reader: <worklist attackReader>`, the same context and worklist digests, `outcome` and `searched` (source, line range, quote). A FALSIFY item is answered by its attack alone. Under `--require-effort`, a held judgment also carries the `effort` trace described in Step 2, and a Tier 1 attack must be `blind: true` with a separate reader and a non-shared source; a missing trace or a non-blind attack is rejected with the named code.
 
-Under `--require-effort` or `--strict-freshness`, stage the records and write them through `node .claude/scripts/shared-obligations/evidence-writer.mjs --root=<workspace> --kind=<judgment|attack|effort> --input=<staging.jsonl>`. The writer stamps `readAt` and `readerGeneration`, validates every record against its worklist item, writes all records or none, and records a write receipt in `EVIDENCE-MANIFEST.json`. A direct write to `readings-*.jsonl` has no write receipt and is rejected with `MISSING_WRITE_RECEIPT`; a record from an older generation is `READER_GENERATION_STALE`, and a record older than the generation start is `READING_NOT_REREAD`.
+Under `--require-effort` or `--strict-freshness`, stage the records and write them through `node "$(git rev-parse --show-toplevel)/.claude/scripts/shared-obligations/evidence-writer.mjs" --root=<workspace> --kind=<judgment|attack|effort> --input=<staging.jsonl>`. The writer stamps `readAt` and `readerGeneration`, validates every record against its worklist item, writes all records or none, and records a write receipt in `EVIDENCE-MANIFEST.json`. A direct write to `readings-*.jsonl` has no write receipt and is rejected with `MISSING_WRITE_RECEIPT`; a record from an older generation is `READER_GENERATION_STALE`, and a record older than the generation start is `READING_NOT_REREAD`.
 
 J3. Re-run. The gate validates every record and leaves rejected records named; it rewrites the worklist with the remaining open set.
 
@@ -411,7 +411,7 @@ Live design files remain byte-identical until commit.
 
 A blocked check is named in the report with `{checkId, family, surface, producer, reason}`; it is not pass and it never contributes a finding. `blocked` is the authoritative list; `withheld` remains as a compatibility projection for older readers.
 
-- The v3 evidence surfaces are restored with `node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<file>`. A blocked line prints that command as its producer.
+- The v3 evidence surfaces are restored with `node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=<file>`. A blocked line prints that command as its producer.
 - `operations[].allowed_status_transitions` absent, migration-synthesized, or unknown provenance → S3 status checks blocked. A v2-authored transition graph stays authored; a migration that adds a terminal closure makes the surface migration.
 - `operations[].registry_contribution` absent or migration-synthesized → S4.contribution blocked.
 - `operations[].boundary_effects` absent → S6.boundary-effect-drift blocked. A field present on every active operation, even as `[]`, is a measured zero.
@@ -441,33 +441,33 @@ Crash/refusal/terminal-record states only; handled by Step 4 commands. Diagnosti
 
 ```bash
 cd /path/to/workspace
-node .claude/scripts/smooth-sequences/run.mjs
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 1 finding(s) in 1 repair route(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 1 (new generation)
-# route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>
+# route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=<reason>
 #   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
 # next: fix every finding above; blocked surfaces must also be restored. exit 0 only when both sets are empty.
 
-node .claude/scripts/regeneration/run.mjs open --spec=regeneration/candidates/spec.md --reason="S3.interface-mapping-missing: map grpc"
-node .claude/scripts/regeneration/run.mjs continue
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=regeneration/candidates/spec.md --reason="S3.interface-mapping-missing: map grpc"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
 # state: educe-pending
 # spec: /path/to/workspace.regeneration/<tx>/spec.md
-# next: run .claude/commands/educe-sequences.md with /path/to/workspace.regeneration/<tx>/spec.md, then node .claude/scripts/regeneration/run.mjs continue
+# next: run .claude/commands/educe-sequences.md with /path/to/workspace.regeneration/<tx>/spec.md, then node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
 
 # Execute .claude/commands/educe-sequences.md with that spec path.
 # A passing run writes /path/to/workspace.regeneration/<tx>/spec-sequences.json.
 
-node .claude/scripts/regeneration/run.mjs continue
+node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
 # state: committed
-# next: node .claude/scripts/smooth-sequences/run.mjs
+# next: node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
 
-node .claude/scripts/smooth-sequences/run.mjs
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 0 finding(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 2 (new generation)
 # next: none. verdict: pass.
 # /path/to/workspace/smooth-sequences/archive/1/ holds the generation 1 pair.
 
-node .claude/scripts/smooth-sequences/run.mjs
+node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 0 finding(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 2 (verification; no new generation)
 # next: none. verdict: pass.

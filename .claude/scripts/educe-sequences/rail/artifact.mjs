@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // Composing the artifact from the specification and one run's readings (PX-240).
 //
@@ -15,7 +16,7 @@ import { digestOfSupplied } from './supplied.mjs';
 
 /** The command a reader is told to run to check the artifact later. */
 // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
-export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>';
+export const VERIFY_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" <spec-file>';
 
 /**
  * The fields a v3 artifact carries that a v2 composition cannot reproduce.

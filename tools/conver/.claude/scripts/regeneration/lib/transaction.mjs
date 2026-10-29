@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * The thaw/refreeze transaction.
  *
@@ -47,18 +48,18 @@ import {
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS_DIRECTORY = join(MODULE_DIRECTORY, '..', '..');
 
-const NEXT_CONTINUE = 'node .claude/scripts/regeneration/run.mjs continue';
-const NEXT_DETECTOR = 'node .claude/scripts/smooth-sequences/run.mjs';
+const NEXT_CONTINUE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue';
+const NEXT_DETECTOR = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
 
 /** The next action a state names. */
 const NEXT_ACTION = Object.freeze({
   [STATES.OPEN]: NEXT_CONTINUE,
   [STATES.DERIVED]: NEXT_CONTINUE,
   [STATES.VERIFIED]: NEXT_CONTINUE,
-  [STATES.COMMITTING]: 'node .claude/scripts/regeneration/run.mjs recover',
+  [STATES.COMMITTING]: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" recover',
   [STATES.JUDGMENT_REQUIRED]: 'resolve the named ground in staging with /grill-me-for-rfc or /explain-seed, then continue',
   [STATES.COMMIT_FAILED]: 'inspect the archive, then open a new transaction',
-  [STATES.DERIVE_FAILED]: 'node .claude/scripts/regeneration/run.mjs abort, fix the candidate, then open a new transaction',
+  [STATES.DERIVE_FAILED]: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort, fix the candidate, then open a new transaction',
   [STATES.COMMITTED]: NEXT_DETECTOR,
   [STATES.ABORTED]: 'open a new transaction',
 });

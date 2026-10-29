@@ -127,7 +127,7 @@ No refusal gate over subject may exist: incompleteness is input; existing `RFC-R
 
 **The purpose of this step**: determine the project pattern mechanically, from the filesystem.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs pattern`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" pattern`
 
 **Read filesystem facts**: root `*-GRAPH.json`, `*-Dirs-Tree.json`, `Tickets.json`, `RFC-*.md`, per-directory `RFC-SEED.md`, `WORKSPACIFY-*MANIFEST*`; the pattern is decided by their presence and absence. R0 re-derives and publishes `PATTERN.json`.
 
@@ -146,7 +146,7 @@ No refusal gate over subject may exist: incompleteness is input; existing `RFC-R
 
 **The purpose of this step**: record what exists, so prior work is read rather than overwritten.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs inventory`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" inventory`
 
 **Read**: artifacts, ticket lifecycle, `DesignTree.json`, prior partition. Interrupted work: record; never silently continue/delete. Pattern 2/3 root dirs tree: prior, not answer.
 **Gate**: the named material and its counterpart on disk (`DesignTree.json` against its prior) remain; no tidying write.
@@ -157,7 +157,7 @@ No refusal gate over subject may exist: incompleteness is input; existing `RFC-R
 
 **The purpose of this step**: fix the boundary and the scope in one analysis run.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs analyze`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" analyze`
 
 One invocation, fourteen stages, no CLI prefix; run to exit.
 **Gate**: exit 0 over the `*-GRAPH.json` input; verdict names destination, stages, docs, assertions; scope records commit/hash, digest exclusions, exclusion rules, permissions, external-transmission policy.
@@ -178,7 +178,7 @@ Dependency order, not numeric order: R2.5 runs before R1 and R2 because publishi
 - No command-line prefix instrument: `analyzeProject(... through ...)` is API-only; never use it here.
 - Publishing is atomic: the entrance digests the tree before and after, and a single byte moved outside the reserved destination refuses publication. No stage writes target tree.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs status`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" status`
 
 **Gate**: read `ANALYSIS-SCOPE.json` before all else; confirm both origin files present.
 **If the gate fails**: Step 2; no prefix or cleanup.
@@ -188,7 +188,7 @@ Dependency order, not numeric order: R2.5 runs before R1 and R2 because publishi
 
 **The purpose of this step**: read the material in the order the decisions need it.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs status`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" status`
 
 **Read non-empty**: `R0-R2-REPORT.md` (boundary/structure/dependencies/execution/attempt ledger; distinguishes `extracted_count:0` found-none from could-not-analyse); `CLAIM-LEDGER.json` (claims/evidence independence); `R7-SERVING.md` (unsettled question); `ORIGIN-LONG-SPEC.md` (all six/falsification); `CAPABILITY-PROFILE.json` (five proof limits; no eligibility verdict). `status` exit validates exit documents, not this five-document gate. For every decision-touching claim: open named `file:line` and surrounding source.
 **Gate**: all five documents present and non-empty (`R0-R2-REPORT.md` first).
@@ -208,8 +208,8 @@ Create exactly one JSON object with exactly six keys; writer, never hand-write d
 **Run**:
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<path>
-node .claude/scripts/workspacify-reverse/run.mjs gate
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" decide --answers=<path>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate
 ```
 
 **Gate**: all six beside their material in `DECISIONS.json`; gate 0. Grounds include R2 cohesion, dependency density, SCC condensation, co-change history, boundary-crossing calls. Missing/extra/invalid → whole refusal/no partial write.
@@ -223,8 +223,8 @@ node .claude/scripts/workspacify-reverse/run.mjs gate
 Unit: every package × every 21 items. Every cell: reading or reasoned decline; `N/A`/`none` refused. Reading is inference, not measurement; `basis` is existing measured-claim-id array; falsification is executable `file:line` or command; no measurement repetition, duplicate cell sentence, or reopening claim via id/type/evidence.
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs readings
-node .claude/scripts/workspacify-reverse/run.mjs readings --scope=src/api --item=purpose
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" readings
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" readings --scope=src/api --item=purpose
 ```
 
 ```json
@@ -232,7 +232,7 @@ node .claude/scripts/workspacify-reverse/run.mjs readings --scope=src/api --item
 ```
 
 Re-read source where basis changed.
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs analyze --semantics=<path>`.
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" analyze --semantics=<path>`.
 **Gate**: 0; all cells closed/bases resolve; `clm-design-*` claims under packages; design-semantics section records readings/declines.
 **If the gate fails**: correct named cell/rule/action, then rerun after file changes; no partial publish.
 **Record**: readings file and destination.
@@ -241,13 +241,13 @@ Re-read source where basis changed.
 
 **The purpose of this step**: inspect, repair and reinforce each reading against the source it names.
 
-**Run**: for each cell, `node .claude/scripts/workspacify-reverse/run.mjs readings --scope=<path> --item=<key>`; open anchored source. Locator window is not evidence. Judge code truth, correct invariant/owner/counterpart, and uncaught reader obligation. Repair false/thin reading or dishonest decline.
+**Run**: for each cell, `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" readings --scope=<path> --item=<key>`; open anchored source. Locator window is not evidence. Judge code truth, correct invariant/owner/counterpart, and uncaught reader obligation. Repair false/thin reading or dishonest decline.
 
 Repair evidence: record repaired cell, inspected source, locator `file:line`. Changed wording without opening described source is rewording, not repair.
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<same path>
-node .claude/scripts/workspacify-reverse/run.mjs gate
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" decide --answers=<same path>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate
 ```
 
 **Gate**: readings 0 and gate 0. Semantics analyze erased destination; `DECISIONS.json` is not published; re-run decide.
@@ -258,7 +258,7 @@ node .claude/scripts/workspacify-reverse/run.mjs gate
 
 **The purpose of this step**: record the seam between the prior partition and this one.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs seam`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" seam`
 
 Pattern 1: no seam; skip Step 9. Patterns 2/3: retain old partition, work in flight, bidirectional difference; never eliminate to tidy. Old root dirs tree is prior, not answer.
 **Gate**: the prior root `DesignTree.json` is readable and the destination spec is fixed; seam 0 in both directions.
@@ -271,7 +271,7 @@ Pattern 1: no seam; skip Step 9. Patterns 2/3: retain old partition, work in fli
 
 **Run**: hand over to the reverse tree builder.
 
-Build it with `node .claude/scripts/workspacify-tree/run.mjs reverse`: the reverse tree builder consumes reserved Markdown. Bare tree builder is forward mode; never use it here. Responsibility ends here; do not run/wait for allocator or inner loops.
+Build it with `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" reverse`: the reverse tree builder consumes reserved Markdown. Bare tree builder is forward mode; never use it here. Responsibility ends here; do not run/wait for allocator or inner loops.
 **Gate**: both origin files and `DECISIONS.json` beside them.
 **If the gate fails**: Step 2. No separate human norm-setting stage; later unresolved answers return by residual → grill → RFC path.
 **Record**: none.
@@ -280,7 +280,7 @@ Build it with `node .claude/scripts/workspacify-tree/run.mjs reverse`: the rever
 
 **The purpose of this step**: report the stage list, the destination and the verdict.
 
-**Run**: `node .claude/scripts/workspacify-reverse/run.mjs report`
+**Run**: `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" report`
 
 Report/gate only: stage list, destination, `proved|not proved`; nothing else.
 **If the gate fails**: empty destination → Step 2; absent required report field → reread exit/verdict; report only known field; Step 10 after destination change. Unreadable root: report path, not bare errno. Empty target: explicit empty origin spec.

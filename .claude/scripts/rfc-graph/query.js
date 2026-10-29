@@ -654,7 +654,7 @@ function printUsage() {
  * On missing markers, output partial results + stderr notification, exit code 0.
  * Never modifies any files.
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-335|PX-341) --for-spec --no-implementation-order`.
 function main() {
   let graphPath, sourcePath, nodeIds, hops, dirsTreePath;
 
@@ -761,7 +761,7 @@ function main() {
     );
     writeLine("```");
     writeLine(
-      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<target node ID to drill into (N??? format)> --hops=<drill depth>`,
+      `node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js" --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<target node ID to drill into (N??? format)> --hops=<drill depth>`,
     );
     writeLine("```");
 

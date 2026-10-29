@@ -123,11 +123,11 @@ DOC_DIR="."
 # Canonical names the scripts default to; the Step calls do not pass them.
 TICKETS_PATH="Tickets.json"
 STATUS_PATH="RFC-SPLIT-Status.json"
-ARTIFACT_PATH="$(node -e "const fs=require('fs'),p=require('path');const a=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest('$DOC_DIR');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
-bash .claude/scripts/tickets/init-split-to-ticket.sh
+ARTIFACT_PATH="$(node -e "const fs=require('fs'),p=require('path');const a=require('$(git rev-parse --show-toplevel)/.claude/scripts/lib/package-artifacts').findAllocateManifest('$DOC_DIR');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
+bash "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/init-split-to-ticket.sh"
 RUN_ID="$(date +%s%N)-$$"
-node .claude/scripts/rfc-graph/update-split-step-status.js begin-run --run-id="$RUN_ID"
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="." --artifact="$ARTIFACT_PATH"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" begin-run --run-id="$RUN_ID"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH"
 ```
 
 Fail-closed preflight: `STALE_DISTRIBUTION_MAP`, `UNIT_SET_MISMATCH`, `SEQUENCE_STEPS_UNDISTRIBUTED`, `MISSING_BOUNDARY_CONTRACT` ⇒ stop; do not create tickets. The same preflight requires the workspace-level `SMOOTH-VERDICT.json`: `MISSING_SMOOTH_RECEIPT` → run graphify first; `STALE_SMOOTH_VERDICT` → smooth or the root artifact moved after the receipt, so rerun graphify, boundify, then split. A missing `Tickets.json` is allowed at Step 0; the post-5-2 gate requires it.
@@ -136,18 +136,18 @@ Fail-closed preflight: `STALE_DISTRIBUTION_MAP`, `UNIT_SET_MISMATCH`, `SEQUENCE_
 From 0-1, status commands:
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step <STEP_ID>
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step <STEP_ID>
-node .claude/scripts/rfc-graph/update-split-step-status.js fail-step <STEP_ID>
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step <STEP_ID>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step <STEP_ID>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step <STEP_ID>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" fail-step <STEP_ID>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step <STEP_ID>
 ```
 
 #### 0-2. Create Malfeasance.json
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "0-1"
-node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "0-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "0-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-malfeasance.js" "$DOC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "0-1"
 ```
 
 `Malfeasance.json`: `DOC_DIR` ledger; incomplete implementation without `[::STUB::]` = crime; create empty if absent.
@@ -157,28 +157,28 @@ node .claude/scripts/rfc-graph/update-split-step-status.js end-step "0-1"
 fix per script error; reset `"0-1"`; rerun Step 0.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "0-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "0-1"
 ```
 
 #### 0-3. Read RFC (understand structure via analyze-source-structure.js → read sections sequentially)
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "0-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "0-2"
 echo "=== RFC Structure Analysis ==="
-node ".claude/scripts/rfc-graph/analyze-source-structure.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/analyze-source-structure.js"
 echo "=============================="
 ```
 
 Never read long RFC all at once. After line-range structure analysis, read all sections top→bottom sequentially; retain purpose/scope, stack, data types, architecture/data/control flow, I/O boundaries, testing strategy.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "0-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "0-2"
 ```
 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "0-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "0-2"
 ```
 
 ---
@@ -186,22 +186,22 @@ node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "0-2"
 ### Step 1: Reference I/O boundary information in the RFC
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "1"
 echo "=== I/O Boundary Reference ==="
-node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" || echo "(No I/O boundary reference. grill/drill needed beforehand. Interrupt split.)"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/extract-io-boundary.js" || echo "(No I/O boundary reference. grill/drill needed beforehand. Interrupt split.)"
 echo "============================="
 ```
 
 I/O reference: RFC-author intent at grill/drill time; respect as far as possible; may differ from later `/graphify-rfc` divergent subdivision. Missing → prompt prior grill/drill; interrupt split.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "1"
 ```
 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "1"
 ```
 
 ---
@@ -209,9 +209,9 @@ node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "1"
 ### Step 2: Examine the relationship graph structure in the RFC design
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "2"
 echo "=== Graph Structure Summary ==="
-node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --with-cli-examples || {
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-graph-summary-markdown.js" --with-cli-examples || {
   echo "(No graph structure summary. graphify needed beforehand. Interrupt split.)"
   exit 1
 }
@@ -221,13 +221,13 @@ echo "==============================="
 GRAPH: `/graphify-rfc` safe I/O-boundary nodes; finer/newer than Step 1 reference; primary ticket-decomposition material. Missing → prompt prior graphify; interrupt split.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "2"
 ```
 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "2"
 ```
 
 ---
@@ -235,9 +235,9 @@ node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "2"
 ### Step 3: Examine directory and file structure via boundify
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "3"
 echo "=== boundify Directory/File Structure ==="
-node .claude/scripts/rfc-graph/show-dirs-files-tree.js || {
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-dirs-files-tree.js" || {
   echo "(*-Dirs-Tree.json not found. boundify needed beforehand. Interrupt split.)"
   exit 1
 }
@@ -247,13 +247,13 @@ echo "========================================="
 Current dirs/files: grill/drill → `/graphify-rfc` → `/boundify-graph` result; do not modify. Allowed: add interface-exposing dir/file for other programs; ticket must state it is absent from corresponding GRAPH/Dirs-Tree. Missing → prompt prior boundify; interrupt split. `default_files` is resolved from leaf files only; a directory path is never written into a ticket. A unit whose Dirs-Tree entry has no leaf file is `UNIT_WITHOUT_FILE`, and a generated header missing the unit is `UNIT_WITHOUT_HEADER`.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "3"
 ```
 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "3"
 ```
 
 ---
@@ -263,34 +263,34 @@ node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "3"
 #### 4-1. Phase splitting via script
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "4-1"
-node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "4-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js"
 ```
 
 Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "4-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "4-1"
 ```
 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "4-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "4-1"
 ```
 
 #### 4-2. Write names and summaries for all phases
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "4-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "4-2"
 ```
 
 Order: P0 → P1 → …; one phase only; display nodes → judge name/summary → write; never output all phases in bulk.
 
 ```bash
-node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js --phase="P0"
-echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | node .claude/scripts/rfc-graph/write-phase-name-summary.js "P0"
-node .claude/scripts/rfc-graph/check-phase-names-summaries.jsnode .claude/scripts/rfc-graph/update-split-step-status.js end-step "4-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-all-nodes-title-summary.js" --phase="P0"
+echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/write-phase-name-summary.js" "P0"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/check-phase-names-summaries.jsnode" .claude/scripts/rfc-graph/update-split-step-status.js end-step "4-2"
 ```
 
 Missing name/summary → fail; no Step 5.
@@ -298,7 +298,7 @@ Missing name/summary → fail; no Step 5.
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "4-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "4-2"
 ```
 
 ### Step 5: Primary ticket definition (ticket creation)
@@ -311,16 +311,16 @@ Phase-order contract:
 3. Then run 5-2 for all phases P0 → P1 → …, one phase at a time.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "5-1"
-node .claude/scripts/rfc-graph/show-phase-nodes.js --phase="P{n}"
-node .claude/scripts/tickets/show-phase-distribution.js --phase="P{n}" --artifact="$ARTIFACT_PATH"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "5-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-phase-nodes.js" --phase="P{n}"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-phase-distribution.js" --phase="P{n}" --artifact="$ARTIFACT_PATH"
 ```
 
 Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "5-1"
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "5-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "5-1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "5-2"
 ```
 
 #### 5-2: Ticket creation (add-tickets-for-phase.js)
@@ -328,7 +328,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js start-step "5-2"
 stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
 
 ```bash
-echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js "P{n}"
+echo '<tickets-array-json>' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/add-tickets-for-phase.js" "P{n}"
 ```
 
 When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
@@ -373,14 +373,14 @@ Done: precise tests, all green, empirical genuine correctness, no coverage/inten
 After all 5-2 phase loops complete:
 
 ```bash
-node .claude/scripts/tickets/merge-contracts-to-tickets.js
-node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify
-node .claude/scripts/tickets/verify-ticket-closure.js
-node .claude/scripts/tickets/verify-all-ticket-coverage.js
-node .claude/scripts/tickets/show-ticket-distribution.js
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
-node .claude/scripts/sequences-slice/verify-implementation-order.mjs --package="." --write
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "5-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/merge-contracts-to-tickets.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/project-step-contracts.js" --mode=verify
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-ticket-closure.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-all-ticket-coverage.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-distribution.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-implementation-order.mjs" --package="." --write
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "5-2"
 ```
 
 `verify-implementation-order.mjs --package` derives every ticket's implementation prerequisites from the graph hard edges and the artifact's `consumes`/`produces`/`crosses` relations, writes `IMPLEMENTATION-ORDER.json` beside `Tickets.json`, and fails closed on `PREREQUISITE_SET_MISMATCH` (the tickets do not carry what the derivation says), `PREREQUISITE_NOT_BEFORE` (a same-package prerequisite is placed at or after its dependent), `PREREQUISITE_PACKAGE_UNSPLIT` (a cross-package prerequisite has no `Tickets.json`), `PREREQUISITE_PACKAGE_BEFORE` (a cross-package prerequisite is later in the implementation order), and `IMPLEMENTATION_ORDER_CYCLE`. A package without a view or graph is `skipped:no-distribution`.
@@ -392,7 +392,7 @@ Closure/coverage fail → no Step 6; reset 5-2. The named failures are `CONTRACT
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "5-2"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "5-2"
 ```
 
 ### Step 5-3: Phase consolidation
@@ -401,14 +401,14 @@ Complete ticketization → scan phases backward; phase <3 tickets → safely mer
 Sequence: guard → validation → backward merge → ID re-index → ticket-key remap → `relatedTicketIds` regeneration → status update → final verification. The remap rewrites `prerequisites[].ticket` and every distribution obligation's `implementerTicketId` / `implementerTicketKey` before the order gate runs, so a phase merge cannot leave a reference pointing at another ticket.
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "5-3"
-node .claude/scripts/tickets/consolidate-phase-tickets.js
-node .claude/scripts/rfc-graph/project-step-contracts.js --mode=verify
-node .claude/scripts/sequences-slice/verify-chain.mjs --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
-node .claude/scripts/sequences-slice/verify-implementation-order.mjs --package="." --write
-WORKSPACE_ROOT="$(node -e "const p=require('./.claude/scripts/lib/package-artifacts').findAllocateManifest(process.argv[1]);process.stdout.write(p?require('path').dirname(p):'')" "$DOC_DIR")"
-if [ -n "$WORKSPACE_ROOT" ]; then node .claude/scripts/sequences-slice/verify-implementation-order.mjs --workspace="$WORKSPACE_ROOT" --write; fi
-node .claude/scripts/rfc-graph/update-split-step-status.js end-step "5-3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "5-3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/consolidate-phase-tickets.js"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/project-step-contracts.js" --mode=verify
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-implementation-order.mjs" --package="." --write
+WORKSPACE_ROOT="$(node -e "const p=require('$(git rev-parse --show-toplevel)/.claude/scripts/lib/package-artifacts').findAllocateManifest(process.argv[1]);process.stdout.write(p?require('path').dirname(p):'')" "$DOC_DIR")"
+if [ -n "$WORKSPACE_ROOT" ]; then node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-implementation-order.mjs" --workspace="$WORKSPACE_ROOT" --write; fi
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" end-step "5-3"
 ```
 
 The workspace gate writes `WORKSPACIFY-IMPLEMENTATION-ORDER.json` with `buildOrder` copied from the stage-2 manifest and `implementationOrder` derived from the union. It never rewrites `Tickets.json` or the published build order. A package whose prerequisite package is unsplit is `PREREQUISITE_PACKAGE_UNSPLIT`; a prerequisite placed later is `PREREQUISITE_PACKAGE_BEFORE`; a union cycle is `IMPLEMENTATION_ORDER_CYCLE`.
@@ -418,14 +418,14 @@ Final `✅` → pass; `⚠️` → judge cause; fix; rerun 5-3.
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "5-3"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "5-3"
 ```
 
 ### Step 6: Output phase and ticket checklist
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js start-step "6"
-node .claude/scripts/tickets/list-phases-and-tickets.jsnode .claude/scripts/rfc-graph/update-split-step-status.js end-step "6"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" start-step "6"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.jsnode" .claude/scripts/rfc-graph/update-split-step-status.js end-step "6"
 ```
 
 Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.
@@ -434,7 +434,7 @@ Stage counters: `end-step 6` records `runs` and advances `generation` only when 
 ### Resuming from an Error
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js reset-to-step "6"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-split-step-status.js" reset-to-step "6"
 ```
 
 ## Notes
@@ -453,7 +453,7 @@ Forward: a design document is decomposed into phases and tickets that declare wh
 - **`counterexample_plan_id` is mandatory.** It names what the ticket will confirm or refute, not merely what it will implement. A ticket without it is refused rather than emitted: the uncertainty the plan encoded would dissolve at implementation time and the reconstruction would become ordinary test-writing.
 
 ```bash
-node .claude/scripts/tickets/lib/reverse-split.js --root=<subject tree> \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/lib/reverse-split.js" --root=<subject tree> \
   --tickets=<path> [--test-dir=<dir>] [--gaps=<path>] [--ledger=<path>] \
   [--language=<name>] [--out=<dir>] [--candidate=<path>] [--json]
 ```
@@ -465,7 +465,7 @@ Nothing here executes a reconstruction ticket; executing them is a separate step
 Absent-Red detection is compared against the frozen answer key rather than asserted, which is what keeps it a measurement:
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage mapping \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" oracle compare --stage mapping \
   --candidate=<path written by --candidate>
 ```
 

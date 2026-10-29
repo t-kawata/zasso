@@ -1,5 +1,5 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
 /**
  * The generation history of a smooth-sequences run.
  *
@@ -23,27 +23,27 @@ const RUN_DIRECTORY = 'smooth-sequences';
 const STATUS_INDENT = 2;
 
 /** A report value the detector would produce for `findings`. */
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-281|PX-341) --for-spec --no-implementation-order`.
 function reportFor(root, findings = []) {
   return buildReport({ workspace: { root }, findings, withheld: [], checks: { run: 7, failed: findings.length } });
 }
 
 /** One finding the archive test carries. */
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-281|PX-341) --for-spec --no-implementation-order`.
 function finding(subject = 'subject') {
   return {
     checkId: 'S1.example',
     class: 'omission',
     subject,
     where: 'spec.md#1',
-    producer: 'node .claude/scripts/smooth-sequences/run.mjs',
+    producer: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
     why: 'why',
     fix: 'fix',
   };
 }
 
 /** The bytes of one file, or null when it does not exist. */
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-281|PX-341) --for-spec --no-implementation-order`.
 function bytesOf(path) {
   return existsSync(path) ? readFileSync(path, 'utf8') : null;
 }

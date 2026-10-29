@@ -210,13 +210,14 @@ function checkWordCount(slug) {
  * @param {string} reason — Violation reason
  * @returns {{ nodeId: string, slug: string, reason: string, remedy: string }}
  */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function buildSlugError(nodeId, slug, reason) {
   const suggestedSlug = suggestFixedSlug(slug);
   return {
     nodeId,
     slug,
     reason,
-    remedy: `node .claude/scripts/rfc-graph/crud.js --graph="<graph-path>" update-node --id=${nodeId} --field=slug --value="${suggestedSlug}"`
+    remedy: `node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/crud.js" --graph="<graph-path>" update-node --id=${nodeId} --field=slug --value="${suggestedSlug}"`
   };
 }
 

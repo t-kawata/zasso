@@ -634,18 +634,18 @@ function buildProcessedText(
   }
 }
 
-/** カレントディレクトリの `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+/** The repository-root .claude directory for the process that runs the bundle. */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+function getClaudeDir(cwd: string = process.cwd()): string {
+  const root = execSync("git rev-parse --show-toplevel", { cwd, encoding: "utf8" }).trim();
+  return path.join(root, ".claude");
+}
+
+/** Run the repository-root list-phases-and-tickets script to obtain the progress list. */
+// [::TICKET::] PX-116, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-116|PX-341) --for-spec --no-implementation-order`.
 function buildProgressText(ticketsPath: string): string {
   try {
-    const script = path.join(
-      process.cwd(),
-      ".claude",
-      "scripts",
-      "tickets",
-      "list-phases-and-tickets.js",
-    );
+    const script = path.join(getClaudeDir(), "scripts", "tickets", "list-phases-and-tickets.js");
     return execSync(`node "${script}" "${ticketsPath}"`, {
       encoding: "utf-8",
     }).trim();

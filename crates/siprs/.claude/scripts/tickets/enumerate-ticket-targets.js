@@ -272,7 +272,7 @@ function enumerateTargets(dirPath, ownTicketKey, ticketsData, ticketsPath) {
   return result;
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-82, PX-83, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-82|PX-83|PX-341) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirPath, ticketKey, ticketsPath;
@@ -286,14 +286,14 @@ function main() {
   if (!dirPath || !ticketKey) {
     console.error('[ERROR] --dir=<path> and --ticket-key=<key> are required');
     console.error('Cause: Missing required arguments');
-    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<Tickets.json>');
+    console.error('Action: Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" --dir=<path> --ticket-key=<key> --tickets=<Tickets.json>');
     process.exit(1);
   }
 
   if (!ticketsPath) {
     console.error('[ERROR] --tickets=<Tickets.json path> is required');
     console.error('Cause: Missing --tickets argument');
-    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<path>');
+    console.error('Action: Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" --dir=<path> --ticket-key=<key> --tickets=<path>');
     process.exit(1);
   }
 

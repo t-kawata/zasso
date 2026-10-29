@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
@@ -24,15 +25,15 @@ export const SURFACE = Object.freeze({
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export const REGENERATION_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason=<reason>';
+export const REGENERATION_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=<reason>';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export const REGENERATION_ALLOCATE_COMMAND = 'node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason=<reason>';
+export const REGENERATION_ALLOCATE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --allocate-decisions=<candidate> --reason=<reason>';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export const DETECTOR_COMMAND = 'node .claude/scripts/smooth-sequences/run.mjs';
+export const DETECTOR_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export const SEQUENCES_SLICE_COMMAND = 'node .claude/scripts/sequences-slice/run.mjs';
+export const SEQUENCES_SLICE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs"';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export const MIGRATE_V3_ANNOTATIONS_COMMAND = 'node .claude/scripts/smooth-sequences/migrate-v3.mjs <root> --annotations=<file>';
+export const MIGRATE_V3_ANNOTATIONS_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=<file>';
 
 /** The producer that restores one blocked evidence surface. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

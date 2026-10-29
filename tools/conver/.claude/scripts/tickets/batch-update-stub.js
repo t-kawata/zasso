@@ -495,7 +495,7 @@ function printProblem(n, entry) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-341) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const positional = args.filter((a) => !a.startsWith("--"));
@@ -518,7 +518,7 @@ function main() {
       "[batch-update-stub] Too many arguments. The [dir] argument is not accepted — " +
       "the target source tree is always the current directory (the Tickets.json root).\n"
     );
-    process.stderr.write("[batch-update-stub] Usage: node .claude/scripts/tickets/batch-update-stub.js <units.json> [--dry-run]\n");
+    process.stderr.write("[batch-update-stub] Usage: node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js\" <units.json> [--dry-run]\n");
     process.exit(2);
   }
   const decisionPath = positional[0] || null;
@@ -526,7 +526,7 @@ function main() {
   if (!res.ok) {
     process.stderr.write("[batch-update-stub] The units decision file has problems. No markers were changed (all-or-nothing).\n");
     process.stderr.write("[batch-update-stub] Fix each problem below, then re-run:\n");
-    process.stderr.write("[batch-update-stub]     node .claude/scripts/tickets/batch-update-stub.js <units.json>\n\n");
+    process.stderr.write("[batch-update-stub]     node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js\" <units.json>\n\n");
     let n = 1;
     for (const p of res.problems || []) {
       const where = p.where +
@@ -550,7 +550,7 @@ function main() {
   }
   if (res.dryRun) {
     process.stdout.write("[batch-update-stub] DRY RUN — no changes were made. Review the plan, then apply:\n");
-    process.stdout.write("[batch-update-stub]     node .claude/scripts/tickets/batch-update-stub.js <units.json>\n");
+    process.stdout.write("[batch-update-stub]     node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js\" <units.json>\n");
     for (const unit of groupPlanByUnit(res.plan)) {
       process.stdout.write("[batch-update-stub] Unit " + unit.unitId + " (key " + unit.key + "):\n");
       for (const e of unit.edits) {

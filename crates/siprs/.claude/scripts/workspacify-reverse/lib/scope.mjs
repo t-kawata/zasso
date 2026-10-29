@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
@@ -347,7 +348,7 @@ export function renderDisagreements(reconciliation) {
       'Run it afterwards, against the frozen P22-2 bundle and never against the live tree:',
       '',
       '```bash',
-      'node .claude/scripts/workspacify-reverse/run.mjs spike reconcile --project-root .',
+      'node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" spike reconcile --project-root .',
       '```',
     );
     return lines.join('\n');

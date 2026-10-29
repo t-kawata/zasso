@@ -129,7 +129,7 @@ Loop limit rule: each Step states its loop count. phase with all loops spent is 
 ### Step 0 — Open the generation and read what it inherited (deterministic)
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs begin "$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin "$ARGUMENTS"
 ```
 
 `$ARGUMENTS` = whole invocation: first token = spec path; rest = supplied material → filed under `<dir of spec-file>/educe-sequences/supplied/`; digested into artifact.
@@ -151,7 +151,7 @@ Run directory `<dir of spec-file>/educe-sequences/` holds `status.json`, declara
 ### Step 1 — identity `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 1
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 1
 ```
 
 PASS: spec digest and line count recorded. FAIL — back to nothing: no reader, no earlier phase ⇒ refusal = argument defect; stop run.
@@ -163,8 +163,8 @@ Reader task: **find the sentence that says when a procedure counts**; quote verb
 Same declaration: **name the weakest link** = the one judgement in this run's apparatus whose failure takes the guarantee down + the declared check that tightens it. named here, four Steps before Step 9 writes artifact: link tightened after artifact declared = rework, not verification.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span   # shape of the ask
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 2
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" span   # shape of the ask
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 2
 ```
 
 Reader writes `<dir of spec-file>/educe-sequences/declaration.json` with `predicate.limbs`; states `sectionLevel` = heading level at which document states procedures; `3` by default.
@@ -178,7 +178,7 @@ Reader writes `<dir of spec-file>/educe-sequences/declaration.json` with `predic
 Find sentence stating fields an entry carries. Record line and fields in `<dir of spec-file>/educe-sequences/declaration.json` as `rowSchema.fields`.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 3
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 3
 ```
 
 FAIL: back to Step 2; max 3 loops.
@@ -212,7 +212,7 @@ Every file in the supplied directory other than the guidance file the invocation
 - a document that mixes vocabularies is split so that each block holds one, because a row a shape cannot read is refused by name rather than skipped, and a skipped row is how a denominator shrinks in silence.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 4
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 4
 ```
 
 Refused when a supplied file no pin reads. Refused when declared member occurs nowhere in spec. FAIL: back to Step 3; max 3 loops.
@@ -222,7 +222,7 @@ Refused when a supplied file no pin reads. Refused when declared member occurs n
 Partition spec into sections covering every line exactly once; name an entry for every line (no line left to nobody). Record `sections[].{id,firstLine,lastLine}`, `entries[].{id,kind,firstLine,lastLine}`.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 5
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 5
 ```
 
 Rule is over document, not partition: preamble before first heading is inside it. region holding no sequence → declare entry spanning it; rule `notASequence` (unread line becomes a reading, not a silence).
@@ -232,7 +232,7 @@ Refused when partition does not reach last line, or a line belongs to no entry; 
 ### Step 6 — pins `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 6
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 6
 ```
 
 Library establishes pins from declaration; records rule each was read by, into `<dir of spec-file>/educe-sequences/pins.json`. PASS when every pin re-derives by rule it declares. FAIL: back to Step 5; max 3 loops.
@@ -240,7 +240,7 @@ Library establishes pins from declaration; records rule each was read by, into `
 ### Step 7 — worklist `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 7
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 7
 ```
 
 Library writes `<dir of spec-file>/educe-sequences/worklist.txt`; one line per entry; each names a **span**. PASS when every line names a span and no line selects by coverage. select-neighbours-by-coverage reproduces the fabrication this command exists to catch ⇒ refused, not warned. FAIL: back to Step 6; max 3 loops.
@@ -250,7 +250,7 @@ Library writes `<dir of spec-file>/educe-sequences/worklist.txt`; one line per e
 Dispatch one reader per worklist line.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" span
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" span
 ```
 
 Hand rendered brief + worklist to reader subagent.
@@ -268,7 +268,7 @@ Every step carries act `subject`, `predicate`, `object`, `contract` + `line` and
 - separation recorded = permitted; absorbed = refused.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 8
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 8
 ```
 
 Second worklist: operations the borrowed census names and no step performs. per operation: place on the line that performs it, or name covering escape (rule this design supplies where spec silent | exclusion) and quote the line saying so. census-named operation unaccounted for ⇒ refused by name (census = denominator the run is held to).
@@ -282,7 +282,7 @@ Two operations read as one act merge here: declare the one name; carry the other
 ### Step 9 — integrate `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 9
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 9
 ```
 
 Integrator proves every field of every reading before anything written; then writes artifact beside spec. Nothing written when any field unproven. PASS when artifact exists, recorded digest matches spec, every pin re-derives, every check green.
@@ -299,8 +299,8 @@ Also compares artifact about to write with the artifact it replaces; refuses whe
 Reader attacks rulings; not checking them.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adversarial
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 10
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adversarial
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 10
 ```
 
 Brief carries tree; its `SHARE:` lines rank rulings: operation another sequence also names ⇒ misreading takes more than this ruling down ⇒ search weakest link there first.
@@ -312,8 +312,8 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: o
 Entry was bound to a window because a name or result object appeared near it. This phase undoes that binding.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" reroute
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 11
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" reroute
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 11
 ```
 
 Brief carries tree ⇒ reroute sees what other entries already hold. question: which entry should realize this one instead? answer = entry whose acts carry the act in question, or do not.
@@ -323,8 +323,8 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`: names
 ### Step 12 — adjudicate `[read]` (AI judgment)
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adjudicate
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 12
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adjudicate
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 12
 ```
 
 Brief carries tree; block of it = one actor's name + acts that actor performs beneath it in order. ruling is made about that, not from it: actor and order read in span, quoted, signed.
@@ -336,8 +336,8 @@ Ruling whose `subject` = name artifact no longer carries is written here; admits
 ### Step 13 — inquest `[read]` (AI judgment)
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" inquest
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 13
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" inquest
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 13
 ```
 
 Pass asks the specification something rather than checking an answer to it. declaration and readings record what was found; cannot record what nobody looked for; this Step closes that gap. every generation asks again ⇒ changed text, or thinly read apparatus, is interrogated, not re-verified.
@@ -357,7 +357,7 @@ Block not built before this Step passes: Step 14 requires phase 13 as well as ph
 ### Step 14 — checks `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 14
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 14
 ```
 
 PASS when every declared check ran and none returned a verdict, **and** the weakest link the declaration named is answered by a declared check or a check this run scaffolded.
@@ -367,7 +367,7 @@ FAIL: back to Step 6; max 3 loops.
 ### Step 15 — re-derive `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 15
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 15
 ```
 
 PASS when no check consumed a pin not re-derived from spec text in this run. keeps single-input design from becoming self-referential (artifact supplying its own premises, then agreeing with them, proves nothing). FAIL: back to Step 6; max 2 loops.
@@ -375,7 +375,7 @@ PASS when no check consumed a pin not re-derived from spec text in this run. kee
 ### Step 16 — falsify `[det]`, and the ad-hoc rail exit
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 16
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 16
 ```
 
 Every mutation in corpus must redden the check it names, for a reason attributable to that check; every counter-mutation on correct work must stay green. counter-mutation that reddens = defect in the **rule**, not in subject. FAIL: back to Step 14; max 3 loops.
@@ -383,8 +383,8 @@ Every mutation in corpus must redden the check it names, for a reason attributab
 Defect class no existing check was written for → ad-hoc phase handles it = the one genuinely non-mechanical act in the command. author dispatched with checked brief, same way as a reader:
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs brief "$1" adhoc
-node .claude/scripts/educe-sequences/rail/phase.mjs scaffold "$1" <check-name> "<the defect that motivated it>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adhoc
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" scaffold "$1" <check-name> "<the defect that motivated it>"
 ```
 
 `scaffold` refuses without an originating defect.
@@ -393,7 +393,7 @@ node .claude/scripts/educe-sequences/rail/phase.mjs scaffold "$1" <check-name> "
 - check whose mutation does not redden, or which also fires on correct work → refused, not recorded.
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs run "$1" 17
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 17
 ```
 
 Record's `promotionCondition` = what would promote check into the rail. Step 16 PASSes while every record carries an executed outcome and no empty field. count of records and count of promotion candidates printed every run (growing ad-hoc surface visible, not silent). Max 5 loops.
@@ -403,7 +403,7 @@ Scaffolded check does not stay where written: from next run, loaded from `<dir o
 Second spec needs same rule → promotion condition met. Promoting = **proposal**, not edit:
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs promote "$1" <record-id> <second-spec-file>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" promote "$1" <record-id> <second-spec-file>
 ```
 
 Marks record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; prints splice, naming `rail/engine.mjs` as file to edit. writes no source: changing declared checks = change made under a ticket, by a person; run only says what the change would be. count of unpromoted records printed every run (proposal queue visible, not remembered).
@@ -411,14 +411,14 @@ Marks record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; 
 ### Step 17 — report and product `[det]`
 
 ```bash
-node .claude/scripts/educe-sequences/rail/phase.mjs through "$1"
-node .claude/scripts/educe-sequences/rail/phase.mjs report "$1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through "$1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" report "$1"
 ```
 
 `through` runs every unfinished phase to the last; stops at first refusal or halt; exits 3 when a halt stopped it. `report` prints closing report. Then product path:
 
 ```bash
-node .claude/scripts/educe-sequences/rail/run.mjs "$1"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" "$1"
 ```
 
 Rendering beside spec written by `rail/render.mjs`: one diagram per sequence the artifact claims is one; each participant declared by alias; messages follow step order ⇒ a name never stands where diagram language would refuse a comma or colon. writes only from a verification that passed (same one `run.mjs` performs) ⇒ refused artifact neither drawn nor reported drawn; region ruled not a sequence owed no diagram.

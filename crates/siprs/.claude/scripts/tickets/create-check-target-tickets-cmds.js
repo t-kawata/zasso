@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
 
 /**
@@ -20,7 +21,7 @@ const path = require('path');
 
 // -- Constants --
 
-const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec --no-implementation-order';
+const SHOW_TICKET_CMD_TEMPLATE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=KEY --for-spec --no-implementation-order';
 
 // -- Pure functions (exported for testing) --
 

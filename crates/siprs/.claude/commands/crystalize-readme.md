@@ -42,7 +42,7 @@ Upstream (role): the make→plan→start→review ticket pipeline.
 ## Preflight: Output Path Derivation and Execution Mode Determination (Deterministic)
 
 ```bash
-node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS" || exit 1
+node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/derive-output-paths.js" --graph="$ARGUMENTS" || exit 1
 ```
 gate: graph unreadable / structure invalid / `sourceFile` missing → error, exit1.
 out (success): English Markdown — Mode, path set, existence flags = prerequisites for later Steps.
@@ -106,7 +106,7 @@ judge: AI synthesizes each usage-focused TOC heading from `sourceFile`. shape: `
 #### 1-3. **Validation gate (deterministic, mandatory)**: Validate every proposal with `validate-toc-proposal.js` **before presenting it to the user**. Restructure until `valid:true`; never present an unvalidated proposal.
 gate: validate every proposal with `validate-toc-proposal.js` **before presenting to the user**. restructure until `valid:true`; never present an unvalidated proposal.
 ```bash
-echo '{"id":"H1-1","heading":"アカウントの追加","contentOptions":["add_account() と register() を呼ぶコード","SipAccountHandle 経由で登録状態を確認するコード","set_registration_enabled() で動的に登録を切り替えるコード"],"recommendation":"add_account() と register() を呼ぶコード","reason":"アカウント追加は最も基本的な操作であり、先に最小のコードを示すのが効果的なため","existingIds":["H1"]}' | node .claude/scripts/crystalize-readme/validate-toc-proposal.js || exit 1
+echo '{"id":"H1-1","heading":"アカウントの追加","contentOptions":["add_account() と register() を呼ぶコード","SipAccountHandle 経由で登録状態を確認するコード","set_registration_enabled() で動的に登録を切り替えるコード"],"recommendation":"add_account() と register() を呼ぶコード","reason":"アカウント追加は最も基本的な操作であり、先に最小のコードを示すのが効果的なため","existingIds":["H1"]}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/validate-toc-proposal.js" || exit 1
 ```
 fields: `id` (path ID, parent = strip trailing `-<n>`) / `heading` / `contentOptions` (2–4 options, A/B/C or Yes/No) / `recommendation` / `reason` / `existingIds` (full existing-ID set, parent must be included).
 this is a **living example** grounded in the real public API of the actual crate (siprs: `add_account`/`register`/`SipAccountHandle`) — assemble proposals with concrete content grounded in the actual target API/usage.
@@ -114,7 +114,7 @@ invariant: heading/option/reason content in Japanese.
 
 #### 1-4. **Record proposals**: Record the validated proposal JSON in CRYSTALIZE-Status.json via `propose-heading`.
 ```bash
-echo '<proposal-json>' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" propose-heading
+echo '<proposal-json>' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" propose-heading
 ```
 
 #### 1-5. **User response**: The user answers **with A/B/C/Yes/No per ID**. Free comments are also allowed. If a free comment is received, re-run the 1-2 heading proposals later in line with its content.
@@ -124,7 +124,7 @@ wait: user answers **A/B/C/Yes/No per ID**. free comments allowed → free comme
 #### 1-6. **Record confirmations**: For each answer, record the confirmed content via `confirm-heading`. `confirmedContent` is the content of the chosen option.
 `confirmedContent` = the chosen option's content.
 ```bash
-echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading
+echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" confirm-heading
 ```
 
 #### 1-7. **Completion condition**: Do not proceed until all heading items and their content are finalized. Repeat the revision and re-proposal of heading suggestions from 1-2 above until everything is finalized. After all nodes are finalized, complete Step 1 with `end-step 1`. **The final heading must always be "Examples（implementation samples）spec and design"**.
@@ -132,12 +132,12 @@ gate: do not proceed until all heading items + content are finalized. loop 1-2�
 
 #### 1-8. **Skeleton output (end of Step 1, deterministic)**: Mechanically output the finalized heading set + the examples section to README.md via script. The `<::TEMPLATE-README::>` marker is automatically attached to each usage section, and the `<::TEMPLATE-EXAMPLES::>` marker to the examples section.
 ```bash
-node .claude/scripts/crystalize-readme/emit-readme-skeleton.js --graph="$ARGUMENTS"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/emit-readme-skeleton.js" --graph="$ARGUMENTS"
 ```
 mechanically writes the finalized heading set + examples section to README.md; auto-attaches `<::TEMPLATE-README::>` to each usage section, `<::TEMPLATE-EXAMPLES::>` to the examples section.
 invariant (fresh=refine, common): even if README.md exists (refine), **overwrite** with the new skeleton — prior body/residue NOT preserved; **all sections re-analyzed** in Step 2 (refinement happens via heading re-finalization + re-analysis; still, heavily reference the old README.md content).
 ```bash
-node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" reset-sections
+node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" reset-sections
 ```
 `reset-sections` empties `grill.sections`/`examplesApproved`, starts Step 2 as full re-analysis.
 gate: do not proceed to Step 2 until complete.
@@ -150,23 +150,23 @@ refine: run identically to fresh, on the README.md re-emitted at 1-8. all sectio
 
 Entry determination (deterministic, mandatory): display ticket list, identify src-reading entry point. ticket key known (e.g. P3-2) → detailed spec at `specs/<ticket-key>.md`.
 ```bash
-node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.js" Tickets.json
 ```
 
 Loop body:
-1. check loop state (deterministic): `node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" --list` — lists unresolved sections (`<::TEMPLATE-README::>` remaining).
+1. check loop state (deterministic): `node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --list` — lists unresolved sections (`<::TEMPLATE-README::>` remaining).
 2. analyze implementation (evidence required): per `<::TEMPLATE-README::>` section, identify its ticket key, analyze `specs/<ticket>.md` → src. invariant: judgments without physical evidence are prohibited.
 3. judgment (per-section, non-deterministic): "can be written" iff the implementation is complete — fully working without danger/omission/contradiction/deficiency (usage-only description, no internal deep-dive).
    - can be written → prepare complete `content`, pass `{id, heading, content}` to `resolve-section`. script replaces the section (removes `<::TEMPLATE-README::>`), marks complete.
    - cannot be written → describe concrete evidence of danger/omission/contradiction/deficiency + reinforcement design as `content`, pass `{id, heading, content}` to `mark-residue`. script replaces the marker with `<::README-RESIDUE::>`, marks residue.
    invariant: **the AI must not hand-edit the README** — both transitions go through the script.
 ```bash
-echo '{"id":"H1-1","heading":"アカウントの追加","content":"<完全な本文>"}' | node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" resolve-section
-echo '{"id":"H1-2","heading":"通話","content":"<証拠と実装補強設計>"}' | node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" mark-residue
+echo '{"id":"H1-1","heading":"アカウントの追加","content":"<完全な本文>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-section
+echo '{"id":"H1-2","heading":"通話","content":"<証拠と実装補強設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-residue
 ```
 4. exit condition (deterministic):
 ```bash
-node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" --check
+node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --check
 ```
 judge: read the English message text, not the exit code. "Loop converged" (all usage sections complete/residue, no marker-grammar violations; `<::TEMPLATE-EXAMPLES::>` still open is fine — Step 3's target) → exit loop, proceed to Step 3. "Loop not converged" (message enumerates unresolved sections/violations) → fix per instructions, continue loop.
 
@@ -179,12 +179,12 @@ Finalizes the trailing "Examples（実装サンプル）仕様と設計" section
 3. inspection loop (non-deterministic): inspect whether Examples is a perfect, complete-coverage implementation example; repeat corrections on any deficiency.
 4. finalize (deterministic, script): "reliably works, can be written" → pass complete design as `content` to `resolve-examples` — removes `<::TEMPLATE-EXAMPLES::>`, inserts complete description, marks complete. cannot be written → pass concrete evidence + reinforcement design as `content` to `mark-examples-residue` — replaces with `<::EXAMPLES-RESIDUE::>`, marks residue. invariant: **the AI must not hand-edit the README**. both rejected with an error if the entry gate hasn't converged or the marker is absent.
 ```bash
-echo '{"content":"<完全な examples 設計>"}' | node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" resolve-examples
-echo '{"content":"<証拠と実装補強設計>"}' | node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" mark-examples-residue
+echo '{"content":"<完全な examples 設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-examples
+echo '{"content":"<証拠と実装補強設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-examples-residue
 ```
 5. completion condition (deterministic):
 ```bash
-node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" --check-examples
+node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --check-examples
 ```
 judge: read the English message text, not the exit code. "Examples resolved" (zero `<::TEMPLATE-EXAMPLES::>`, marker grammar clean) → Step complete. "Examples not resolved" (message enumerates unresolved usage sections / remaining `<::TEMPLATE-EXAMPLES::>` / grammar violations) → fix per instructions, re-run.
 
@@ -200,7 +200,7 @@ reverse: a RESIDUE is a shortfall of the product's own account, not of the RFC. 
 1. `scenario_ref` = the id of the confirmed section the shortfall was found in, resolved against `grill.sections[]` in `CRYSTALIZE-Status.json` (upserted by `loop-drive-readme.js`). `next_route` = the step the shortfall travels to next, one of `R3.5`/`R5`/`R6`/`grill`.
 2. judge: resolve before recording. call `return-refs.js` with the RESIDUE + status file; returns the RESIDUE carrying only the references that resolved, plus a report in plain English for each that did not.
 ```bash
-node .claude/scripts/tickets/lib/return-refs.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/lib/return-refs.js" \
   --kind=residue \
   --scenario-status="<path to CRYSTALIZE-Status.json>" \
   < "<the RESIDUE as the analysis recorded it>.json"

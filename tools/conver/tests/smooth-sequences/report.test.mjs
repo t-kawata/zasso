@@ -1,6 +1,6 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ import {
   writeReport,
 } from '../../.claude/scripts/smooth-sequences/lib/report.mjs';
 
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 
 const SPEC_PRODUCER = '/educe-sequences spec.md';
 
@@ -33,7 +33,7 @@ const findings = [
     where: 'workspacify/allocate/DECISIONS.json#boundary-002',
     why: 'missing contract row',
     fix: 'add the contract edge',
-    producer: 'node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json',
+    producer: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs" finalize ./WORKSPACIFY-TREE-MANIFEST.json',
   },
   {
     checkId: 'S1.a',
@@ -47,9 +47,9 @@ const findings = [
 ];
 
 /** A report over the default findings. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-302|PX-341) --for-spec --no-implementation-order`.
 function reportOf(overrides = {}) {
   return buildReport({
     workspace: { root: '/tmp/x' },
@@ -60,12 +60,12 @@ function reportOf(overrides = {}) {
   });
 }
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // @verifies C001
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('the JSON report is byte-identical, sorted and at schemaVersion 4', () => {
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const first = renderReportJson(reportOf());
   const second = renderReportJson(reportOf());
   assert.equal(first, second);
@@ -107,10 +107,10 @@ test('the console block groups findings under route headers and ends with next',
 });
 
 // @verifies C003
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('a clean console block prints next: none and no finding line', () => {
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const report = buildReport({
     workspace: { root: '/tmp/x' },
     findings: [],
@@ -128,7 +128,7 @@ test('a clean console block prints next: none and no finding line', () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('a console block with a blocked surface is unproven and never says pass', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -183,8 +183,8 @@ test('the Markdown report caps the list and names the remainder', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the Markdown report names each withheld surface and its check', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },
@@ -217,7 +217,7 @@ test('an unreadable readings file is named in the console and Markdown', () => {
   assert.match(renderReportMarkdown(report), /readings withheld: readings:readings-inquest\.jsonl/);
 });
 
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('an audit report names the would-be exit in JSON and Markdown', () => {
   const report = buildReport({
     workspace: { root: '/tmp/x' },

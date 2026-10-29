@@ -86,6 +86,7 @@ function generatedHeaderForAuth(fixture) {
 }
 
 /** Build a realistic provenance header block (opening separator .. closing separator). */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function buildHeader(extraLines = []) {
   return [
     SEP,
@@ -100,7 +101,7 @@ function buildHeader(extraLines = []) {
     '//   - NODE_ID=N0002: Auth module',
     ...extraLines,
     '// Full graph exploration:',
-    '//   (cd .. && node .claude/scripts/rfc-graph/query.js --graph="RFC-GRAPH.json")',
+    '//   (cd ~/repo && node ~/repo/.claude/scripts/rfc-graph/query.js --graph="RFC-GRAPH.json")',
     SEP,
   ].join('\n');
 }
@@ -391,7 +392,7 @@ describe('refresh-file-headers.js (safe existing-file header refresh)', () => {
 
     const header = headerRegionOf(fs.readFileSync(fixture.authPath, 'utf8'));
     assert.match(header, /units: op-Auth, ctr-boundary-001/, 'units line survives the refresh');
-    assert.match(header, /show-node-contracts\.mjs --id=N0002/, 'per-node brief command survives the refresh');
+    assert.match(header, /show-node-contracts\.mjs"? --id=N0002/, 'per-node brief command survives the refresh');
     assert.equal(header, generatedHeaderForAuth(fixture), 'refreshed header equals the generated header');
   });
 

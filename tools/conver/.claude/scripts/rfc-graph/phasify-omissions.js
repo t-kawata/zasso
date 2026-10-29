@@ -1293,7 +1293,7 @@ function rollbackFromSnapshot(ticketsPath, withBackup) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1706,7 +1706,7 @@ function runPhasifyOmissions(opts) {
     console.log('After assigning meaningful names, rename each phase:');
     for (var cpi = 0; cpi < output.phases.length; cpi++) {
       var cp = output.phases[cpi];
-      console.log('  node .claude/scripts/tickets/rename-phases.js --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
+      console.log('  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/rename-phases.js" --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
     }
     console.log('');
   }

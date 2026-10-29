@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
@@ -13,7 +14,7 @@ import { readFileSync } from 'node:fs';
 // @verifies C004
 // [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('the command document names its entry point, reports and repair surface', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /run\.mjs/);
   assert.match(command, /SMOOTH-SEQUENCES\.json/);
   assert.match(command, /SMOOTH-SEQUENCES\.md/);
@@ -29,7 +30,7 @@ test('the command document names its entry point, reports and repair surface', (
 
 // @verifies C001
 test('the command documents the run directory, its status record and the archive', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /smooth-sequences\//);
   assert.match(command, /status\.json/);
   assert.match(command, /archive\//);
@@ -38,7 +39,7 @@ test('the command documents the run directory, its status record and the archive
 
 // @verifies C006
 test('the command body is six flat numbered steps from Prepare to Complete, with no bottom Reference', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const prepare = command.indexOf('### Step 1 — Prepare');
   const loop = command.indexOf('### Step 2 — Repair loop');
   const inPlace = command.indexOf('### Step 3 — In-place repair');
@@ -66,7 +67,7 @@ test('the command body is six flat numbered steps from Prepare to Complete, with
 // @verifies C004
 // [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('Step 4 carries every operational regeneration command', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const start = command.indexOf('### Step 4 — Regeneration');
   const end = command.indexOf('### Step 5 — judgment-required');
   assert.ok(start > -1 && end > start, 'Step 4 has a bounded body');
@@ -85,7 +86,7 @@ test('Step 4 carries every operational regeneration command', () => {
 
 // @verifies C004
 test('Step 5 routes judgment-required to the owning AI command', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const start = command.indexOf('### Step 5 — judgment-required');
   const end = command.indexOf('### Step 6 — Complete');
   assert.ok(start > -1 && end > start, 'Step 5 has a bounded body');
@@ -100,7 +101,7 @@ test('Step 5 routes judgment-required to the owning AI command', () => {
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the command makes a fresh exit 0 the loop sole exit and exit 1 not completion', () => {
 // [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /exit 0 only when/i);
   assert.match(command, /exit 1 is an input|not completion/i);
   assert.match(command, /exit 4/);
@@ -127,7 +128,7 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
 
 // [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('every step names the command, path and argument that performs it', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const section = (start, end) => {
     const from = command.indexOf(start);
     const to = command.indexOf(end);
@@ -159,7 +160,7 @@ test('every step names the command, path and argument that performs it', () => {
 
 test('the command documents the regeneration transaction operating guide', () => {
 // [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /### Step 4 — Regeneration/);
   assert.match(command, /--allocate-decisions/);
   assert.match(command, /--tree-decisions/);
@@ -172,7 +173,7 @@ test('the command documents the regeneration transaction operating guide', () =>
 
 // @verifies C005
 test('the command keeps judgment with the AI and names only direction questions as a human surface', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.doesNotMatch(command, /human decision|stop and report|if a human is needed/i);
   assert.doesNotMatch(command, /judgment-required is a stop/i);
   assert.match(command, /never asks|does not ask/i);
@@ -184,7 +185,7 @@ test('the command keeps judgment with the AI and names only direction questions 
 // @verifies C004
 // [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('Appendix A keeps the check-family detail out of the steps', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const appendix = command.slice(command.indexOf('## Appendix A'));
   assert.match(appendix, /S1 enumeration integrity/);
   assert.match(appendix, /S3 operation envelope/);
@@ -196,7 +197,7 @@ test('Appendix A keeps the check-family detail out of the steps', () => {
 });
 
 test('the command document fixes the workspace root to the current directory', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.doesNotMatch(command, /argument-hint/);
   assert.doesNotMatch(command, /\$ARGUMENTS/);
   assert.match(command, /current directory/i);
@@ -213,7 +214,7 @@ test('the upstream command documents name the new gates', () => {
 // @verifies C002
 // [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('the command documents decision states, rejection codes, assurance and held-only closure', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   for (const state of ['held', 'broken', 'stuck', 'open', 'proven', 'not_applicable']) {
     assert.match(command, new RegExp(state));
   }
@@ -232,7 +233,7 @@ test('the command documents decision states, rejection codes, assurance and held
 // @verifies C006
 // [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the command documents the judgment pass, inquest findings and the generic reader', () => {
-  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   for (const token of ['Judgment pass (J1–J4)', 'JUDGMENT-WORKLIST.json', 'readings-judgment.jsonl', 'readings-attack.jsonl', '--scope=', 'educe-sequences/generation-', 'recordId', 'FINDING_OPEN', 'readings-adversarial.jsonl', 'exemptions']) {
     assert.match(command, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), token);
   }

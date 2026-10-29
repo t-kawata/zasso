@@ -84,7 +84,7 @@ Heal-loop resolve (hard gate: no proceed until zero unresolved):
 #   --file:                Target source file path
 #   --line:                1-indexed line number to insert at
 #   --tickets-path:        Path to Tickets.json
-node .claude/scripts/tickets/insert-stub.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/insert-stub.js" \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
   --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
@@ -96,11 +96,11 @@ no-excuse rejection: `insert-stub.js` rejects `--resolve-plan` that is a termina
 gate: do not proceed to Step 3 until all warnings/errors resolved.
 
 ### Step 3
-cmd: `node .claude/scripts/tickets/review/find-all-stubs.js "."` (directory-scoped)
+cmd: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" "."` (directory-scoped)
 judge: each stub's `[::STUB::]` marker specifies a ticket ID?
 
 ### Step 4
-cmd (preflight): `node .claude/scripts/tickets/preflight-stub-cleanup.js`
+cmd (preflight): `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/preflight-stub-cleanup.js"`
 
 Criteria (4-class, act on each):
 | class | meaning | action |
@@ -111,7 +111,7 @@ Criteria (4-class, act on each):
 | `excuses` | terminal-excuse language, no work item | convert resolution plan to AI-executable work item, or remove |
 
 Heal-loop preflight (hard-stop diagnostic on no-progress round):
-check: `node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse`
+check: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse`
 - exit0 → Step 5
 - exit1 → judge: parse each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line; fix marker (remove / rewrite plan / rewrite key); re-run. loop until exit0. round with no progress = hard-stop.
 
@@ -119,7 +119,7 @@ check: `node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-e
 judge (per unresolved stub under current directory): resolution-ticket-ID present AND that ticket `done` → unresolved = crime. no ID → defer to Step 6.
 cmd: first `insert-stub.js` (add proper marker referencing existing ticket, if missing), then:
 ```bash
-node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/malfeasance-create.js" "<file>" <line> "<description>"
 ```
 invariant: crimes recorded in current directory's Malfeasance.json — verify working directory before executing.
 
@@ -138,7 +138,7 @@ Heal-loop crimes (absolute: none may remain unresolved/deferred/pending):
 2. no marker → `insert-stub.js` (add marker, never edit source directly) + status=resolved
 3. truly unresolvable only → status=`false_positive` + reason in `note` (terminal excuse ≠ valid reason)
 ```bash
-node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/malfeasance-update.js" "<id>" "status" "resolved"
 .claude/scripts/tickets/scan-crimes.sh "."
 ```
 gate: do not declare command complete until all crimes confirmed resolved.
@@ -147,11 +147,11 @@ gate: do not declare command complete until all crimes confirmed resolved.
 Step 9a (enumerate) + Step 9b (validate) — run only if `$ARGUMENTS` non-empty:
 ```bash
 if [ -n "$ARGUMENTS" ]; then
-  node .claude/scripts/tickets/enumerate-ticket-targets.js \
+  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" \
     --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 fi
 if [ -n "$ARGUMENTS" ]; then
-  node .claude/scripts/tickets/validate-ticket-targets.js \
+  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-ticket-targets.js" \
     --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 fi
 ```
@@ -159,9 +159,9 @@ absent `$ARGUMENTS` → skip directly to Step 9c (default-mode backward compatib
 
 Step 9c (unconditional):
 ```bash
-node .claude/scripts/tickets/review/find-all-stubs.js .
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" .
 .claude/scripts/tickets/scan-crimes.sh
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 
 Deferral policy: forbidden by default — resolve every blocker on the spot. permitted only as an extremely exceptional measure when continuing poses a clear, demonstrated danger (e.g. unrecoverable state corruption, pipeline-wide deadlock with no safe recovery). every deferral is later human-audited; a deferral judged as shirking (avoidable postponement) incurs penalty. when in doubt, resolve — do not defer.
@@ -171,7 +171,7 @@ Escape hatch (no-excuse conditional deferral; use only when the Deferral policy'
 2. create the deferral ticket via `create-deferral-ticket.js` (routes through shared creation core `generic-ticket-creation.js`/PX-2: `createDeferralTicket` → `createTickets` with a `deferral` seed; deep-clones the resolved ticket (`$ARGUMENTS`) via `createTicketFromSource`; appends a non-PX ticket in the max phase, status `todo`; sets the targetStub's `deferredTo` to the new key). `insert-stub.js` rejects `PX-*` and non-todo resolve targets — a PX or past-phase ticket can never receive the deferred STUB. seed shape: `{ type: "deferral", sourceKey: <resolved ticket>, seed: { title, scope, background }, stubId: <targetStub id> }`.
 ```bash
 echo '{"title":"Vendor and build PJSIP in build.rs","scope":["build.rs","wrapper.h"],"background":"Blocked on FFI linkage; needs a dedicated implementation ticket"}' \
-  | node .claude/scripts/tickets/create-deferral-ticket.js \
+  | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/create-deferral-ticket.js" \
       --source-key="$ARGUMENTS" --stub-id="TS-1"
 ```
    on success: stdout prints `## Created: <new key>`; STUB's `deferredTo` already set when `--stub-id` passed — verify if omitted. new ticket carries SOURCE's OLD content — rewrite via batch-write below.
@@ -193,7 +193,7 @@ G-final: re-run compilation + tests (Step 1 fallback rule) + no-excuse validator
 ```bash
 (cd "$(git rev-parse --show-toplevel)" && make check-be)
 (cd "$(git rev-parse --show-toplevel)" && make test)
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 pass (compile+test clean AND validator exit0) → out: summary of resolved items → report to user.
 

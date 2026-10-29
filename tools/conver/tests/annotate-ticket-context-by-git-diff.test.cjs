@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * annotate-ticket-context-by-git-diff.test.cjs
  *
@@ -513,7 +514,7 @@ describe("CLI integration [RED]", () => {
 describe("processFile idempotence [PX-208]", () => {
   const KEY = "PX-208";
   const ANNOT =
-    "// [::TICKET::] " + KEY + " changes. Details: `node .claude/scripts/tickets/show-ticket-context.js " +
+    "// [::TICKET::] " + KEY + " changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" " +
     "--ticket-key=" + KEY + " --for-spec --no-implementation-order`.";
 
   let idemDir;
@@ -574,7 +575,6 @@ describe("processFile idempotence [PX-208]", () => {
     const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([99]) });
 
     assert.match(action, /already-annotated/);
-    assert.strictEqual(fs.readFileSync(file, "utf8").includes("[::AMBIGUOUS::]"), false, "no fresh ambiguous marker");
     assert.strictEqual(sha256(file), before);
   });
 

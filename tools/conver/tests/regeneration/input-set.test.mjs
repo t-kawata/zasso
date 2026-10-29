@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -208,7 +209,7 @@ test('status names the transaction, the staging specification and the exact next
     assert.match(result.stdout, new RegExp(`id: ${opened.transactionId}`));
     assert.match(result.stdout, /staging: /);
     assert.match(result.stdout, /spec: /);
-    assert.match(result.stdout, /next: node \.claude\/scripts\/regeneration\/run\.mjs continue/);
+    assert.match(result.stdout, /next: node "\$\(git rev-parse --show-toplevel\)\/\.claude\/scripts\/regeneration\/run\.mjs" continue/);
     assert.equal(describeStatus(workspace.root).state, 'open');
   } finally {
     workspace.remove();

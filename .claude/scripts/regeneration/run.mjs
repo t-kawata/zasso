@@ -37,12 +37,12 @@ import {
 
 const USAGE = 'usage: run.mjs <open|status|continue|derive|verify|commit|abort|recover> [--spec=] [--allocate-decisions=] [--tree-decisions=] [--annotations=] [--reason=] [--transaction=]';
 const FORBIDDEN = new Set(['--force', '--hash', '--source-hash']);
-const NEXT_OPEN = 'node .claude/scripts/regeneration/run.mjs open';
-const NEXT_CONTINUE = 'node .claude/scripts/regeneration/run.mjs continue';
-const NEXT_DERIVE = 'node .claude/scripts/regeneration/run.mjs derive';
-const NEXT_VERIFY = 'node .claude/scripts/regeneration/run.mjs verify';
-const NEXT_COMMIT = 'node .claude/scripts/regeneration/run.mjs commit';
-const NEXT_ABORT_OPEN = 'node .claude/scripts/regeneration/run.mjs abort, fix the candidate, then open a new transaction';
+const NEXT_OPEN = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open';
+const NEXT_CONTINUE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue';
+const NEXT_DERIVE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" derive';
+const NEXT_VERIFY = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify';
+const NEXT_COMMIT = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" commit';
+const NEXT_ABORT_OPEN = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort, fix the candidate, then open a new transaction';
 const EXIT_OK = 0;
 const EXIT_UNVERIFIED = 1;
 const EXIT_MISUSE = 2;
@@ -164,7 +164,7 @@ function printUnverified(receipt) {
 }
 
 /** Run one command and print its outcome. */
-// [::TICKET::] PX-278, PX-279, PX-280, PX-287, PX-290, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-287|PX-290|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-287, PX-290, PX-310, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279|PX-280|PX-287|PX-290|PX-310|PX-341) --for-spec --no-implementation-order`.
 function run(argv) {
   const root = cwd();
   const { command, options } = parseArguments(argv);
@@ -258,7 +258,7 @@ function run(argv) {
     });
     process.stdout.write(`state: ${committed.state}\n`);
     process.stdout.write(`archive: ${committed.archiveRoot}\n`);
-    process.stdout.write('next: node .claude/scripts/smooth-sequences/run.mjs\n');
+    process.stdout.write('next: node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"\n');
     return EXIT_OK;
   }
   if (command === 'abort') {

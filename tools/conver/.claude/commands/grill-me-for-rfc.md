@@ -240,13 +240,13 @@ invariant: once `init.js` runs, `$MATERIAL_PATHS` persist in `Status.json` — o
 
 gate: every file-modifying script (`init.js`/`update-tree.js`/`update-status.js`/`generate-checklist.js`) auto-calls `check-all-schema.js` post-op to validate Status.json/DesignTree.json/CheckList.md schema integrity.
 fail (exit1) → read error, fix affected file, re-run. do not proceed until pass — skipping forbidden.
-standalone: `node .claude/scripts/grill-me-for-rfc/check-all-schema.js "$RFC_DIR"` (any time).
+standalone: `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-all-schema.js" "$RFC_DIR"` (any time).
 
 ### Session Status
 
 `session-status.js` mechanically determines current step + next action from Status.json+DesignTree.json. run first whenever unsure where you are:
 ```bash
-node .claude/scripts/grill-me-for-rfc/session-status.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/session-status.js" "$RFC_DIR"
 ```
 out:
 ```
@@ -265,8 +265,8 @@ out:
 ### STEP 0: Initialization
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/init.js "$RFC_DIR" $ARGUMENTS
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" begin-run
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/init.js" "$RFC_DIR" $ARGUMENTS
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" begin-run
 ```
 `begin-run` opens this invocation's generation. It moves once per run whatever path the run
 takes — a fresh session, a resume, or a re-entry after DONE — so the number answers "how many
@@ -284,7 +284,7 @@ Resume mode carrying material: arguments that add paths to the session are a re-
 Guard — before any question is drafted and before anything is written, confirm the canon still stands alone:
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/canon-state.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/canon-state.js" "$RFC_DIR"
 ```
 
 exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
@@ -292,7 +292,7 @@ exit 1 → stop. The RFC has already been derived into a graph, a directory tree
 Sequence material — an optional input this run may have been handed. `sequences-material.js` is the tolerant reader: it reports whether a sequences artifact or a generated per-package view is available, and it exits 0 for every input, so it can never stop the command. It runs here, after the guard and before the strict reader below, because that ordering is what keeps a recorded-but-deleted view from wedging the session.
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/sequences-material.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/sequences-material.js" "$RFC_DIR"
 ```
 
 one JSON object: `present`, `source`, `view`, `viewExists`, `viewIsCurrent`, `viewStalenessReason`, `materialPaths`, `staleMaterialPaths`, `searched`. `searched` names every record read and whether it could be read, so an answer of "absent" can always be explained rather than taken on trust.
@@ -305,7 +305,7 @@ one JSON object: `present`, `source`, `view`, `viewExists`, `viewIsCurrent`, `vi
 The carriage read says which directory needs what. It is advisory, in the shape `report-obligation-state.js` has always had:
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/report-obligation-state.js "$WORKSPACE_ROOT" $ARGUMENTS
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/report-obligation-state.js" "$WORKSPACE_ROOT" $ARGUMENTS
 ```
 
 It prints the two gate summaries it has always printed, and — only when one of the arguments ends in `-sequences.json` — a section per directory naming the state, the reason in words, every unit the directory has carried and not accounted for, what has to be written, and the commands that verify it afterwards. It exits 0 on every path, so it is a read and not a second blocking point; the blocking stays with the gate at STEP 8. A directory the section reports as failed is the one to open next, and the units it lists are the rows the ledger is missing.
@@ -313,14 +313,14 @@ It prints the two gate summaries it has always printed, and — only when one of
 Do not pass the view paths to `preflight`-style material walking, and never hand them back to `/educe-sequences`: its supplied-material rail absorbs and deletes per-crate artifacts, which is the mechanism that removed them in the first place.
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/list-files.js" "$RFC_DIR"
 ```
 flat JSON array of every file beneath every material the run was given, in the order it was given them. An empty array means the run has no material. read all, internalize as research material.
 
 **Before any question is drafted, read what this package already holds.**
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/settle-run.js "$RFC_DIR" prior
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/settle-run.js" "$RFC_DIR" prior
 ```
 
 Reads `RFC.md` (or `RFC-<SLUG>.md`), `RFC-SEED.md`, `INFO-RFC-SEED.md` and
@@ -336,20 +336,20 @@ completed run rather than a failure.
 
 after reading all research material, before the first grill question: generate initial design-tree nodes from research content, write them.
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
 ```
 
 Before a node is seeded, the demand is settled — a unit that does not exist yet cannot be seeded, so resolving a demand afterwards would leave every unit it created without a node, a header and a ledger row.
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js" "$WORKSPACE_ROOT"
 ```
 
 The gate names every demand no relation and no recorded judgment covers, by axis and id. Resolve each one by the cheapest faithful route first: a side of a boundary the allocate manifest already names, a surface route through an interface the package declares, an ownership reach. Only where no route exists does the run make the judgment itself, and it records that judgment in the package's obligation record — `OBLIGATION.json` beside the package's own documents — with a ground naming the specification evidence it rests on. The record is writable; the stage-1 inputs and the generated views are not, and a judgment written into one of those would be indistinguishable from the material it was derived from.
 
 ```bash
-node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json" "<package-dir>"
-node .claude/scripts/sequences-slice/run.mjs "<workspace>/<spec>-sequences.json"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" "<workspace>/<spec>-sequences.json" "<package-dir>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" "<workspace>/<spec>-sequences.json"
 ```
 
 The first form projects the one package directory. The second takes the artifact alone and projects a view for every package the allocation names that carries none, leaving the packages that already carry one byte-identical — which is the form that reaches the directories no run has been in, and the only one that can close K8 once and for all rather than one directory per session. It reports `projected`, `present` and `reported` apart, because a package the allocation names and the material cannot carry is the residue `check-distribution-completeness.js` reads as K8, and that residue is repaired by what the reason names, not by running the command again in the same place.
@@ -360,7 +360,7 @@ The gate also reports the **denominator**: one line naming what each axis is mea
 
 The whole of that is answered in one place when the loop is done:
 ```bash
-node .claude/scripts/grill-me-for-rfc/check-distribution-completeness.js "$WORKSPACE_ROOT"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" "$WORKSPACE_ROOT"
 ```
 It prints one line per clause of the distribution criterion — the denominator, the placement, the grounds, the exemptions, the ledger in both directions, the ledger locations, the claim closure and the reach — each with the check that measured it, and it prints the boundary line saying that whether the specification names every procedure the project needs is not measured by any of them. A short clause is repaired by the act its own line names, and a run is never refused over one: the rail writes and the gate withholds.
 
@@ -392,7 +392,7 @@ When STEP 0 found no sequences material there are no such nodes and nothing chan
 Ask what the registry obliges rather than testing whether the material is there — the obligation set is what the gates loop over, and an empty one is the ordinary case:
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/sequences-ledger.js "$RFC_DIR" --stage=upstream
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/sequences-ledger.js" "$RFC_DIR" --stage=upstream
 ```
 
 Verdicts use the machine vocabulary: `proved` and `not proved`. The words success and failure are not verdicts.
@@ -408,10 +408,10 @@ gate**, **The ladder**, **The question block, in order**, **The loop** and **Gat
 It is not restated here. What this section adds is the mechanics of this command.
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/settle-run.js "$RFC_DIR" next <n>
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" bind <n> '<block_json>'
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" settle <node_id> '<settlement_json>'
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" answer <n> '<the human reply>'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/settle-run.js" "$RFC_DIR" next <n>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" bind <n> '<block_json>'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" settle <node_id> '<settlement_json>'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" answer <n> '<the human reply>'
 ```
 
 1. run the ladder — **Q0**, **Q0'**, **Q1**, **Q2**, **Q3** — over every node before
@@ -442,7 +442,7 @@ NEVER ask for free-form answers (if the user volunteers one anyway, AI may accep
 
 gate: every question passes through `validate-question-format.js` **before** presenting to the user. presenting unvalidated = forbidden.
 ```bash
-node .claude/scripts/grill-me-for-rfc/validate-question-format.js "question text here"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/validate-question-format.js" "question text here"
 ```
 `valid:false` → reformulate per the error message, re-validate. skipping this gate = first-class rule violation.
 
@@ -451,29 +451,29 @@ ask; stop — the grill loop itself: present each validated question, wait for t
 ## DesignTree Updates (run after every user answer)
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" resolve "<node_id>" "<answer_summary>"
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" batch-resolve '["id1","id2","id3"]' "<answer_summary>"
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '<node_json>'
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add-child "<parent_id>" '<node_json>'
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" refine "<node_id>" "<new_title>"
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" delete "<node_id>"
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" resolve "<node_id>" "<answer_summary>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" batch-resolve '["id1","id2","id3"]' "<answer_summary>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" add '<node_json>'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" add-child "<parent_id>" '<node_json>'
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" refine "<node_id>" "<new_title>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" delete "<node_id>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" open-count
 ```
 
 ## DesignTree Visualization & Search
 
 `tree-query.js` (read-only, no schema validation needed):
 ```bash
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" tree
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" search "<keyword>"
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" path "<node_id>"
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" stats
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" tree
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" search "<keyword>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" path "<node_id>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/tree-query.js" "$RFC_DIR" stats
 ```
 
 ## Status Update
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state GRILLING
 ```
 
 ---
@@ -482,13 +482,13 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRIL
 
 `open-count`==0 → propose ending the grill session; ask; stop — ask the user: "Shall I start generating the RFC requirements checklist?"
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" open-count
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state CHECKLIST_PENDING
 ```
 
 Before proposing the end, gate the coverage: every demand of every axis is assigned to a named package or adjudicated away with a ground. An unassigned demand is reported by axis and by id, and the session does not end while one stands.
 ```bash
-node .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js "$WORKSPACE_ROOT"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js" "$WORKSPACE_ROOT"
 ```
 A declaration that bound to no unit is reported apart from an unserved demand, because the two call for different repairs. So is a refused exemption: a grounded adjudication row naming an operation or a sequence is refused by name, the demand it named stays unassigned, and the reason is the rule it broke — that exemption would delete a duty rather than place it. A grounded exemption that names no `carriedBy` is refused the same way, because an exemption places a demand only when it says which package the duty went to, and a row naming nobody would otherwise read as a placement while the demand stayed owed. The report also prints the assigned count and the relation mix per axis, and which package was handed what, so a workspace that placed everything on one package is visible rather than summarised away. The denominator line is printed before the partition, so a count of assigned demands is readable against what it was measured against: an axis resting on a borrowed census means one thing and an axis resting on the artifact's own reading means another. An unstated axis is named with the structure to supply, apart from the unassigned list, because the two are repaired by different acts.
 
@@ -498,7 +498,7 @@ A declaration that bound to no unit is reported apart from an unserved demand, b
 
 user approves → generate mechanically:
 ```bash
-node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/generate-checklist.js" "$RFC_DIR"
 ```
 The generator emits one row per node in the tree, so the units seeded at STEP 1 reach the checklist with no generator change: an `op-` node is a row, and a `seq-` or `xdir-` node carries its own. A package with no sequences material has no such nodes and its checklist is exactly the checklist it would have had.
 structure (two-level):
@@ -516,7 +516,7 @@ structure (two-level):
 judge: review all items, add clarifying notes for resolved-but-ambiguous nodes; append project-specific constraint items (language/framework/perf/etc).
 ask; stop — present the completed `CheckList.md` to the user for review and approval.
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_APPROVED
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state CHECKLIST_APPROVED
 ```
 
 ---
@@ -529,7 +529,7 @@ write the document to `$RFC_PATH` — `$RFC_DIR/RFC.md`, the one name this comma
 Take a copy of the document being replaced before writing it:
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/backup-rfc.js "$RFC_PATH"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/backup-rfc.js" "$RFC_PATH"
 ```
 
 The grill writes the whole RFC from the settled tree. The tree holds the decisions; it does not hold the prose or the code examples that carry them, and nothing else in this command keeps a copy. The copy taken here is what makes an unfaithful rewrite diffable by the human or by the next run instead of silent. It is not a gate: the write still replaces the file, and the copy is a second file beside it.
@@ -548,7 +548,7 @@ The grill writes the whole RFC from the settled tree. The tree holds the decisio
   type or contract that crosses it
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state WRITING
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state WRITING
 ```
 
 ---
@@ -578,7 +578,7 @@ A package with **no** departure still carries the appendix, and it records the *
 that establish that. "No departure" is a result, not an omission, and it must be auditable
 rather than trusted.
 
-gate: `node .claude/scripts/grill-me-for-rfc/check-divergence-ledger.js "$RFC_DIR"`
+gate: `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-divergence-ledger.js" "$RFC_DIR"`
 
 ---
 
@@ -586,7 +586,7 @@ gate: `node .claude/scripts/grill-me-for-rfc/check-divergence-ledger.js "$RFC_DI
 
 mechanically verify every `CheckList.md` item.
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state REVIEWING
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state REVIEWING
 ```
 heal-loop: fix unmet items, repeat until all ✅.
 invariant: TBD/TODO/"handle in a future version" detected anywhere → immediate warning; do not declare completion until that section is fully written.
@@ -598,8 +598,8 @@ out: report to the user once all items pass.
 
 new unresolved nodes / required design-tree expansion discovered while writing → back to STEP 2, re-grill.
 ```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state GRILLING
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" inc-loop
 ```
 loop-count > 3 → report the reason for the extended cycle + current status to the user before continuing *(ambiguous in the source between a pure status report and an implicit pause for acknowledgment — preserved as found, not resolved either way)*.
 declare RFC completion only when re-grilling is no longer needed.
@@ -613,11 +613,11 @@ Downstream (role): future graph-splitting commands (`/graphify-rfc`, `/boundify-
 - contract: lets them split the document along natural seams safely
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/insert-io-boundary-template.js "$RFC_PATH"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/insert-io-boundary-template.js" "$RFC_PATH"
 ```
 heal-loop: AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker, follows its instruction, generates content from the existing RFC, replaces the marker. repeat until none remain.
 ```bash
-node .claude/scripts/grill-me-for-rfc/check-io-stubs.js "$RFC_PATH"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-io-stubs.js" "$RFC_PATH"
 if [ $? -ne 0 ]; then
   echo "ERROR: Remaining [::IO-INFO-STUB::] markers found. AI content completion is incomplete."
   exit 1
@@ -636,7 +636,7 @@ designs, not only their appendices.
 1. Name each defect's **class** and its **target**: the directory whose artifact is wrong.
 2. Guard the edit surface before touching it.
    ```bash
-   node .claude/scripts/grill-me-for-rfc/guard-edit-surface.js "<TARGET_PATH>"
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/guard-edit-surface.js" "<TARGET_PATH>"
    ```
    exit 1 → the path is an input and MUST NOT be edited. Resolve the defect in the owning
    RFC's output instead, and never in the seed.
@@ -667,7 +667,7 @@ check** subsection listing the neighbours whose designs were read and what was c
 types crossing each edge, ordering claims, contract counterparts. "No defect" is a result,
 not an omission.
 
-gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> --gate`
+gate: `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/defect-report.js" <workspace-root> --gate`
 
 ---
 
@@ -678,7 +678,7 @@ gate: `node .claude/scripts/grill-me-for-rfc/defect-report.js <workspace-root> -
 A read-only pass is available before the gates for early feedback. It records nothing:
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/render-distribution.mjs --check
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/render-distribution.mjs" --check
 ```
 
 The write happens exactly once, inside `complete-run.js`, and that invocation opens one
@@ -695,7 +695,7 @@ The two gates answer the two halves of one guarantee. The coverage gate is measu
 
 Re-running over a workspace projected by an older rail must succeed, require no new workspace, destroy nothing, and leave the workspace carrying the obligation section: an old projection is a target to bring forward, never a reason to refuse.
 ```bash
-node .claude/scripts/grill-me-for-rfc/complete-run.js "$RFC_DIR"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" "$RFC_DIR"
 ```
 The completion command renders the distribution ledger, records the generation and then
 declares DONE. A render refusal exits non-zero, writes nothing and leaves the state unchanged,
@@ -713,12 +713,12 @@ command handles it — the human is never asked to run anything again.
    settled with `update-tree.js settle`, and STEP 6, STEP 7 and STEP 8 re-run.
 2. A point they do not ground is recorded, not argued with:
    ```bash
-   node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-tree.js" "$RFC_DIR" add '{"id":"...","title":"...","status":"open","questions":[],"children":[]}'
    ```
    Then reopen the grill and re-run STEP 2 to STEP 8:
    ```bash
-   node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
-   node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" set-state GRILLING
+   node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" inc-loop
    ```
 3. A re-entry round follows the same rules as any round: it asks a new axis built from the
    added node and the still-open nodes only (W6), it never renumbers a question (W7), and it

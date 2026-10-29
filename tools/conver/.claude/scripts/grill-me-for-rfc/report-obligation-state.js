@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * Report the obligation state of a workspace without deciding anything about it.
  *
@@ -31,7 +32,7 @@ const USAGE = 'usage: report-obligation-state.js <WORKSPACE_ROOT> [<material>...
 /** The workspace's own package list, which is the only place a package id and a directory are joined. */
 const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 /** The command that verifies, after a repair, that every carried unit is accounted for. */
-const DISCHARGE_COMMAND = 'node .claude/scripts/grill-me-for-rfc/check-ledger-discharge.js';
+const DISCHARGE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-ledger-discharge.js"';
 
 /** This reporter never blocks, on any path, including the ones where it cannot do its work. */
 const EXIT_ADVISORY = 0;

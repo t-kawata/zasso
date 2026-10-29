@@ -87,7 +87,7 @@ export function readWaivers(root) {
 }
 
 /** One withdrawn finding that keeps the previous repair route. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-341) --for-spec --no-implementation-order`.
 function buildWithdrawnFinding(previousFinding, blockedCheck) {
   const surface = blockedCheck.surface ?? 'the required surface';
   return {
@@ -97,7 +97,7 @@ function buildWithdrawnFinding(previousFinding, blockedCheck) {
     where: previousFinding.where ?? 'the surface named by the blocked check',
     why: `previous finding ${previousFinding.checkId} on ${previousFinding.subject} is unresolved; ${surface} is absent or synthesized`,
     fix: `restore ${surface} and rerun the producer, or record a waiver with a non-empty ground in ${WAIVERS_FILE_NAME}`,
-    producer: previousFinding.producer ?? 'node .claude/scripts/smooth-sequences/run.mjs',
+    producer: previousFinding.producer ?? 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
     repairClass: previousFinding.repairClass ?? 'regeneration',
   };
 }

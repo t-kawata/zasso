@@ -482,6 +482,7 @@ function formatGraphFilePaths(ticketNodeIds, dirsTree) {
 }
 
 /** Generate Markdown when ticket is not found */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
   if (plan) {
     return [
@@ -510,7 +511,7 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
     'Run the following command:',
     '',
     '```bash',
-    `node .claude/scripts/tickets/ensure-ticket.js \\`,
+    `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-ticket.js" \\`,
     `  --ticket-key=${ticketKey} \\`,
     '  --title="(title determined from conversation)"',
     '```',
@@ -822,7 +823,7 @@ function renderDistributionObligations(ticket, options = {}) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322, PX-324, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
@@ -1013,7 +1014,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     const graphRel = makeRelative(graphPath, ticketsDir);
     const rfcRel = makeRelative(rfcPath, ticketsDir);
     const dirsRel = makeRelative(dirsTreePath, ticketsDir);
-    lines.push(`node .claude/scripts/rfc-graph/query.js --graph="${graphRel}" --source="${rfcRel}" --dirs-tree="${dirsRel}" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)`);
+    lines.push(`node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js" --graph="${graphRel}" --source="${rfcRel}" --dirs-tree="${dirsRel}" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)`);
     lines.push('```');
     lines.push('');
     lines.push('### Related RFC graph NODE-IDs to check');
@@ -1176,7 +1177,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
       lines.push('### To show related tickets details');
       lines.push('');
       lines.push('```');
-      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order');
+      lines.push('node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order');
       lines.push('```');
       lines.push('');
     }

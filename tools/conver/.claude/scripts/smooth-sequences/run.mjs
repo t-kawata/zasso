@@ -335,8 +335,9 @@ function detectDowngrade({ status, baseline, artifact }) {
 // [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
 
 /** Resolve an interrupted commit, refuse an open transaction, and verify the chain. */
-// [::TICKET::] PX-278, PX-279, PX-280, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-280|PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-280, PX-297, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279|PX-280|PX-297|PX-341) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function regenerationGate(root, stderr, { allowTransaction } = {}) {
   // A commit verifies its own live write while the ledger still says committing.
   // Recovering first would close the journal before the detector judged the result,
@@ -367,7 +368,7 @@ function regenerationGate(root, stderr, { allowTransaction } = {}) {
       return { active, refused: true, handoff: true };
     }
     stderr(`smooth-sequences: TRANSACTION_OPEN: transaction ${active.id} is ${active.state}`);
-    stderr('next: node .claude/scripts/regeneration/run.mjs continue');
+    stderr('next: node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue');
     return { active, refused: true };
   }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

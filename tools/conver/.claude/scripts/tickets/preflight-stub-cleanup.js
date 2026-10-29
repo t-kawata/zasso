@@ -129,9 +129,9 @@ function classifyStubs(stubs, ticketsData) {
  * @param {{file:string,line:number}} stub — Stub entry
  * @returns {string} — Ready-to-run command
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-341) --for-spec --no-implementation-order`.
 function buildRemoveCommand(stub) {
-  return 'node .claude/scripts/tickets/remove-stub.js --file=' + stub.file + ' --line=' + stub.line;
+  return 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/remove-stub.js" --file=' + stub.file + ' --line=' + stub.line;
 }
 
 /**

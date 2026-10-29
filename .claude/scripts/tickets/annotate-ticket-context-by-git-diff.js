@@ -78,10 +78,10 @@ function commentTokenFor(filePath) {
  * Build the annotation comment for a given ticket key.
  */
 // Implemented or modified under tickets: PX-60, PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-63, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-63, P24-1, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-63|P24-1|PX-341) --for-spec --no-implementation-order`.
 function buildAnnotation(ticketKey, commentToken = DEFAULT_COMMENT_TOKEN) {
   return (
-    `${commentToken} [::TICKET::] ${ticketKey} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `${commentToken} [::TICKET::] ${ticketKey} changes. Details: \`node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" ` +
     `--ticket-key=${ticketKey} --for-spec --no-implementation-order\`.`
   );
 }
@@ -89,13 +89,13 @@ function buildAnnotation(ticketKey, commentToken = DEFAULT_COMMENT_TOKEN) {
 /**
  * Build the multi-ticket annotation comment for merged hot-spot functions.
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-341) --for-spec --no-implementation-order`.
 function buildMultiAnnotation(ticketKeys) {
   const keys = [...new Set(ticketKeys)];
   const keyList = keys.join(", ");
   const ticketKeyArg = keys.join("|");
   return (
-    `// [::TICKET::] ${keyList} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `// [::TICKET::] ${keyList} changes. Details: \`node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" ` +
     `--ticket-key=(${ticketKeyArg}) --for-spec --no-implementation-order\`.`
   );
 }
