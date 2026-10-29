@@ -21,7 +21,7 @@ import { fileURLToPath } from 'url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { generateHeaderComment, resolveHeaderPaths, getDeclarationStub } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-helpers.js'));
+const { generateHeaderComment, resolveHeaderPaths, resolveDesignSourceBasenames, getDeclarationStub } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-helpers.js'));
 const { computeCrossReferences } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-tree.js'));
 
 const HEADER_MARKER = 'Initial Design Artifact — RFC-driven Implementation';
@@ -147,10 +147,17 @@ function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
 }
 
 /** Regenerate the provenance header for one file at fullPath, using the graph's current node metadata. */
-// [::TICKET::] PX-171, PX-172, P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172, P22-15, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336) --for-spec --no-implementation-order`.
 function regenerateHeader(fullPath, node, designContext) {
   const { graphNodeMap, crossReferences, context, lang } = designContext;
-  const headerPaths = resolveHeaderPaths(fullPath, context.graphDirAbs, context.graphBasename, context.dirsTreeBasename, context.sourceBasename);
+  const headerPaths = resolveHeaderPaths(
+    fullPath,
+    context.graphDirAbs,
+    context.graphBasename,
+    context.dirsTreeBasename,
+    context.sourceBasename,
+    resolveDesignSourceBasenames(context.graphDirAbs),
+  );
   const mappedNodeIds = (node.mappedNodeIds || []).map((mapping) => {
     const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
     const graphNode = graphNodeMap.get(nodeId);

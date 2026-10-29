@@ -45,7 +45,7 @@ const ERROR_UNSUPPORTED_LANG = (lang) =>
   `[ERROR] Unsupported language: ${lang}\nCause: specify one of rust/go/typescript\nAction: Specify a valid language`;
 
 /** The stub line every generated implementation file starts with. */
-const DECLARATION_STUB_TODO_PREFIX = '// TODO: [::STUB::] MUST implement NODE_ID=';
+const DECLARATION_STUB_MARKER_PREFIX = '// [::STUB::] MUST implement NODE_ID=';
 
 /** Three-line template error -- file not found */
 const ERROR_FILE_NOT_FOUND = (filePath) =>
@@ -148,7 +148,7 @@ function parseArgs(argv, options = {}) {
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   Array of items to generate (no file creation)
  */
-// [::TICKET::] P22-15, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334|PX-336) --for-spec --no-implementation-order`.
 function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
@@ -171,7 +171,8 @@ function discover(node, currentPath, headerContext) {
         headerContext.graphDirAbs,
         headerContext.graphBasename,
         headerContext.dirsTreeBasename,
-        headerContext.sourceBasename
+        headerContext.sourceBasename,
+        helpers.resolveDesignSourceBasenames(headerContext.graphDirAbs)
       );
 
       // Filter to prose nodes related to this file's mappedNodeIds
@@ -208,7 +209,7 @@ function discover(node, currentPath, headerContext) {
       content += '\n';
       for (let si = 0; si < stubEntries.length; si++) {
         const entry = stubEntries[si];
-        content += DECLARATION_STUB_TODO_PREFIX + entry.nodeId + ': ' + (entry.title || '') + '\n';
+        content += DECLARATION_STUB_MARKER_PREFIX + entry.nodeId + ': ' + (entry.title || '') + '\n';
       }
     }
     created.push({ type: 'file', path: fullPath, size: content.length, content });
@@ -412,7 +413,7 @@ function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
  *
  * @param {string[]} [testArgs] - Test argument array (defaults to process.argv.slice(2))
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-334|PX-336) --for-spec --no-implementation-order`.
 async function main(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
@@ -445,7 +446,7 @@ async function main(testArgs) {
     // stdout is the machine contract generate-all-dir-templates.js parses; the
     // human-readable sentence stays on stderr so the JSON stays valid.
     console.error(msg);
-    console.log(JSON.stringify({ ok: true, skipped: true, language: lang, message: msg }));
+    process.stdout.write(JSON.stringify({ ok: true, skipped: true, language: lang, message: msg }) + '\n');
     process.exit(0);
     return;
   }

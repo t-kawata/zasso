@@ -332,6 +332,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **受理証明の再確認**: `verify-chain` はワークスペース直下の `SMOOTH-VERDICT.json` を要求します。無い場合は `MISSING_SMOOTH_RECEIPT`、smooth またはルート成果物が動いた後は `STALE_SMOOTH_VERDICT` で停止し、graphify → boundify の再実行を求めます
 - **Prune 規則**: 子 2 未満のディレクトリは除去、単一子は親へ平坦化
 - **宣言スタブ**: 実装のない空ファイルには言語・kind に応じた宣言スタブ（関数シグネチャ + 実装 TODO）を自動付与
+- **実装前ブリーフ**: 生成ヘッダは mapped node ごとに `show-node-contracts.mjs --id=Nxxxx` を案内し、`SEQUENCES.json` / `RFC-STEP-CONTRACTS.json` が存在する場合はそのパスも示します。コマンドはノードの全 unit について、実装するもの・守るべき step/境界契約・実装してはいけない外部/excluded・安全な順序を Markdown で出力します
 - **Prose 除外**: `rationale` / `glossary` / `requirement` の 3 kind はファイル生成対象外（設計情報は接続先ファイルのヘッダコメントに相互参照として埋め込む）
 - 循環依存の検出と警告
 - **逆対応（B1/B2/B3）**: 逆モードの処理はファイルを生成せず、欠けている `Initial Design Artifact` ヘッダを付与し、差分をヘッダのみに制限します。**既存ヘッダは1バイトも書き換えません**（最高法規4）。`--apply` を付けない限り、測った木には何も書きません

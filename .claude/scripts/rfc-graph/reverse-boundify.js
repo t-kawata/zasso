@@ -34,7 +34,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { generateHeaderComment, resolveHeaderPaths } = require('./boundify-helpers.js');
+const { generateHeaderComment, resolveHeaderPaths, resolveDesignSourceBasenames } = require('./boundify-helpers.js');
 const { resolveGraphPath, reportResolvedPath } = require('../lib/package-artifacts');
 const {
   DISPOSITIONS,
@@ -171,7 +171,7 @@ function resolveExistingFile(root, declaredPath) {
 }
 
 /** The header text for one declared file, assembled by the generator that owns the format. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-336) --for-spec --no-implementation-order`.
 function headerTextFor({ filePath, mapping, dirsTree, graphPath }) {
   const graphBasename = path.basename(graphPath);
   const sourceBasename = dirsTree.sourceFile ? path.basename(dirsTree.sourceFile) : 'UNKNOWN_SOURCE.md';
@@ -179,12 +179,14 @@ function headerTextFor({ filePath, mapping, dirsTree, graphPath }) {
     ? `${graphBasename.slice(0, -GRAPH_SUFFIX.length)}-Dirs-Tree.json`
     : `${graphBasename}.Dirs-Tree.json`;
 
+  const graphDirAbs = path.dirname(graphPath);
   const headerPaths = resolveHeaderPaths(
     filePath,
-    path.dirname(graphPath),
+    graphDirAbs,
     graphBasename,
     dirsTreeBasename,
     sourceBasename,
+    resolveDesignSourceBasenames(graphDirAbs),
   );
 
   const mapped = new Set(mapping.mappedNodeIds);

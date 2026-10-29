@@ -28,20 +28,37 @@ const SCRIPT_ROOTS = [
 /** The files this ticket creates or edits. */
 const FILES = [
   'lib/markdown-headings.js',
+  'lib/node-contracts.mjs',
+  'show-node-contracts.mjs',
   'deduplicate-headings.js',
   'verify.js',
   'resolve-by-heading.js',
   'query.js',
   'test-query-all.js',
   'analyze-source-structure.js',
+  'boundify-helpers.js',
+  'generate-dir-template.js',
+  'reverse-boundify.js',
 ];
 
+/** The three canonical drill-rfc-down script directories. */
+const DRILL_ROOTS = [
+  path.join(PACKAGE_ROOT, '.claude/scripts/drill-rfc-down'),
+  path.join(WORKSPACE_ROOT, '.claude/scripts/drill-rfc-down'),
+  path.join(WORKSPACE_ROOT, 'crates/siprs/.claude/scripts/drill-rfc-down'),
+];
+
+/** The drill script this ticket edits. */
+const DRILL_FILES = ['refresh-file-headers.js'];
+
+// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function digest(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
 // @verifies C005
+// @verifies C006
 describe('canonical copies — three zasso trees', () => {
   it('normal: the new library and the six scripts are byte-identical', () => {
     for (const file of FILES) {
@@ -55,6 +72,13 @@ describe('canonical copies — three zasso trees', () => {
       for (const root of SCRIPT_ROOTS) {
         assert.equal(fs.existsSync(path.join(root, file)), true, path.join(root, file));
       }
+    }
+  });
+
+  it('normal: the refreshed-header script is byte-identical in the three drill trees', () => {
+    for (const file of DRILL_FILES) {
+      const hashes = DRILL_ROOTS.map((root) => digest(path.join(root, file)));
+      assert.equal(new Set(hashes).size, 1, file);
     }
   });
 });

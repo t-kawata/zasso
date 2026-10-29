@@ -2,7 +2,12 @@
   "headerPaths": {
     "graphRelPath": "tools/conver/RFC-ROOT-GRAPH.json",
     "dirsTreeRelPath": "tools/conver/RFC-ROOT-Dirs-Tree.json",
-    "sourceRelPath": "tools/conver/RFC-ROOT.md"
+    "sourceRelPath": "tools/conver/RFC-ROOT.md",
+    "viewRelPath": "tools/conver/SEQUENCES.json",
+    "stepContractsRelPath": "tools/conver/RFC-STEP-CONTRACTS.json",
+    "cdCommandPrefix": "(cd tools/conver &&",
+    "graphFlagForCmd": "--graph=\"RFC-ROOT-GRAPH.json\"",
+    "dirsTreeFlagForCmd": "--dirs-tree=\"RFC-ROOT-Dirs-Tree.json\""
   },
   "mappedNodeIds": [
     { "nodeId": "N0001", "kind": "module", "title": "Config Loader" },

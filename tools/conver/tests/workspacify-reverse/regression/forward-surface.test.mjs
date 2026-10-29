@@ -43,6 +43,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const FIXTURES = 'tests/rfc-graph/fixtures/forward-surfaces';
 const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
 
+// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function readJson(relativePath) {
   return JSON.parse(readFileSync(join(PROJECT_ROOT, relativePath), 'utf8'));
@@ -199,7 +200,12 @@ test('C003 the emitted header carries the protected marker and every declared in
   assert.ok(header.includes(input.headerPaths.graphRelPath));
   assert.ok(header.includes(input.headerPaths.dirsTreeRelPath));
   assert.ok(header.includes(input.headerPaths.sourceRelPath));
-  for (const node of input.mappedNodeIds) assert.ok(header.includes(node.nodeId), `${node.nodeId} must appear`);
+  assert.ok(header.includes(input.headerPaths.viewRelPath));
+  assert.ok(header.includes(input.headerPaths.stepContractsRelPath));
+  for (const node of input.mappedNodeIds) {
+    assert.ok(header.includes(node.nodeId), `${node.nodeId} must appear`);
+    assert.ok(header.includes(`show-node-contracts.mjs --id=${node.nodeId} --graph="RFC-ROOT-GRAPH.json"`), `${node.nodeId} must carry a brief command`);
+  }
 });
 
 test('C003 the header value is stable across calls', () => {

@@ -505,6 +505,32 @@ const HEADER_WARNING_EN_TEXT = [
 // PX-30: Relative path calculation based on absolute paths
 // ============================================================
 
+/** The two design-source files a split package carries beside its graph. */
+const DESIGN_SOURCE_FILES = Object.freeze({
+  view: 'SEQUENCES.json',
+  stepContracts: 'RFC-STEP-CONTRACTS.json',
+});
+
+/**
+ * Name the design sources that exist beside a graph.
+ *
+ * A header must not point at an artifact the package does not carry, so the caller
+ * checks existence here and passes a basename only for a present file.
+ *
+ * @param {string} graphDirAbs - absolute directory holding the graph
+ * @returns {{view: string|null, stepContracts: string|null}}
+ */
+// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+function resolveDesignSourceBasenames(graphDirAbs) {
+  const fs = require('fs');
+  const path = require('path');
+  const present = (basename) => (fs.existsSync(path.join(graphDirAbs, basename)) ? basename : null);
+  return {
+    view: present(DESIGN_SOURCE_FILES.view),
+    stepContracts: present(DESIGN_SOURCE_FILES.stepContracts),
+  };
+}
+
 /**
  * Computes relative paths from the generated file to graph/tree/source document.
  *
@@ -516,10 +542,24 @@ const HEADER_WARNING_EN_TEXT = [
  * @param {string} graphBasename - path.basename(graphPath), e.g. "RFC-ROOT-GRAPH.json"
  * @param {string} dirsTreeBasename - Basename of Dirs-Tree.json
  * @param {string} sourceBasename - Basename of original Markdown, e.g. "RFC-ROOT.md"
+ * @param {{view?: string, stepContracts?: string}|null} designSourceBasenames - optional
+ *   basenames of the sequence view and step-contract sidecar when those files exist
  * @returns {object} HeaderPaths
- *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix, graphFlagForCmd }
+ *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix,
+ *     graphFlagForCmd, viewRelPath?, stepContractsRelPath? }
  */
-function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsTreeBasename, sourceBasename) {
+// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+function resolveHeaderPaths(...headerArguments) {
+  // The sixth argument is optional; destructuring a rest parameter keeps the existing
+  // five-argument call shape working while still naming every domain input once.
+  const [
+    generatedFilePath,
+    graphDirAbs,
+    graphBasename,
+    dirsTreeBasename,
+    sourceBasename,
+    designSourceBasenames = null,
+  ] = headerArguments;
   const path = require('path');
   // Step 1: Get parent directory of generated file as absolute path
   const fileDir = path.dirname(generatedFilePath);
@@ -548,6 +588,15 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
   // Step 9: --dirs-tree= flag (same, basename only)
   const dirsTreeFlagForCmd = '--dirs-tree="' + dirsTreeBasename + '"';
 
+  // Step 10: optional design sources. The caller passes a basename only when the file
+  // exists, so a header never points at an artifact this package does not carry.
+  const designSources = designSourceBasenames === null || designSourceBasenames === undefined
+    ? {}
+    : designSourceBasenames;
+  const optionalRelPath = (basename) => (typeof basename === 'string' && basename.length > 0
+    ? relDir + '/' + basename
+    : undefined);
+
   return {
     relDirToGraph: relDir,
     graphRelPath: graphRelPath,
@@ -556,6 +605,8 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
     cdCommandPrefix: cdCommandPrefix,
     graphFlagForCmd: graphFlagForCmd,
     dirsTreeFlagForCmd: dirsTreeFlagForCmd,
+    ...(optionalRelPath(designSources.view) === undefined ? {} : { viewRelPath: optionalRelPath(designSources.view) }),
+    ...(optionalRelPath(designSources.stepContracts) === undefined ? {} : { stepContractsRelPath: optionalRelPath(designSources.stepContracts) }),
   };
 }
 
@@ -578,7 +629,7 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-// [::TICKET::] P22-15, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-319, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319|PX-336) --for-spec --no-implementation-order`.
 function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBasename, lang) {
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
   const L = syntax.line;
@@ -603,6 +654,8 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
   lines.push(L + ' Graph:        ' + headerPaths.graphRelPath);
   lines.push(L + ' Directory:    ' + headerPaths.dirsTreeRelPath);
   lines.push(L + ' Original RFC: ' + headerPaths.sourceRelPath);
+  if (headerPaths.viewRelPath) lines.push(L + ' Sequences view: ' + headerPaths.viewRelPath);
+  if (headerPaths.stepContractsRelPath) lines.push(L + ' Step contracts: ' + headerPaths.stepContractsRelPath);
 
   // Mapped nodes
   lines.push(L + '');
@@ -614,6 +667,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
       const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
       lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
       lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + nid + ' --hops=2)');
+      lines.push(L + '     → For the implementation brief (contracts, forbidden, order): ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=' + nid + ' ' + headerPaths.graphFlagForCmd + ')');
     }
   } else {
     lines.push(L + ' Mapped node(s):');
@@ -625,7 +679,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
   if (unitIds.length > 0) {
     const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
     lines.push(L + ' units: ' + unitIds.join(', '));
-    lines.push(L + '   → To show the unit contract: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
+    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
   }
 
   // Cross-references (prose node information)
@@ -667,6 +721,8 @@ module.exports = {
   deduplicateFileNames,
   getDeclarationStub,
   resolveHeaderPaths,
+  resolveDesignSourceBasenames,
+  DESIGN_SOURCE_FILES,
   generateHeaderComment,
   // Expose constants for testing (immutable by design)
   COMMENT_SYNTAX,
