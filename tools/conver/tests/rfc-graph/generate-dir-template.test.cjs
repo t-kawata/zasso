@@ -601,9 +601,8 @@ describe('buildHeaderContext', () => {
     };
     const ctx = buildHeaderContext(dirsTree, '/tmp/test-project/RFC-TEST-Dirs-Tree.json', '/tmp', 'rust');
     assert.ok(ctx);
-    assert.strictEqual(ctx.graphBasename, 'RFC-TEST-GRAPH.json');
-    assert.strictEqual(ctx.dirsTreeBasename, 'RFC-TEST-Dirs-Tree.json');
-    assert.strictEqual(ctx.sourceBasename, 'RFC-TEST.md');
+    assert.strictEqual(ctx.graphDirAbs, '/tmp/test-project');
+    assert.strictEqual(ctx.lang, 'rust');
     assert.strictEqual(ctx.crossReferences.length, 1);
     assert.strictEqual(ctx.nodeMetaMap.N003.title, 'Why');
   });
@@ -614,14 +613,16 @@ describe('buildHeaderContext', () => {
     assert.strictEqual(ctx, null);
   });
 
-  it('should use UNKNOWN_SOURCE.md when sourceFile is missing', () => {
+  it('should build context without sourceFile, which is no longer a header input', () => {
+    // PX-337 derives the source path from the fixed artifact name beside the graph,
+    // so buildHeaderContext must not depend on the Dirs-Tree sourceFile field.
     const dirsTree = {
       sourceGraph: '/tmp/test-project/RFC-TEST-GRAPH.json',
       trees: { rust: { name: 'src', type: 'directory' } },
     };
     const ctx = buildHeaderContext(dirsTree, '/tmp/test-project/RFC-TEST-Dirs-Tree.json', '/tmp', 'rust');
     assert.ok(ctx);
-    assert.strictEqual(ctx.sourceBasename, 'UNKNOWN_SOURCE.md');
+    assert.strictEqual(ctx.graphDirAbs, '/tmp/test-project');
   });
 
   it('should handle missing crossReferences gracefully', () => {

@@ -632,6 +632,29 @@ describe('generateHeaderComment', () => {
     assert.ok(!comment.includes('To show the unit contract'));
   });
 
+  it('prints a units command that closes its subshell', () => {
+    const comment = generateHeaderComment(
+      withSources,
+      [{ nodeId: 'N0005', title: 'Unit Carrier', unitIds: ['op-CreateRootEntry', 'ctr-boundary-023'] }],
+      [],
+      'rust',
+    );
+
+    const unitCommandLines = comment
+      .split('\n')
+      .filter((line) => line.includes('To show the node and its contract edges'));
+
+    assert.strictEqual(unitCommandLines.length, 1);
+    // The pointer is executed as a subshell, so an unclosed '(' makes it a shell
+    // syntax error and the unit/contract edges become unreachable from the header.
+    assert.ok(unitCommandLines[0].trimEnd().endsWith(')'), `units command must close its subshell: ${unitCommandLines[0]}`);
+    assert.strictEqual(
+      (unitCommandLines[0].match(/\(/g) || []).length,
+      (unitCommandLines[0].match(/\)/g) || []).length,
+      'units command must have balanced parentheses',
+    );
+  });
+
   it('prints one unavailable line and no command when a design source is absent', () => {
     const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
     assert.ok(comment.includes(

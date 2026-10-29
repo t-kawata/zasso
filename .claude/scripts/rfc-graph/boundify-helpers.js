@@ -651,7 +651,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang
   if (unitIds.length > 0) {
     const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
     lines.push(L + ' units: ' + unitIds.join(', '));
-    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
+    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1)');
   }
 
   // Cross-references (prose node information)
