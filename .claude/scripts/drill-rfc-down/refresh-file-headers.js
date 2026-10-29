@@ -142,16 +142,35 @@ function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
   };
 }
 
+/**
+ * Keep every field a Dirs-Tree mapping declared and refresh only the node title.
+ *
+ * A generated header names the units a node carries. Rebuilding the entry from nodeId
+ * alone would drop `unitIds` and silently shrink the refreshed header, so the declared
+ * fields are preserved and only the title is resolved against the current graph.
+ *
+ * @param {string|{nodeId: string, title?: string, unitIds?: string[]}} mapping — Dirs-Tree entry
+ * @param {Map<string, {title?: string}>} graphNodeMap — current node metadata
+ * @returns {object} the declared mapping with nodeId and title resolved
+ */
+// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
+function preserveMappedNode(mapping, graphNodeMap) {
+  const declaredMapping = typeof mapping === 'object' ? mapping : {};
+  const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
+  const graphNode = graphNodeMap.get(nodeId);
+  return {
+    ...declaredMapping,
+    nodeId,
+    title: graphNode ? graphNode.title : (declaredMapping.title || ''),
+  };
+}
+
 /** Regenerate the provenance header for one file at fullPath, using the graph's current node metadata. */
-// [::TICKET::] PX-171, PX-172, P22-15, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172, P22-15, PX-336, PX-337, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336|PX-337|PX-338) --for-spec --no-implementation-order`.
 function regenerateHeader(fullPath, node, designContext) {
   const { graphNodeMap, crossReferences, context, lang } = designContext;
   const headerPaths = resolveHeaderPaths(fullPath, context.graphDirAbs);
-  const mappedNodeIds = (node.mappedNodeIds || []).map((mapping) => {
-    const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
-    const graphNode = graphNodeMap.get(nodeId);
-    return { nodeId, title: graphNode ? graphNode.title : (typeof mapping === 'object' ? mapping.title : '') };
-  });
+  const mappedNodeIds = (node.mappedNodeIds || []).map((mapping) => preserveMappedNode(mapping, graphNodeMap));
   return generateHeaderComment(headerPaths, mappedNodeIds, crossReferences || [], lang);
 }
 

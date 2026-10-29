@@ -322,7 +322,7 @@ function localStepRowsForNode(node, stepContracts, localOperations) {
 }
 
 /** The operation section of IMPLEMENT. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
 function renderOperationSection(lines, context) {
   const { graph, view, stepContracts, packageUnits, operationId, orders, limits } = context;
   const record = viewOperation(view, operationId);
@@ -362,7 +362,7 @@ function renderOperationSection(lines, context) {
   }
 
   if (rows.length === 0) {
-    lines.push('- No step contract: this operation is declared as a unit but no local step carries it. Treat it as read-only/internal unless the operation row says otherwise; the view carries no disposition.');
+    lines.push('- No step contract: no local step carries this operation. The view records a role only; the operation disposition lives in the upstream sequences artifact, which this brief does not read. Do not implement it as a Core Operation until that disposition is confirmed.');
     return;
   }
 
@@ -543,7 +543,7 @@ function renderMustHold(lines, context) {
 }
 
 /** Build the DO NOT section body. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
 function renderDoNot(lines, context) {
   const { node, view, stepContracts, localOperations, packageUnits, orders, limits } = context;
   const items = [];
@@ -565,7 +565,7 @@ function renderDoNot(lines, context) {
         items.push(`Do not assume this package owns ${unitId}: its role is undecided; confirm the owner before implementing.`);
       }
       if (rows.length === 0) {
-        items.push(`Do not implement ${operationId} as a Core Operation without confirming its disposition: no step contract exists in the view, and the view carries no disposition.`);
+        items.push(`Do not implement ${operationId} as a Core Operation without confirming its disposition in the upstream sequences artifact: no step contract carries it, and this brief does not read that artifact.`);
       }
       if (rows.length > 1) {
         items.push(`${operationId} is carried by ${rows.length} steps (${rows.map((row) => row.stepId).join(', ')}); satisfy all ${rows.length} contracts, not one.`);

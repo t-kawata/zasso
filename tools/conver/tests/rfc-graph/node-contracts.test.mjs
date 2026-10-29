@@ -1,3 +1,4 @@
+// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
 // PX-336 Red: the per-node semantic implementation brief.
 // @verifies C001
 // @verifies C002
@@ -445,5 +446,23 @@ describe('PX-337 boundary inventory', () => {
     const brief = buildNodeBrief({ graph, view, stepContracts, nodeId: 'N0055' });
 
     assert.match(brief, /S-application-and-payment \(context\): 0\. OBJECT_GET -> 1\. SubmitForumEkycParticipationProof \(external\) -> 2\. CreateRootEntry -> 3\. IssueTemporalHealthLease \(external\)/);
+  });
+
+  // @verifies C002
+  it('PX-338 C002: a zero-step operation names the upstream sequences artifact', () => {
+    const graph = { nodes: [node('N0055', ['op-VerifyRootLedgerChain'], 'verify the chain')], edges: [] };
+    const view = {
+      ownedOperationUnits: [operationUnit('VerifyRootLedgerChain')],
+      ownedSequenceUnits: [],
+      crossBoundarySequenceUnits: [],
+      obligationUnits: [],
+    };
+    const brief = buildNodeBrief({ graph, view, stepContracts: { steps: [] }, nodeId: 'N0055' });
+
+    assert.match(brief, /No step contract:.*upstream sequences artifact/, 'IMPLEMENT names the disposition source');
+    assert.match(brief, /Do not implement VerifyRootLedgerChain.*upstream sequences artifact/, 'DO NOT names the disposition source');
+    assert.match(brief, /this brief does not read/, 'the limit of the brief inputs is stated');
+    assert.doesNotMatch(brief, /the view carries no disposition/, 'the view is never claimed to state a disposition');
+    assert.doesNotMatch(brief, /unless the operation row says otherwise/, 'no pointer to an unshown row');
   });
 });

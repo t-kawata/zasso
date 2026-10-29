@@ -45,6 +45,46 @@ async function loadRefresh() {
   return import('../../.claude/scripts/drill-rfc-down/refresh-file-headers.js');
 }
 
+/** Visit every file node with its Dirs-Tree-relative path. */
+function collectFileNodes(node, prefix, visit) {
+  const relative = prefix ? `${prefix}/${node.name}` : node.name;
+  if (node.type === 'file') {
+    visit(relative, node);
+    return;
+  }
+  for (const child of node.children || []) collectFileNodes(child, relative, visit);
+}
+
+/** Build the node-to-file maps computeCrossReferences needs, as the refresh does. */
+function nodeFileMaps(dirsTree) {
+  const nodeToFilePath = {};
+  const nodeToDir = {};
+  for (const tree of Object.values(dirsTree.trees || {})) {
+    collectFileNodes(tree, '', (relative, node) => {
+      const directory = relative.split('/').slice(0, -1).join('/');
+      for (const mapping of node.mappedNodeIds || []) {
+        const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
+        if (nodeId && !(nodeId in nodeToFilePath)) {
+          nodeToFilePath[nodeId] = relative;
+          nodeToDir[nodeId] = directory;
+        }
+      }
+    });
+  }
+  return { nodeToFilePath, nodeToDir };
+}
+
+/** The header generateHeaderComment emits for the refreshed auth.rs mapping. */
+function generatedHeaderForAuth(fixture) {
+  const { computeCrossReferences } = require('../../.claude/scripts/rfc-graph/boundify-tree.js');
+  const { generateHeaderComment, resolveHeaderPaths } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
+  const graph = JSON.parse(fs.readFileSync(fixture.graphPath, 'utf8'));
+  const { nodeToFilePath, nodeToDir } = nodeFileMaps(fixture.stagedDirsTree);
+  const crossReferences = computeCrossReferences(graph, nodeToDir, nodeToFilePath);
+  const headerPaths = resolveHeaderPaths(fixture.authPath, fixture.tmp);
+  return generateHeaderComment(headerPaths, [{ nodeId: 'N0002', title: 'Auth module extended', unitIds: ['op-Auth', 'ctr-boundary-001'] }], crossReferences, 'rust').trimEnd();
+}
+
 /** Build a realistic provenance header block (opening separator .. closing separator). */
 function buildHeader(extraLines = []) {
   return [
@@ -71,7 +111,8 @@ function buildFile(extraLines = []) {
 }
 
 /** Build a fixture project: graph, Dirs-Tree, src files, graph-delta. */
-function setupProject({ includeHandWritten = true, preCreateTemplate = false } = {}) {
+// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
+function setupProject({ includeHandWritten = true, preCreateTemplate = false, includeUnits = true } = {}) {
   const tmp = fs.mkdtempSync(path.join(tmpRoot, 'proj-'));
   const graphPath = path.join(tmp, 'RFC-GRAPH.json');
   const dirsTreePath = path.join(tmp, 'RFC-Dirs-Tree.json');
@@ -113,6 +154,11 @@ function setupProject({ includeHandWritten = true, preCreateTemplate = false } =
   });
 
   // Dirs-Tree: auth.rs maps N0002; tmpl.rs maps N0003 (if preCreateTemplate); hand.rs unmapped.
+  // PX-338: the auth entry may carry unitIds, as boundify-tree.js writes them, so a refresh
+  // must keep both the units line and the per-node brief command.
+  const authMapping = includeUnits
+    ? { nodeId: 'N0002', title: 'Auth module', unitIds: ['op-Auth', 'ctr-boundary-001'] }
+    : { nodeId: 'N0002', title: 'Auth module' };
   const dirsTree = {
     schemaVersion: 1,
     sourceGraph: graphPath,
@@ -124,7 +170,7 @@ function setupProject({ includeHandWritten = true, preCreateTemplate = false } =
         kind: 'root',
         children: [
           { name: 'api', type: 'directory', kind: 'architecture', mappedNodeIds: [], children: [
-            { name: 'auth.rs', type: 'file', kind: 'api_contract', mappedNodeIds: [{ nodeId: 'N0002', title: 'Auth module' }] },
+            { name: 'auth.rs', type: 'file', kind: 'api_contract', mappedNodeIds: [authMapping] },
             { name: 'hand.rs', type: 'file', kind: 'api_contract', mappedNodeIds: [{ nodeId: 'N0002', title: 'Auth module' }] },
             ...(preCreateTemplate ? [{ name: 'tmpl.rs', type: 'file', kind: 'architecture', mappedNodeIds: [{ nodeId: 'N0003', title: 'Session storage' }] }] : []),
           ] },
@@ -142,6 +188,10 @@ function setupProject({ includeHandWritten = true, preCreateTemplate = false } =
     modifiedNodes: [{ id: 'N0002', changes: { title: 'Auth module extended' } }],
     newEdges: [],
   });
+
+  // The per-node brief command is emitted only when both design sources exist beside the graph.
+  writeJson(path.join(tmp, 'SEQUENCES.json'), {});
+  writeJson(path.join(tmp, 'RFC-STEP-CONTRACTS.json'), { steps: [] });
 
   return { tmp, graphPath, dirsTreePath, graphDeltaPath, srcRoot, stagedDirsTree: dirsTree, authPath };
 }
@@ -324,5 +374,42 @@ describe('refresh-file-headers.js (safe existing-file header refresh)', () => {
     assert.deepEqual(result.refreshed, [], 'no files refreshed');
     const after = fs.readdirSync(fixture.srcRoot + '/api', { recursive: true }).join(',');
     assert.equal(after, before, 'no files created or modified');
+  });
+
+  // @verifies C001
+  it('PX-338 C001: a refresh keeps the unitIds declared for the mapped node', async () => {
+    const { refreshFileHeaders } = await loadRefresh();
+    const fixture = setupProject();
+
+    await refreshFileHeaders({
+      dirsTreePath: fixture.dirsTreePath,
+      stagedDirsTree: fixture.stagedDirsTree,
+      srcDir: fixture.srcRoot,
+      graphPath: fixture.graphPath,
+      graphDeltaPath: fixture.graphDeltaPath,
+    });
+
+    const header = headerRegionOf(fs.readFileSync(fixture.authPath, 'utf8'));
+    assert.match(header, /units: op-Auth, ctr-boundary-001/, 'units line survives the refresh');
+    assert.match(header, /show-node-contracts\.mjs --id=N0002/, 'per-node brief command survives the refresh');
+    assert.equal(header, generatedHeaderForAuth(fixture), 'refreshed header equals the generated header');
+  });
+
+  // @verifies C001
+  it('PX-338 C001 invariant: a mapped node without unitIds gains no units line', async () => {
+    const { refreshFileHeaders } = await loadRefresh();
+    const fixture = setupProject({ includeUnits: false });
+
+    const result = await refreshFileHeaders({
+      dirsTreePath: fixture.dirsTreePath,
+      stagedDirsTree: fixture.stagedDirsTree,
+      srcDir: fixture.srcRoot,
+      graphPath: fixture.graphPath,
+      graphDeltaPath: fixture.graphDeltaPath,
+    });
+
+    const header = headerRegionOf(fs.readFileSync(fixture.authPath, 'utf8'));
+    assert.doesNotMatch(header, /units:/, 'no fabricated units line');
+    assert.ok(result.refreshed.includes('src/api/auth.rs'), 'the refresh still succeeds');
   });
 });
