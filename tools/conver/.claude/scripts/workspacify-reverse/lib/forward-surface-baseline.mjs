@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 /**
  * forward-surface-baseline — a frozen value for every forward surface P22 modified.
  *
@@ -143,7 +144,7 @@ export const FORWARD_SURFACES = Object.freeze([
 ]);
 
 /**
- * The header a fixed five-argument input produces.
+ * The header a fixed four-argument input produces.
  *
  * `generateHeaderComment` is pure and performs no I/O, and its output carries the
  * `Initial Design Artifact` marker that supreme law 4 forbids altering. That makes
@@ -158,8 +159,7 @@ export function freezeHeaderOutput({ projectRoot, input = readFixtureJson(projec
   return generateHeaderComment(
     input.headerPaths,
     input.mappedNodeIds,
-    input.crossRefs ?? [],
-    input.sourceBasename,
+    input.crossReferences ?? [],
     input.lang,
   );
 }

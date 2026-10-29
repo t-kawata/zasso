@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
 /**
  * boundify-helpers.test.cjs — boundify-helpers.js unit tests
@@ -467,87 +468,53 @@ describe('getDeclarationStub', () => {
 
 describe('resolveHeaderPaths', () => {
   const GRAPH_DIR = '/Users/kawata/shyme/project';
-  const GRAPH_BASENAME = 'RFC-ROOT-GRAPH.json';
-  const DIRS_TREE_BASENAME = 'RFC-ROOT-Dirs-Tree.json';
-  const SOURCE_BASENAME = 'RFC-ROOT.md';
 
-  it('should compute relDir as ".." for one-level deep file', () => {
-    const result = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/src/main.rs',
-      GRAPH_DIR,
-      GRAPH_BASENAME,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
+  it('should derive every fixed name for a one-level deep file', () => {
+    const result = resolveHeaderPaths('/Users/kawata/shyme/project/src/main.rs', GRAPH_DIR);
     assert.strictEqual(result.relDirToGraph, '..');
-    assert.strictEqual(result.graphRelPath, '../RFC-ROOT-GRAPH.json');
+    assert.strictEqual(result.graphRelPath, '../RFC-GRAPH.json');
+    assert.strictEqual(result.dirsTreeRelPath, '../RFC-Dirs-Tree.json');
+    assert.strictEqual(result.sourceRelPath, '../RFC.md');
     assert.strictEqual(result.cdCommandPrefix, '(cd .. &&');
   });
 
-  it('should compute relDir as "../.." for two-level deep file', () => {
-    const result = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/src/config/db.rs',
-      GRAPH_DIR,
-      GRAPH_BASENAME,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
+  it('should derive every fixed name for a two-level deep file', () => {
+    const result = resolveHeaderPaths('/Users/kawata/shyme/project/src/config/db.rs', GRAPH_DIR);
     assert.strictEqual(result.relDirToGraph, '../..');
-    assert.strictEqual(result.dirsTreeRelPath, '../../RFC-ROOT-Dirs-Tree.json');
-    assert.strictEqual(result.sourceRelPath, '../../RFC-ROOT.md');
+    assert.strictEqual(result.dirsTreeRelPath, '../../RFC-Dirs-Tree.json');
+    assert.strictEqual(result.sourceRelPath, '../../RFC.md');
   });
 
-  it('should compute relDir as ".." for docs-level file', () => {
-    const result = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/docs/plan.md',
-      GRAPH_DIR,
-      GRAPH_BASENAME,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
-    assert.strictEqual(result.relDirToGraph, '..');
-  });
-
-  it('should compute relDir as "." for same-directory case', () => {
-    const result = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/some.rs',
-      GRAPH_DIR,
-      GRAPH_BASENAME,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
+  it('should compute relDir as "." for the same-directory case', () => {
+    const result = resolveHeaderPaths('/Users/kawata/shyme/project/some.rs', GRAPH_DIR);
     assert.strictEqual(result.relDirToGraph, '.');
-    assert.strictEqual(result.graphRelPath, './RFC-ROOT-GRAPH.json');
+    assert.strictEqual(result.graphRelPath, './RFC-GRAPH.json');
     assert.strictEqual(result.cdCommandPrefix, '(cd . &&');
   });
 
-  it('should keep --graph= flag as basename only (no relDir prefix)', () => {
-    const result = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/src/config/db.rs',
-      GRAPH_DIR,
-      GRAPH_BASENAME,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
-    assert.strictEqual(result.graphFlagForCmd, '--graph="RFC-ROOT-GRAPH.json"');
-    // Verify that relDir and basename are NOT concatenated
-    assert.ok(!result.graphFlagForCmd.includes(result.relDirToGraph));
+  it('should derive the design-source paths from graphDirAbs, not from an argument', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'px337-sources-'));
+    try {
+      const withoutSources = resolveHeaderPaths(path.join(directory, 'src/main.rs'), directory);
+      assert.strictEqual(withoutSources.viewRelPath, undefined);
+      assert.strictEqual(withoutSources.stepContractsRelPath, undefined);
+
+      fs.writeFileSync(path.join(directory, 'SEQUENCES.json'), '{}\n');
+      fs.writeFileSync(path.join(directory, 'RFC-STEP-CONTRACTS.json'), '{}\n');
+      const withSources = resolveHeaderPaths(path.join(directory, 'src/main.rs'), directory);
+      assert.strictEqual(withSources.viewRelPath, '../SEQUENCES.json');
+      assert.strictEqual(withSources.stepContractsRelPath, '../RFC-STEP-CONTRACTS.json');
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
   });
 
-  it('should satisfy the invariance: path.resolve(fileDir, graphRelPath) === originalGraphAbsPath', () => {
-    const path = require('path');
+  it('should satisfy the invariance: path.resolve(fileDir, graphRelPath) === graphDirAbs/RFC-GRAPH.json', () => {
     const generatedFilePath = '/Users/kawata/shyme/project/src/net/http/handler.rs';
     const graphDirAbs = '/Users/kawata/shyme/project';
-    const graphBasename = 'RFC-ROOT-GRAPH.json';
-    const originalGraphAbs = path.resolve(graphDirAbs, graphBasename);
+    const originalGraphAbs = path.resolve(graphDirAbs, 'RFC-GRAPH.json');
 
-    const result = resolveHeaderPaths(
-      generatedFilePath,
-      graphDirAbs,
-      graphBasename,
-      DIRS_TREE_BASENAME,
-      SOURCE_BASENAME
-    );
+    const result = resolveHeaderPaths(generatedFilePath, graphDirAbs);
 
     const fileDir = path.dirname(generatedFilePath);
     const resolvedBack = path.resolve(fileDir, result.graphRelPath);
@@ -562,127 +529,135 @@ describe('resolveHeaderPaths', () => {
 describe('generateHeaderComment', () => {
   const headerPaths = {
     relDirToGraph: '..',
-    graphRelPath: '../RFC-ROOT-GRAPH.json',
-    dirsTreeRelPath: '../RFC-ROOT-Dirs-Tree.json',
-    sourceRelPath: '../RFC-ROOT.md',
+    graphRelPath: '../RFC-GRAPH.json',
+    dirsTreeRelPath: '../RFC-Dirs-Tree.json',
+    sourceRelPath: '../RFC.md',
     cdCommandPrefix: '(cd .. &&',
-    graphFlagForCmd: '--graph="RFC-ROOT-GRAPH.json"',
+  };
+  const withSources = {
+    ...headerPaths,
+    viewRelPath: '../SEQUENCES.json',
+    stepContractsRelPath: '../RFC-STEP-CONTRACTS.json',
   };
   const mappedNodeIds = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
-  const sourceBasename = 'RFC-ROOT.md';
 
   it('should generate Rust-style comment with // syntax', () => {
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
     assert.ok(comment.startsWith('//'));
     assert.ok(comment.includes(HEADER_SEPARATOR));
-    assert.ok(comment.includes('RFC-ROOT-GRAPH.json'));
+    assert.ok(comment.includes('RFC-GRAPH.json'));
     assert.ok(comment.includes('N0005'));
     assert.ok(comment.includes('query.js'));
   });
 
   it('should generate Go-style comment with // syntax', () => {
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, [], sourceBasename, 'go'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'go');
     assert.ok(comment.startsWith('//'));
     assert.ok(comment.includes('Initial Design Artifact'));
   });
 
   it('should generate TypeScript-style comment with // syntax', () => {
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, [], sourceBasename, 'typescript'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'typescript');
     assert.ok(comment.startsWith('//'));
   });
 
   it('should include mapped node info', () => {
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
     assert.ok(comment.includes('N0005'));
     assert.ok(comment.includes('Database Connection Config'));
   });
 
   it('should show "No direct node mapping" when mappedNodeIds is empty', () => {
-    const comment = generateHeaderComment(
-      headerPaths, [], [], sourceBasename, 'rust'
-    );
+    const comment = generateHeaderComment(headerPaths, [], [], 'rust');
     assert.ok(comment.includes('No direct node mapping'));
   });
 
-  it('should include cross-referenced design context when provided', () => {
-    const crossRefs = [
+  it('should filter cross-referenced design context to the mapped nodes', () => {
+    const crossReferences = [
       {
-        nodeId: 'N0003',
+        nodeId: 'N0005',
         kind: 'rationale',
         title: 'Why Adopt EDA',
         headingRef: '§ 2.1',
         connections: [
-          { toFile: 'config/db_settings.rs', edgeType: 'refines', direction: '→' }
+          { toNodeId: 'N0005', toFile: 'config/db_settings.rs', edgeType: 'refines', direction: '→' },
+        ],
+      },
+      {
+        nodeId: 'N0009',
+        kind: 'rationale',
+        title: 'Unrelated Node',
+        headingRef: '§ 9.9',
+        connections: [
+          { toNodeId: 'N0009', toFile: 'unrelated.rs', edgeType: 'refines', direction: '→' },
         ],
       },
     ];
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, crossRefs, sourceBasename, 'rust'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, 'rust');
     assert.ok(comment.includes('Cross-referenced design context'));
     assert.ok(comment.includes('rationale/Why Adopt EDA'));
-    assert.ok(comment.includes('N0003'));
+    assert.ok(comment.includes('N0005'));
+    assert.ok(!comment.includes('Unrelated Node'));
   });
 
   it('should include graph exploration commands', () => {
-    const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
-    );
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
     assert.ok(comment.includes('Full graph exploration'));
     assert.ok(comment.includes('show-graph-summary-markdown.js'));
     assert.ok(comment.includes('--hops='));
   });
+
+  it('derives the source basename from headerPaths.sourceRelPath', () => {
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
+    assert.ok(comment.includes('--source="RFC.md"'));
+  });
+
+  it('prints one minimal command per mapped node and no path flags', () => {
+    const comment = generateHeaderComment(
+      withSources,
+      [
+        { nodeId: 'N0005', title: 'First', unitIds: ['op-CreateRootEntry'] },
+        { nodeId: 'N0006', title: 'Second', unitIds: ['op-CreateRootEntry'] },
+      ],
+      [],
+      'rust',
+    );
+
+    assert.ok(comment.includes('(cd .. && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0005)'));
+    assert.ok(comment.includes('(cd .. && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0006)'));
+    assert.ok(!comment.includes('show-node-contracts.mjs --id=N0005 --graph'));
+    assert.ok(comment.includes('Sequences view: ../SEQUENCES.json'));
+    assert.ok(comment.includes('Step contracts: ../RFC-STEP-CONTRACTS.json'));
+    assert.ok(comment.includes('To show the node and its contract edges'));
+    assert.ok(!comment.includes('To show the unit contract'));
+  });
+
+  it('prints one unavailable line and no command when a design source is absent', () => {
+    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], 'rust');
+    assert.ok(comment.includes(
+      'Implementation brief: unavailable (SEQUENCES.json, RFC-STEP-CONTRACTS.json not present beside RFC-GRAPH.json)',
+    ));
+    assert.ok(!comment.includes('show-node-contracts.mjs'));
+    assert.ok(!comment.includes('Sequences view:'));
+    assert.ok(!comment.includes('Step contracts:'));
+  });
+
+  it('keeps the protected marker and produces stable bytes', () => {
+    const first = generateHeaderComment(withSources, mappedNodeIds, [], 'rust');
+    const second = generateHeaderComment(withSources, mappedNodeIds, [], 'rust');
+    assert.ok(first.includes('Initial Design Artifact — RFC-driven Implementation'));
+    assert.ok(first.includes('NEVER DELETE OR EDIT'));
+    assert.strictEqual(first, second);
+  });
 });
 
 // ============================================================
-// PX-336: per-node semantic implementation brief pointer
+// PX-337: design sources are derived beside the graph
 // ============================================================
 
-describe('PX-336 header design sources and brief pointer', () => {
-  const headerPaths = {
-    relDirToGraph: '..',
-    graphRelPath: '../RFC-ROOT-GRAPH.json',
-    dirsTreeRelPath: '../RFC-ROOT-Dirs-Tree.json',
-    sourceRelPath: '../RFC-ROOT.md',
-    cdCommandPrefix: '(cd .. &&',
-    graphFlagForCmd: '--graph="RFC-ROOT-GRAPH.json"',
-  };
-  const mappedNodeIds = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
-  const sourceBasename = 'RFC-ROOT.md';
-
-  it('resolveHeaderPaths adds the design-source paths only through the optional sixth argument', () => {
-    const withSources = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/src/main.rs',
-      '/Users/kawata/shyme/project',
-      'RFC-ROOT-GRAPH.json',
-      'RFC-ROOT-Dirs-Tree.json',
-      'RFC-ROOT.md',
-      { view: 'SEQUENCES.json', stepContracts: 'RFC-STEP-CONTRACTS.json' },
-    );
-    assert.strictEqual(withSources.viewRelPath, '../SEQUENCES.json');
-    assert.strictEqual(withSources.stepContractsRelPath, '../RFC-STEP-CONTRACTS.json');
-
-    const withoutSources = resolveHeaderPaths(
-      '/Users/kawata/shyme/project/src/main.rs',
-      '/Users/kawata/shyme/project',
-      'RFC-ROOT-GRAPH.json',
-      'RFC-ROOT-Dirs-Tree.json',
-      'RFC-ROOT.md',
-    );
-    assert.strictEqual(withoutSources.viewRelPath, undefined);
-    assert.strictEqual(withoutSources.stepContractsRelPath, undefined);
-  });
-
+describe('PX-337 design-source derivation', () => {
   it('resolveDesignSourceBasenames names only the files that exist beside the graph', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'px336-sources-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'px337-sources-'));
     try {
       assert.deepEqual(resolveDesignSourceBasenames(directory), { view: null, stepContracts: null });
       fs.writeFileSync(path.join(directory, 'SEQUENCES.json'), '{}\n');
@@ -694,46 +669,6 @@ describe('PX-336 header design sources and brief pointer', () => {
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
-  });
-
-  it('prints one brief command per mapped node and the design-source lines when supplied', () => {
-    const pathsWithSources = {
-      ...headerPaths,
-      viewRelPath: '../SEQUENCES.json',
-      stepContractsRelPath: '../RFC-STEP-CONTRACTS.json',
-    };
-    const comment = generateHeaderComment(
-      pathsWithSources,
-      [
-        { nodeId: 'N0005', title: 'First', unitIds: ['op-CreateRootEntry'] },
-        { nodeId: 'N0006', title: 'Second', unitIds: ['op-CreateRootEntry'] },
-      ],
-      [],
-      sourceBasename,
-      'rust',
-    );
-
-    assert.ok(comment.includes('show-node-contracts.mjs --id=N0005 --graph="RFC-ROOT-GRAPH.json"'));
-    assert.ok(comment.includes('show-node-contracts.mjs --id=N0006 --graph="RFC-ROOT-GRAPH.json"'));
-    assert.ok(comment.includes('Sequences view: ../SEQUENCES.json'));
-    assert.ok(comment.includes('Step contracts: ../RFC-STEP-CONTRACTS.json'));
-    assert.ok(comment.includes('To show the node and its contract edges'));
-    assert.ok(!comment.includes('To show the unit contract'));
-  });
-
-  it('omits the design-source lines when they were not supplied', () => {
-    const comment = generateHeaderComment(headerPaths, mappedNodeIds, [], sourceBasename, 'rust');
-    assert.ok(comment.includes('show-node-contracts.mjs --id=N0005'));
-    assert.ok(!comment.includes('Sequences view:'));
-    assert.ok(!comment.includes('Step contracts:'));
-  });
-
-  it('keeps the protected marker and produces stable bytes', () => {
-    const first = generateHeaderComment(headerPaths, mappedNodeIds, [], sourceBasename, 'rust');
-    const second = generateHeaderComment(headerPaths, mappedNodeIds, [], sourceBasename, 'rust');
-    assert.ok(first.includes('Initial Design Artifact — RFC-driven Implementation'));
-    assert.ok(first.includes('NEVER DELETE OR EDIT'));
-    assert.strictEqual(first, second);
   });
 });
 

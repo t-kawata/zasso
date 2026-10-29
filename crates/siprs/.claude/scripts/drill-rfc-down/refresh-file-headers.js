@@ -21,7 +21,7 @@ import { fileURLToPath } from 'url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { generateHeaderComment, resolveHeaderPaths, resolveDesignSourceBasenames, getDeclarationStub } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-helpers.js'));
+const { generateHeaderComment, resolveHeaderPaths, getDeclarationStub } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-helpers.js'));
 const { computeCrossReferences } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/boundify-tree.js'));
 
 const HEADER_MARKER = 'Initial Design Artifact — RFC-driven Implementation';
@@ -137,37 +137,22 @@ function extractTicketAnnotations(text) {
 // [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
   const graphAbs = path.resolve(graphPath);
-  const sourceFile = dirsTree.sourceFile || '';
   return {
     graphDirAbs: path.dirname(graphAbs),
-    graphBasename: path.basename(graphAbs),
-    dirsTreeBasename: path.basename(path.resolve(dirsTreePath)),
-    sourceBasename: sourceFile ? path.basename(sourceFile) : 'UNKNOWN_SOURCE.md',
   };
 }
 
 /** Regenerate the provenance header for one file at fullPath, using the graph's current node metadata. */
-// [::TICKET::] PX-171, PX-172, P22-15, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172, P22-15, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336|PX-337) --for-spec --no-implementation-order`.
 function regenerateHeader(fullPath, node, designContext) {
   const { graphNodeMap, crossReferences, context, lang } = designContext;
-  const headerPaths = resolveHeaderPaths(
-    fullPath,
-    context.graphDirAbs,
-    context.graphBasename,
-    context.dirsTreeBasename,
-    context.sourceBasename,
-    resolveDesignSourceBasenames(context.graphDirAbs),
-  );
+  const headerPaths = resolveHeaderPaths(fullPath, context.graphDirAbs);
   const mappedNodeIds = (node.mappedNodeIds || []).map((mapping) => {
     const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
     const graphNode = graphNodeMap.get(nodeId);
     return { nodeId, title: graphNode ? graphNode.title : (typeof mapping === 'object' ? mapping.title : '') };
   });
-  const mappedIdStrings = mappedNodeIds.map((m) => m.nodeId);
-  const mappedSet = new Set(mappedIdStrings);
-  const fileCrossRefs = (crossReferences || []).filter((cr) =>
-    cr.connections && cr.connections.some((conn) => mappedSet.has(conn.toNodeId)));
-  return generateHeaderComment(headerPaths, mappedNodeIds, fileCrossRefs, context.sourceBasename, lang);
+  return generateHeaderComment(headerPaths, mappedNodeIds, crossReferences || [], lang);
 }
 
 /** Insert the current kind/language declaration stub before a template-state body's stub markers. */

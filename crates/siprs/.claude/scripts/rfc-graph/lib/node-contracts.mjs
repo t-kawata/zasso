@@ -158,25 +158,43 @@ function nodeCarryingUnit(graph, unitId) {
   return graph.nodes.find((node) => (node.unitIds ?? []).includes(unitId));
 }
 
-/** The incident boundary edge and its projected contract. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-function boundaryContract(graph, boundaryId) {
-  const ctrUnit = `ctr-${boundaryId}`;
-  const nodes = graph.nodes.filter((node) => (node.unitIds ?? []).includes(ctrUnit));
-  const incident = graph.edges.filter((edge) =>
-    nodes.some((node) => node.id === edge.from || node.id === edge.to));
-  if (incident.length === 0) return null;
+/** Deterministic order for edge contract entries: endpoints, edge type, contract id. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function compareEdgeContract(left, right) {
+  const byFrom = String(left.edge.from).localeCompare(String(right.edge.from));
+  if (byFrom !== 0) return byFrom;
+  const byTo = String(left.edge.to).localeCompare(String(right.edge.to));
+  if (byTo !== 0) return byTo;
+  const byType = String(left.edge.type ?? '').localeCompare(String(right.edge.type ?? ''));
+  if (byType !== 0) return byType;
+  return String(left.contract.id).localeCompare(String(right.contract.id));
+}
 
-  const named = incident.find((edge) =>
-    String(edge.attributes?.note ?? '').includes(`registry:${boundaryId}`)
-    && Array.isArray(edge.contracts) && edge.contracts.length > 1)
-    ?? incident.find((edge) => String(edge.attributes?.note ?? '').includes(`registry:${boundaryId}`))
-    ?? incident[0];
-  const contracts = Array.isArray(named.contracts) ? named.contracts : [];
-  if (contracts.length === 0) return { edge: named, contract: null };
-  const contract = contracts.find((candidate) => /^C9\d{2}$/.test(String(candidate.id)))
-    ?? contracts[contracts.length - 1];
-  return { edge: named, contract };
+/**
+ * Every contract on the edges incident to a boundary unit.
+ *
+ * The boundary unit can sit on several nodes, and every edge touching one of them
+ * carries the same `registry:<boundaryId>` note. Reading one edge would drop the
+ * other contracts, so the inventory keeps each contract with the edge that carried
+ * it and lets the renderer say which one is expanded.
+ */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function collectBoundaryContracts(graph, boundaryId) {
+  const ctrUnit = `ctr-${boundaryId}`;
+  const carrierNodes = graph.nodes.filter((node) => (node.unitIds ?? []).includes(ctrUnit));
+  const incidentEdges = graph.edges.filter((edge) =>
+    carrierNodes.some((node) => node.id === edge.from || node.id === edge.to));
+  const registryEdges = incidentEdges.filter((edge) =>
+    String(edge.attributes?.note ?? '').includes(`registry:${boundaryId}`));
+  const candidateEdges = registryEdges.length > 0 ? registryEdges : incidentEdges;
+  const edgeContracts = candidateEdges
+    .flatMap((edge) => (Array.isArray(edge.contracts) ? edge.contracts : [])
+      .map((contract) => ({ edge, contract })))
+    .sort(compareEdgeContract);
+  const projectedEntry = edgeContracts.find(({ contract }) => /^C9\d{2}$/.test(String(contract.id)))
+    ?? edgeContracts[edgeContracts.length - 1]
+    ?? null;
+  return { incidentEdges, registryEdges, candidateEdges, edgeContracts, projectedEntry };
 }
 
 /** The registry row of one boundary, or null. */
@@ -409,39 +427,67 @@ function renderSequenceSection(lines, context) {
 }
 
 /** The boundary section of IMPLEMENT. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderBoundarySection(lines, context) {
   const { graph, view, registry, boundaryId, limits } = context;
   const record = viewBoundary(view, boundaryId);
-  const projected = boundaryContract(graph, boundaryId);
+  const inventory = collectBoundaryContracts(graph, boundaryId);
   lines.push(`### ctr-${boundaryId}`);
   if (record === null) {
     lines.push('- View record: UNMAPPED (no obligationUnits entry)');
   } else {
     lines.push(`- Direction: ${record.direction ?? 'not stated'}; counterpart: ${record.counterpart ?? 'not stated'}`);
   }
-  if (projected === null || projected.contract === null) {
+
+  if (inventory.incidentEdges.length === 0) {
     lines.push('- Graph contract: MISSING (no incident boundary edge)');
+  } else if (inventory.edgeContracts.length === 0) {
+    lines.push('- Graph contract: MISSING (incident edges carry no contract)');
   } else {
-    lines.push(`- Graph contract: ${projected.contract.id} (${projected.edge.from} -> ${projected.edge.to})`);
-    lines.push(`  precondition: ${projected.contract.precondition}`);
-    lines.push(`  postcondition: ${projected.contract.postcondition}`);
-    lines.push(`  invariant: ${projected.contract.invariant}`);
+    lines.push(`- Boundary contracts (${inventory.edgeContracts.length}):`);
+    for (const { edge, contract } of inventory.edgeContracts.slice(0, limits.maxBoundaryClauses)) {
+      lines.push(`  - ${contract.id} (${edge.from} -> ${edge.to})`);
+    }
+    if (inventory.edgeContracts.length > limits.maxBoundaryClauses) {
+      lines.push(`  - showing ${limits.maxBoundaryClauses} of ${inventory.edgeContracts.length}; full list at graph edges for ${boundaryId}`);
+    }
+    const projected = inventory.projectedEntry;
+    if (projected !== null) {
+      lines.push(`- Expanded contract: ${projected.contract.id} (${projected.edge.from} -> ${projected.edge.to})`);
+      lines.push(`  precondition: ${projected.contract.precondition}`);
+      lines.push(`  postcondition: ${projected.contract.postcondition}`);
+      lines.push(`  invariant: ${projected.contract.invariant}`);
+      const notExpanded = inventory.edgeContracts
+        .filter(({ contract }) => String(contract.id) !== String(projected.contract.id))
+        .map(({ contract }) => String(contract.id))
+        .sort();
+      if (notExpanded.length > 0) lines.push(`- Not expanded: ${notExpanded.join(', ')}`);
+    }
   }
 
   const row = registryBoundary(registry, boundaryId);
   if (row === null) {
-    lines.push('- Registry clauses: unavailable (no --registry supplied); the graph pre/post/invariant above are authoritative for those three fields.');
+    if (registry === null || registry === undefined) {
+      lines.push('- Registry: not supplied; clauses unavailable.');
+    } else {
+      lines.push(`- Registry: no row for ${boundaryId}; clauses unavailable.`);
+    }
     return;
   }
   lines.push(`- Registry row: consumer ${row.consumer_package ?? 'not stated'}; provider ${row.provider_package ?? 'not stated'}`);
   const clauses = row.clauses ?? {};
   const graphProjected = new Set(['preconditions', 'postconditions', 'invariants']);
+  let renderedGroups = 0;
   for (const group of Object.keys(clauses)) {
     if (graphProjected.has(group)) continue;
     const raw = clauses[group];
     const values = Array.isArray(raw) ? raw.map(String) : [String(raw)];
+    if (values.length === 0) continue;
     renderStringList(lines, `Registry ${group}`, values, limits.maxBoundaryClauses, `registry row ${boundaryId}`);
+    renderedGroups += 1;
+  }
+  if (renderedGroups === 0) {
+    lines.push('- Registry: row found; no clause groups beyond graph pre/post/invariant.');
   }
 }
 
@@ -474,7 +520,7 @@ function renderImplement(lines, context) {
 }
 
 /** Build the MUST HOLD section body. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderMustHold(lines, context) {
   const { node, view, stepContracts, localOperations, packageUnits, orders, limits } = context;
   const rows = sortedStepRows(localStepRowsForNode(node, stepContracts, localOperations), orders);
@@ -482,17 +528,18 @@ function renderMustHold(lines, context) {
     lines.push('- No local step-contract facts are available for this node.');
     return;
   }
+  const contributingSteps = rows.map((row) => row.stepId).join(', ');
   for (const axis of FACT_AXES) {
-    renderFactList(lines, axis, deduplicateFacts(rows, axis, packageUnits), limits.maxFactsPerAxis, rows[0].stepId);
+    renderFactList(lines, axis, deduplicateFacts(rows, axis, packageUnits), limits.maxFactsPerAxis, contributingSteps);
   }
   for (const axis of ['consumes', 'produces', 'errors']) {
     const values = [...new Set(rows.flatMap((row) => factsOf(row, axis).map(factText))
       .filter((text) => text.length > 0 && !isExternalAxisValue(text, packageUnits)))];
-    renderStringList(lines, axis, values, limits.maxFactsPerAxis, rows[0].stepId);
+    renderStringList(lines, axis, values, limits.maxFactsPerAxis, contributingSteps);
   }
   const localBoundaries = [...new Set(rows.flatMap((row) =>
     factsOf(row, 'crosses').filter((boundaryId) => isPackageBoundary(packageUnits, boundaryId))))];
-  renderStringList(lines, 'crosses (local)', localBoundaries, limits.maxBoundaryClauses, rows[0].stepId);
+  renderStringList(lines, 'crosses (local)', localBoundaries, limits.maxBoundaryClauses, contributingSteps);
 }
 
 /** Build the DO NOT section body. */
@@ -565,10 +612,11 @@ function renderDoNot(lines, context) {
 }
 
 /** Build the ORDER section body. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderOrder(lines, context) {
   const { graph, node, view, stepContracts, localOperations, orders, limits } = context;
   let linesAdded = 0;
+  const carriedSequenceIds = new Set();
   for (const unitId of sortedUnits(node)) {
     const kind = unitKindOf(unitId);
     if (kind === 'op') {
@@ -580,7 +628,9 @@ function renderOrder(lines, context) {
         linesAdded += 1;
       }
     } else if (kind === 'seq' || kind === 'xdir') {
-      const unitRecord = viewSequence(view, sequenceIdOf(unitId));
+      const sequenceId = sequenceIdOf(unitId);
+      carriedSequenceIds.add(sequenceId);
+      const unitRecord = viewSequence(view, sequenceId);
       if (unitRecord === null) continue;
       const chain = (unitRecord.steps ?? [])
         .sort((left, right) => Number(left.order ?? 0) - Number(right.order ?? 0))
@@ -591,6 +641,35 @@ function renderOrder(lines, context) {
       linesAdded += 1;
     }
   }
+
+  // An operation can be a step of a sequence the node does not carry as a unit.
+  // Showing that chain is what tells the implementer the safe order around the step.
+  const contextSequenceIds = new Set();
+  for (const row of localStepRowsForNode(node, stepContracts, localOperations)) {
+    const sequenceId = orders.get(row.stepId)?.sequenceId ?? row.sequenceId;
+    if (sequenceId && !carriedSequenceIds.has(sequenceId)) contextSequenceIds.add(sequenceId);
+  }
+  for (const sequenceId of [...contextSequenceIds].sort()) {
+    const unitRecord = viewSequence(view, sequenceId);
+    if (unitRecord === null) {
+      lines.push(`- ${sequenceId}: sequence context unavailable (not carried by the package view)`);
+      linesAdded += 1;
+      continue;
+    }
+    const orderedSteps = (unitRecord.steps ?? [])
+      .slice()
+      .sort((left, right) => Number(left.order ?? 0) - Number(right.order ?? 0));
+    const shownSteps = orderedSteps.slice(0, limits.maxStepsPerUnit);
+    const chain = shownSteps
+      .map((step) => `${step.order ?? '?'}. ${step.operationId}${localOperations.has(step.operationId) ? '' : ' (external)'}`)
+      .join(' -> ');
+    const omission = orderedSteps.length > shownSteps.length
+      ? ` ... (showing ${shownSteps.length} of ${orderedSteps.length})`
+      : '';
+    lines.push(`- ${sequenceId} (context): ${chain}${omission}`);
+    linesAdded += 1;
+  }
+
   const order = graphOrder(graph, node.id);
   for (const prerequisite of order.prerequisites.slice(0, limits.maxStepsPerUnit)) {
     lines.push(`- Graph prerequisite: ${prerequisite} ${titleOf(graph, prerequisite)}`);
@@ -604,7 +683,7 @@ function renderOrder(lines, context) {
 }
 
 /** Build the PROOF section body. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderProof(lines, context) {
   const { graph, node, view, stepContracts, registry, options, orders, limits } = context;
   const rows = sortedStepRows(
@@ -620,8 +699,8 @@ function renderProof(lines, context) {
     if (row.digest) lines.push(`  - ${row.stepId}: digest ${row.digest}`);
   }
   for (const unitId of boundaryUnits) {
-    const projected = boundaryContract(graph, boundaryIdOf(unitId));
-    lines.push(`- Boundary contract: ${unitId} -> ${projected?.contract?.id ?? 'MISSING'}`);
+    const inventory = collectBoundaryContracts(graph, boundaryIdOf(unitId));
+    lines.push(`- Boundary contract: ${unitId} -> ${inventory.projectedEntry?.contract?.id ?? 'MISSING'}`);
   }
   if (options.sources !== null && options.sources !== undefined) {
     lines.push(`- Sources: ${options.sources}`);
@@ -699,11 +778,11 @@ export function buildNodeBrief(input = {}) {
 /**
  * Verify the closure between graph, view and step sidecar.
  *
- * @param {{graph: object, view: object, stepContracts: object, registry?: object|null}} input
+ * @param {{graph: object, view: object, stepContracts: object}} input
  * @returns {{ok: boolean, findings: Array<{code: string, subject: string, message: string}>}}
  */
 export function verifyNodeContracts(input = {}) {
-  const { graph, view, stepContracts, registry = null } = input;
+  const { graph, view, stepContracts } = input;
   const findings = [];
   const add = (code, subject, message) => findings.push({ code, subject, message });
 
@@ -734,8 +813,13 @@ export function verifyNodeContracts(input = {}) {
     if (kind === 'unsupported') {
       add('UNSUPPORTED_UNIT_KIND', unitId, `no resolver exists for ${unitId} (nodes: ${nodes.join(', ')})`);
     }
-    if (kind === 'ctr' && boundaryContract(graph, boundaryIdOf(unitId)) === null) {
-      add('MISSING_BOUNDARY_EDGE', unitId, `no incident edge carries the boundary contract for ${unitId}`);
+    if (kind === 'ctr') {
+      const inventory = collectBoundaryContracts(graph, boundaryIdOf(unitId));
+      if (inventory.incidentEdges.length === 0) {
+        add('MISSING_BOUNDARY_EDGE', unitId, `no incident edge carries the boundary contract for ${unitId}`);
+      } else if (inventory.edgeContracts.length === 0) {
+        add('BOUNDARY_EDGE_WITHOUT_CONTRACT', unitId, `incident edges for ${unitId} carry no contract`);
+      }
     }
   }
 

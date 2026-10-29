@@ -505,10 +505,13 @@ const HEADER_WARNING_EN_TEXT = [
 // PX-30: Relative path calculation based on absolute paths
 // ============================================================
 
+/** The fixed artifact names every boundify artifact derives from. */
+const ARTIFACT_NAMES = require('./lib/artifact-names.json');
+
 /** The two design-source files a split package carries beside its graph. */
 const DESIGN_SOURCE_FILES = Object.freeze({
-  view: 'SEQUENCES.json',
-  stepContracts: 'RFC-STEP-CONTRACTS.json',
+  view: ARTIFACT_NAMES.view,
+  stepContracts: ARTIFACT_NAMES.stepContracts,
 });
 
 /**
@@ -532,81 +535,35 @@ function resolveDesignSourceBasenames(graphDirAbs) {
 }
 
 /**
- * Computes relative paths from the generated file to graph/tree/source document.
+ * Computes relative paths from the generated file to the fixed artifacts.
  *
- * Internal computation uses absolute paths; all returned paths are expressed
- * as "relative from this file." cd commands are generated in directly executable form.
+ * The graph directory is the only variable: every basename below is a spec constant,
+ * so no caller can pass a stale or divergent name. The design-source fields exist only
+ * when those files exist beside the graph.
  *
  * @param {string} generatedFilePath - Absolute path of the file being generated
  * @param {string} graphDirAbs - path.dirname(graphPath) (absolute)
- * @param {string} graphBasename - path.basename(graphPath), e.g. "RFC-ROOT-GRAPH.json"
- * @param {string} dirsTreeBasename - Basename of Dirs-Tree.json
- * @param {string} sourceBasename - Basename of original Markdown, e.g. "RFC-ROOT.md"
- * @param {{view?: string, stepContracts?: string}|null} designSourceBasenames - optional
- *   basenames of the sequence view and step-contract sidecar when those files exist
  * @returns {object} HeaderPaths
  *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix,
- *     graphFlagForCmd, viewRelPath?, stepContractsRelPath? }
+ *     viewRelPath?, stepContractsRelPath? }
  */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-function resolveHeaderPaths(...headerArguments) {
-  // The sixth argument is optional; destructuring a rest parameter keeps the existing
-  // five-argument call shape working while still naming every domain input once.
-  const [
-    generatedFilePath,
-    graphDirAbs,
-    graphBasename,
-    dirsTreeBasename,
-    sourceBasename,
-    designSourceBasenames = null,
-  ] = headerArguments;
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+function resolveHeaderPaths(generatedFilePath, graphDirAbs) {
   const path = require('path');
-  // Step 1: Get parent directory of generated file as absolute path
   const fileDir = path.dirname(generatedFilePath);
-
-  // Step 2: Compute relative path to graph directory
   const rawRel = path.relative(fileDir, graphDirAbs);
-
-  // Step 3: Handle empty string (same directory)
   const relDir = rawRel === '' ? '.' : rawRel;
-
-  // Step 4: Relative path to graph file
-  const graphRelPath = relDir + '/' + graphBasename;
-
-  // Step 5: Relative path to Dirs-Tree
-  const dirsTreeRelPath = relDir + '/' + dirsTreeBasename;
-
-  // Step 6: Relative path to source document
-  const sourceRelPath = relDir + '/' + sourceBasename;
-
-  // Step 7: cd command prefix
-  const cdCommandPrefix = '(cd ' + relDir + ' &&';
-
-  // Step 8: --graph= flag (basename only, already moved via cd)
-  const graphFlagForCmd = '--graph="' + graphBasename + '"';
-
-  // Step 9: --dirs-tree= flag (same, basename only)
-  const dirsTreeFlagForCmd = '--dirs-tree="' + dirsTreeBasename + '"';
-
-  // Step 10: optional design sources. The caller passes a basename only when the file
-  // exists, so a header never points at an artifact this package does not carry.
-  const designSources = designSourceBasenames === null || designSourceBasenames === undefined
-    ? {}
-    : designSourceBasenames;
-  const optionalRelPath = (basename) => (typeof basename === 'string' && basename.length > 0
-    ? relDir + '/' + basename
-    : undefined);
+  const designSources = resolveDesignSourceBasenames(graphDirAbs);
+  const relPathOf = (basename) => `${relDir}/${basename}`;
 
   return {
     relDirToGraph: relDir,
-    graphRelPath: graphRelPath,
-    dirsTreeRelPath: dirsTreeRelPath,
-    sourceRelPath: sourceRelPath,
-    cdCommandPrefix: cdCommandPrefix,
-    graphFlagForCmd: graphFlagForCmd,
-    dirsTreeFlagForCmd: dirsTreeFlagForCmd,
-    ...(optionalRelPath(designSources.view) === undefined ? {} : { viewRelPath: optionalRelPath(designSources.view) }),
-    ...(optionalRelPath(designSources.stepContracts) === undefined ? {} : { stepContractsRelPath: optionalRelPath(designSources.stepContracts) }),
+    graphRelPath: relPathOf(ARTIFACT_NAMES.graph),
+    dirsTreeRelPath: relPathOf(ARTIFACT_NAMES.dirsTree),
+    sourceRelPath: relPathOf(ARTIFACT_NAMES.source),
+    cdCommandPrefix: `(cd ${relDir} &&`,
+    ...(designSources.view === null ? {} : { viewRelPath: relPathOf(designSources.view) }),
+    ...(designSources.stepContracts === null ? {} : { stepContractsRelPath: relPathOf(designSources.stepContracts) }),
   };
 }
 
@@ -618,22 +575,32 @@ function resolveHeaderPaths(...headerArguments) {
 /**
  * Generates the header comment placed at the top of all generated files.
  *
- * `headerPaths` already carries the graph and source paths, so the basenames the query
- * commands need are derived from it rather than passed alongside; a caller that had to keep
- * the two in step would be one edit away from a header naming the wrong graph.
+ * The basenames and the per-file cross-reference filter are derived from the arguments
+ * here, so no caller can pass a stale source name or a list filtered against another file.
  *
  * @param {object} headerPaths - Return value of resolveHeaderPaths
  * @param {Array<{nodeId: string, title: string}>} mappedNodeIds - Node info array mapped to this file
- * @param {Array} crossRefs - Cross-reference array filtered for this file (from root-level crossReferences)
- * @param {string} sourceBasename - Basename of the original Markdown
+ * @param {Array} crossReferences - Full root-level cross-reference array
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-// [::TICKET::] P22-15, PX-319, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319|PX-336) --for-spec --no-implementation-order`.
-function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBasename, lang) {
+// [::TICKET::] P22-15, PX-319, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319|PX-336|PX-337) --for-spec --no-implementation-order`.
+function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang) {
+  const path = require('path');
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
   const L = syntax.line;
   const lines = [];
+  const sourceBasename = path.basename(headerPaths.sourceRelPath);
+  const graphFlagForCmd = '--graph="' + path.basename(headerPaths.graphRelPath) + '"';
+  const dirsTreeFlagForCmd = '--dirs-tree="' + path.basename(headerPaths.dirsTreeRelPath) + '"';
+  const mappedIds = new Set((mappedNodeIds ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.nodeId)));
+  const crossRefs = (crossReferences ?? []).filter((reference) =>
+    (reference.connections ?? []).some((connection) => mappedIds.has(connection.toNodeId)));
+  const hasDesignSources = Boolean(headerPaths.viewRelPath && headerPaths.stepContractsRelPath);
+  const missingDesignSources = [
+    headerPaths.viewRelPath ? null : ARTIFACT_NAMES.view,
+    headerPaths.stepContractsRelPath ? null : ARTIFACT_NAMES.stepContracts,
+  ].filter(Boolean);
 
   // Opening separator line
   lines.push(L + ' ' + HEADER_SEPARATOR);
@@ -666,8 +633,13 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
       const nid = (typeof entry === 'string') ? entry : entry.nodeId;
       const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
       lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
-      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + nid + ' --hops=2)');
-      lines.push(L + '     → For the implementation brief (contracts, forbidden, order): ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=' + nid + ' ' + headerPaths.graphFlagForCmd + ')');
+      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + nid + ' --hops=2)');
+      if (hasDesignSources) {
+        lines.push(L + '     → For the implementation brief (contracts, forbidden, order): ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=' + nid + ')');
+      }
+    }
+    if (!hasDesignSources) {
+      lines.push(L + '   - Implementation brief: unavailable (' + missingDesignSources.join(', ') + ' not present beside ' + ARTIFACT_NAMES.graph + ')');
     }
   } else {
     lines.push(L + ' Mapped node(s):');
@@ -679,7 +651,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
   if (unitIds.length > 0) {
     const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
     lines.push(L + ' units: ' + unitIds.join(', '));
-    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
+    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1');
   }
 
   // Cross-references (prose node information)
@@ -696,15 +668,15 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossRefs, sourceBase
           lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
         }
       }
-      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + cr.nodeId + ' --hops=2)');
+      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + cr.nodeId + ' --hops=2)');
     }
   }
 
   // Full graph exploration command
   lines.push(L + '');
   lines.push(L + ' Full graph exploration:');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '")');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '")');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
 
   // Closing separator line
   lines.push(L + ' ' + HEADER_SEPARATOR);

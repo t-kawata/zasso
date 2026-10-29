@@ -1,46 +1,35 @@
 #!/usr/bin/env node
 
-// PX-336: print the semantic implementation brief for one graph node.
+// PX-336, PX-337: print the semantic implementation brief for one graph node.
 //
-// The brief is assembled from graph, view, step-contract sidecar and (optionally) the
-// allocate manifest. This CLI only loads those files and prints; the builder holds the
-// rules. It never writes an artifact and never paraphrases a contract fact.
-import { readFileSync } from 'node:fs';
+// The package directory is the only input. Every artifact whose name is fixed by
+// spec is derived from it, and the registry is the nearest ancestor allocate
+// manifest. The builder holds the rules; this CLI only locates, loads and prints.
+import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildNodeBrief, verifyNodeContracts } from './lib/node-contracts.mjs';
 
-/** The default graph file in a canonical package directory. */
-const DEFAULT_GRAPH = 'RFC-GRAPH.json';
+const require = createRequire(import.meta.url);
+const ARTIFACT_NAMES = require('./lib/artifact-names.json');
 
-/** The default view file in a canonical package directory. */
-const DEFAULT_VIEW = 'SEQUENCES.json';
-
-/** The default step-contract sidecar in a canonical package directory. */
-const DEFAULT_STEP_CONTRACTS = 'RFC-STEP-CONTRACTS.json';
-
-/** The default maximum facts printed per axis. */
-const DEFAULT_MAX_FACTS = 6;
-
-/** Extract `--name=value` and bare `--name` flags. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+/** Extract the flags the minimal CLI accepts. */
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
-  const options = { verify: false, id: null, graph: DEFAULT_GRAPH, view: DEFAULT_VIEW, stepContracts: DEFAULT_STEP_CONTRACTS, registry: null, maxFacts: DEFAULT_MAX_FACTS };
+  const options = { verify: false, id: null, registry: null, maxFacts: null };
   for (const argument of argv) {
     if (argument === '--verify') {
       options.verify = true;
     } else if (argument.startsWith('--id=')) {
       options.id = argument.slice('--id='.length);
-    } else if (argument.startsWith('--graph=')) {
-      options.graph = argument.slice('--graph='.length);
-    } else if (argument.startsWith('--view=')) {
-      options.view = argument.slice('--view='.length);
-    } else if (argument.startsWith('--step-contracts=')) {
-      options.stepContracts = argument.slice('--step-contracts='.length);
     } else if (argument.startsWith('--registry=')) {
       options.registry = argument.slice('--registry='.length);
     } else if (argument.startsWith('--max-facts=')) {
       const value = Number(argument.slice('--max-facts='.length));
       if (Number.isInteger(value) && value > 0) options.maxFacts = value;
+    } else {
+      throw cliError('UNKNOWN_OPTION', `${argument} is not accepted; fixed artifact names are derived from the package directory`);
     }
   }
   return options;
@@ -52,6 +41,29 @@ function cliError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
+}
+
+/** The fixed artifact paths of one package directory. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function resolvePackagePaths(packageDir) {
+  return {
+    graph: join(packageDir, ARTIFACT_NAMES.graph),
+    view: join(packageDir, ARTIFACT_NAMES.view),
+    stepContracts: join(packageDir, ARTIFACT_NAMES.stepContracts),
+  };
+}
+
+/** The nearest ancestor directory that carries the named manifest, or null. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function findAncestorManifest(startDir, manifestName) {
+  let current = resolve(startDir);
+  for (;;) {
+    const candidate = join(current, manifestName);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
 }
 
 /** Read and parse one JSON artifact. */
@@ -74,44 +86,45 @@ function printFailure(error, { markdown = false } = {}) {
 }
 
 /** The source line the PROOF section carries. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-function sourceLine(options) {
-  const registry = options.registry === null ? 'not supplied' : options.registry;
-  return `graph=${options.graph}, view=${options.view}, stepContracts=${options.stepContracts}, registry=${registry}`;
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function sourceLine(paths) {
+  return `graph=${paths.graph}, view=${paths.view}, stepContracts=${paths.stepContracts}, registry=${paths.registry ?? 'not found'}`;
 }
 
 /** The run mode that verifies the closure instead of printing a brief. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-function runVerify(options) {
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+function runVerify() {
   let graph;
   let view;
   let stepContracts;
-  let registry;
   try {
-    graph = readJson(options.graph, 'MISSING_GRAPH', 'graph');
-    view = readJson(options.view, 'MISSING_VIEW', 'view');
-    stepContracts = readJson(options.stepContracts, 'MISSING_STEP_CONTRACTS', 'step contract sidecar');
-    registry = options.registry === null ? null : readJson(options.registry, 'MISSING_REGISTRY', 'allocate manifest');
+    const paths = resolvePackagePaths(process.cwd());
+    graph = readJson(paths.graph, 'MISSING_GRAPH', 'graph');
+    view = readJson(paths.view, 'MISSING_VIEW', 'view');
+    stepContracts = readJson(paths.stepContracts, 'MISSING_STEP_CONTRACTS', 'step contract sidecar');
   } catch (error) {
     const verdict = { ok: false, findings: [{ code: error.code ?? 'BRIEF_FAILED', subject: '', message: error.message }] };
     process.stdout.write(`${JSON.stringify(verdict, null, 2)}\n`);
     return 1;
   }
-  const verdict = verifyNodeContracts({ graph, view, stepContracts, registry });
+  const verdict = verifyNodeContracts({ graph, view, stepContracts });
   process.stdout.write(`${JSON.stringify(verdict, null, 2)}\n`);
   return verdict.ok ? 0 : 1;
 }
 
 /** The run mode that prints one brief per requested node. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function runBrief(options) {
   if (options.id === null || options.id.trim().length === 0) {
     throw cliError('MISSING_NODE_ID', '--id=Nxxxx is required');
   }
-  const graph = readJson(options.graph, 'MISSING_GRAPH', 'graph');
-  const view = readJson(options.view, 'MISSING_VIEW', 'view');
-  const stepContracts = readJson(options.stepContracts, 'MISSING_STEP_CONTRACTS', 'step contract sidecar');
-  const registry = options.registry === null ? null : readJson(options.registry, 'MISSING_REGISTRY', 'allocate manifest');
+  const packageDir = process.cwd();
+  const paths = resolvePackagePaths(packageDir);
+  const registryPath = options.registry ?? findAncestorManifest(packageDir, ARTIFACT_NAMES.allocateManifest);
+  const graph = readJson(paths.graph, 'MISSING_GRAPH', 'graph');
+  const view = readJson(paths.view, 'MISSING_VIEW', 'view');
+  const stepContracts = readJson(paths.stepContracts, 'MISSING_STEP_CONTRACTS', 'step contract sidecar');
+  const registry = registryPath === null ? null : readJson(registryPath, 'MISSING_REGISTRY', 'allocate manifest');
   const nodeIds = options.id.split(',').map((value) => value.trim()).filter((value) => value.length > 0);
   const briefs = nodeIds.map((nodeId) => buildNodeBrief({
     graph,
@@ -120,8 +133,8 @@ function runBrief(options) {
     registry,
     nodeId,
     options: {
-      maxFactsPerAxis: options.maxFacts,
-      sources: sourceLine(options),
+      ...(options.maxFacts === null ? {} : { maxFactsPerAxis: options.maxFacts }),
+      sources: sourceLine({ ...paths, registry: registryPath }),
     },
   }));
   process.stdout.write(briefs.join('\n---\n'));
@@ -129,11 +142,16 @@ function runBrief(options) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const options = parseArguments(argv);
+  let options;
   try {
-    return options.verify ? runVerify(options) : runBrief(options);
+    options = parseArguments(argv);
+  } catch (error) {
+    return printFailure(error, { markdown: false });
+  }
+  try {
+    return options.verify ? runVerify() : runBrief(options);
   } catch (error) {
     return printFailure(error, { markdown: !options.verify });
   }
@@ -143,4 +161,4 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main());
 }
 
-export { main, parseArguments };
+export { main, parseArguments, resolvePackagePaths, findAncestorManifest };

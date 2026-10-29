@@ -238,7 +238,7 @@ describe('buildNodeBrief', () => {
 describe('verifyNodeContracts', () => {
   it('passes the complete fixture', () => {
     const { graph, view, stepContracts } = completeFixture();
-    const result = verifyNodeContracts({ graph, view, stepContracts, registry: null });
+    const result = verifyNodeContracts({ graph, view, stepContracts });
     assert.equal(result.ok, true);
     assert.deepEqual(result.findings, []);
   });
@@ -246,7 +246,7 @@ describe('verifyNodeContracts', () => {
   it('reports a local step whose operation has no node', () => {
     const { graph, view } = completeFixture();
     const stepContracts = { steps: [stepRow('S__1', 'MissingOp', 'orphan step')] };
-    const result = verifyNodeContracts({ graph, view, stepContracts, registry: null });
+    const result = verifyNodeContracts({ graph, view, stepContracts });
     assert.equal(result.ok, false);
     assert.equal(result.findings[0].code, 'CONTRACT_CHAIN_OPEN');
     assert.equal(result.findings[0].subject, 'S__1');
@@ -255,16 +255,195 @@ describe('verifyNodeContracts', () => {
   it('reports a ctr unit without an incident boundary edge', () => {
     const { graph, view, stepContracts } = completeFixture();
     const withoutEdge = { ...graph, edges: [] };
-    const result = verifyNodeContracts({ graph: withoutEdge, view, stepContracts, registry: null });
+    const result = verifyNodeContracts({ graph: withoutEdge, view, stepContracts });
     assert.equal(result.ok, false);
     assert.ok(result.findings.some((finding) => finding.code === 'MISSING_BOUNDARY_EDGE'));
+  });
+
+  it('reports an incident edge that carries no contract', () => {
+    const { graph, view, stepContracts } = completeFixture();
+    const withoutContracts = {
+      ...graph,
+      edges: [{ from: 'N0083', to: 'N0052', type: 'depends_on', attributes: { note: 'registry:boundary-023' }, contracts: [] }],
+    };
+    const result = verifyNodeContracts({ graph: withoutContracts, view, stepContracts });
+    assert.equal(result.ok, false);
+    assert.ok(result.findings.some((finding) => finding.code === 'BOUNDARY_EDGE_WITHOUT_CONTRACT'));
   });
 
   it('reports an unsupported unit kind', () => {
     const graph = { nodes: [node('N0001', ['obl-surface'])], edges: [] };
     const view = { ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [] };
-    const result = verifyNodeContracts({ graph, view, stepContracts: { steps: [] }, registry: null });
+    const result = verifyNodeContracts({ graph, view, stepContracts: { steps: [] } });
     assert.equal(result.ok, false);
     assert.ok(result.findings.some((finding) => finding.code === 'UNSUPPORTED_UNIT_KIND'));
+  });
+
+  it('exposes no registry argument', () => {
+    assert.doesNotMatch(verifyNodeContracts.toString(), /registry/);
+    const { graph, view, stepContracts } = completeFixture();
+    const result = verifyNodeContracts({ graph, view, stepContracts, registry: { contract_registry: [] } });
+    assert.equal(result.ok, true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PX-337: complete boundary inventory, cap pointers, sequence context, messages.
+// ---------------------------------------------------------------------------
+
+/** A contract carrying the three clauses the brief expands. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function contract(id, text) {
+  return { id, precondition: `${text} pre`, postcondition: `${text} post`, invariant: `${text} inv` };
+}
+
+/** An edge that carries the registry note for boundary-023. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function registryEdge(from, to, contracts, type = 'references') {
+  return { from, to, type, attributes: { note: 'registry:boundary-023;digest:abc' }, contracts };
+}
+
+/** The package view for the multi-edge boundary cases. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function boundaryView() {
+  return {
+    ownedOperationUnits: [operationUnit('CreateRootEntry')],
+    ownedSequenceUnits: [],
+    crossBoundarySequenceUnits: [],
+    obligationUnits: [
+      { unitId: 'ctr-boundary-023', relation: 'carries', subject: 'boundary-023', direction: 'provides', counterpart: 'pkg-0010' },
+    ],
+  };
+}
+
+/** Seven registry-note edges and eight contracts, measured on gaia-forum boundary-023. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function multiEdgeBoundaryFixture() {
+  const graph = {
+    nodes: [
+      node('N0055', ['op-CreateRootEntry', 'ctr-boundary-023'], '§3.6.7 The root entry', 'root entry'),
+      node('N0083', ['ctr-boundary-023'], '§3.10.6 boundary-023', 'civic'),
+      node('N0048', [], 'N0048'), node('N0077', [], 'N0077'), node('N0089', [], 'N0089'),
+      node('N0050', [], 'N0050'), node('N0052', [], 'N0052'), node('N0032', [], 'N0032'),
+    ],
+    edges: [
+      registryEdge('N0083', 'N0055', [contract('C176', 'hand-off'), contract('C930', 'registry projection')], 'depends_on'),
+      registryEdge('N0055', 'N0048', [contract('C057', 'part of')], 'part_of'),
+      registryEdge('N0083', 'N0077', [contract('C081', 'part of')], 'part_of'),
+      registryEdge('N0089', 'N0055', [contract('C182', 'named not owned')]),
+      registryEdge('N0055', 'N0050', [contract('C209', 'admission rule')]),
+      registryEdge('N0055', 'N0052', [contract('C210', 'ledger position')]),
+      registryEdge('N0055', 'N0032', [contract('C211', 'parent allocation')]),
+    ],
+  };
+  const stepContracts = { steps: [stepRow('R-3889__1', 'CreateRootEntry', 'complete the root entry')] };
+  return { graph, view: boundaryView(), stepContracts };
+}
+
+describe('PX-337 boundary inventory', () => {
+  it('lists every registry-note edge and contract id and expands one projection', () => {
+    const { graph, view, stepContracts } = multiEdgeBoundaryFixture();
+    const brief = buildNodeBrief({ graph, view, stepContracts, nodeId: 'N0055' });
+
+    assert.match(brief, /Boundary contracts \(8\)/);
+    for (const id of ['C057', 'C081', 'C176', 'C930', 'C182', 'C209', 'C210', 'C211']) {
+      assert.ok(brief.includes(id), `missing contract ${id}`);
+    }
+    assert.match(brief, /Expanded contract: C930 \(N0083 -> N0055\)/);
+    assert.match(brief, /precondition: registry projection pre/);
+    assert.match(brief, /Not expanded: C057, C081, C176, C182, C209, C210, C211/);
+  });
+
+  it('distinguishes no incident edge from an incident edge without a contract', () => {
+    const noEdge = {
+      graph: { nodes: [node('N0083', ['ctr-boundary-023'])], edges: [] },
+      view: boundaryView(),
+      stepContracts: { steps: [] },
+    };
+    const noEdgeBrief = buildNodeBrief({ ...noEdge, nodeId: 'N0083' });
+    assert.match(noEdgeBrief, /no incident boundary edge/);
+    assert.doesNotMatch(noEdgeBrief, /Expanded contract:/);
+
+    const noContract = {
+      graph: {
+        nodes: [node('N0083', ['ctr-boundary-023']), node('N0055', [])],
+        edges: [registryEdge('N0083', 'N0055', [])],
+      },
+      view: boundaryView(),
+      stepContracts: { steps: [] },
+    };
+    const noContractBrief = buildNodeBrief({ ...noContract, nodeId: 'N0083' });
+    assert.match(noContractBrief, /incident edges carry no contract/);
+    assert.doesNotMatch(noContractBrief, /Expanded contract:/);
+  });
+
+  it('prints a distinct message for each registry state', () => {
+    const { graph, view, stepContracts } = multiEdgeBoundaryFixture();
+    const withoutRegistry = buildNodeBrief({ graph, view, stepContracts, nodeId: 'N0055' });
+    assert.match(withoutRegistry, /Registry: not supplied/);
+
+    const emptyRegistry = buildNodeBrief({
+      graph, view, stepContracts, nodeId: 'N0055', registry: { contract_registry: [] },
+    });
+    assert.match(emptyRegistry, /Registry: no row for boundary-023/);
+
+    const graphOnlyRegistry = buildNodeBrief({
+      graph, view, stepContracts, nodeId: 'N0055',
+      registry: {
+        contract_registry: [{
+          boundary_id: 'boundary-023',
+          consumer_package: 'pkg-0010',
+          provider_package: 'pkg-0003',
+          clauses: { preconditions: ['a'], postconditions: ['b'], invariants: ['c'] },
+        }],
+      },
+    });
+    assert.match(graphOnlyRegistry, /no clause groups beyond graph pre\/post\/invariant/);
+  });
+
+  it('points a capped axis at every contributing step row', () => {
+    const graph = { nodes: [node('N0055', ['op-CreateRootEntry'], 'root entry')], edges: [] };
+    const view = { ownedOperationUnits: [operationUnit('CreateRootEntry')], ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [] };
+    const post = (prefix) => Array.from({ length: 3 }, (_, index) => ({ factId: `${prefix}-${index}`, text: `${prefix} post ${index}` }));
+    const stepContracts = {
+      steps: [
+        stepRow('R-3889__1', 'CreateRootEntry', 'one', { post: post('r') }),
+        stepRow('S-application-and-payment__1', 'CreateRootEntry', 'two', { post: post('s1') }),
+        stepRow('A-3887__3', 'CreateRootEntry', 'three', { post: post('a') }),
+        stepRow('S-application-and-payment__2', 'CreateRootEntry', 'four', { post: post('s2') }),
+      ],
+    };
+    const brief = buildNodeBrief({ graph, view, stepContracts, nodeId: 'N0055', options: { maxFactsPerAxis: 6 } });
+
+    const pointerLine = brief.split('\n').find((line) => line.includes('showing 6 of 12; full list at'));
+    assert.ok(pointerLine, 'the capped axis states the omitted count and pointer');
+    for (const stepId of ['R-3889__1', 'S-application-and-payment__1', 'A-3887__3', 'S-application-and-payment__2']) {
+      assert.ok(pointerLine.includes(stepId), `pointer omits ${stepId}`);
+    }
+  });
+
+  it('renders the ordered chain of a sequence that is not a unit on the node', () => {
+    const graph = { nodes: [node('N0055', ['op-CreateRootEntry'], 'root entry')], edges: [] };
+    const view = {
+      ownedOperationUnits: [operationUnit('OBJECT_GET'), operationUnit('CreateRootEntry')],
+      ownedSequenceUnits: [],
+      crossBoundarySequenceUnits: [{
+        unitId: 'xdir-S-application-and-payment',
+        sequenceId: 'S-application-and-payment',
+        ownerPackageIds: ['pkg-0003'],
+        outcome: 'direct',
+        steps: [
+          { stepId: 'S-application-and-payment__0', operationId: 'OBJECT_GET', order: 0 },
+          { stepId: 'S-application-and-payment__1', operationId: 'SubmitForumEkycParticipationProof', order: 1 },
+          { stepId: 'S-application-and-payment__2', operationId: 'CreateRootEntry', order: 2 },
+          { stepId: 'S-application-and-payment__3', operationId: 'IssueTemporalHealthLease', order: 3 },
+        ],
+      }],
+      obligationUnits: [],
+    };
+    const stepContracts = { steps: [stepRow('S-application-and-payment__2', 'CreateRootEntry', 'proof')] };
+    const brief = buildNodeBrief({ graph, view, stepContracts, nodeId: 'N0055' });
+
+    assert.match(brief, /S-application-and-payment \(context\): 0\. OBJECT_GET -> 1\. SubmitForumEkycParticipationProof \(external\) -> 2\. CreateRootEntry -> 3\. IssueTemporalHealthLease \(external\)/);
   });
 });

@@ -140,15 +140,12 @@ function parseArgs(argv, options = {}) {
  * @param {string} currentPath - Current parent directory path
  * @param {object} [headerContext] - Context for header comment generation (defaults to declaration stubs only when omitted)
  * @param {string} headerContext.graphDirAbs - Absolute directory path of the graph file
- * @param {string} headerContext.graphBasename - graph.basename
- * @param {string} headerContext.dirsTreeBasename - Base name of Dirs-Tree.json
- * @param {string} headerContext.sourceBasename - Base name of the source RFC
  * @param {Array} headerContext.crossReferences - Cross-reference array
  * @param {object} headerContext.nodeMetaMap - nodeId → {title, headingRef} map
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   Array of items to generate (no file creation)
  */
-// [::TICKET::] P22-15, PX-334, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334|PX-336) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334|PX-336|PX-337) --for-spec --no-implementation-order`.
 function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
@@ -166,31 +163,13 @@ function discover(node, currentPath, headerContext) {
 
     // PX-30: Prepend header comment (only when headerContext is provided)
     if (headerContext) {
-      const headerPaths = helpers.resolveHeaderPaths(
-        fullPath,
-        headerContext.graphDirAbs,
-        headerContext.graphBasename,
-        headerContext.dirsTreeBasename,
-        headerContext.sourceBasename,
-        helpers.resolveDesignSourceBasenames(headerContext.graphDirAbs)
-      );
+      const headerPaths = helpers.resolveHeaderPaths(fullPath, headerContext.graphDirAbs);
 
-      // Filter to prose nodes related to this file's mappedNodeIds
-      const mappedNodeIdStrings = (node.mappedNodeIds || []).map(function (e) {
-        return (typeof e === 'string') ? e : e.nodeId;
-      });
-      const mappedNodeIdsSet = new Set(mappedNodeIdStrings);
-      const fileCrossRefs = (headerContext.crossReferences || []).filter(function (cr) {
-        return cr.connections && cr.connections.some(function (conn) {
-          return mappedNodeIdsSet.has(conn.toNodeId);
-        });
-      });
-
+      // The formatter filters the root-level cross references against these mapped nodes.
       const headerComment = helpers.generateHeaderComment(
         headerPaths,
         node.mappedNodeIds || [],
-        fileCrossRefs,
-        headerContext.sourceBasename,
+        headerContext.crossReferences || [],
         headerContext.lang
       );
       content += headerComment + '\n';
@@ -376,13 +355,9 @@ function deleteItems(created) {
  */
 function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
   const sourceGraph = fromHomeRelative(dirsTree.sourceGraph);
-  const sourceFile = dirsTree.sourceFile;
   if (!sourceGraph) return null;
 
   const graphDirAbs = path.dirname(sourceGraph);
-  const graphBasename = path.basename(sourceGraph);
-  const sourceBasename = sourceFile ? path.basename(sourceFile) : 'UNKNOWN_SOURCE.md';
-  const dirsTreeBasename = path.basename(dirsTreePath);
 
   // Build nodeMetaMap (node.title and node.headingRef from graph.sourceFile are
   // not stored directly in Dirs-Tree.json, so collect them from crossReferences)
@@ -395,9 +370,6 @@ function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
 
   return {
     graphDirAbs: graphDirAbs,
-    graphBasename: graphBasename,
-    dirsTreeBasename: dirsTreeBasename,
-    sourceBasename: sourceBasename,
     crossReferences: crossReferences,
     nodeMetaMap: nodeMetaMap,
     lang: lang,

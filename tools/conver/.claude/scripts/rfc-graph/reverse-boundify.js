@@ -34,7 +34,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { generateHeaderComment, resolveHeaderPaths, resolveDesignSourceBasenames } = require('./boundify-helpers.js');
+const { generateHeaderComment, resolveHeaderPaths } = require('./boundify-helpers.js');
 const { resolveGraphPath, reportResolvedPath } = require('../lib/package-artifacts');
 const {
   DISPOSITIONS,
@@ -65,7 +65,6 @@ const DEFAULT_EXCLUDED_DIRS = Object.freeze(['target', 'vendor', 'node_modules',
 const FORWARD_BUILDER = path.join(__dirname, 'boundify-graph-to-dirs.js');
 
 /** The graph suffix the Dirs-Tree naming convention is derived from. */
-const GRAPH_SUFFIX = '-GRAPH.json';
 
 const GRAPH_ARG_PREFIX = '--graph=';
 const ROOT_ARG_PREFIX = '--root=';
@@ -171,34 +170,15 @@ function resolveExistingFile(root, declaredPath) {
 }
 
 /** The header text for one declared file, assembled by the generator that owns the format. */
-// [::TICKET::] P22-15, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-336) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-336|PX-337) --for-spec --no-implementation-order`.
 function headerTextFor({ filePath, mapping, dirsTree, graphPath }) {
-  const graphBasename = path.basename(graphPath);
-  const sourceBasename = dirsTree.sourceFile ? path.basename(dirsTree.sourceFile) : 'UNKNOWN_SOURCE.md';
-  const dirsTreeBasename = graphBasename.endsWith(GRAPH_SUFFIX)
-    ? `${graphBasename.slice(0, -GRAPH_SUFFIX.length)}-Dirs-Tree.json`
-    : `${graphBasename}.Dirs-Tree.json`;
-
-  const graphDirAbs = path.dirname(graphPath);
-  const headerPaths = resolveHeaderPaths(
-    filePath,
-    graphDirAbs,
-    graphBasename,
-    dirsTreeBasename,
-    sourceBasename,
-    resolveDesignSourceBasenames(graphDirAbs),
-  );
-
-  const mapped = new Set(mapping.mappedNodeIds);
-  const crossReferences = (dirsTree.trees?.[mapping.lang]?.crossReferences ?? []).filter(
-    (reference) => (reference.connections ?? []).some((connection) => mapped.has(connection.toNodeId)),
-  );
+  const headerPaths = resolveHeaderPaths(filePath, path.dirname(graphPath));
+  const crossReferences = dirsTree.trees?.[mapping.lang]?.crossReferences ?? [];
 
   return `${generateHeaderComment(
     headerPaths,
     mapping.nodeMappings,
     crossReferences,
-    sourceBasename,
     mapping.lang,
   )}\n`;
 }

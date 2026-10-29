@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // P22-15 @verifies C001 @verifies C002
 /**
  * B1 through B3 — the reverse branch of `/boundify-graph` (§6.7, §6.14.5).
@@ -705,8 +706,8 @@ describe('B1 through B3 — forward compatibility', () => {
       resolveHeaderPaths,
     } = require('../../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
-    const paths = resolveHeaderPaths('/repo/src/api/x.rs', '/repo/rfcs', 'RFC-ROOT-GRAPH.json', 'RFC-ROOT-Dirs-Tree.json', 'RFC-ROOT.md');
-    const header = generateHeaderComment(paths, [{ nodeId: 'N0001', title: 'Config Loader' }], [], 'RFC-ROOT.md', 'rust');
+    const paths = resolveHeaderPaths('/repo/src/api/x.rs', '/repo/rfcs');
+    const header = generateHeaderComment(paths, [{ nodeId: 'N0001', title: 'Config Loader' }], [], 'rust');
 
     assert.equal(
       marker,

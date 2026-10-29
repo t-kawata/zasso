@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // PX-319 @verifies C001 C002 C003 C004 C005
 // A unit is placed only when it resolves to a leaf file whose header names it. These
 // tests pin the leaf-file index, the default_files source, the header units line and the
@@ -23,13 +24,10 @@ import { generateHeaderComment } from '../../.claude/scripts/rfc-graph/boundify-
 import { verifyUnitFileCoverage } from '../../.claude/scripts/rfc-graph/verify-unit-file-coverage.js';
 
 const HEADER_PATHS = {
-  sourceBasename: 'RFC.md',
   graphRelPath: 'RFC-GRAPH.json',
   dirsTreeRelPath: 'RFC-Dirs-Tree.json',
   sourceRelPath: 'RFC.md',
   cdCommandPrefix: 'cd .',
-  graphFlagForCmd: '--graph="RFC-GRAPH.json"',
-  dirsTreeFlagForCmd: '--dirs-tree="RFC-Dirs-Tree.json"',
 };
 
 // [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
@@ -89,7 +87,6 @@ test('C003 the generated header names the node units', () => {
     HEADER_PATHS,
     [{ nodeId: 'N0001', title: 'Auth', unitIds: ['op-A', 'seq-S'] }],
     [],
-    'RFC.md',
     'rust',
   );
   assert.match(header, /units: op-A, seq-S/);

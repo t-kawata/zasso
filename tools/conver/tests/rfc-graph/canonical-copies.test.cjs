@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -27,6 +28,7 @@ const SCRIPT_ROOTS = [
 
 /** The files this ticket creates or edits. */
 const FILES = [
+  'lib/artifact-names.json',
   'lib/markdown-headings.js',
   'lib/node-contracts.mjs',
   'show-node-contracts.mjs',

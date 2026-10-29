@@ -4,7 +4,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -78,26 +78,35 @@ const STEP_CONTRACTS = {
   }],
 };
 
+/** The registry row the boundary cases resolve. */
+const REGISTRY = {
+  contract_registry: [{
+    boundary_id: 'boundary-023',
+    consumer_package: 'pkg-0010',
+    provider_package: 'pkg-0003',
+    clauses: {
+      input: 'CivicEpochBlock and the finalized checkpoint reference',
+      errors: ['CivicFinalityConflict when two descriptors finalize'],
+      tests: ['unit: a conflicting descriptor fails'],
+    },
+  }],
+};
+
 /** Create a package directory with the three readable artifacts. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-function makePackage({ omitView = false, omitSteps = false } = {}) {
-  const directory = mkdtempSync(join(tmpdir(), 'px336-cli-'));
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+function makePackage({ omitView = false, omitSteps = false, registry = false } = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'px337-cli-'));
   writeFileSync(join(directory, 'RFC-GRAPH.json'), `${JSON.stringify(GRAPH, null, 2)}\n`);
   if (!omitView) writeFileSync(join(directory, 'SEQUENCES.json'), `${JSON.stringify(VIEW, null, 2)}\n`);
   if (!omitSteps) writeFileSync(join(directory, 'RFC-STEP-CONTRACTS.json'), `${JSON.stringify(STEP_CONTRACTS, null, 2)}\n`);
+  if (registry) writeFileSync(join(directory, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), `${JSON.stringify(REGISTRY, null, 2)}\n`);
   return directory;
 }
 
-/** Run the CLI against a package directory. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+/** Run the CLI against a package directory. The package directory is the only input. */
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function runCli(directory, extraArgs = []) {
-  return spawnSync(process.execPath, [
-    CLI,
-    `--graph=${join(directory, 'RFC-GRAPH.json')}`,
-    `--view=${join(directory, 'SEQUENCES.json')}`,
-    `--step-contracts=${join(directory, 'RFC-STEP-CONTRACTS.json')}`,
-    ...extraArgs,
-  ], { encoding: 'utf8' });
+  return spawnSync(process.execPath, [CLI, ...extraArgs], { cwd: directory, encoding: 'utf8' });
 }
 
 describe('show-node-contracts CLI', () => {
@@ -187,6 +196,75 @@ describe('show-node-contracts CLI', () => {
       const result = runCli(directory, ['--id=N9999']);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /UNKNOWN_NODE/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the resolved paths in PROOF', () => {
+    const directory = makePackage();
+    try {
+      const resolvedDirectory = realpathSync(directory);
+      const result = runCli(directory, ['--id=N0052']);
+      assert.equal(result.status, 0);
+      assert.match(result.stdout, new RegExp(`graph=${resolvedDirectory}/RFC-GRAPH\\.json`));
+      assert.match(result.stdout, new RegExp(`view=${resolvedDirectory}/SEQUENCES\\.json`));
+      assert.match(result.stdout, new RegExp(`stepContracts=${resolvedDirectory}/RFC-STEP-CONTRACTS\\.json`));
+      assert.match(result.stdout, /registry=not found/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('derives the registry from the package directory', () => {
+    const directory = makePackage({ registry: true });
+    try {
+      const result = runCli(directory, ['--id=N0083']);
+      assert.equal(result.status, 0);
+      assert.match(result.stdout, /CivicFinalityConflict when two descriptors finalize/);
+      assert.match(result.stdout, /Registry row: consumer pkg-0010; provider pkg-0003/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('derives the registry from an ancestor directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'px337-cli-'));
+    const packageDir = join(root, 'package');
+    mkdirSync(packageDir);
+    try {
+      writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), `${JSON.stringify(REGISTRY, null, 2)}\n`);
+      writeFileSync(join(packageDir, 'RFC-GRAPH.json'), `${JSON.stringify(GRAPH, null, 2)}\n`);
+      writeFileSync(join(packageDir, 'SEQUENCES.json'), `${JSON.stringify(VIEW, null, 2)}\n`);
+      writeFileSync(join(packageDir, 'RFC-STEP-CONTRACTS.json'), `${JSON.stringify(STEP_CONTRACTS, null, 2)}\n`);
+
+      const result = runCli(packageDir, ['--id=N0083']);
+      assert.equal(result.status, 0);
+      assert.match(result.stdout, /CivicFinalityConflict when two descriptors finalize/);
+      assert.match(result.stdout, new RegExp(`registry=${realpathSync(root)}/WORKSPACIFY-ALLOCATE-MANIFEST\\.json`));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects any path flag that names a fixed artifact', () => {
+    const directory = makePackage();
+    try {
+      const result = runCli(directory, ['--id=N0052', '--graph=RFC-GRAPH.json']);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /UNKNOWN_OPTION: --graph/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('verify never reads a registry', () => {
+    const directory = makePackage();
+    try {
+      const result = runCli(directory, ['--verify', '--registry=missing-manifest.json']);
+      assert.equal(result.status, 0);
+      const verdict = JSON.parse(result.stdout);
+      assert.equal(verdict.ok, true);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

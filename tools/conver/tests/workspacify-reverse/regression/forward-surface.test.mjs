@@ -1,3 +1,4 @@
+// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -204,7 +205,7 @@ test('C003 the emitted header carries the protected marker and every declared in
   assert.ok(header.includes(input.headerPaths.stepContractsRelPath));
   for (const node of input.mappedNodeIds) {
     assert.ok(header.includes(node.nodeId), `${node.nodeId} must appear`);
-    assert.ok(header.includes(`show-node-contracts.mjs --id=${node.nodeId} --graph="RFC-ROOT-GRAPH.json"`), `${node.nodeId} must carry a brief command`);
+    assert.ok(header.includes(`show-node-contracts.mjs --id=${node.nodeId})`), `${node.nodeId} must carry a brief command`);
   }
 });
 

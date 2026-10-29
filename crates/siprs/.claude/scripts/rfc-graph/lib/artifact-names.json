@@ -1,0 +1,8 @@
+{
+  "graph": "RFC-GRAPH.json",
+  "dirsTree": "RFC-Dirs-Tree.json",
+  "source": "RFC.md",
+  "view": "SEQUENCES.json",
+  "stepContracts": "RFC-STEP-CONTRACTS.json",
+  "allocateManifest": "WORKSPACIFY-ALLOCATE-MANIFEST.json"
+}

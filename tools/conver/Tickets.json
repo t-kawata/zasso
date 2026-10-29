@@ -51194,6 +51194,252 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-29"
+        },
+        {
+          "id": 337,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Derive every fixed artifact path and complete the per-node implementation brief",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-337.md",
+          "background": "### Goal\nA generated header gives one command carrying only a node id; that command renders a complete implementation brief for the node operations, sequences, boundaries and contracts, with every fixed artifact name derived rather than passed.\n\n### Purpose\nThe implementer must not reconstruct paths or choose among flags. Fixed names are authoritative constants: RFC-GRAPH.json, RFC-Dirs-Tree.json, RFC.md, SEQUENCES.json, RFC-STEP-CONTRACTS.json and WORKSPACIFY-ALLOCATE-MANIFEST.json. The CLI surface is --id, --verify, --max-facts and an optional --registry override.\n\n### Motivation\nMeasured on gaia-forum, boundary-023 has 7 registry-note incident edges carrying 8 contracts, but the brief shows only C930 and no registry clauses because the header command never supplies --registry. PX-336 also added a sixth argument to resolveHeaderPaths that every caller computes from graphDirAbs, and show-node-contracts accepts --view and --step-contracts for files fixed beside the graph. verifyNodeContracts accepts a registry it never reads.\n\n### Constraints\nNo derivable value may be passed as an argument. resolveHeaderPaths takes (generatedFilePath, graphDirAbs) and derives every fixed name. generateHeaderComment stays pure and I/O-free, takes the full crossReferences list and drops sourceBasename. The three canonical zasso trees stay byte-identical. The protected Initial Design Artifact marker and warning bytes are unchanged. No new dependency. A legacy package that lacks a fixed artifact fails with a named finding, never a guessed path.",
+          "scope": [
+            "Change `.claude/scripts/rfc-graph/lib/node-contracts.mjs`: list every registry-note incident edge and contract id for a ctr unit; expand one projected contract; fix cap pointers to name all contributing step ids; distinguish no edge, edge without contract and registry row absence; render sequence context for a step whose sequence is not a node unit; remove the unused registry argument from verifyNodeContracts.",
+            "Change `.claude/scripts/rfc-graph/show-node-contracts.mjs`: remove --graph, --view and --step-contracts; derive RFC-GRAPH.json, SEQUENCES.json and RFC-STEP-CONTRACTS.json from the package directory (cwd); derive the registry from the nearest ancestor WORKSPACIFY-ALLOCATE-MANIFEST.json; keep only --id, --verify, --max-facts and optional --registry; delete DEFAULT_MAX_FACTS and the duplicate artifact-name constants; print resolved paths in PROOF.",
+            "Change `.claude/scripts/rfc-graph/boundify-helpers.js`: replace the six-argument resolveHeaderPaths with resolveHeaderPaths(generatedFilePath, graphDirAbs); centralize artifact names in lib/artifact-names.json; change generateHeaderComment to (headerPaths, mappedNodeIds, crossReferences, lang), derive the source basename from headerPaths.sourceRelPath and filter crossReferences itself; emit one minimal command per mapped node only when both design sources exist, otherwise one unavailable line.",
+            "Change call sites `.claude/scripts/rfc-graph/generate-dir-template.js`, `.claude/scripts/rfc-graph/reverse-boundify.js` and `.claude/scripts/drill-rfc-down/refresh-file-headers.js`: pass only generatedFilePath, graphDirAbs, mappedNodeIds, the full crossReferences list and lang; remove derived basenames, flag strings and pre-filtered lists.",
+            "Change tests: add Red cases for fixed-name derivation, minimal CLI, multi-contract inventory, cap pointers, registry messages, sequence context, header gating, unused registry removal and constant centralization; update every existing call to the old signatures.",
+            "Change `tests/rfc-graph/fixtures/forward-surfaces/header-input.json` and `tests/workspacify-tree/baselines/manifest-hashes.json`: update the fixture to the minimal headerPaths shape and full crossReferences; recapture the header-output baseline only through captureForwardSurfaces and mergeForwardSurfacesIntoBaseline.",
+            "Change the three canonical trees: tools/conver/.claude, repo-root .claude and crates/siprs/.claude must be byte-identical for every changed file, including the new lib/artifact-names.json.",
+            "API before/after: resolveHeaderPaths 6 arguments to 2; generateHeaderComment 5 arguments to 4; show-node-contracts 6 flags to 3 plus optional --registry.",
+            "Schema: none.",
+            "Config/env: none. Registry ancestor search is deterministic from the package directory and its resolved path is disclosed in PROOF.",
+            "Dependency: none.",
+            "Non-change: the protected header marker and warning bytes; the six-section brief vocabulary; read-only behavior; the gaia package itself is untouched.",
+            "Impact: header bytes change only by the minimal command and the unavailable line; the brief gains the complete contract inventory, registry clauses and sequence context; every script caller loses redundant arguments.",
+            "Change `.claude/scripts/workspacify-reverse/lib/forward-surface-baseline.mjs` in all three canonical trees: call generateHeaderComment with four arguments and the fixture full crossReferences list.",
+            "Change `tests/rfc-graph/unit-file-coverage.test.mjs` and `tests/rfc-graph/reverse/boundify.test.cjs`: update every resolveHeaderPaths call to two arguments and every generateHeaderComment call to four arguments."
+          ],
+          "testUnit": [
+            "UT: [Normal] @verifies C001 — resolveHeaderPaths with generatedFilePath=/pkg/src/main.rs and graphDirAbs=/pkg returns graphRelPath ../RFC-GRAPH.json, dirsTreeRelPath ../RFC-Dirs-Tree.json and sourceRelPath ../RFC.md with no basename arguments, proving every derived path comes from graphDirAbs.",
+            "UT: [Normal] @verifies C001 — show-node-contracts run with cwd=/pkg and --id=N0052 resolves RFC-GRAPH.json, SEQUENCES.json and RFC-STEP-CONTRACTS.json from the package directory; no --graph, --view or --step-contracts flag is accepted.",
+            "UT: [Normal] @verifies C001 — generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang) derives the source basename from headerPaths.sourceRelPath and keeps only cross references whose connections reach a mapped node; the caller passes the full list.",
+            "UT: [Error] @verifies C002 — when SEQUENCES.json is absent, generateHeaderComment emits one Implementation brief unavailable line naming SEQUENCES.json and no show-node-contracts command; when both design sources exist it emits exactly one command per mapped node.",
+            "UT: [Boundary] @verifies C002 — the emitted command is (cd <relDir> && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0052) and the protected marker and warning bytes are unchanged.",
+            "UT: [Normal] @verifies C003 — a step whose sequenceId is not a unit on the node renders the ordered chain from the view with local and external markers; a sequence absent from the view states sequence context unavailable.",
+            "UT: [Normal] @verifies C003 — every local step row appears with contractProse and pre local/total, post local/total and invariants local/total counts; no local step is dropped.",
+            "UT: [Normal] @verifies C004 — ctr-boundary-023 with 7 registry-note incident edges and 8 contracts prints every edge endpoint and contract id, expands C930 precondition, postcondition and invariant, and states the ids not expanded.",
+            "UT: [Error] @verifies C004 — a ctr unit with no incident edge prints no incident boundary edge, while an incident edge carrying no contract prints edge carries no contract; neither is reported as a successful contract.",
+            "UT: [Invariant] @verifies C005 — with 46 post facts from four step rows, the brief prints six exact texts, states showing 6 of 46, and names all four contributing step ids; --max-facts=46 prints all 46 and the default is MAX_FACTS_PER_AXIS.",
+            "UT: [Error] @verifies C006 — registry null prints not supplied, a present registry with no row for boundary-023 prints row not found, and a row without extra clause groups prints no clause groups; verifyNodeContracts takes no registry argument.",
+            "UT: [Error] @verifies C006 — missing graph, view or step sidecar produces MISSING_GRAPH, MISSING_VIEW or MISSING_STEP_CONTRACTS and --verify exits 1 with the artifact named.",
+            "UT: [Invariant] @verifies C007 — parseArguments accepts only --id, --verify, --max-facts and --registry; --graph, --view and --step-contracts are absent from the CLI and from the header command.",
+            "UT: [Invariant] @verifies C009 — two runs over the same package directory produce byte-identical briefs and headers; the PROOF section names the resolved graph, view, step-contract and registry paths.",
+            "UT: [Invariant] @verifies C008 — the three canonical trees are byte-identical for every changed file and the header-output baseline is recaptured only through captureForwardSurfaces and mergeForwardSurfacesIntoBaseline.",
+            "UT: [Normal] @verifies C010 — every contract C001 through C009 has at least one UT entry carrying @verifies and the test names the contract precondition, postcondition and invariant predicate."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] @verifies C001 @verifies C004 @verifies C007 — a fixture package with RFC-GRAPH.json, SEQUENCES.json, RFC-STEP-CONTRACTS.json and an ancestor WORKSPACIFY-ALLOCATE-MANIFEST.json runs node show-node-contracts.mjs --id=N0055 from the package directory and prints all six sections plus registry clauses without any path flag.",
+            "IT: [Verification] @verifies C002 @verifies C008 — generate-dir-template.js, reverse-boundify.js and refresh-file-headers.js produce the same minimal command and gating line; a package without SEQUENCES.json emits the unavailable line; the forward-surface test reports proved after the one recapture.",
+            "IT: [Verification] @verifies C004 — the real gaia-forum package at /Users/kawata/shyme/gaia/crates/protocol/gaia-forum prints all 8 contract ids for boundary-023, expands C930, and includes Registry errors, input, output and tests resolved from ../../../WORKSPACIFY-ALLOCATE-MANIFEST.json.",
+            "IT: [Prerequisites] @verifies C006 @verifies C009 — --verify on the real package returns ok true with no findings and never reads a registry; repeated runs are byte-identical.",
+            "IT: [Related tickets] @verifies C008 — canonical-copies.test.cjs and forward-surface.test.mjs pass; the header-output value changes only by the minimal command and the gating line; the PX-336 six-section brief remains."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/rfc-graph/lib/artifact-names.json",
+            ".claude/scripts/rfc-graph/lib/node-contracts.mjs",
+            ".claude/scripts/rfc-graph/show-node-contracts.mjs",
+            ".claude/scripts/rfc-graph/boundify-helpers.js",
+            ".claude/scripts/rfc-graph/generate-dir-template.js",
+            ".claude/scripts/rfc-graph/reverse-boundify.js",
+            ".claude/scripts/drill-rfc-down/refresh-file-headers.js",
+            ".claude/scripts/workspacify-reverse/lib/forward-surface-baseline.mjs",
+            "tests/rfc-graph/node-contracts.test.mjs",
+            "tests/rfc-graph/show-node-contracts.test.mjs",
+            "tests/rfc-graph/boundify-helpers.test.cjs",
+            "tests/rfc-graph/unit-file-coverage.test.mjs",
+            "tests/rfc-graph/reverse/boundify.test.cjs",
+            "tests/rfc-graph/canonical-copies.test.cjs",
+            "tests/workspacify-reverse/regression/forward-surface.test.mjs",
+            "tests/rfc-graph/fixtures/forward-surfaces/header-input.json",
+            "tests/workspacify-tree/baselines/manifest-hashes.json",
+            "README.md",
+            "../../.claude/scripts/rfc-graph/lib/artifact-names.json",
+            "../../.claude/scripts/rfc-graph/lib/node-contracts.mjs",
+            "../../.claude/scripts/rfc-graph/show-node-contracts.mjs",
+            "../../.claude/scripts/rfc-graph/boundify-helpers.js",
+            "../../.claude/scripts/rfc-graph/generate-dir-template.js",
+            "../../.claude/scripts/rfc-graph/reverse-boundify.js",
+            "../../.claude/scripts/drill-rfc-down/refresh-file-headers.js",
+            "../../.claude/scripts/workspacify-reverse/lib/forward-surface-baseline.mjs",
+            "../../crates/siprs/.claude/scripts/rfc-graph/lib/artifact-names.json",
+            "../../crates/siprs/.claude/scripts/rfc-graph/lib/node-contracts.mjs",
+            "../../crates/siprs/.claude/scripts/rfc-graph/show-node-contracts.mjs",
+            "../../crates/siprs/.claude/scripts/rfc-graph/boundify-helpers.js",
+            "../../crates/siprs/.claude/scripts/rfc-graph/generate-dir-template.js",
+            "../../crates/siprs/.claude/scripts/rfc-graph/reverse-boundify.js",
+            "../../crates/siprs/.claude/scripts/drill-rfc-down/refresh-file-headers.js",
+            "../../crates/siprs/.claude/scripts/workspacify-reverse/lib/forward-surface-baseline.mjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] - Describe the scenario that confirms this ticket is complete:**\n  - A generated header contains (cd <relDir> && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=<node>); running it with only the node id prints YOU ARE HERE, IMPLEMENT, MUST HOLD, DO NOT, ORDER and PROOF; N0055 lists all 8 contract ids for boundary-023, expands C930, and shows registry clauses resolved from the nearest ancestor manifest.",
+            "**[Error case] - Describe an error scenario the feature must handle:**\n  - A package without SEQUENCES.json gets one unavailable line and no command; a missing graph, view or step sidecar produces a named code and --verify exits 1; verify never reads a registry; a ctr unit with no incident edge and an edge with no contract print different messages.",
+            "**[Edge case] - Describe any boundary or exception to verify:**\n  - A ctr unit with 7 incident registry-note edges and 8 contracts, a node with a step in a non-unit sequence, a package with one design source missing, the three canonical trees and the recaptured forward-surface baseline are all rendered or reported correctly."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "fixed artifact names -> derivation",
+              "precondition": "A caller invokes resolveHeaderPaths with a generated file path and a graph directory, and invokes show-node-contracts from a package directory whose artifacts use the fixed names.",
+              "postcondition": "resolveHeaderPaths returns every derived relative path from graphDirAbs alone; show-node-contracts resolves RFC-GRAPH.json, SEQUENCES.json, RFC-STEP-CONTRACTS.json and the nearest ancestor WORKSPACIFY-ALLOCATE-MANIFEST.json without any path flag; generateHeaderComment derives the source basename from headerPaths and filters crossReferences itself.",
+              "invariant": "No call site passes a value it can derive; no flag exists for a fixed name; the same package directory produces the same paths."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "brief command -> header",
+              "precondition": "A generated header is built for a mapped node in a package where SEQUENCES.json and RFC-STEP-CONTRACTS.json may or may not exist beside RFC-GRAPH.json.",
+              "postcondition": "The header contains exactly one command (cd to the graph directory and run show-node-contracts.mjs --id=<node>) per mapped node when both design sources exist; when either is absent it contains one unavailable line naming the missing files and no command.",
+              "invariant": "The protected marker and warning bytes are unchanged; the command carries only the node id; no derived path flag is emitted."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "operation step -> sequence context",
+              "precondition": "A node carries operation units whose step rows name sequences, and the view may carry a sequence that is not a unit on the node.",
+              "postcondition": "Every local step row appears with prose and local/total counts; a step whose sequence is not a node unit renders that sequence ordered chain from the view, marking local and external steps, or states sequence context unavailable.",
+              "invariant": "No local step is silently dropped; no foreign step is presented as local; the order is the view order."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "ctr unit -> incident edge contracts",
+              "precondition": "A ctr unit has one or more incident edges carrying registry:<boundaryId>, each with zero or more contracts, and a registry row may or may not exist.",
+              "postcondition": "The brief lists every registry-note incident edge with endpoints and every contract id, expands one projected contract precondition, postcondition and invariant, and states which ids are not expanded and how many; it distinguishes no incident edge from an incident edge carrying no contract.",
+              "invariant": "No contract id is silently dropped; the projected contract selection is deterministic; exact artifact text is preserved."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "fact cap -> pointer",
+              "precondition": "A fact axis or boundary clause list exceeds its cap and its facts come from more than one step row.",
+              "postcondition": "The brief prints at most the cap, states showing X of Y, and names every contributing step id as the full-list location; --max-facts overrides the cap; the default comes from MAX_FACTS_PER_AXIS only.",
+              "invariant": "Every omission is counted and locatable; no single-step pointer misrepresents a multi-step fact set; the same cap produces the same output."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "missing or absent artifact -> named finding",
+              "precondition": "The registry is null, present without a row for the boundary, or present with a row without extra clause groups; an incident edge may carry no contract.",
+              "postcondition": "Each state prints its own message; verifyNodeContracts accepts no registry and never fails on it; missing graph, view or step sidecar produce named codes and verify exits 1; an edge without a contract is distinguished from no edge.",
+              "invariant": "No message states a false cause; no unused argument remains; a missing artifact never renders as an empty contract."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "CLI surface -> node id only",
+              "precondition": "The CLI is invoked in a conforming package directory with --id, optionally --verify, --max-facts or --registry.",
+              "postcondition": "Only those options are parsed; --graph, --view and --step-contracts are absent; PROOF prints the resolved graph, view, step-contract and registry paths.",
+              "invariant": "The command in the header is the same surface the CLI accepts; no fixed-name path is required from the caller."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "changed scripts -> canonical trees and frozen baseline",
+              "precondition": "The three canonical zasso trees and the forward-surface baseline exist.",
+              "postcondition": "The three trees are byte-identical for every changed file; the header-output baseline is recaptured through captureForwardSurfaces and mergeForwardSurfacesIntoBaseline; the header changes only by the minimal command and gating line.",
+              "invariant": "No baseline key outside forwardSurfaces is hand-edited; the protected marker remains byte-identical."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "same package directory -> deterministic output",
+              "precondition": "The same package directory and artifacts are read twice, with and without an ancestor registry.",
+              "postcondition": "Both runs produce byte-identical briefs and headers for the same resolved paths; the PROOF section discloses the resolved paths.",
+              "invariant": "No clock or environment variable is read; ancestor registry search is the only filesystem-derived input."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "contracts -> Red test plan",
+              "precondition": "The Red suite is written before implementation for C001 through C009.",
+              "postcondition": "Every contract maps to at least one UT or IT entry; the affected tests pass; canonical and forward-surface tests prove the frozen surface.",
+              "invariant": "No test is modified or weakened to reach Green; no stub or hardcoded output is used."
+            }
+          ],
+          "notes": "Implementation steps: write Red tests for C001-C010; implement node-contracts.mjs; implement show-node-contracts.mjs; implement boundify-helpers.js and the three call sites; copy the changed files to the three canonical trees; update the header fixture; recapture the baseline with captureForwardSurfaces and mergeForwardSurfacesIntoBaseline; run the impact-set tests and the real gaia-forum verification.\nArtifact names live in lib/artifact-names.json: graph RFC-GRAPH.json, dirsTree RFC-Dirs-Tree.json, source RFC.md, view SEQUENCES.json, stepContracts RFC-STEP-CONTRACTS.json, allocateManifest WORKSPACIFY-ALLOCATE-MANIFEST.json. The CJS helper requires the JSON; the ESM CLI uses createRequire.\nRegistry derivation: walk from the package directory to the filesystem root and stop at the first WORKSPACIFY-ALLOCATE-MANIFEST.json. An explicit --registry overrides it for nonstandard layouts. PROOF always prints the resolved path.\nBoundary inventory: collect incident edges whose note contains registry:<boundaryId>; if none, fall back to all incident edges. Sort by from, to, type and contract id. Expand the /^C9[0-9]{2}$/ projected contract, else the last contract of the first edge. List every other contract id and mark it not expanded.\nHeader gating: emit the command only when SEQUENCES.json and RFC-STEP-CONTRACTS.json both exist beside RFC-GRAPH.json. Otherwise emit one line naming the missing files.\nRisks: the header baseline changes once and must be recaptured through the two sanctioned functions; legacy packages with RFC-ROOT-GRAPH.json are out of scope and must fail with MISSING_GRAPH, never a guessed path; nearest-ancestor registry search could find a nested manifest, so the resolved path is printed.\nOpen items: none deferred; sequence context is capped by MAX_STEPS_PER_UNIT and states the omitted count.\nVerification: node --test on the five affected test files, a real gaia-forum --verify and N0055 brief comparison, canonical-copies, and the forward-surface regression. Do not run the full suite.\nImplementation summary:\n- Added lib/artifact-names.json as the single source of the fixed names.\n- node-contracts.mjs: collectBoundaryContracts inventory, truthful cap pointers, three registry messages, sequence context, verifyNodeContracts without registry, BOUNDARY_EDGE_WITHOUT_CONTRACT.\n- show-node-contracts.mjs: cwd-derived fixed paths, nearest-ancestor registry, minimal flags, PROOF resolved paths, UNKNOWN_OPTION.\n- boundify-helpers.js: 2-argument resolveHeaderPaths, 4-argument generateHeaderComment, minimal command gated on both design sources.\n- generate-dir-template.js, reverse-boundify.js, refresh-file-headers.js, workspacify-reverse forward-surface-baseline.mjs: call sites simplified; three canonical trees synchronized.\n- Fixture header-input.json updated to crossReferences and minimal headerPaths; manifest-hashes.json header-output recaptured through the sanctioned functions; the other four forward surfaces reproduced unchanged.\n- Verification: 176 impact-set tests pass; node --check on seven scripts; quality checks 0 issues; real gaia-forum --verify returns ok true; N0055 lists 8 contract ids (C057, C081, C176, C930, C182, C209, C210, C211), expands C930, and shows registry errors/input/output/tests from the ancestor manifest.\n- No unresolved stubs or crimes; no external blockers.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: passed; fixed names live only in artifact-names.json; no debug output\n- Annotation: 28 changed files verified, 0 missing, 0 ambiguous\n- Tests: 176 impact-set tests passed; syntax checks passed\n- Real package: gaia-forum --verify ok true; N0055 shows C057, C081, C176, C930, C182, C209, C210, C211 and registry errors/input/output/tests\n- Crimes/stubs/excuses: 0/0/0\n- Issues found and fixed during review: none",
+          "invariants": "- [Normal condition] Given the same package directory and artifacts, resolveHeaderPaths returns graphRelPath, dirsTreeRelPath and sourceRelPath derived only from graphDirAbs; show-node-contracts resolves RFC-GRAPH.json, SEQUENCES.json, RFC-STEP-CONTRACTS.json and the nearest ancestor WORKSPACIFY-ALLOCATE-MANIFEST.json; generateHeaderComment derives the source basename and filters crossReferences from the full list.\n- [Error invariant] A missing fixed artifact yields a named MISSING_GRAPH, MISSING_VIEW or MISSING_STEP_CONTRACTS code; a registry that is absent, lacks the boundary row, or has no extra clauses yields three distinct messages; verifyNodeContracts never accepts or reads a registry.\n- [Internal state invariant] No function mutates its input; the brief and header are byte-identical for the same resolved paths; caps come only from MAX_FACTS_PER_AXIS, MAX_STEPS_PER_UNIT and MAX_BOUNDARY_CLAUSES.\n- [Boundary invariant] Every ctr contract id on a registry-note incident edge is either expanded or listed as not expanded; every omitted fact names all contributing step rows; no foreign step or boundary is rendered as a local obligation.",
+          "instrumentation": "- [Logging] The CLI writes Markdown to stdout and named findings to stderr only; no log file, timestamp or environment value is written.\n- [Metrics] None; the script is read-only and runs on demand.\n- [Error tracking] Named codes MISSING_GRAPH, MISSING_VIEW, MISSING_STEP_CONTRACTS, MISSING_REGISTRY, UNKNOWN_NODE and MISSING_NODE_ID; exit 1 on refusal.\n- [Health check] --verify performs the graph/view/sidecar closure check and exits 0 with ok true when the package is closed.\nReview static quality check: 0 issues\nReview translatability scan: no generic names, hardcoded artifact names, or debug output in changed source\nReview tests: 176/176 passed\nReview real-package verify: gaia-forum ok true, N0055 8 contracts and registry clauses",
+          "investigation": "- `boundify-helpers.js:552-562` resolveHeaderPaths uses a rest parameter only to keep the five-argument shape while accepting a sixth designSourceBasenames; three call sites (`generate-dir-template.js:169-176`, `reverse-boundify.js:183-190`, `refresh-file-headers.js:153-160`) each call resolveDesignSourceBasenames(graphDirAbs) and pass the result.\n- `boundify-helpers.js:509-512` DESIGN_SOURCE_FILES and `show-node-contracts.mjs:15-19` DEFAULT_VIEW/DEFAULT_STEP_CONTRACTS define the same fixed names twice; `show-node-contracts.mjs:22` DEFAULT_MAX_FACTS duplicates `node-contracts.mjs:21` MAX_FACTS_PER_AXIS.\n- `boundify-helpers.js:633,669-670` generateHeaderComment takes sourceBasename although headerPaths.sourceRelPath carries it, and the comment at 621-623 claims basenames are derived from headerPaths. The same function receives a pre-filtered crossRefs list; the identical filter is repeated at `generate-dir-template.js:181-187`, `refresh-file-headers.js:167-169` and `reverse-boundify.js:191-195`.\n- `node-contracts.mjs:163-180` boundaryContract selects one incident edge and one contract. Measured on gaia-forum boundary-023 there are 7 registry-note incident edges and 8 contracts (C057, C081, C176, C930, C182, C209, C210, C211); the brief prints only C930. `node-contracts.mjs:486,491,495` pass rows[0].stepId as the omission pointer even when the facts come from four rows.\n- `node-contracts.mjs:434` prints no --registry supplied whenever registryBoundary returns null, even when a registry was supplied without a row; `node-contracts.mjs:706` destructures registry in verifyNodeContracts but never references it; runVerify at `show-node-contracts.mjs:89-100` can fail MISSING_REGISTRY for that unused value.\n- `show-node-contracts.test.mjs:83-100` writes RFC-GRAPH.json, SEQUENCES.json and RFC-STEP-CONTRACTS.json into one temp directory and then passes all three explicit flags, proving the paths are derivable from the graph directory.\n- `tests/rfc-graph/fixtures/forward-surfaces/header-input.json` supplies viewRelPath, stepContractsRelPath and a crossRefs entry without connections; the frozen header-output in manifest-hashes.json is produced from this fixture by freezeHeaderOutput and must be recaptured only through captureForwardSurfaces/mergeForwardSurfacesIntoBaseline.\n- Real gaia-forum evidence: RFC-GRAPH.json, SEQUENCES.json, RFC-STEP-CONTRACTS.json and OBLIGATION.json sit in the package directory; WORKSPACIFY-ALLOCATE-MANIFEST.json with 84 contract_registry rows sits at the workspace root; `--verify` currently returns ok true.",
+          "boyScoutPlan": "- Extract `resolveFixedArtifactPaths(packageDir)` to derive graph/view/step-contract paths, and `findAncestorManifest(packageDir, name)` to derive the registry path; both are verb phrases with one responsibility and no generic names.\n- Replace `boundaryContract` with `collectBoundaryContracts(graph, boundaryId)` returning the edges, all contract ids and the projected contract; extract `selectProjectedContract(edgeContracts)` and `renderContractInventory(lines, inventory)` so selection and rendering are separate.\n- Rename `named` and `record` to `projectedEdge` and `boundaryUnit`; replace the rest-parameter trick in `resolveHeaderPaths` with two named parameters; extract `deriveSourceBasename(headerPaths)` and `filterCrossReferencesForNodes(crossReferences, mappedNodeIds)`.\n- Move the repeated cross-reference filter out of three call sites into the formatter; replace the duplicated artifact-name literals with one JSON constant; remove `DEFAULT_MAX_FACTS` and let `normalizedLimits` own the default.\n- No swallowed errors: every missing artifact and every absent registry row returns a named finding or a distinct message.",
+          "created_at": "2026-10-29",
+          "updated_at": "2026-10-29",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] @verifies C001 — resolveHeaderPaths derives every fixed name from graphDirAbs alone\n```js\nconst paths = resolveHeaderPaths(join(packageDir, \"src/main.rs\"), packageDir);\nassert.strictEqual(paths.graphRelPath, \"../RFC-GRAPH.json\");\nassert.strictEqual(paths.dirsTreeRelPath, \"../RFC-Dirs-Tree.json\");\nassert.strictEqual(paths.sourceRelPath, \"../RFC.md\");\nassert.strictEqual(paths.viewRelPath, undefined);\n```",
+            "UT: [Normal] @verifies C001 — the CLI resolves graph, view and step-contracts from cwd\n```js\nconst result = spawnSync(process.execPath, [CLI, \"--id=N0052\"], { cwd: packageDir, encoding: \"utf8\" });\nassert.strictEqual(result.status, 0);\nassert.strictEqual(result.stderr, \"\");\nassert.match(result.stdout, /Sources: graph=.*RFC-GRAPH\\.json, view=.*SEQUENCES\\.json, stepContracts=.*RFC-STEP-CONTRACTS\\.json/);\n```",
+            "UT: [Normal] @verifies C001 — generateHeaderComment derives source basename and filters crossReferences\n```js\nconst header = generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, \"rust\");\nassert.match(header, /--source=\"RFC\\.md\"/);\nassert.match(header, /NODE_ID=N0001/);\nassert.strictEqual(header.match(/Cross-referenced design context/g).length, 1);\n```",
+            "UT: [Error] @verifies C002 — no design sources means no command and one unavailable line\n```js\nconst header = generateHeaderComment(headerPathsWithoutSources, mappedNodeIds, [], \"rust\");\nassert.match(header, /Implementation brief: unavailable \\(SEQUENCES\\.json not present beside RFC-GRAPH\\.json\\)/);\nassert.doesNotMatch(header, /show-node-contracts\\.mjs/);\nassert.strictEqual((header.match(/unavailable/g) || []).length, 1);\n```",
+            "UT: [Boundary] @verifies C002 — one minimal command per mapped node\n```js\nconst header = generateHeaderComment(headerPathsWithSources, mappedNodeIds, [], \"rust\");\nassert.match(header, /\\(cd tools\\/conver && node \\.claude\\/scripts\\/rfc-graph\\/show-node-contracts\\.mjs --id=N0001\\)/);\nassert.doesNotMatch(header, /show-node-contracts\\.mjs --id=N0001 --graph=/);\nassert.ok(header.includes(\"Initial Design Artifact — RFC-driven Implementation\"));\n```",
+            "UT: [Normal] @verifies C003 — a non-unit sequence renders its ordered chain\n```js\nconst brief = buildNodeBrief({ graph, view, stepContracts, nodeId: \"N0055\" });\nassert.match(brief, /S-application-and-payment \\(context\\): 0\\. OBJECT_GET -> 1\\. SubmitForumEkycParticipationProof \\(external\\) -> 2\\. CreateRootEntry -> 3\\. IssueTemporalHealthLease \\(external\\)/);\n```",
+            "UT: [Normal] @verifies C003 — every local step row and its counts appear\n```js\nassert.match(brief, /R-3889__1 .*local facts: pre 10\\/10, post 17\\/17, invariants 6\\/6/);\nassert.match(brief, /S-application-and-payment__2/);\nassert.match(brief, /CreateRootEntry is carried by 3 steps/);\n```",
+            "UT: [Normal] @verifies C004 — every registry-note edge and contract id is listed\n```js\nconst ids = [\"C057\", \"C081\", \"C176\", \"C930\", \"C182\", \"C209\", \"C210\", \"C211\"];\nassert.match(brief, /Boundary contracts \\(8\\)/);\nfor (const id of ids) assert.ok(brief.includes(id), id);\nassert.match(brief, /Expanded contract: C930/);\nassert.match(brief, /Not expanded: C057, C081, C176, C182, C209, C210, C211/);\n```",
+            "UT: [Error] @verifies C004 — no edge and edge-without-contract are different messages\n```js\nassert.match(briefNoEdge, /no incident boundary edge/);\nassert.match(briefEdgeNoContract, /incident edges carry no contract/);\nassert.doesNotMatch(briefEdgeNoContract, /Expanded contract:/);\n```",
+            "UT: [Invariant] @verifies C005 — the pointer names every contributing step row\n```js\nassert.match(brief, /showing 6 of 46; full list at R-3889__1, S-application-and-payment__1, A-3887__3, S-application-and-payment__2/);\nassert.strictEqual((brief.match(/RootLedgerEntry/g) || []).length >= 1, true);\n```",
+            "UT: [Error] @verifies C006 — registry states are distinct and verify ignores registry\n```js\nassert.match(briefNoRegistry, /Registry: not supplied/);\nassert.match(briefNoRow, /Registry: no row for boundary-023/);\nassert.match(briefNoClauses, /no clause groups beyond graph pre\\/post\\/invariant/);\nconst verdict = verifyNodeContracts({ graph, view, stepContracts, registry: { contract_registry: [] } });\nassert.deepStrictEqual(verdict.findings, []);\n```",
+            "UT: [Error] @verifies C006 — missing artifacts produce named codes\n```js\nconst result = spawnSync(process.execPath, [CLI, \"--id=N0052\"], { cwd: packageWithoutView, encoding: \"utf8\" });\nassert.strictEqual(result.status, 1);\nassert.match(result.stderr, /MISSING_VIEW: view is not readable/);\nassert.match(result.stdout, /## UNAVAILABLE/);\n```",
+            "UT: [Invariant] @verifies C007 — the parser exposes only the minimal surface\n```js\nconst options = parseArguments([\"--id=N0052\", \"--verify\", \"--max-facts=9\"]);\nassert.deepStrictEqual(Object.keys(options).sort(), [\"id\", \"maxFacts\", \"registry\", \"verify\"]);\nassert.strictEqual(options.id, \"N0052\");\nassert.strictEqual(options.verify, true);\nassert.strictEqual(options.maxFacts, 9);\n```",
+            "UT: [Invariant] @verifies C009 — repeated runs are byte-identical and disclose paths\n```js\nconst first = buildNodeBrief({ graph, view, stepContracts, nodeId: \"N0055\" });\nconst second = buildNodeBrief({ graph, view, stepContracts, nodeId: \"N0055\" });\nassert.strictEqual(first, second);\nassert.match(first, /Sources: graph=.*RFC-GRAPH\\.json, view=.*SEQUENCES\\.json, stepContracts=.*RFC-STEP-CONTRACTS\\.json/);\n```",
+            "UT: [Invariant] @verifies C008 — canonical trees and frozen baseline are updated together\n```js\nfor (const root of SCRIPT_ROOTS) {\n  assert.strictEqual(digest(join(root, \"lib/artifact-names.json\")), expectedDigest);\n}\nconst baseline = JSON.parse(readFileSync(baselinePath, \"utf8\"));\nassert.ok(baseline.forwardSurfaces.some((entry) => entry.surface === \"header-output\" && entry.value.includes(\"show-node-contracts.mjs --id=N0001\")));\n```",
+            "UT: [Normal] @verifies C010 — every contract is annotated in the Red plan\n```js\nfor (const id of [\"C001\", \"C002\", \"C003\", \"C004\", \"C005\", \"C006\", \"C007\", \"C008\", \"C009\", \"C010\"]) {\n  assert.ok(ticket.testUnit.some((entry) => entry.includes(`@verifies ${id}`)), id);\n}\n```"
+          ],
+          "startedAt": "2026-10-29",
+          "changes": [
+            {
+              "before": "resolveHeaderPaths took six arguments and every caller computed designSourceBasenames",
+              "after": "resolveHeaderPaths(generatedFilePath, graphDirAbs) derives every fixed name and checks the design sources itself",
+              "description": "Fixed artifact names are derived in one place; the sixth argument and the three duplicated computations are gone."
+            },
+            {
+              "before": "generateHeaderComment took a pre-filtered crossRefs list and a sourceBasename",
+              "after": "generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang) derives the source basename and filters the full list",
+              "description": "Header formatter owns the derivation and the filter; the protected marker and warning bytes are unchanged."
+            },
+            {
+              "before": "The header emitted show-node-contracts with --graph and always did so",
+              "after": "The header emits only --id when SEQUENCES.json and RFC-STEP-CONTRACTS.json exist, otherwise one unavailable line",
+              "description": "The implementation entry point is one node id; no path flag is required."
+            },
+            {
+              "before": "show-node-contracts accepted --graph, --view, --step-contracts and used cwd-relative defaults",
+              "after": "The CLI derives RFC-GRAPH.json, SEQUENCES.json and RFC-STEP-CONTRACTS.json from cwd and the registry from the nearest ancestor manifest",
+              "description": "The CLI surface is --id, --verify, --max-facts and an optional --registry override."
+            },
+            {
+              "before": "verifyNodeContracts accepted a registry it never read",
+              "after": "verifyNodeContracts takes graph, view and stepContracts only; it reports BOUNDARY_EDGE_WITHOUT_CONTRACT",
+              "description": "The unused argument and its MISSING_REGISTRY failure path are removed; an edge without a contract is a named finding."
+            },
+            {
+              "before": "boundaryContract returned one edge and one contract",
+              "after": "collectBoundaryContracts inventories every registry-note incident edge and contract id, expands the projected C9xx contract and lists the rest as not expanded",
+              "description": "Measured gaia boundary-023 now shows all eight contract ids and the registry clauses."
+            },
+            {
+              "before": "Capped fact lists pointed at rows[0].stepId",
+              "after": "Capped lists name every contributing step id",
+              "description": "The full-list pointer is truthful for multi-step fact sets."
+            },
+            {
+              "before": "Registry absence printed \"no --registry supplied\" for every missing row",
+              "after": "Not supplied, no row, and no extra clause groups print three distinct messages",
+              "description": "The brief never states a false cause."
+            },
+            {
+              "before": "A sequence not carried as a unit on the node had no order context",
+              "after": "ORDER renders that sequence context chain and states the omitted count when capped",
+              "description": "The implementer sees the safe order around the step."
+            },
+            {
+              "before": "The header-output baseline froze the PX-336 command shape",
+              "after": "The baseline is recaptured through captureForwardSurfaces and mergeForwardSurfacesIntoBaseline; only header-output differs",
+              "description": "All other forward surfaces reproduced unchanged."
+            }
+          ],
+          "completedAt": "2026-10-29",
+          "rfcDiscrepancies": []
         }
       ]
     },
