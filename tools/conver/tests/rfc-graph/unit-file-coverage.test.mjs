@@ -150,3 +150,80 @@ test('C005 an existing reverse header is preserved and accepted', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ============================================================
+// PX-340: every prose carrier is refused, not only the first one
+// ============================================================
+
+test('C001 a prose carrier is refused whichever carrier id sorts first', () => {
+// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+  const root = mkdtempSync(join(tmpdir(), 'px340-order-'));
+  try {
+    const graph = { nodes: [
+      { id: 'N0001', kind: 'architecture', unitIds: ['op-A'] },
+      { id: 'N0002', kind: 'requirement', unitIds: ['op-A'] },
+    ] };
+    const findingsFor = (nodeIds) => verifyUnitFileCoverage({
+      graph,
+      dirsTree: { distribution: { units: { 'op-A': { nodeIds, paths: [], filePaths: [] } } } },
+      root,
+    });
+
+    const implementationFirst = findingsFor(['N0001', 'N0002']);
+    assert.ok(implementationFirst.some((finding) => finding.code === 'UNIT_REQUIRES_FILE' && finding.subject === 'op-A'));
+
+    const proseFirst = findingsFor(['N0002', 'N0001']);
+    assert.ok(proseFirst.some((finding) => finding.code === 'UNIT_REQUIRES_FILE' && finding.subject === 'op-A'));
+
+    assert.deepEqual(proseFirst, implementationFirst);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C001 non-prose carriers are not refused, and a unit without a leaf file still reports UNIT_WITHOUT_FILE', () => {
+  const root = mkdtempSync(join(tmpdir(), 'px340-impl-'));
+  try {
+    const graph = { nodes: [
+      { id: 'N0001', kind: 'architecture', unitIds: ['op-A'] },
+      { id: 'N0002', kind: 'api_contract', unitIds: ['op-A'] },
+    ] };
+    const findings = verifyUnitFileCoverage({
+      graph,
+      dirsTree: { distribution: { units: { 'op-A': { nodeIds: ['N0001', 'N0002'], paths: [], filePaths: [] } } } },
+      root,
+    });
+    assert.equal(findings.some((finding) => finding.code === 'UNIT_REQUIRES_FILE'), false);
+    assert.ok(findings.some((finding) => finding.code === 'UNIT_WITHOUT_FILE' && finding.subject === 'op-A'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C001 a prose node that carries no unit produces no finding', () => {
+  const root = mkdtempSync(join(tmpdir(), 'px340-prose-empty-'));
+  try {
+    const graph = { nodes: [{ id: 'N0001', kind: 'requirement' }] };
+    const findings = verifyUnitFileCoverage({ graph, dirsTree: { distribution: { units: {} } }, root });
+    assert.deepEqual(findings, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C002 the distribution index sorts carriers and the gate still sees the prose one', () => {
+  const root = mkdtempSync(join(tmpdir(), 'px340-index-'));
+  try {
+    const graph = { nodes: [
+      { id: 'N0001', kind: 'architecture', unitIds: ['op-A'] },
+      { id: 'N0002', kind: 'requirement', unitIds: ['op-A'] },
+    ] };
+    const index = buildDistributionIndex(graph, new Map(), 'a'.repeat(64), new Map());
+    assert.deepEqual(index.units['op-A'].nodeIds, ['N0001', 'N0002']);
+
+    const findings = verifyUnitFileCoverage({ graph, dirsTree: { distribution: index }, root });
+    assert.ok(findings.some((finding) => finding.code === 'UNIT_REQUIRES_FILE' && finding.subject === 'op-A'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

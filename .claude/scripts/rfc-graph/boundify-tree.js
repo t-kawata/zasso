@@ -9,7 +9,8 @@
  * PX-29 added: pruneEmptyDirectories (empty directory removal and flattening)
  * PX-30 added: computeCrossReferences (cross-references for prose-type nodes)
  *
- * Dependencies: boundify-helpers.js (titleToFileName, deduplicateFileNames)
+ * Dependencies: none at module load; buildDirectoryTree receives language extensions
+ * and the declaration-stub factory through its helpers argument.
  */
 
 'use strict';
@@ -61,6 +62,9 @@ const PROSE_KINDS = Object.freeze(new Set([
   'glossary',
   'requirement',
 ]));
+
+/** The leaf file an architecture node owns when the language map names none. */
+const DEFAULT_DESIGNATED_ENTRY_FILE = 'mod.rs';
 
 /**
  * Build domain hierarchy from part_of edges
@@ -172,11 +176,12 @@ function resolveNodeToDirMap(graph, hierarchy) {
  * Build directory tree from graph
  *
  * Apply Phase 2 (kind-based placement) to Phase 1 (buildDomainHierarchy) hierarchy.
- * Main integration function. Uses titleToFileName() and deduplicateFileNames() internally.
+ * Main integration function. File names come from node slugs; the helpers argument
+ * supplies language extensions and the declaration-stub factory.
  *
  * @param {object} graph - Graph object
  * @param {string} lang - Language name ('rust' | 'go' | 'typescript')
- * @param {object} helpers - External dependency functions (titleToFileName, deduplicateFileNames)
+ * @param {object} helpers - Language extensions and declaration-stub factory
  * @returns {{tree: object|null, nodeToDir: object, files: Array}}
  *   tree: Root of the directory tree
  *   nodeToDir: Node ID → directory path map
@@ -200,12 +205,11 @@ function mappedEntry(node) {
   return entry;
 }
 
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
 function buildDirectoryTree(graph, lang, helpers) {
   const languageExtensions = helpers.languageExtensions || { rust: '.rs', go: '.go', typescript: '.ts' };
   /** The leaf file an architecture node uses when it carries a unit. */
-  const designatedEntryFile = helpers.DESIGNATED_ENTRY_FILE || { rust: 'mod.rs', go: 'doc.go', typescript: 'index.ts' };
-  const deduplicateFileNames = helpers.deduplicateFileNames;
+  const designatedEntryFile = helpers.DESIGNATED_ENTRY_FILE || { rust: DEFAULT_DESIGNATED_ENTRY_FILE, go: 'doc.go', typescript: 'index.ts' };
   const getDeclarationStub = helpers.getDeclarationStub || (() => '');
   const hierarchy = buildDomainHierarchy(graph);
   const nodeToDir = resolveNodeToDirMap(graph, hierarchy);
@@ -226,8 +230,8 @@ function buildDirectoryTree(graph, lang, helpers) {
   }
 
     // Build directory tree from root hierarchy
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
-  function buildTreeFromRoot(root) {
+// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
+  function buildTreeFromRoot(root, emittedNodeIds) {
     if (!root || !root.node) return null;
 
     const node = root.node;
@@ -243,6 +247,9 @@ function buildDirectoryTree(graph, lang, helpers) {
         mappedNodeIds: [mappedEntry(node)],
         children: [],
       };
+      // Record placement as the walk happens. This set is what excludes nodes from
+      // rule-driven placement, so it must name only what this walk consumed.
+      emittedNodeIds.add(node.id);
 
       // Process children
       if (root.children) {
@@ -251,7 +258,7 @@ function buildDirectoryTree(graph, lang, helpers) {
         const ruleDirEntries = [];
 
         for (const child of root.children) {
-          const childDir = buildTreeFromRoot(child);
+          const childDir = buildTreeFromRoot(child, emittedNodeIds);
           if (childDir) {
             backboneChildren.push(childDir);
           } else {
@@ -261,6 +268,7 @@ function buildDirectoryTree(graph, lang, helpers) {
               const childDirName = resolveDirForNode(childNode, hierarchy);
               if (childDirName && !BACKBONE_KINDS.has(childNode.kind || '')) {
                 const fileName = resolveFileName(childNode, lang);
+                emittedNodeIds.add(childNode.id);
                 ruleDirEntries.push({
                   dirName: childDirName,
                   fileNode: {
@@ -299,6 +307,7 @@ function buildDirectoryTree(graph, lang, helpers) {
       const inlineChildren = findInlineChildren(node.id, graph, hierarchy);
       for (const inlineChild of inlineChildren) {
         const fileName = resolveFileName(inlineChild, lang);
+        emittedNodeIds.add(inlineChild.id);
         dirNode.children.push({
           name: fileName,
           type: 'file',
@@ -347,21 +356,22 @@ function buildDirectoryTree(graph, lang, helpers) {
 
   // Convert entire root hierarchy to tree
   const topNodes = [];
+  const emittedNodeIds = new Set();
   for (const root of hierarchy.roots) {
-    const treeNode = buildTreeFromRoot(root);
+    const treeNode = buildTreeFromRoot(root, emittedNodeIds);
     if (treeNode) topNodes.push(treeNode);
   }
 
-  // Collect all descendants of hierarchy roots to exclude from findRuleDrivenNodes
-  const descendantIds = collectDescendantIds(hierarchy.roots);
-
-  // Also collect independent nodes matching kind→directory rules (excluding hierarchy descendants)
+  // Also collect independent nodes matching kind→directory rules. Only the nodes the
+  // backbone walk actually placed are excluded: a node the walk could reach but never
+  // visited still owes its own file.
   const ruleDrivenNodes = findRuleDrivenNodes({
     graph,
     hierarchy,
     naming: { lang, resolveFileNameFn: resolveFileName },
     getDeclarationStubFn: getDeclarationStub,
-    excludeNodeIds: descendantIds,
+    designatedEntryFileName: designatedEntryFile[lang] || DEFAULT_DESIGNATED_ENTRY_FILE,
+    excludeNodeIds: emittedNodeIds,
   });
 
   // Merge
@@ -399,7 +409,8 @@ function buildDirectoryTree(graph, lang, helpers) {
 /**
  * Collect all descendant node IDs from hierarchy roots
  *
- * Used to exclude nodes already processed by buildTreeFromRoot from findRuleDrivenNodes.
+ * Retained for the hierarchy tests. Placement excludes the set the backbone walk
+ * actually emitted, not every reachable descendant.
  *
  * @param {Array} roots — roots array from buildDomainHierarchy
  * @returns {Set<string>} Set of all descendant node IDs
@@ -433,19 +444,46 @@ function collectDescendantIds(roots) {
  * @param {object} options.hierarchy — Return value of buildDomainHierarchy
  * @param {{ lang: string, resolveFileNameFn: Function }} options.naming — Language and file-name resolver
  * @param {Function} options.getDeclarationStubFn — Declaration stub function
- * @param {Set<string>} [options.excludeNodeIds] — Set of node IDs to exclude
+ * @param {string} [options.designatedEntryFileName] — Leaf file an architecture node owns when it carries a unit
+ * @param {Set<string>} [options.excludeNodeIds] — Set of node IDs the backbone walk already placed
  * @returns {Array} Array of rule-driven nodes
  */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
-function findRuleDrivenNodes({ graph, hierarchy, naming, getDeclarationStubFn, excludeNodeIds }) {
+// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
+function findRuleDrivenNodes(options) {
+  const { graph, hierarchy, naming, getDeclarationStubFn, designatedEntryFileName, excludeNodeIds } = options;
   const { lang, resolveFileNameFn } = naming;
   const getStub = getDeclarationStubFn || (() => '');
+  const entryFileName = designatedEntryFileName || DEFAULT_DESIGNATED_ENTRY_FILE;
   const nodes = graph.nodes || [];
   const result = [];
 
   for (const node of nodes) {
     // Exclude nodes already processed within the hierarchy
     if (excludeNodeIds && excludeNodeIds.has(node.id)) continue;
+
+    // An architecture node the backbone walk never reached still owns a leaf file when
+    // it carries a unit: the unit has nowhere else to resolve to. Without one the node
+    // would be a directory at best, and the distribution gate would report the unit as
+    // unmapped rather than the placement as unfinished.
+    if (BACKBONE_KINDS.has(node.kind || '')) {
+      if (Array.isArray(node.unitIds) && node.unitIds.length > 0) {
+        const dirName = resolveFileNameFn(node, lang).replace(/\.(rs|go|ts)$/, '');
+        result.push({
+          name: dirName,
+          type: 'directory',
+          kind: node.kind || '',
+          mappedNodeIds: [mappedEntry(node)],
+          children: [{
+            name: entryFileName,
+            type: 'file',
+            kind: node.kind || '',
+            mappedNodeIds: [mappedEntry(node)],
+            declarationStub: getStub(node.kind || '', lang),
+          }],
+        });
+      }
+      continue;
+    }
 
     const dirName = resolveDirForNode(node, hierarchy);
     // Nodes matching rules and not in the root hierarchy

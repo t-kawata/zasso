@@ -51,17 +51,34 @@ function finding(code, subject, message) {
   return { code, subject, message };
 }
 
+/**
+ * The prose node carrying a unit, or undefined when every carrier is an implementation node.
+ *
+ * A unit may be carried by more than one node. The refusal is unconditional in the spec,
+ * so every carrier is inspected — never only the first id in a sorted array.
+ *
+ * @param {string[]} nodeIds — carriers recorded by the distribution index
+ * @param {Map<string, object>} nodes — graph nodes by id
+ * @returns {object|undefined} the first prose carrier, or undefined
+ */
+// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+function findProseCarrier(nodeIds, nodes) {
+  return (nodeIds ?? [])
+    .map((nodeId) => nodes.get(nodeId))
+    .find((node) => node !== undefined && PROSE_KINDS.has(node.kind));
+}
+
 /** Verify every unit and every generated header. */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-340) --for-spec --no-implementation-order`.
 function verifyUnitFileCoverage({ graph, dirsTree, root }) {
   const findings = [];
   const nodes = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
   const units = Object.keys(dirsTree?.distribution?.units ?? {});
 
   for (const [unitId, entry] of Object.entries(dirsTree?.distribution?.units ?? {})) {
-    const carryingNode = (entry.nodeIds ?? []).map((nodeId) => nodes.get(nodeId)).find(Boolean);
-    if (carryingNode !== undefined && PROSE_KINDS.has(carryingNode.kind)) {
-      findings.push(finding('UNIT_REQUIRES_FILE', unitId, `unit ${unitId} is carried by a ${carryingNode.kind} node, which has no implementation file`));
+    const proseCarrier = findProseCarrier(entry.nodeIds, nodes);
+    if (proseCarrier !== undefined) {
+      findings.push(finding('UNIT_REQUIRES_FILE', unitId, `unit ${unitId} is carried by a ${proseCarrier.kind} node, which has no implementation file`));
       continue;
     }
     const files = existingFiles(root, entry);

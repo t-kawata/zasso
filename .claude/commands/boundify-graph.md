@@ -61,6 +61,11 @@ if [ ! -f "$graphPath" ]; then
 fi
 
 sourcePath=$(node -p "JSON.parse(require('fs').readFileSync('${graphPath}','utf8')).sourceFile||''")
+# crud.js stores sourceFile home-relative (~/...); expand it before testing the path.
+case "$sourcePath" in
+  "~") sourcePath="$HOME" ;;
+  "~/"*) sourcePath="$HOME/${sourcePath#\~/}" ;;
+esac
 if [ -z "$sourcePath" ] || [ ! -f "$sourcePath" ]; then
   echo "[ERROR] MISSING_SOURCE: the graph records no readable source document"
   echo "Cause: verify-graph-integrity needs the Markdown the graph was built from"

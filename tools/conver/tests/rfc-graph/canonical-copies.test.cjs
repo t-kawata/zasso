@@ -39,9 +39,21 @@ const FILES = [
   'test-query-all.js',
   'analyze-source-structure.js',
   'boundify-helpers.js',
+  'boundify-tree.js',
+  'boundify-graph-to-dirs.js',
   'generate-dir-template.js',
   'reverse-boundify.js',
 ];
+
+/** The three canonical command directories. */
+const COMMAND_ROOTS = [
+  path.join(PACKAGE_ROOT, '.claude/commands'),
+  path.join(WORKSPACE_ROOT, '.claude/commands'),
+  path.join(WORKSPACE_ROOT, 'crates/siprs/.claude/commands'),
+];
+
+/** The command documents this ticket edits. */
+const COMMAND_FILES = ['boundify-graph.md', 'graphify-rfc.md'];
 
 /** The three canonical drill-rfc-down script directories. */
 const DRILL_ROOTS = [
@@ -82,5 +94,25 @@ describe('canonical copies — three zasso trees', () => {
       const hashes = DRILL_ROOTS.map((root) => digest(path.join(root, file)));
       assert.equal(new Set(hashes).size, 1, file);
     }
+  });
+
+  // PX-339: the boundify scripts and commands are synchronized by the same rule.
+  it('normal: the boundify scripts and commands are byte-identical across the three trees', () => {
+// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+    for (const file of ['boundify-tree.js', 'boundify-graph-to-dirs.js']) {
+      const hashes = SCRIPT_ROOTS.map((root) => digest(path.join(root, file)));
+      assert.equal(new Set(hashes).size, 1, file);
+    }
+    for (const file of COMMAND_FILES) {
+      const hashes = COMMAND_ROOTS.map((root) => digest(path.join(root, file)));
+      assert.equal(new Set(hashes).size, 1, file);
+    }
+  });
+
+  // PX-340: the unit-placement gate is synchronized by the same rule.
+  it('normal: verify-unit-file-coverage is byte-identical across the three trees', () => {
+// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+    const hashes = SCRIPT_ROOTS.map((root) => digest(path.join(root, 'verify-unit-file-coverage.js')));
+    assert.equal(new Set(hashes).size, 1, 'verify-unit-file-coverage.js');
   });
 });

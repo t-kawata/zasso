@@ -31,6 +31,12 @@ const {
   getDeclarationStub,
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
+const {
+  collectNodePaths,
+  collectNodeFilePaths,
+  buildDistributionIndex,
+} = require('../../.claude/scripts/rfc-graph/lib/distribution-index.js');
+
 // --- Fixture data ---
 
 /** Graph with a basic part_of hierarchy */
@@ -1025,5 +1031,90 @@ describe('computeCrossReferences', () => {
   it('should handle empty graph', () => {
     const result = computeCrossReferences({ nodes: [], edges: [] }, {});
     assert.strictEqual(result.length, 0);
+  });
+});
+
+// ============================================================
+// PX-339: placement totality — the emitted set, not every reachable descendant
+// ============================================================
+
+/** Build the directory tree with the helpers buildDirectoryTree actually consumes. */
+// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+function buildPlacementTree(graph, lang) {
+  return buildDirectoryTree(graph, lang, { getDeclarationStub });
+}
+
+/** Files the tree maps to one node id. */
+// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+function collectFilesForNode(built, nodeId) {
+  return built.files.filter((file) =>
+    (file.mappedNodeIds || []).some((mapped) => (mapped.nodeId || mapped) === nodeId));
+}
+
+describe('PX-339 placement totality', () => {
+  it('C001 a unit on an architecture grandchild below a non-architecture sibling resolves to one leaf file', () => {
+    const graph = {
+      nodes: [
+        { id: 'N1', title: 'Root', kind: 'architecture', language: 'rust', slug: 'root' },
+        { id: 'N2', title: 'Surface', kind: 'api_contract', language: 'rust', slug: 'surface' },
+        { id: 'N3', title: 'Boundary', kind: 'architecture', language: 'rust', slug: 'boundary', unitIds: ['ctr-boundary-010'] },
+        { id: 'N4', title: 'Payload', kind: 'data_model', language: 'rust', slug: 'payload' },
+      ],
+      edges: [
+        { from: 'N2', to: 'N1', type: 'part_of' },
+        { from: 'N3', to: 'N2', type: 'part_of' },
+        { from: 'N4', to: 'N2', type: 'part_of' },
+      ],
+    };
+
+    const built = buildPlacementTree(graph, 'rust');
+    assert.equal(collectFilesForNode(built, 'N3').length, 1, JSON.stringify(built.files.map((file) => file.path)));
+    assert.equal(collectFilesForNode(built, 'N3')[0].path, 'src/boundary/mod.rs');
+    assert.equal(collectFilesForNode(built, 'N4').length, 1, 'a data_model grandchild is placed once');
+    assert.equal(collectFilesForNode(built, 'N4')[0].path, 'src/model/payload.rs');
+
+    const trees = [built.tree];
+    const index = buildDistributionIndex(graph, collectNodePaths(trees), 'digest', collectNodeFilePaths(trees));
+    assert.deepEqual(index.units['ctr-boundary-010'].filePaths, ['src/boundary/mod.rs']);
+  });
+
+  it('C001 an architecture node under a prose root owns a designated index.ts when it carries a unit', () => {
+    const graph = {
+      nodes: [
+        { id: 'R1', title: 'Requirements', kind: 'requirement', language: 'typescript', slug: 'requirements' },
+        { id: 'A1', title: 'Encoding', kind: 'architecture', language: 'typescript', slug: 'encoding', unitIds: ['ctr-boundary-011'] },
+      ],
+      edges: [{ from: 'A1', to: 'R1', type: 'part_of' }],
+    };
+
+    const built = buildPlacementTree(graph, 'typescript');
+    assert.equal(collectFilesForNode(built, 'A1').length, 1, JSON.stringify(built.files.map((file) => file.path)));
+    assert.equal(collectFilesForNode(built, 'A1')[0].path, 'src/encoding/index.ts');
+    assert.equal(collectFilesForNode(built, 'R1').length, 0, 'a prose root owns no file');
+  });
+
+  it('C001 an emitted node is not placed twice, a unit-less architecture node owns no file, and a prose node owns no file', () => {
+    const graph = {
+      nodes: [
+        { id: 'N1', title: 'Root', kind: 'architecture', language: 'rust', slug: 'root', unitIds: ['op-A'] },
+        { id: 'N2', title: 'Surface', kind: 'api_contract', language: 'rust', slug: 'surface' },
+        { id: 'N3', title: 'Skeleton', kind: 'architecture', language: 'rust', slug: 'skeleton' },
+        { id: 'N4', title: 'Payload', kind: 'data_model', language: 'rust', slug: 'payload', unitIds: ['op-B'] },
+        { id: 'P1', title: 'Scope', kind: 'requirement', language: 'rust', slug: 'scope', unitIds: ['op-C'] },
+      ],
+      edges: [
+        { from: 'N2', to: 'N1', type: 'part_of' },
+        { from: 'N3', to: 'N2', type: 'part_of' },
+        { from: 'N4', to: 'N2', type: 'part_of' },
+        { from: 'P1', to: 'N1', type: 'part_of' },
+      ],
+    };
+
+    const built = buildPlacementTree(graph, 'rust');
+    assert.equal(collectFilesForNode(built, 'N1').length, 1, 'the reached root owns exactly its designated entry file');
+    assert.equal(collectFilesForNode(built, 'N1')[0].path, 'src/root/mod.rs');
+    assert.equal(collectFilesForNode(built, 'N4').length, 1, 'the unreached grandchild is placed exactly once');
+    assert.equal(collectFilesForNode(built, 'N3').length, 0, 'a unit-less architecture node is not given a file');
+    assert.equal(collectFilesForNode(built, 'P1').length, 0, 'a prose node is not given a file');
   });
 });

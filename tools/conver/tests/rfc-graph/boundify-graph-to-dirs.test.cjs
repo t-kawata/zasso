@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('node:child_process');
 
 const {
   main,
@@ -25,6 +26,8 @@ const {
   resolveOutputPaths,
   collectDirectoryPaths,
   resolveDirNameToPath,
+  createStepTwoStatus,
+  withPreservedRunAccounting,
 } = require('../../.claude/scripts/rfc-graph/boundify-graph-to-dirs.js');
 
 // ============================================================
@@ -288,7 +291,7 @@ describe('adaptProjectEdgesToDirectories', () => {
     const graph = createStandardGraph();
     const emptyNodeToDir = {};
     const dirEdges = adaptProjectEdgesToDirectories(graph, emptyNodeToDir);
-    // Empty mapping should return empty array
+    // An empty mapping yields no projected edges.
     assert.strictEqual(dirEdges.length, 0);
   });
 });
@@ -518,3 +521,89 @@ function captureStdout(fn) {
   }
   return chunks.join('');
 }
+
+// ============================================================
+// PX-339: run accounting survives the Step 2 status write
+// ============================================================
+
+describe('PX-339 run accounting', () => {
+// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+  it('C002 preserves runs, runId, generation, lastOutputDigest and coverage across the step-2 write', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px339-status-'));
+    try {
+      const statusPath = path.join(tempDir, 'test-BOUNDIFY-Status.json');
+      fs.writeFileSync(statusPath, JSON.stringify({
+        runs: 1,
+        runId: 'run-1',
+        generation: 1,
+        lastOutputDigest: 'digest-1',
+        coverage: { units: 20 },
+      }), 'utf8');
+
+      const status = withPreservedRunAccounting(createStepTwoStatus(statusPath), statusPath);
+      assert.equal(status.runs, 1);
+      assert.equal(status.runId, 'run-1');
+      assert.equal(status.generation, 1);
+      assert.equal(status.lastOutputDigest, 'digest-1');
+      assert.deepEqual(status.coverage, { units: 20 });
+      assert.equal(status.currentStep, 2);
+      assert.equal(status.steps['2'], 'running');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('C002 an unreadable status file falls back to defaults without aborting generation', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px339-status-bad-'));
+    try {
+      const statusPath = path.join(tempDir, 'test-BOUNDIFY-Status.json');
+      fs.writeFileSync(statusPath, '{ not json', 'utf8');
+      const status = withPreservedRunAccounting(createStepTwoStatus(statusPath), statusPath);
+      assert.equal(status.runs, 0);
+      assert.equal(status.runId, null);
+      assert.equal(status.currentStep, 2);
+      assert.equal(status.steps['2'], 'running');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('C002 end-step 3 advances generation and writes coverage after Step 2 regenerates the tree', () => {
+    const scriptsDir = path.resolve(__dirname, '../../.claude/scripts/rfc-graph');
+    const runScript = (script, args, cwd) => {
+      const result = spawnSync(process.execPath, [path.join(scriptsDir, script), ...args], { cwd, encoding: 'utf8' });
+      assert.equal(result.status, 0, script + ' ' + args.join(' ') + '\n' + result.stdout + '\n' + result.stderr);
+      return result.stdout;
+    };
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px339-flow-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'RFC.md'), '# RFC\n', 'utf8');
+      fs.writeFileSync(path.join(tempDir, 'RFC-GRAPH.json'), JSON.stringify({
+        sourceFile: 'RFC.md',
+        mainLanguage: 'rust',
+        distributionDigest: 'a'.repeat(64),
+        nodes: [{ id: 'N1', title: 'Root', kind: 'architecture', language: 'rust', slug: 'root', unitIds: ['op-A'] }],
+        edges: [],
+      }), 'utf8');
+
+      runScript('update-boundify-step-status.js', ['begin-run', '--run-id=run-1'], tempDir);
+      for (const step of [0, 1, 2]) {
+        runScript('update-boundify-step-status.js', ['start-step', String(step)], tempDir);
+        if (step === 2) runScript('boundify-graph-to-dirs.js', ['--quiet'], tempDir);
+        runScript('update-boundify-step-status.js', ['end-step', String(step)], tempDir);
+      }
+      runScript('update-boundify-step-status.js', ['start-step', '3'], tempDir);
+      runScript('update-boundify-step-status.js', ['end-step', '3'], tempDir);
+
+      const status = JSON.parse(fs.readFileSync(path.join(tempDir, 'RFC-BOUNDIFY-Status.json'), 'utf8'));
+      assert.equal(status.runs, 1);
+      assert.equal(status.runId, 'run-1');
+      assert.equal(status.generation, 1);
+      assert.ok(status.lastOutputDigest);
+      assert.deepEqual(status.coverage, { units: 1, steps: 0, boundaries: 0 });
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});

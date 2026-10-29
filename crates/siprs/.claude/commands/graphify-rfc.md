@@ -112,7 +112,7 @@ Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `attach-uni
 
 ```json
 {
-  "sourceFile": "RFC.md",
+  "sourceFile": "~/pkg/RFC.md",
   "mainLanguage": "rust",
   "nodes": [...],
   "edges": [...]
@@ -121,7 +121,7 @@ Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `attach-uni
 
 | Field | Contract |
 |---|---|
-| `sourceFile` | required original Markdown path |
+| `sourceFile` | required original Markdown path, stored home-relative (`~/...`) as `crud.js` writes it |
 | `mainLanguage` | required primary language; multilingual project: central language; only fallback for accidentally empty node `language` |
 | `nodes` | required node array |
 | `edges` | required edge array |
