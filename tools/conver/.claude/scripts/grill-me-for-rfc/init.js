@@ -28,6 +28,7 @@ import {
   SOURCE_ARTIFACT_SUFFIX,
 } from "../sequences-slice/lib/material.mjs";
 import { ProjectionRefused, projectPackageView } from "../sequences-slice/lib/project-package.mjs";
+import { toHomeRelative } from "../lib/path-utils.js";
 
 const HOME_DIRECTORY = os.homedir();
 
@@ -171,7 +172,11 @@ if (mode === "resume") {
   }
 
   const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
-  const { merged, added } = mergeMaterialPaths(materialPathsOf(status), materialPaths);
+  // A record written by an earlier run stores ~/..., so expand it before comparing
+  // with the absolute paths this invocation was handed.
+  const recordedMaterialPaths = materialPathsOf(status)
+    .map((materialPath) => path.resolve(expandHomePath(materialPath, HOME_DIRECTORY)));
+  const { merged, added } = mergeMaterialPaths(recordedMaterialPaths, materialPaths);
 
   // The session was resumed, so its timestamp moves either way; the material list
   // and the moment it last grew move only when this invocation contributed
@@ -181,8 +186,9 @@ if (mode === "resume") {
   const refresh = refreshRecordedView(rfcDir, materialPaths);
   const withViews = mergeMaterialPaths(merged, refresh.recordedMaterials);
   if (added.length > 0 || withViews.added.length > 0) {
-    status.materialPaths = withViews.merged;
-    status.researchPath = withViews.merged[0] ?? "";
+    // The record is committed, so it stores the portable form and names no machine.
+    status.materialPaths = withViews.merged.map(toHomeRelative);
+    status.researchPath = status.materialPaths[0] ?? "";
   }
   if (added.length > 0) {
     status.materialsAddedAt = status.updatedAt;
@@ -207,13 +213,14 @@ fs.mkdirSync(rfcDir, { recursive: true });
 // entry because every Status.json written before materialPaths existed carries it
 // and check-all-schema.js still requires it; a run with no material records the
 // empty string rather than null, which that same check rejects as missing.
+const storedMaterialPaths = materialPaths.map(toHomeRelative);
 const statusTemplate = {
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
   state: "GRILLING",
-  researchPath: materialPaths[0] ?? "",
-  materialPaths,
-  rfcPath,
-  rfcDir,
+  researchPath: storedMaterialPaths[0] ?? "",
+  materialPaths: storedMaterialPaths,
+  rfcPath: toHomeRelative(rfcPath),
+  rfcDir: toHomeRelative(rfcDir),
   reviewLoopCount: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -225,9 +232,10 @@ const statusTemplate = {
 // to do. The refresh is the same call the resume path makes, so there is one answer to what a
 // view contains rather than one per branch.
 const refresh = refreshRecordedView(rfcDir, materialPaths);
-const withViews = mergeMaterialPaths(statusTemplate.materialPaths, refresh.recordedMaterials);
-statusTemplate.materialPaths = withViews.merged;
-statusTemplate.researchPath = withViews.merged[0] ?? "";
+// Merge in the absolute form so a path appears once, then store the portable form.
+const withViews = mergeMaterialPaths(materialPaths, refresh.recordedMaterials);
+statusTemplate.materialPaths = withViews.merged.map(toHomeRelative);
+statusTemplate.researchPath = statusTemplate.materialPaths[0] ?? "";
 fs.writeFileSync(statusPath, JSON.stringify(statusTemplate, null, 2), "utf-8");
 
 // DesignTree.json template

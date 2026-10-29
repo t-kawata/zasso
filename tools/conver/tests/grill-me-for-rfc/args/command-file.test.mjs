@@ -72,8 +72,8 @@ test('C001 postcondition: use states the zero-or-more material form', () => {
 test('C001 postcondition: STEP 0 initialises with the package directory and the material list', () => {
   const step0 = section(read('grill-me-for-rfc'), '### STEP 0', '### STEP 1');
 
-  assert.match(step0, /init\.js "\$RFC_DIR" \$ARGUMENTS/, 'init.js takes the package dir and the material list');
-  assert.match(step0, /settle-run\.js "\$RFC_DIR" prior/, 'the prior scan is still the first thing run');
+  assert.match(step0, /init\.js"?\s+"\$RFC_DIR" \$ARGUMENTS/, 'init.js takes the package dir and the material list');
+  assert.match(step0, /settle-run\.js"?\s+"\$RFC_DIR" prior/, 'the prior scan is still the first thing run');
   assert.doesNotMatch(step0, /\$RESEARCH_PATH|\$RFC_OUTPUT_PATH/);
 });
 

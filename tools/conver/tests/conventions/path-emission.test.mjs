@@ -105,6 +105,17 @@ test('C004 invariant: an absolute path handed to the filesystem is not reported'
   );
 });
 
+test('C004 invariant: the TypeScript writers also emit no provably absolute path', () => {
+  const report = scanPathEmissions({ root: join(PROJECT_ROOT, 'src') });
+
+  assert.ok(report.files > 0, 'the scan reaches the bundled writers, not only the script tree');
+  assert.deepEqual(
+    report.bypassing.map((finding) => `${finding.file}:${finding.line}`),
+    [],
+    'a writer compiled into the bundle is held to the same rule',
+  );
+});
+
 test('C004 invariant: the tree the command actually ships is the one the scan reads', () => {
   const probe = scanPathEmissions({ root: SCRIPTS_ROOT });
 

@@ -238,7 +238,7 @@ test('C004 a package without a Status.json is refused before anything is written
 
 test('C004 STEP 8 finishes through complete-run and never invokes the write-mode render by hand', () => {
   const [stepEight] = readFileSync(GRILL_COMMAND, 'utf8').split('### STEP 8a: Re-entry after DONE');
-  assert.match(stepEight, /complete-run\.js "\$RFC_DIR"/);
+  assert.match(stepEight, /complete-run\.js"?\s+"\$RFC_DIR"/);
   const handwrittenWrite = stepEight.split('\n').filter((line) => /^node .*render-distribution\.mjs\s*$/.test(line.trim()));
   assert.deepEqual(handwrittenWrite, []);
 });

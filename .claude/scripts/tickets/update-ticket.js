@@ -2,6 +2,7 @@ const fs = require("fs"),
   path = require("path");
 const { validateTickets, parseTicketKey } = require("../lib/validate-tickets");
 const { normalizePath } = require("../lib/malfeasance-utils");
+const { toHomeRelativeDeep } = require("../lib/path-utils.js");
 // [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 // The reverse-only field vocabulary is declared once, in the reverse tree, so this
 // writer cannot drift from the artefacts whose schema it guards.
@@ -62,6 +63,9 @@ function main() {
     console.log(JSON.stringify({ success: false, error: "stdin fail" }));
     process.exit(1);
   }
+  // A committed ticket must name no machine, including a path embedded in prose.
+  // Convert every string before the field-specific normalisation below.
+  updates = toHomeRelativeDeep(updates);
   // PX-92: Normalize file path fields in update data for cross-machine portability.
   // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-92 --for-spec --no-implementation-order`
   if (updates.file && typeof updates.file === 'string') {

@@ -522,6 +522,31 @@ describe("clearForNextRound", () => {
     assert.strictEqual(first, second);
   });
 
+  it("home 配下の絶対パスを ~ に変換して書き戻す", () => {
+    const home = os.homedir();
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [{
+            id: 1,
+            phaseId: 0,
+            status: "todo",
+            title: "a",
+            forNextRound: true,
+            notes: `see ${home}/shyme/zasso/x.md`,
+          }],
+        },
+      ],
+    });
+    clearForNextRound(ticketsPath);
+    const data = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+    assert.strictEqual(data.phases[0].tickets[0].notes, "see ~/shyme/zasso/x.md");
+  });
+
   it("他フィールド（status/title/round）を変更しない", () => {
     const ticketsPath = writeTempTickets({
       title: "Test",

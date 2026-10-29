@@ -6,7 +6,12 @@
 const assert = require('assert');
 const os = require('os');
 const path = require('path');
-const { toHomeRelative, fromHomeRelative } = require('../.claude/scripts/lib/path-utils');
+const {
+  toHomeRelative,
+  fromHomeRelative,
+  toHomeRelativeText,
+  toHomeRelativeDeep,
+} = require('../.claude/scripts/lib/path-utils');
 
 const HOME = os.homedir();
 let passed = 0;
@@ -112,6 +117,43 @@ test('toHomeRelative with deep subdirectory', () => {
 test('fromHomeRelative with deep ~/ path', () => {
   const expected = path.join(HOME, 'x', 'y', 'z');
   assert.strictEqual(fromHomeRelative('~/x/y/z'), expected);
+});
+
+// [Normal] Text conversion: a home path inside prose
+test('toHomeRelativeText converts every home path embedded in a text', () => {
+  const home = path.join(HOME, 'shyme', 'zasso');
+  const text = `validated on ${home}/a.md and again on ${home}/b.md`;
+  assert.strictEqual(
+    toHomeRelativeText(text),
+    'validated on ~/shyme/zasso/a.md and again on ~/shyme/zasso/b.md',
+  );
+});
+
+// [Boundary] A sibling directory that merely shares the prefix
+test('toHomeRelativeText leaves a directory that only shares the home prefix', () => {
+  const sibling = HOME + '2/file.md';
+  assert.strictEqual(toHomeRelativeText(sibling), sibling);
+});
+
+// [Boundary] Already home-relative and non-home absolute paths are untouched
+test('toHomeRelativeText is idempotent for ~ and outside-home paths', () => {
+  assert.strictEqual(toHomeRelativeText('see ~/shyme/zasso/a.md'), 'see ~/shyme/zasso/a.md');
+  assert.strictEqual(toHomeRelativeText('see /opt/some/file.md'), 'see /opt/some/file.md');
+});
+
+// [Normal] Deep conversion over the ticket fields a writer persists
+test('toHomeRelativeDeep converts strings at every depth and keeps other values', () => {
+  const home = path.join(HOME, 'shyme', 'zasso');
+  const input = {
+    notes: `read ${home}/specs/PX-1.md`,
+    nested: { files: [`${home}/src/a.ts`], count: 2, flag: true, empty: null },
+  };
+  const output = toHomeRelativeDeep(input);
+  assert.deepStrictEqual(output, {
+    notes: 'read ~/shyme/zasso/specs/PX-1.md',
+    nested: { files: ['~/shyme/zasso/src/a.ts'], count: 2, flag: true, empty: null },
+  });
+  assert.strictEqual(input.notes, `read ${home}/specs/PX-1.md`, 'the input object is not mutated');
 });
 
 console.log('');

@@ -129,7 +129,44 @@ export function clearForNextRound(ticketsPath: string): void {
       delete ticket.forNextRound;
     }
   }
-  writeFileSync(ticketsPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  // The file is committed, so every home path in it is stored in the portable form.
+  writeFileSync(ticketsPath, JSON.stringify(toHomeRelativeDeep(data), null, 2) + "\n", "utf-8");
+}
+
+/**
+ * 文字列中の $HOME 配下の絶対パスを ~/ に置き換える。
+ *
+ * `.claude/scripts/lib/path-utils.js` の toHomeRelativeText と同じ規則を、
+ * バンドルされる TypeScript 側でも適用する。区切り文字を要求するため、
+ * `/Users/alice2` のような兄弟ディレクトリはホームと誤認しない。
+ * @param text 絶対パスを含みうる文字列
+ * @returns $HOME 前置部を ~ にした文字列
+ */
+function toHomeRelativeText(text: string): string {
+  const home = os.homedir();
+  if (!home || home === path.parse(home).root) return text;
+  const escaped = home.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`${escaped}[/\\\\]`, "g"), "~/");
+}
+
+/**
+ * JSON 形状の値の全文字列に toHomeRelativeText を適用する。
+ * @param value JSON 形状の値
+ * @returns 文字列だけを変換した新しい値
+ */
+function toHomeRelativeDeep<T>(value: T): T {
+  if (typeof value === "string") return toHomeRelativeText(value) as unknown as T;
+  if (Array.isArray(value)) {
+    return value.map((entry) => toHomeRelativeDeep(entry)) as unknown as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const converted: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      converted[key] = toHomeRelativeDeep(entry);
+    }
+    return converted as T;
+  }
+  return value;
 }
 
 /** GRAPH ファイル名の接尾辞 — graphify の命名規約（<source>.md → <source>-GRAPH.json） */

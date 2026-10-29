@@ -424,11 +424,12 @@ function executeBackup(status) {
       fs.unlinkSync(bakPath);
     }
     fs.copyFileSync(graphFile, bakPath);
-    console.log(`backup: ${graphFile} → ${bakPath}`);
+    // A path leaving the process names no machine, so the display form is home-relative.
+    console.log(`backup: ${toHomeRelative(graphFile)} → ${toHomeRelative(bakPath)}`);
   } catch (err) {
     exitWithError(
       `Backup creation failed: ${err.message}`,
-      `graphFile=${graphFile}`,
+      `graphFile=${toHomeRelative(graphFile)}`,
       'Check disk space and write permissions.'
     );
   }

@@ -1,5 +1,6 @@
 const fs = require('fs'), path = require('path');
 const { validateTickets, parseTicketKey } = require('../lib/validate-tickets');
+const { toHomeRelativeDeep } = require('../lib/path-utils.js');
 function main() {
   const jp = process.argv[2];
   if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
@@ -7,6 +8,8 @@ function main() {
   const data = JSON.parse(fs.readFileSync(rp, 'utf8'));
   let list;
   try { list = JSON.parse(fs.readFileSync('/dev/stdin', 'utf8')); } catch (e) { console.log(JSON.stringify({ success: false, error: 'stdin fail' })); process.exit(1); }
+  // A committed ticket names no machine, including a path embedded in prose.
+  list = toHomeRelativeDeep(list);
   if (!Array.isArray(list)) { console.log(JSON.stringify({ success: false, error: 'Must be array' })); process.exit(1); }
   const updated = [], nf = [];
   for (const e of list) {

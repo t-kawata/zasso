@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { toHomeRelative } from "../lib/path-utils.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cwd = process.cwd();
@@ -43,9 +44,10 @@ const statusPath = path.join(cwd, "Status.json");
 if (fs.existsSync(statusPath)) {
   try {
     const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
-    status.researchPath = researchPath;
+    // The session record is committed, so it stores the portable form.
+    status.researchPath = toHomeRelative(researchPath);
     fs.writeFileSync(statusPath, JSON.stringify(status, null, 2) + "\n");
   } catch { /* non-fatal */ }
 }
 
-process.stdout.write(JSON.stringify({ session: existing.length === 3 ? "continued" : "new", existing, missing, researchPath }) + "\n");
+process.stdout.write(JSON.stringify({ session: existing.length === 3 ? "continued" : "new", existing, missing, researchPath: toHomeRelative(researchPath) }) + "\n");

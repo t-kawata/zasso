@@ -39,8 +39,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 
-/** Extensions the source scan reads. A path emitted from a shell script is out of reach. */
-const MODULE_SUFFIXES = Object.freeze(['.js', '.mjs', '.cjs']);
+/**
+ * Extensions the source scan reads. A path emitted from a shell script is out of
+ * reach, and the TypeScript tree is included because it is bundled into the
+ * shipped command.
+ */
+const MODULE_SUFFIXES = Object.freeze(['.js', '.mjs', '.cjs', '.ts']);
 
 /**
  * Directories never descended into.
@@ -102,6 +106,10 @@ function moduleFilesUnder(root) {
       if (entry.isDirectory()) {
         if (EXCLUDED_DIRECTORIES.includes(entry.name)) continue;
         walk(join(directory, entry.name));
+      } else if (entry.name.includes('.test.')) {
+        // A test writes fixtures under a temporary directory; it is not a writer
+        // of a committed artefact, so it is outside this rule.
+        continue;
       } else if (MODULE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
         found.push(join(directory, entry.name));
       }

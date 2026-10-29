@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
-const { fromHomeRelative, resolveStoredPath, toHomeRelative } = require('../lib/path-utils');
+const { fromHomeRelative, resolveStoredPath, toHomeRelative, toHomeRelativeText } = require('../lib/path-utils');
 const { CONTRACT_AXES, OPERATION_OBLIGATION_FIELDS, crossedBoundaryIds } = require('./lib/contract-facts');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 const {
@@ -1249,7 +1249,9 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  return lines.join('\n');
+  // A spec is a committed artefact: a home path that reached a ticket field as
+  // prose is rendered as ~/ here, so a regenerated spec never names the machine.
+  return toHomeRelativeText(lines.join('\n'));
 }
 
 // [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.

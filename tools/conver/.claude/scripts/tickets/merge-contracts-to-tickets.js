@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { toHomeRelativeDeep } = require('../lib/path-utils.js');
 const { isUnitId } = require('../rfc-graph/lib/unit-ids.mjs');
 const {
   boundaryClauseDigest,
@@ -409,7 +410,7 @@ function main() {
   }
 
   // Atomic write
-  atomicWrite(ticketsPath, JSON.stringify(ticketsData, null, 2));
+  atomicWrite(ticketsPath, JSON.stringify(toHomeRelativeDeep(ticketsData), null, 2));
 
   // Report summary
   let totalContracts = 0;

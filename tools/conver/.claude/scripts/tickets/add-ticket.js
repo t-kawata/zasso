@@ -1,6 +1,7 @@
 const fs = require("fs"),
   path = require("path");
 const { validateTickets } = require("../lib/validate-tickets");
+const { toHomeRelativeDeep } = require("../lib/path-utils.js");
 
 /**
  * Resolve a phase from the argument (phaseArg).
@@ -37,6 +38,8 @@ function resolvePhase(phases, phaseArg) {
  * @returns {{ success: boolean, ticketKey?: string, phase?: string, path?: string, error?: string }}
  */
 function addTicket(ticketsJsonPath, phaseArg, ticketData) {
+  // A committed ticket must name no machine, including a path embedded in prose.
+  ticketData = toHomeRelativeDeep(ticketData);
   const resolvedPath = path.resolve(ticketsJsonPath);
   const data = JSON.parse(fs.readFileSync(resolvedPath, "utf8"));
   let phase = resolvePhase(data.phases, phaseArg);

@@ -14,7 +14,7 @@
 import fs from "fs";
 import path from "path";
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
-import { toHomeRelative } from '../lib/path-utils.js';
+import { fromHomeRelative, toHomeRelative } from '../lib/path-utils.js';
 
 const rfcDirArg = process.argv[2];
 if (!rfcDirArg) {
@@ -45,7 +45,9 @@ function materialPathsOf(record) {
   return record.researchPath ? [record.researchPath] : [];
 }
 
-const materialPaths = materialPathsOf(status);
+// The record stores ~/..., so expand before opening it; an absolute older record
+// passes through unchanged.
+const materialPaths = materialPathsOf(status).map(fromHomeRelative);
 
 for (const materialPath of materialPaths) {
   if (!fs.existsSync(materialPath)) {

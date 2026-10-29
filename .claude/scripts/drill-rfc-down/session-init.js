@@ -64,11 +64,14 @@ function classifySessionFiles(sessionDir) {
 function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
   fs.mkdirSync(sessionDir, { recursive: true });
   const now = new Date().toISOString();
+  // The session record is committed, so its paths name no machine.
+  const storedRfcPath = toHomeRelative(rfcPath);
+  const storedRfcDir = toHomeRelative(rfcDir);
   fs.writeFileSync(path.join(sessionDir, STATUS_FILE), JSON.stringify({
     state: 'GRILLING',
-    researchPath: rfcPath,
-    rfcPath,
-    rfcDir,
+    researchPath: storedRfcPath,
+    rfcPath: storedRfcPath,
+    rfcDir: storedRfcDir,
     reviewLoopCount: 0,
     createdAt: now,
     updatedAt: now,
