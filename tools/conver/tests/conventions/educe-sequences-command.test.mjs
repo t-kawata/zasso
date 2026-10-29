@@ -26,7 +26,7 @@ const COMMAND_PATH = `${PROJECT_ROOT}.claude/commands/educe-sequences.md`;
 const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 
 /** The Step headings, with the number each carries. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function stepHeadings() {
   return [...COMMAND.matchAll(/^### Step (\d+) — (.+)$/gm)].map(([, id, title]) => ({ id: Number(id), title: title.trim() }));
 }
@@ -82,7 +82,7 @@ const RUN_DIRECTORY = `<dir of spec-file>/${RUN_DIRECTORY_NAME}`;
  * left out because the sentence that defines the run directory lists it there, where the
  * directory is the subject and repeating its own path would say nothing.
  */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
 function workingFiles() {
   const expectations = Object.values(PHASE_EXPECTS).join(' ');
   const readings = BRIEF_NAMES.map(readingsFileName).filter((name) => expectations.includes(name));
@@ -95,7 +95,7 @@ function workingFiles() {
  * A token is compared segment by segment rather than as a substring, so a module named
  * `rail/adhoc.mjs` is not read as the `adhoc` working directory of a run.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function pathTokens() {
   return [...COMMAND.matchAll(/`([^`\n]*)`/g)]
     .map(([, token]) => token)

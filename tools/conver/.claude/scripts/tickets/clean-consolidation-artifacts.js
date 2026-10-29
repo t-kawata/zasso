@@ -31,7 +31,7 @@ const ROLLBACK_PREFIX = 'ROLLBACK-';
  * @param {string} dir — Root directory (manifests/ lives here)
  * @returns {Array<string>} — Absolute paths to matching artifact files
  */
-// [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function listArtifactsToRemove(dir) {
   const manifestsDir = path.join(dir, MANIFESTS_DIR);
   let entries;
@@ -53,7 +53,7 @@ function listArtifactsToRemove(dir) {
  * @param {string} dir — Root directory
  * @returns {{ok: boolean, removed: Array<string>, removedDir: boolean, error?: string}}
  */
-// [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function cleanConsolidationArtifacts(dir) {
   const manifestsDir = path.join(dir, MANIFESTS_DIR);
   const removed = [];
@@ -78,7 +78,7 @@ function cleanConsolidationArtifacts(dir) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function main() {
   const res = cleanConsolidationArtifacts(process.cwd());
   if (!res.ok) {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-175 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-175 --for-spec --no-implementation-order`.
 /**
  * Line-oriented Markdown helpers: code-fence state and byte-offset tables.
  *
@@ -61,7 +61,7 @@ export function scanFenceStates(lines) {
  * @param {string} sourceText - normalized text
  * @returns {number[]} offsets[i] is the offset of line i (0-based) into the string
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 export function lineStartOffsets(sourceText) {
   const offsets = [0];
   for (let index = 0; index < sourceText.length; index += 1) {

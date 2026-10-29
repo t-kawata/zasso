@@ -28,7 +28,7 @@ const FIXTURE_STORAGE_DIR = 'fixtures';
  * @param {string} line — A single line of source text
  * @returns {boolean}
  */
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
 function containsStubMarker(line) {
   return STUB_RE.test(line);
 }
@@ -38,7 +38,7 @@ function containsStubMarker(line) {
  * @param {string} line — A single line of source text
  * @returns {boolean}
  */
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
 function isStubInQuotes(line) {
   return STUB_IN_QUOTES_RE.test(line);
 }

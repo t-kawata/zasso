@@ -1,5 +1,5 @@
 // PX-234 @verifies C001
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The four names a package directory is searched for.
  *
@@ -23,7 +23,7 @@ import {
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 const ARTIFACT_CONTENT = {
   'RFC.md': '## Design\n\nThe store is a file.\n',
   'RFC-SEED.md': '## §1 Identity/Position\n\nsoul-side owns the key.\n',
@@ -37,7 +37,7 @@ const ARTIFACT_CONTENT = {
 const ALL_FOUR = Object.keys(ARTIFACT_CONTENT);
 
 /** A package directory holding all four names, scanned by the driver itself. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function scanAllFour() {
   const fixture = materializeGrillFixture();
   for (const [name, content] of Object.entries(ARTIFACT_CONTENT)) {

@@ -1,7 +1,7 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 // R6 plans the red that an existing implementation never had, and R6.5 generates
 // the properties that can break it. Planning and generation are separate so each
 // can be tested without an environment that executes anything.
@@ -43,7 +43,7 @@ import { GAP_KINDS } from '../../../.claude/scripts/workspacify-reverse/lib/gaps
  * from: a plan that invented its own expected red would be describing an
  * observation nobody recorded.
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function claimFor({ id = 'clm-login-invariant-3', kind = 'invariant', file = 'src/api/login.rs', line = 3 } = {}) {
   return {
     claim_id: id,
@@ -57,7 +57,7 @@ function claimFor({ id = 'clm-login-invariant-3', kind = 'invariant', file = 'sr
 }
 
 /** A gap in the shape R5 emits. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function gapFor({ id = 'gap-src/api/login.rs-absent_red-3', kind = 'absent_red', file = 'src/api/login.rs', line = 3 } = {}) {
   return { gap_id: id, kind, file, line, provenance: 'inferred', region: file, evidence: ['recorded by R5'], code: 'X' };
 }
@@ -65,7 +65,7 @@ function gapFor({ id = 'gap-src/api/login.rs-absent_red-3', kind = 'absent_red',
 const SINGLE_CLAIM_LEDGER = Object.freeze({ claims: [claimFor()] });
 
 /** An invariant carrying the category its semantic reading supplied. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function invariantFor({ source_fact = 'src/model/codec.rs:12', category = 'parser_serialiser', proposition = 'the parse of a serialised value returns the original', oracle_independence = 'external_format_derived' } = {}) {
   return { proposition, kind: 'assert', source_fact, category, oracle_independence, scope: 'src/model' };
 }

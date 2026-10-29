@@ -13,7 +13,7 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 /** The index a materialized workspace produces. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function indexOfArtifact(artifact) {
   const workspace = materializeSmoothWorkspace({ artifact });
   try {
@@ -25,7 +25,7 @@ function indexOfArtifact(artifact) {
 }
 
 /** The input the migration reads. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {

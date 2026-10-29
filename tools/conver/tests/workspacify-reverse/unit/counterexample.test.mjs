@@ -1,5 +1,5 @@
 // @verifies C003
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 // R6.5's reverse edge: a counterexample reaches back into the claim ledger and
 // retracts or splits the claim it bears on. The ledger would otherwise only ever
 // accumulate, and a counterexample that changed nothing would be a falsification
@@ -24,7 +24,7 @@ import {
 // --- Fixtures -------------------------------------------------------------------
 
 /** A ledger in the shape R3.5 emits, reduced to what the reverse edge reads. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function ledgerWith(...claimIds) {
   return {
     root: '/tmp/subject',
@@ -45,7 +45,7 @@ function ledgerWith(...claimIds) {
 const LEDGER = ledgerWith('clm-login-invariant-3', 'clm-login-invariant-7');
 
 /** A counterexample as the plan's execution would report it. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function counterexampleFor({ claim_id = 'clm-login-invariant-3', observed = OBSERVED_RED, narrowed_to = null } = {}) {
   const record = {
     counterexample_plan_id: 'cxp-login-mutation-3',
@@ -62,7 +62,7 @@ function counterexampleFor({ claim_id = 'clm-login-invariant-3', observed = OBSE
  * The reverse edge reads a record rather than a bare observation, so that the
  * document can say what happened to every counterexample the stage received.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function executedRecord({
   claim_id = 'clm-login-invariant-3',
   observed = OBSERVED_RED,
@@ -85,7 +85,7 @@ function executedRecord({
 }
 
 /** A counterexample the channel derived and nothing was offered to run. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function derivedEntry(claim_id = 'clm-login-invariant-3') {
   return {
     claim_id,
@@ -97,7 +97,7 @@ function derivedEntry(claim_id = 'clm-login-invariant-3') {
 }
 
 /** A counterexample a run refused, carrying the code from the declared vocabulary. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function refusedRecord({ claim_id = 'clm-login-invariant-3', reason = 'executor-missing' } = {}) {
   return {
     ...derivedEntry(claim_id),

@@ -33,7 +33,7 @@ const FACT_AXES = Object.freeze(['pre', 'post', 'invariants']);
 const ORDER_EDGE_TYPES = Object.freeze(['depends_on', 'constrains', 'requires']);
 
 /** A named failure the CLI can print without guessing. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function namedError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -41,7 +41,7 @@ function namedError(code, message) {
 }
 
 /** The kind encoded in a unit id, or `unsupported`. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function unitKindOf(unitId) {
   if (unitId.startsWith('op-')) return 'op';
   if (unitId.startsWith('seq-')) return 'seq';
@@ -51,45 +51,45 @@ function unitKindOf(unitId) {
 }
 
 /** The operation id encoded in an `op-` unit id. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function operationIdOf(unitId) {
   return unitId.slice('op-'.length);
 }
 
 /** The sequence id encoded in a `seq-` or `xdir-` unit id. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function sequenceIdOf(unitId) {
   return unitId.slice(unitId.indexOf('-') + 1);
 }
 
 /** The boundary id encoded in a `ctr-` unit id. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function boundaryIdOf(unitId) {
   return unitId.slice('ctr-'.length);
 }
 
 /** The text of a fact, string or object. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function factText(fact) {
   if (typeof fact === 'string') return fact;
   return String(fact?.text ?? fact?.factId ?? '');
 }
 
 /** The fact array of one axis, or an empty array. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function factsOf(row, axis) {
   const facts = row?.contract?.[axis];
   return Array.isArray(facts) ? facts : [];
 }
 
 /** The step rows of one operation. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function stepRowsForOperation(stepContracts, operationId) {
   return (stepContracts.steps ?? []).filter((row) => row.operationId === operationId);
 }
 
 /** The step order the view records, keyed by step id. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function stepOrderMap(view) {
   const orders = new Map();
   for (const unit of [...(view.ownedSequenceUnits ?? []), ...(view.crossBoundarySequenceUnits ?? [])]) {
@@ -101,7 +101,7 @@ function stepOrderMap(view) {
 }
 
 /** Sort step rows by their view order, then by id for a deterministic tie-break. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function sortedStepRows(rows, orders) {
   return [...rows].sort((left, right) => {
     const leftOrder = orders.get(left.stepId)?.order ?? Number.MAX_SAFE_INTEGER;
@@ -112,7 +112,7 @@ function sortedStepRows(rows, orders) {
 }
 
 /** The package's own boundary units, as a set of `ctr-boundary-N` ids. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function packageBoundaryUnits(view) {
   return new Set((view.obligationUnits ?? [])
     .map((unit) => String(unit.unitId ?? ''))
@@ -120,13 +120,13 @@ function packageBoundaryUnits(view) {
 }
 
 /** Whether a boundary id belongs to this package's carried boundaries. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function isPackageBoundary(packageUnits, boundaryId) {
   return packageUnits.has(`ctr-${boundaryId}`);
 }
 
 /** The view record of one operation, owned or assigned. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function viewOperation(view, operationId) {
   const owned = (view.ownedOperationUnits ?? [])
     .find((unit) => unit.operationId === operationId || unit.unitId === `op-${operationId}`);
@@ -140,26 +140,26 @@ function viewOperation(view, operationId) {
 }
 
 /** The view record of one sequence unit. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function viewSequence(view, sequenceId) {
   return [...(view.ownedSequenceUnits ?? []), ...(view.crossBoundarySequenceUnits ?? [])]
     .find((unit) => unit.sequenceId === sequenceId) ?? null;
 }
 
 /** The view record of one carried boundary. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function viewBoundary(view, boundaryId) {
   return (view.obligationUnits ?? []).find((unit) => unit.unitId === `ctr-${boundaryId}`) ?? null;
 }
 
 /** The node that carries a unit, or undefined. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function nodeCarryingUnit(graph, unitId) {
   return graph.nodes.find((node) => (node.unitIds ?? []).includes(unitId));
 }
 
 /** Deterministic order for edge contract entries: endpoints, edge type, contract id. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function compareEdgeContract(left, right) {
   const byFrom = String(left.edge.from).localeCompare(String(right.edge.from));
   if (byFrom !== 0) return byFrom;
@@ -178,7 +178,7 @@ function compareEdgeContract(left, right) {
  * other contracts, so the inventory keeps each contract with the edge that carried
  * it and lets the renderer say which one is expanded.
  */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function collectBoundaryContracts(graph, boundaryId) {
   const ctrUnit = `ctr-${boundaryId}`;
   const carrierNodes = graph.nodes.filter((node) => (node.unitIds ?? []).includes(ctrUnit));
@@ -198,19 +198,19 @@ function collectBoundaryContracts(graph, boundaryId) {
 }
 
 /** The registry row of one boundary, or null. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function registryBoundary(registry, boundaryId) {
   return (registry?.contract_registry ?? []).find((row) => row.boundary_id === boundaryId) ?? null;
 }
 
 /** The title of a node id, or the id itself. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function titleOf(graph, nodeId) {
   return graph.nodes.find((node) => node.id === nodeId)?.title ?? nodeId;
 }
 
 /** The graph prerequisites and unblocks of one node. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function graphOrder(graph, nodeId) {
   const prerequisites = graph.edges
     .filter((edge) => edge.from === nodeId && ORDER_EDGE_TYPES.includes(edge.type))
@@ -222,21 +222,21 @@ function graphOrder(graph, nodeId) {
 }
 
 /** Whether a fact is owned by a boundary this package does not carry. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function isExternalFact(fact, packageUnits) {
   const boundaryId = fact?.source?.boundaryId;
   return typeof boundaryId === 'string' && !isPackageBoundary(packageUnits, boundaryId);
 }
 
 /** Whether an axis value names a boundary this package does not carry. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function isExternalAxisValue(value, packageUnits) {
   const match = String(value).match(/^boundary:(boundary-\d+)\//);
   return match !== null && !isPackageBoundary(packageUnits, match[1]);
 }
 
 /** Deduplicate facts by their exact text, keeping only this package's obligations. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function deduplicateFacts(rows, axis, packageUnits) {
   const byText = new Map();
   for (const row of rows) {
@@ -253,7 +253,7 @@ function deduplicateFacts(rows, axis, packageUnits) {
 }
 
 /** The foreign boundary ids whose facts appear in the local step rows. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function externalFactBoundaries(rows, packageUnits) {
   const ids = new Set();
   for (const row of rows) {
@@ -273,7 +273,7 @@ function externalFactBoundaries(rows, packageUnits) {
 }
 
 /** Render a capped fact list and state exactly how many were omitted. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function renderFactList(lines, label, entries, cap, pointer) {
   if (entries.length === 0) return;
   lines.push(`- ${label} (${entries.length}):`);
@@ -287,7 +287,7 @@ function renderFactList(lines, label, entries, cap, pointer) {
 }
 
 /** Render a capped string list. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function renderStringList(lines, label, values, cap, pointer) {
   if (values.length === 0) return;
   lines.push(`- ${label} (${values.length}):`);
@@ -298,7 +298,7 @@ function renderStringList(lines, label, values, cap, pointer) {
 }
 
 /** The unit ids a node carries, deduplicated and sorted by kind then id. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function sortedUnits(node) {
   const units = [...new Set(node.unitIds ?? [])];
   const rank = { op: 0, seq: 1, xdir: 1, ctr: 2, unsupported: 3 };
@@ -309,7 +309,7 @@ function sortedUnits(node) {
 }
 
 /** The local step rows across every operation unit on the node. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function localStepRowsForNode(node, stepContracts, localOperations) {
   const rows = [];
   for (const unitId of node.unitIds ?? []) {
@@ -322,7 +322,7 @@ function localStepRowsForNode(node, stepContracts, localOperations) {
 }
 
 /** The operation section of IMPLEMENT. */
-// [::TICKET::] PX-336, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
 function renderOperationSection(lines, context) {
   const { graph, view, stepContracts, packageUnits, operationId, orders, limits } = context;
   const record = viewOperation(view, operationId);
@@ -389,7 +389,7 @@ function renderOperationSection(lines, context) {
 }
 
 /** The sequence section of IMPLEMENT. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function renderSequenceSection(lines, context) {
   const { graph, view, stepContracts, packageUnits, unit, localOperations, orders, limits } = context;
   const sequenceId = sequenceIdOf(unit.unitId);
@@ -427,7 +427,7 @@ function renderSequenceSection(lines, context) {
 }
 
 /** The boundary section of IMPLEMENT. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderBoundarySection(lines, context) {
   const { graph, view, registry, boundaryId, limits } = context;
   const record = viewBoundary(view, boundaryId);
@@ -492,14 +492,14 @@ function renderBoundarySection(lines, context) {
 }
 
 /** The unsupported-unit section of IMPLEMENT. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function renderUnsupportedSection(lines, unitId) {
   lines.push(`### ${unitId}`);
   lines.push('- UNSUPPORTED: no resolver exists for this unit kind. The brief does not guess what it means.');
 }
 
 /** Build the IMPLEMENT section body. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function renderImplement(lines, context) {
   const { node, view, stepContracts, registry, localOperations, packageUnits, orders, limits } = context;
   for (const unitId of sortedUnits(node)) {
@@ -520,7 +520,7 @@ function renderImplement(lines, context) {
 }
 
 /** Build the MUST HOLD section body. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderMustHold(lines, context) {
   const { node, view, stepContracts, localOperations, packageUnits, orders, limits } = context;
   const rows = sortedStepRows(localStepRowsForNode(node, stepContracts, localOperations), orders);
@@ -543,7 +543,7 @@ function renderMustHold(lines, context) {
 }
 
 /** Build the DO NOT section body. */
-// [::TICKET::] PX-336, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-338) --for-spec --no-implementation-order`.
 function renderDoNot(lines, context) {
   const { node, view, stepContracts, localOperations, packageUnits, orders, limits } = context;
   const items = [];
@@ -612,7 +612,7 @@ function renderDoNot(lines, context) {
 }
 
 /** Build the ORDER section body. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderOrder(lines, context) {
   const { graph, node, view, stepContracts, localOperations, orders, limits } = context;
   let linesAdded = 0;
@@ -683,7 +683,7 @@ function renderOrder(lines, context) {
 }
 
 /** Build the PROOF section body. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function renderProof(lines, context) {
   const { graph, node, view, stepContracts, registry, options, orders, limits } = context;
   const rows = sortedStepRows(
@@ -711,7 +711,7 @@ function renderProof(lines, context) {
 }
 
 /** Normalize the limits an option object may override. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function normalizedLimits(options) {
   const positiveInteger = (value, fallback) =>
     Number.isInteger(value) && value > 0 ? value : fallback;

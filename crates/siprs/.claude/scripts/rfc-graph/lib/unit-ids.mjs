@@ -12,7 +12,7 @@
  */
 
 /** The id shape a distributed unit has: op- an operation, seq- a sequence one package owns, xdir- one that crosses, ctr- a boundary side, obl- a declared surface. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 import { parseDistributionMap, resolveSections } from '../../sequences-slice/lib/distribution-map.mjs';
 
 export const UNIT_ID_PATTERN = '^(op|seq|xdir|ctr|obl)-.+';
@@ -30,7 +30,7 @@ const HEADER_NODE_LINE = /^\s*(?:\/\/|#|\/\*|\*)?\s*node:\s*(N[0-9]{4})\b/m;
 const HEADER_UNITS_LINE = /^\s*(?:\/\/|#|\/\*|\*)?\s*units:\s*(.+)$/m;
 
 /** Whether a string is a unit id rather than a graph node id or anything else. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function isUnitId(candidate) {
   return typeof candidate === 'string' && new RegExp(UNIT_ID_PATTERN).test(candidate);
 }
@@ -44,7 +44,7 @@ export function isUnitId(candidate) {
  * @param {{ unitIds?: unknown }} node
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function readUnitIds(node) {
   const unitIds = node?.unitIds;
   if (!Array.isArray(unitIds)) return [];
@@ -57,7 +57,7 @@ export function readUnitIds(node) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function readGraphUnitIds(graph) {
   const ids = new Set();
   for (const node of graph?.nodes ?? []) {
@@ -75,7 +75,7 @@ export function readGraphUnitIds(graph) {
  * @param {string} sectionText
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function readUnitAnchors(sectionText) {
   const anchors = [];
   for (const match of String(sectionText).matchAll(SECTION_ANCHOR)) {
@@ -94,7 +94,7 @@ export function readUnitAnchors(sectionText) {
  * @param {string[]} unitIds
  * @returns {object}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function carryUnitIdsToNode(node, unitIds) {
   const merged = [...readUnitIds(node)];
   for (const unitId of unitIds) {
@@ -127,7 +127,7 @@ export function collectViewUnitIds(packages = []) {
 
 /** The unit ids a distribution ledger assigns, excluding declared residuals. */
 /** A ledger row's Kind cell without the markdown emphasis a table may carry. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function ledgerKindOf(row) {
   return String(row?.kind ?? '').replace(/`/g, '').trim();
 }
@@ -142,7 +142,7 @@ export function collectLedgerUnitIds(rows = []) {
 }
 
 /** The unit ids a distribution ledger declares as residuals rather than distributing. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function collectLedgerResidualUnitIds(rows = []) {
   const ids = new Set();
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -153,8 +153,8 @@ export function collectLedgerResidualUnitIds(rows = []) {
 }
 
 /** A heading's text without the marker or surrounding whitespace. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export function normalizeHeading(text) {
   return String(text ?? '').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
@@ -190,7 +190,7 @@ export function readSectionUnitAnchors(rfcText) {
 }
 
 /** The units a graph would carry if every RFC anchor reached the node its heading built. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function unitsByNode(graph, rfcText) {
   const sections = readSectionUnitAnchors(rfcText);
   const nodeByHeading = new Map();
@@ -240,8 +240,8 @@ export function unassignedAnchors(graph, rfcText) {
 }
 
 /** The graph node a generated header names, or null when it names none. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 export function readHeaderNodeId(fileText) {
   const match = HEADER_NODE_LINE.exec(String(fileText));
   return match === null ? null : match[1];
@@ -257,8 +257,8 @@ export function readHeaderNodeId(fileText) {
  * @param {string} headerText
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 export function readHeaderUnitIds(headerText) {
   const text = String(headerText);
   if (!text.includes(HEADER_OPENING)) return [];
@@ -280,7 +280,7 @@ export function readHeaderUnitIds(headerText) {
  * @param {{ phases?: Array<{ tickets?: Array<{ nodeIds?: unknown }> }> }} tickets
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function resolveUnitIdsFromTickets(tickets) {
   const ids = new Set();
   for (const phase of tickets?.phases ?? []) {
@@ -305,7 +305,7 @@ export function resolveUnitIdsFromTickets(tickets) {
  * @param {string[]} unitIds
  * @returns {object}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function writeUnitIdsToTicket(ticket, unitIds) {
   const nodeIds = Array.isArray(ticket?.nodeIds) ? [...ticket.nodeIds] : [];
   for (const unitId of unitIds) {
@@ -324,7 +324,7 @@ export function writeUnitIdsToTicket(ticket, unitIds) {
  * @param {string} rfcText
  * @returns {object|null}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export function readDistributionMap(rfcText) {
   const parsed = parseDistributionMap(rfcText);
   return parsed.ok ? parsed.map : null;
@@ -342,7 +342,7 @@ export function readDistributionMap(rfcText) {
  * @param {string} rfcText
  * @returns {{ graph: object, missing: string[], invented: string[] }}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export function assignUnitIdsFromMap(graph, map, rfcText) {
   const managed = new Set((map?.units ?? []).map((unit) => unit.unitId));
   const sectionTextsByUnit = new Map();

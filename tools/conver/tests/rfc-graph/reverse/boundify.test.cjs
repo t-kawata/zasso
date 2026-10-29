@@ -1,4 +1,4 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // P22-15 @verifies C001 @verifies C002
 /**
  * B1 through B3 — the reverse branch of `/boundify-graph` (§6.7, §6.14.5).

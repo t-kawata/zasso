@@ -1,4 +1,4 @@
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 // P22-13 @verifies C001
 /**
  * G1 to G3 — the reverse grill's question generation.
@@ -126,7 +126,7 @@ function stageOneResidual(overrides = {}) {
  */
 const FORBIDDEN_REVERSE_INDEX = SEED_REQUIRED_SECTIONS.length + 1;
 
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 test('C001 precondition: the reverse index is read from section 1 of a real rendered seed', () => {
   const seedText = reverseSeed();
   const parsed = parseSeed(seedText);

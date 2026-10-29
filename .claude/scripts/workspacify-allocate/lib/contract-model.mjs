@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-202) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-193|PX-202) --for-spec --no-implementation-order`.
 // PX-193 @verifies C003
 /**
  * Coupling contract model.
@@ -28,7 +28,7 @@ const LIST_CLAUSES = Object.freeze(['preconditions', 'postconditions', 'invarian
 export const NOT_APPLICABLE_KEY = 'notApplicable';
 
 /** Whether a clause group carries no value at all. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function isEmptyClause(value) {
   if (Array.isArray(value)) return value.length === 0;
   return typeof value !== 'string' || value.trim().length === 0;
@@ -45,7 +45,7 @@ export function contractIdForBoundary(boundaryId) {
  * Dropping it would delete authored content between the decisions payload and the
  * seed; an unknown contract id already throws, and clause keys follow the same rule.
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function assertClauseVocabulary(clauses, contractId) {
   const known = new Set(CONTRACT_CLAUSES);
   for (const key of Object.keys(clauses ?? {})) {
@@ -66,7 +66,7 @@ function assertClauseVocabulary(clauses, contractId) {
  * preconditions, postconditions or invariants cannot state the coupling at all.
  * An unknown name is refused for the same reason an unknown clause key is.
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function canonicalizeNotApplicable(declared, contractId) {
   if (!Array.isArray(declared)) {
     throw new WorkSpacifyTreeError(
@@ -168,7 +168,7 @@ export function buildContractEdge({ boundaryId, sides, relation = {}, content = 
  * under notApplicable: a missing key is an omission, not a statement that
  * nothing applies.
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function clausePresenceProblems({ declaredScope, clauseNames, clauses, notApplicable }) {
   const nonCoreInScope = declaredScope.filter((clause) => !CORE_CONTRACT_CLAUSES.includes(clause));
   return {
@@ -186,7 +186,7 @@ function clausePresenceProblems({ declaredScope, clauseNames, clauses, notApplic
 }
 
 /** How a contract declares a clause absent, and whether that declaration is legal. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function notApplicableProblems({ declaredNotApplicable, notApplicable, clauseNames, clauses }) {
   return {
     malformedNotApplicable: declaredNotApplicable !== undefined && !Array.isArray(declaredNotApplicable),
@@ -199,7 +199,7 @@ function notApplicableProblems({ declaredNotApplicable, notApplicable, clauseNam
 }
 
 /** The kind a boundary declared, and the kind the contract actually carries. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function kindMismatchFor(edge, boundary) {
   const expected = typeof boundary?.connection_kind === 'string' && boundary.connection_kind.length > 0
     ? boundary.connection_kind

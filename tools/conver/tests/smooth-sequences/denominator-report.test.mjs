@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 test('the report labels every denominator component', () => {
   const workspace = materializeSmoothWorkspace();
   try {

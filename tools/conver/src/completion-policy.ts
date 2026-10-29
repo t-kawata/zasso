@@ -12,7 +12,7 @@
 
 /** status が動かないときに送る定型の完了指示。1〜2回目はこの文面をそのまま送る */
 export const COMPLETION_TEMPLATE =
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
   "Detected that the status indicates an incomplete state. Design and plan with " +
   "neither excess nor deficiency; what is necessary and sufficient must be done. " +
   "The information required to complete the task should already exist. " +
@@ -23,7 +23,7 @@ export const COMPLETION_TEMPLATE =
  * （retryPolicy と同じ流儀）。
  */
 export const completionPolicy = {
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
   /** 定型文をそのまま送る回数。3回目以降は supervisor がメッセージを決める */
   templateAttempts: 2,
   /** 1フェーズあたりの再送上限。到達したら throw せず既存の wave retry に委ねる */

@@ -39,7 +39,7 @@ const EXIT_FAILURE = 1;
 const STEP_NOTE_PREFIXES = Object.freeze(['step:', 'step-sidecar;']);
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -48,7 +48,7 @@ function argumentFor(argv, name) {
 }
 
 /** Apply the step notes through crud.js, the sole graph write path. */
-// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
 function attachNotes(graphPath, sidecar) {
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const notes = stepNotesByEdge(graph, sidecar);
@@ -77,7 +77,7 @@ function attachNotes(graphPath, sidecar) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-318, PX-322, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-322|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphFlag = argumentFor(argv, 'graph');
   const viewFlag = argumentFor(argv, 'view');

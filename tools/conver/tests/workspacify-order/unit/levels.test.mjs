@@ -20,7 +20,7 @@ import {
 } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
 
 /** Three packages, two of which depend on the first. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function twoLevelFixture() {
   return materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -169,7 +169,7 @@ test('C002 boundary: a single-package workspace yields one level and a chain of 
 });
 
 /** Re-read a fixture's manifests the way the command does, without importing the loader. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function loadPair(workspace) {
   return {
     treeManifest: JSON.parse(readFileSync(workspace.treeManifestPath, 'utf8')),
@@ -177,7 +177,7 @@ function loadPair(workspace) {
   };
 }
 
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('C005 postcondition: markColumn is one column after the longest rendered path', (t) => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -203,7 +203,7 @@ test('C005 postcondition: markColumn is one column after the longest rendered pa
   assert.equal(markColumnFor(24), 29);
 });
 
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('C005 postcondition: a full-width path is measured in terminal columns, not code units', (t) => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
@@ -241,7 +241,7 @@ test('C005 invariant: displayWidth counts wide, zero-width and emoji clusters', 
 });
 
 test('C001/C002/C003 postcondition: buildModel carries the root and per-package counters', (t) => {
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
     edges: [['pkg-0002', 'pkg-0001']],

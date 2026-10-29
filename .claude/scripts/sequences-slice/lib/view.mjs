@@ -55,7 +55,7 @@ function copyObligationValue(value) {
  * @param {object} operation
  * @returns {object}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function operationObligation(operation) {
   return {
     kind: operation.kind ?? null,
@@ -84,7 +84,7 @@ function operationObligation(operation) {
 }
 
 /** The zero-based position of each step within its own sequence. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function assignSequencePositions(steps) {
   const positions = new Map();
   return (Array.isArray(steps) ? steps : []).map((step) => {
@@ -114,9 +114,9 @@ function assignSequencePositions(steps) {
  * @param {string} packageId
  * @returns {object}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 export function buildPackageView({ artifact, treeManifest, packageSegments, obligations = {} }, packageId) {
   const { allocateManifest = null, declared = [], record = null, sequenceAssignments = new Map() } = obligations;
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
@@ -237,13 +237,13 @@ export function buildPackageView({ artifact, treeManifest, packageSegments, obli
 }
 
 /** A markdown table row built from cells that may be empty. */
-// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
 function renderTableRow(cells) {
   return `| ${cells.join(' | ')} |`;
 }
 
 /** A section of the view, or a line saying the section is empty. */
-// [::TICKET::] PX-256, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-259) --for-spec --no-implementation-order`.
 function renderUnitTable(heading, units, columns) {
   if (units.length === 0) return [`## ${heading}`, '', 'None.', ''];
   return [
@@ -266,7 +266,7 @@ function renderUnitTable(heading, units, columns) {
  * @param {object} unit
  * @returns {string}
  */
-// [::TICKET::] PX-257, PX-259, PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259|PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-259, PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-259|PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function describeObligation(unit) {
   if (unit.relation === ASSIGNMENT_RELATION) {
     return unit.ground.length === 0 ? 'recorded with no ground' : `placed by a recorded judgment: ${unit.ground}`;
@@ -278,7 +278,7 @@ function describeObligation(unit) {
 }
 
 /** The line naming the judgments that named nothing, or none when every one of them bound. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function renderUnboundAssignments(units) {
   if (units.length === 0) return [];
   return [`Recorded assignments naming no operation or sequence: ${units.join(', ')}.`, ''];
@@ -292,7 +292,7 @@ function renderUnboundAssignments(units) {
  * decided is not a surface is as much a part of what it owes as the surfaces it declared, and a
  * projection that showed only the duties would leave the removal to be found in the record.
  */
-// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
 function renderAdjudications(adjudications) {
   if (adjudications.length === 0) return [];
   const removed = adjudications.map((entry) => `${entry.column} — ${entry.ground.length === 0 ? 'recorded with no ground' : entry.ground}`);
@@ -309,7 +309,7 @@ function renderAdjudications(adjudications) {
  * @param {object} view
  * @returns {string}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function obligationSourceOf(view) {
   return OBLIGATION_SOURCES.includes(view?.obligationSource) ? view.obligationSource : OBLIGATION_SOURCES[2];
 }
@@ -323,7 +323,7 @@ export function obligationSourceOf(view) {
  * @param {object} view
  * @returns {string}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function renderPackageViewMarkdown(view) {
   const lines = [
     `# Sequences and operations for ${view.packageId}`,
@@ -373,7 +373,7 @@ export function renderPackageViewMarkdown(view) {
  * @param {object} view
  * @returns {string}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function renderPackageViewJson(view) {
   return `${JSON.stringify(view, null, 2)}\n`;
 }

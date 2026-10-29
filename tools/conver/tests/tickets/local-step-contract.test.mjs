@@ -10,7 +10,7 @@ const { mergeContracts } = require('../../.claude/scripts/tickets/merge-contract
 const { verifyMakeContracts } = require('../../.claude/scripts/tickets/verify-make-contracts.js');
 
 /** One step-sidecar row: the shape projectStepContracts writes. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function stepRow(stepId, operationId, nodeId) {
   return {
     stepId,
@@ -28,7 +28,7 @@ function stepRow(stepId, operationId, nodeId) {
 }
 
 /** One ticket that implements one step of the shared sequence. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function ticket(id, nodeId, stepId, operationId) {
   return {
     id,

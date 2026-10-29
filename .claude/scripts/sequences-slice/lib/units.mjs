@@ -11,11 +11,11 @@
 import { resolveOperationOwners } from './ownership.mjs';
 
 /** The outcome that marks a sequence as not a sequence, and so outside the unit vocabulary. */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const NOT_A_SEQUENCE = 'notASequence';
 
 /** The outcomes that are sequences. Measured across the 553 live sequences. */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const SEQUENCE_OUTCOMES = Object.freeze(['direct', 'singleStep', 'viaNeighbour']);
 
 /**
@@ -33,7 +33,7 @@ export const SEQUENCE_OUTCOMES = Object.freeze(['direct', 'singleStep', 'viaNeig
  * @param {{ sequences: Array<{ id: string, outcome: string }>, steps: unknown[], operations: unknown[] }} artifact
  * @returns {{ sequences: unknown[], steps: unknown[], operations: unknown[], unknownOutcomes: string[] }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function buildSequenceUnits(artifact) {
   const known = new Set([NOT_A_SEQUENCE, ...SEQUENCE_OUTCOMES]);
   const unknownOutcomes = new Set();
@@ -57,7 +57,7 @@ export function buildSequenceUnits(artifact) {
  * cross-boundary sequence, and a reader that looked only at the first step would call it
  * local.
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function groupStepOperationsBySequence(steps) {
   const operationsBySequence = new Map();
   for (const step of steps) {
@@ -76,7 +76,7 @@ function groupStepOperationsBySequence(steps) {
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function classifySequenceOwnership(sequence, operationsBySequence, operationById, ownershipByCanonicalName) {
   const owners = new Set();
   for (const operationId of operationsBySequence.get(sequence.id) ?? []) {
@@ -97,7 +97,7 @@ export function classifySequenceOwnership(sequence, operationsBySequence, operat
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {{ onePackage: number, severalPackages: number, noKnownPackage: number, total: number }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function sequenceAxisBuckets(units, ownershipByCanonicalName) {
   const operationsBySequence = groupStepOperationsBySequence(units.steps);
   const operationById = new Map(units.operations.map((operation) => [operation.id, operation]));
@@ -123,7 +123,7 @@ export function sequenceAxisBuckets(units, ownershipByCanonicalName) {
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function collectSequencesWithNoKnownPackage(units, ownershipByCanonicalName) {
   const operationsBySequence = groupStepOperationsBySequence(units.steps);
   const operationById = new Map(units.operations.map((operation) => [operation.id, operation]));

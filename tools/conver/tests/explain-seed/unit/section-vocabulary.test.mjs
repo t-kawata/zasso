@@ -1,4 +1,4 @@
-// [::TICKET::] PX-225, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225, PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
 //
 // The human's section is named once. `frame.mjs` publishes the section vocabulary, so it owns
 // the name; a consumer that spells the id again holds a second definition of one fact, and the

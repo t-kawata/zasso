@@ -1,4 +1,4 @@
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The check constructor library (PX-241, contracts C001, C002).
 //
 // Every check this rail declares is one of a handful of shapes: two records must
@@ -17,7 +17,7 @@
 // when it turns red. And it never decides: each returns verdicts naming a subject and a
 // reason, and never treats a name appearing near a region, a plain span intersection or
 // a coverage relation as evidence about what a line says.
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 import { uncoveredRanges } from './coverage.mjs';
 import { spanLabel } from './load.mjs';
 import { PIN_RULES, flattenPins, rederivePin } from './pins.mjs';
@@ -42,7 +42,7 @@ const DEFAULT_SCOPE = 'every artifact';
  * one check, and it must report in the shape the rest of them report in rather than in a second
  * shape a reader would have to learn.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 export function verdict(id, subject, reason) {
   return { check: id, subject, reason };
 }
@@ -61,9 +61,9 @@ function requireAttribution({ id, defect, refuses }) {
  * coordinates is built from the same two parts as any other, and building it by hand would put
  * a second copy of this shape in the module that declares the checks.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 export function checkOf(contract, run, { examined } = {}) {
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   return {
     id: contract.id,
     originatingDefect: contract.defect,
@@ -162,7 +162,7 @@ export function agreeOn(contract, { left, right, key = (record) => record.id, va
  * verdicts are one per uncovered run rather than one per uncovered line, because a gap of
  * fourteen thousand lines is one finding and not fourteen thousand.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 export function coverEveryLine(contract, { spans, lineCount, label = spanLabel }) {
   requireAttribution(contract);
   return checkOf(contract, (context) =>
@@ -224,7 +224,7 @@ export function placeEach(contract, { members, buckets, bucketOf, label }) {
  * absorption, which would make a span of a third of the document read as one reading.
  */
 export function citeInside(contract, { claims, spanOf, crossings, label }) {
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   requireAttribution(contract);
   return checkOf(contract, (context) =>
     (claims(context) ?? []).flatMap((claim) => {

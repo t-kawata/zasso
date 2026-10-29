@@ -14,7 +14,7 @@
  * Usage:
  *   node verify-make-distribution.js --ticket-key=<key> [--tickets=<path>] [--spec=<path>]
  */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 
 const fs = require('fs');
 const path = require('path');
@@ -57,7 +57,7 @@ const DELIVERY_CODES = Object.freeze({
   WORK_SHARE_SECTION_MISSING: 'WORK_SHARE_SECTION_MISSING',
 });
 
-/** Parse `--name=value` or `--name value`. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** Parse `--name=value` or `--name value`. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -77,13 +77,13 @@ function escapeRegExp(text) {
  * let `op-10` name `op-1` and `restore` name the `rest` surface, so the boundary on both
  * sides is the rule rather than a convenience.
  */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function mentions(text, term) {
   if (typeof text !== 'string' || typeof term !== 'string' || term.length === 0) return false;
   return new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}([^A-Za-z0-9_]|$)`).test(text);
 }
 
-/** Every ticket in a Tickets.json document, in phase order. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** Every ticket in a Tickets.json document, in phase order. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function flattenTickets(document) {
   return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
     ...ticket,
@@ -91,14 +91,14 @@ function flattenTickets(document) {
   })));
 }
 
-/** The ticket a key names, or null. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** The ticket a key names, or null. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function findTicket(document, key) {
   const parsed = parseTicketKey(key);
   if (parsed === null) return null;
   return flattenTickets(document).find((ticket) => ticket.phaseId === parsed.phaseId && ticket.id === parsed.ticketId) ?? null;
 }
 
-/** Whether a step contract carries every axis the artifact declared. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** Whether a step contract carries every axis the artifact declared. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function stepContractIsDelivered(step, contract) {
   if (contract === undefined) return false;
   const required = [
@@ -120,13 +120,13 @@ function boundaryContractForUnit(unit, ticket) {
     || contract?.id === `contract-${boundaryId}`);
 }
 
-/** Whether a ctr unit's registry projection is present. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** Whether a ctr unit's registry projection is present. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function boundaryContractIsDelivered(unit, ticket) {
   return boundaryContractForUnit(unit, ticket) !== undefined;
 }
 
 /** Whether a unit is a sequence whose steps may include a foreign step. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function isSequenceUnit(unit) {
   const unitId = String(unit?.unitId ?? '');
   return unit?.kind === 'sequence'
@@ -136,14 +136,14 @@ function isSequenceUnit(unit) {
 }
 
 /** The ticket contract that projects one step, or undefined. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function contractForStep(ticket, stepId) {
   return (Array.isArray(ticket?.contracts) ? ticket.contracts : [])
     .find((contract) => contract?.stepId === stepId);
 }
 
 /** The ticket contract that projects one boundary, or undefined. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function contractForBoundary(ticket, boundaryId) {
   return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).find((contract) => contract?.boundaryId === boundaryId
     || contract?.registryContractId === `contract-${boundaryId}`
@@ -151,13 +151,13 @@ function contractForBoundary(ticket, boundaryId) {
 }
 
 /** The fact texts of one typed axis on a ticket contract. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function axisTexts(contract, axis) {
   return factTexts(contract?.contract?.[axis]);
 }
 
 /** A step's typed axes are delivered only when each non-empty fact is in the test plan. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function stepAxisFindings({ ticket, unit, testText }) {
   const findings = [];
   for (const step of Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : []) {
@@ -187,7 +187,7 @@ function stepAxisFindings({ ticket, unit, testText }) {
  * ticket could name the crossing axis in a test and never test the clauses the counterpart
  * relies on.
  */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossedBoundaryFindings({ ticket, unit, testText }) {
   const findings = [];
   const seen = new Set();
@@ -217,7 +217,7 @@ function crossedBoundaryFindings({ ticket, unit, testText }) {
 }
 
 /** The terms that identify a foreign step's owner; null when the owner is unresolved. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function ownerTerms(label) {
   if (label === 'this ticket') return [];
   if (label === 'unknown package') return null;
@@ -228,7 +228,7 @@ function ownerTerms(label) {
 }
 
 /** The boundary ids a foreign step crosses. */
-// [::TICKET::] PX-326, PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-326|PX-331) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326, PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-326|PX-331) --for-spec --no-implementation-order`.
 function crossedBoundaryIdsOfStep(step) {
   return crossedBoundaryIds(step?.contract?.crosses);
 }
@@ -238,8 +238,8 @@ function crossedBoundaryIdsOfStep(step) {
  * the step. A boundary-crossing step also needs the boundary id, because that contract is
  * the interface the two sides must agree on.
  */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
   const findings = [];
   const viewUnit = (view?.ownedSequenceUnits ?? []).concat(view?.crossBoundarySequenceUnits ?? [])
@@ -286,7 +286,7 @@ function foreignStepFindings({ ticket, unit, view, ticketsDocument }) {
 }
 
 /** Each non-empty contract-bearing or surface operation field must be planned by name. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function operationObligationFindings({ unit, testText, exceptionText }) {
   const findings = [];
   const fields = [...CONTRACT_BEARING_OPERATION_FIELDS, ...SURFACE_OPERATION_FIELDS];
@@ -307,8 +307,8 @@ function operationObligationFindings({ unit, testText, exceptionText }) {
  *
  * @returns {{ ok: boolean, skipped?: string, findings: Array<object> }}
  */
-// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function evaluateDistributionDelivery(ticket, { specText = null, specProvided = false, view, ticketsDocument = null } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return { ok: true, skipped: 'no-distribution', findings: [] };
@@ -404,7 +404,7 @@ function evaluateDistributionDelivery(ticket, { specText = null, specProvided = 
   return { ok: findings.length === 0, findings };
 }
 
-// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325, PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-324|PX-325|PX-326) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
@@ -434,7 +434,7 @@ function run(argv = process.argv.slice(2)) {
   return { code: result.ok ? EXIT_OK : EXIT_FAILURE, verdict: result, findings: result.findings ?? [] };
 }
 
-/** The CLI entry point. */// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
+/** The CLI entry point. */// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const result = run(argv);
   for (const finding of result.findings) {

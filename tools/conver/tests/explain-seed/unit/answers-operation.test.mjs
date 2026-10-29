@@ -36,13 +36,13 @@ const SEED_PATH = '/tmp/explain-seed-fixture/crates/protocol/alpha/RFC-SEED.md';
 const REVISION_PAYLOAD = JSON.stringify({ origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' });
 
 /** An authored explanation whose one question binds every recorded point, no answer written. */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function authored(size = 1) {
   return authorExplanation({ facts: syntheticFacts(), size, boundIds: syntheticOpenIds() });
 }
 
 /** The questions a document asks, named the way an answer names them, in the order it asks. */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function askedIds(documentText) {
   return splitItems(locateSections(documentText).bodies[HUMAN_SECTION_ID] ?? '', HUMAN_ITEM_HEADING).map((item) => {
     const number = questionNumberOf(item.heading);
@@ -57,7 +57,7 @@ function askedIds(documentText) {
  * document's own header explains what the placeholder is for, and an answer written there is
  * an answer to nothing.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function withNoteUnderFirstPlaceholder(documentText, note) {
   const lines = [];
   let written = false;
@@ -71,7 +71,7 @@ function withNoteUnderFirstPlaceholder(documentText, note) {
 }
 
 /** The same document with an answer under every place a person writes that has none yet. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function withNoteUnderEveryPlaceholder(documentText, note) {
   const source = documentText.split('\n');
   const lines = [];
@@ -84,7 +84,7 @@ function withNoteUnderEveryPlaceholder(documentText, note) {
 }
 
 /** The same document with the human's section cut out, so nothing says where a person answers. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function withoutHumanSection(documentText) {
   const heading = `## ${FRAME_SECTIONS[4].title}`;
   const start = documentText.indexOf(heading);
@@ -93,7 +93,7 @@ function withoutHumanSection(documentText) {
   return `${documentText.slice(0, start)}${rest.slice(rest.search(/\n## /) + 1)}`;
 }
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 precondition and postcondition: a document whose questions are unanswered names every one of them', () => {
   const complete = authored();
   const itemIds = askedIds(complete);
@@ -102,7 +102,7 @@ test('C003 precondition and postcondition: a document whose questions are unansw
   assert.deepEqual(readAnswers(complete), { asked: itemIds.length, answered: 0, unanswered: itemIds });
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 postcondition: each answer retires its own question and leaves the rest standing', () => {
   const complete = authored(2);
   const [firstId, ...rest] = askedIds(complete);
@@ -116,7 +116,7 @@ test('C003 postcondition: each answer retires its own question and leaves the re
   assert.equal(readAnswers(allAnswered).unanswered.includes(firstId), false);
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 postcondition: an explanation that asks nothing is complete, and says so rather than reporting a failure', () => {
   const facts = syntheticFacts({ projection: syntheticProjection({ grill: { questions: [], risky_boundaries: [] } }) });
   const quiet = fillEveryMarker(buildFrame({ facts, previous: null }).text);
@@ -126,7 +126,7 @@ test('C003 postcondition: an explanation that asks nothing is complete, and says
   assert.match(renderAnswerVerdict(reading), /nothing to ask/i, 'an empty section is stated, not passed over in silence');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 postcondition: the verdict states how far the round has got', () => {
   const complete = authored();
   const allAnswered = withNoteUnderEveryPlaceholder(complete, HUMAN_NOTE);
@@ -139,7 +139,7 @@ test('C003 postcondition: the verdict states how far the round has got', () => {
   assert.match(closed, new RegExp(`${askedIds(complete).length} of ${askedIds(complete).length}`), 'a finished round reports its count');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 boundary: an answer spanning several lines counts as one answer, not as several', () => {
   const complete = authored();
   const [firstId] = askedIds(complete);
@@ -150,7 +150,7 @@ test('C003 boundary: an answer spanning several lines counts as one answer, not 
   assert.equal(reading.unanswered.includes(firstId), false);
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 invariant: a document whose human section cannot be read raises rather than reporting nothing to answer', () => {
   const complete = authored();
 
@@ -161,7 +161,7 @@ test('C003 invariant: a document whose human section cannot be read raises rathe
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 boundary: a human section that appears twice is a reading failure, not two rounds of questions', () => {
   const complete = authored();
   const heading = `## ${FRAME_SECTIONS[4].title}`;
@@ -170,7 +170,7 @@ test('C003 boundary: a human section that appears twice is a reading failure, no
   assert.throws(() => readAnswers(doubled), ExplainSeedError);
 });
 
-// [::TICKET::] PX-226, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-236) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-236) --for-spec --no-implementation-order`.
 test('C004 precondition: the tool accepts every operation it declares, and each takes the arguments it declares', () => {
   const names = Object.values(OPERATIONS);
 
@@ -198,7 +198,7 @@ test('C004 precondition: the tool accepts every operation it declares, and each 
   }
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C004 postcondition: every other argv is refused, and the refusal names what is accepted', () => {
   const names = Object.values(OPERATIONS);
   const refused = [
@@ -222,7 +222,7 @@ test('C004 postcondition: every other argv is refused, and the refusal names wha
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 boundary: the round size next takes is an integer from one to the declared maximum, and nothing else', () => {
   for (const size of ['1', '2', '3']) {
     assert.equal(parseArguments(['next', SEED_PATH, size]).size, Number(size));
@@ -236,7 +236,7 @@ test('C002 boundary: the round size next takes is an integer from one to the dec
   }
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 normal: a document whose questions are all answered still fails while one added point is unsettled', () => {
   const complete = withNoteUnderEveryPlaceholder(authored(), HUMAN_NOTE);
   const reading = readAnswers(complete);
@@ -247,7 +247,7 @@ test('C004 normal: a document whose questions are all answered still fails while
   assert.match(verdict, /added-001/, 'and the verdict names the point that keeps it open');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 error: the verdict names the added point that is still unsettled', () => {
   const reading = readAnswers(authored());
   const verdict = renderAnswerVerdict({ ...reading, unsettled: ['added-001'] });
@@ -256,7 +256,7 @@ test('C004 error: the verdict names the added point that is still unsettled', ()
   assert.match(verdict, /- added-001\b/, 'the point is listed by id, so the operator can settle it');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C004 invariant: the refusal lists the operations the parser accepts, not a list written beside it', () => {
   let message = '';
   try {

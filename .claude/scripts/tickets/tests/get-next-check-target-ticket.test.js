@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-101: Create get-next-check-target-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101: Create get-next-check-target-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 
 /**
  * get-next-check-target-ticket.test.js — Tests for get-next-check-target-ticket.js
@@ -23,13 +23,13 @@ let removeOmitsFile;
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }

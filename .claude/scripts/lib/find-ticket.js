@@ -20,7 +20,7 @@
  * @param {string} ticketKey — e.g. "PX-77" or "P3-2"
  * @returns {object|null}
  */
-// [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-81 --for-spec --no-implementation-order`.
 function findTicket(ticketsData, ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/);
   const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
@@ -51,7 +51,7 @@ function findTicket(ticketsData, ticketKey) {
  * @param {string} ticketKey
  * @returns {boolean}
  */
-// [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-81 --for-spec --no-implementation-order`.
 function ticketExists(ticketsData, ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/);
   const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
@@ -82,7 +82,7 @@ function ticketExists(ticketsData, ticketKey) {
  * @param {string} ticketKey
  * @returns {boolean}
  */
-// [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-81 --for-spec --no-implementation-order`.
 function ticketIsDone(ticketsData, ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/);
   const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);

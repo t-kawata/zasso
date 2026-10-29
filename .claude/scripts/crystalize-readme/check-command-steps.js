@@ -55,7 +55,7 @@ const NO_BLOCK = 'no CRITICAL block';
 const NO_EXCEPTION = 'no exception paragraph';
 
 /** The lines between the CRITICAL heading and the next top-level heading. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readBlockBody(lines, headingIndex) {
   const body = [];
   for (const line of lines.slice(headingIndex + 1)) {
@@ -66,7 +66,7 @@ function readBlockBody(lines, headingIndex) {
 }
 
 /** The blank-line separated paragraphs of a block body. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readParagraphs(body) {
   return body
     .join('\n')
@@ -76,7 +76,7 @@ function readParagraphs(body) {
 }
 
 /** The first paragraph a pattern matches, or the empty string. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function firstParagraphMatching(paragraphs, pattern) {
   return paragraphs.find((paragraph) => pattern.test(paragraph)) ?? '';
 }
@@ -88,7 +88,7 @@ function firstParagraphMatching(paragraphs, pattern) {
  * @param {string} text
  * @returns {{ heading: string|null, prohibition: string, exception: string }}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readCriticalBlock(text) {
   const lines = text.split('\n');
   const headingIndex = lines.findIndex((line) => CRITICAL_HEADING_PATTERN.test(line));
@@ -110,7 +110,7 @@ function readCriticalBlock(text) {
  * @param {string} text
  * @returns {string[]}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readDefinedSteps(text) {
   const defined = [];
   const lines = text.split('\n');
@@ -134,7 +134,7 @@ function readDefinedSteps(text) {
  * @param {string} paragraph
  * @returns {string[]}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readNamedSteps(paragraph) {
   const named = [];
 
@@ -156,7 +156,7 @@ function readNamedSteps(paragraph) {
  * @param {string} text
  * @returns {{ fault: string|null, defined: string[], unresolved: Array<{ identifier: string, defined: string[] }> }}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function inspectCommandSteps(text) {
   const defined = readDefinedSteps(text);
   const block = readCriticalBlock(text);
@@ -177,7 +177,7 @@ function inspectCommandSteps(text) {
  * @param {string} text
  * @returns {Array<{ identifier: string, defined: string[] }>}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function findUnresolvedSteps(text) {
   return inspectCommandSteps(text).unresolved;
 }
@@ -192,7 +192,7 @@ function findUnresolvedSteps(text) {
  * @param {string[]} argv
  * @returns {{ file: string|null, unknown: string[] }}
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function readRequestedFile(argv) {
   const unknown = argv.filter((argument) => !argument.startsWith(FILE_OPTION));
   const option = argv.find((argument) => argument.startsWith(FILE_OPTION));
@@ -209,7 +209,7 @@ function readRequestedFile(argv) {
  * @param {string[]} argv
  * @returns {number} the exit code
  */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function main(argv) {
   const { file, unknown } = readRequestedFile(argv);
   let text;

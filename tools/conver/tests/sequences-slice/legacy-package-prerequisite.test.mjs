@@ -8,13 +8,13 @@ import assert from 'node:assert/strict';
 import { evaluatePrerequisites } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
 
 /** One package-status row, the shape check-ticket-prerequisites passes. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function status(ticket, value, extra = {}) {
   return { ticket, status: value, implements: false, carriesWork: false, ...extra };
 }
 
 /** The package prerequisite one consumer ticket carries. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function prerequisite() {
   return { package: 'pkg-legacy', kind: 'implementation', source: 'build:pkg-new->pkg-legacy' };
 }

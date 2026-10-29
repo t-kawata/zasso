@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-194 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-194 --for-spec --no-implementation-order`.
 // PX-194 @verifies C001
 // A coupling contract only holds when both sides carry it: the consumer seed and
 // the provider seed must state the same contract with mirrored content.

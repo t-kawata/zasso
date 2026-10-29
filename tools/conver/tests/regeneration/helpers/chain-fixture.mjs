@@ -99,7 +99,7 @@ export function writeArtifact(root, specPath) {
 }
 
 /** Write the package documents the chain and the transaction copy. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function writePackageDocuments(root) {
   const directory = join(root, PACKAGE_PATH);
   mkdirSync(directory, { recursive: true });
@@ -143,7 +143,7 @@ export function materializeBrokenChainWorkspace() {
 
 /** A deterministic producer for transaction tests: derive the chain in staging. */
 export function fixtureProducer({ stagingRoot }) {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   // The transaction stages only the frozen inputs, so the producer owns the package
   // documents it derives. The real producer merges the authored ones after allocate.
   writePackageDocuments(stagingRoot);

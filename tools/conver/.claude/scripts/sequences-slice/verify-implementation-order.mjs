@@ -49,7 +49,7 @@ const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -58,7 +58,7 @@ function argumentFor(argv, name) {
 }
 
 /** Read a JSON document, or null. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function readJson(filePath) {
   if (filePath === null || filePath === undefined || !existsSync(filePath)) return null;
   try {
@@ -69,7 +69,7 @@ function readJson(filePath) {
 }
 
 /** Write a JSON document by staging it beside its target and renaming it into place. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function writeJsonAtomically(filePath, value) {
   const staged = `${filePath}.partial.${process.pid}`;
   writeFileSync(staged, `${JSON.stringify(value, null, 2)}\n`);
@@ -77,7 +77,7 @@ function writeJsonAtomically(filePath, value) {
 }
 
 /** Every ticket in a Tickets.json document, in phase order. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function flattenTickets(document) {
   return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
     ...ticket,
@@ -86,13 +86,13 @@ function flattenTickets(document) {
 }
 
 /** The package ids and paths the tree manifest declares. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function packagesOf(treeManifest) {
   return (treeManifest?.workspace?.packages ?? []).filter((pkg) => typeof pkg?.id === 'string');
 }
 
 /** The canonical comparison form of a prerequisite array. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function canonicalPrerequisites(entries) {
   return JSON.stringify((entries ?? []).slice().sort((left, right) => {
     const leftKey = `${left.ticket ?? left.package ?? ''}|${left.kind ?? ''}|${left.source ?? ''}`;
@@ -102,7 +102,7 @@ function canonicalPrerequisites(entries) {
 }
 
 /** The implementation levels as a package → level index map. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function levelIndex(levels) {
   const index = new Map();
   (levels ?? []).forEach((level, position) => {
@@ -112,7 +112,7 @@ function levelIndex(levels) {
 }
 
 /** The unit ids a package directory's distribution map declares as residuals. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function residualUnitsForDirectory(directory) {
   const residuals = new Set();
   const rfcPath = join(directory, 'RFC.md');
@@ -129,7 +129,7 @@ function residualUnitsForDirectory(directory) {
 }
 
 /** The residual units a workspace declares across every readable package. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function residualUnitsForWorkspace({ workspaceRoot, treeManifest }) {
   const residuals = new Set();
   if (workspaceRoot === null || workspaceRoot === undefined) return residuals;
@@ -140,7 +140,7 @@ function residualUnitsForWorkspace({ workspaceRoot, treeManifest }) {
 }
 
 /** The role each operation carries in one package, from its ledger, tickets and view. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function rolesForPackage({ workspaceRoot, pkg, ticketsDocument }) {
   // The ledger is authoritative over the view candidate; the ticket unit is the most
   // concrete record of what split will implement, so it is applied last.
@@ -157,8 +157,8 @@ function rolesForPackage({ workspaceRoot, pkg, ticketsDocument }) {
 }
 
 /** Build the operation → implementer index from every readable package view. */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-325, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-325|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-325|PX-328) --for-spec --no-implementation-order`.
 function ownersFromWorkspace({ workspaceRoot, treeManifest, views = null, roles = null, activeOperationIds = null }) {
   const packages = packagesOf(treeManifest);
   const loadedViews = views ?? Object.fromEntries(
@@ -175,7 +175,7 @@ function ownersFromWorkspace({ workspaceRoot, treeManifest, views = null, roles 
 }
 
 /** The derived package order for one workspace. */
-// [::TICKET::] PX-323, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
 function deriveWorkspaceOrder(context) {
   const { treeManifest, artifact, registry, operationOwners, activeOperationIds = null } = context;
   const packageIds = packagesOf(treeManifest).map((pkg) => pkg.id);
@@ -188,7 +188,7 @@ function deriveWorkspaceOrder(context) {
 }
 
 /** The digests that bind a sidecar to the documents it was derived from. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function sourceDigestsOf({ artifact = null, views = {}, graph = undefined, registry = [], treeManifest = null }) {
   return {
     artifact: artifact === null || artifact === undefined ? null : digestValue(artifact),
@@ -203,7 +203,7 @@ function sourceDigestsOf({ artifact = null, views = {}, graph = undefined, regis
 }
 
 /** Whether a recorded digest set still names the current documents. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function sameSourceDigests(current, stored) {
   if (stored === null || stored === undefined) return false;
   if (current.artifact !== (stored.artifact ?? null)) return false;
@@ -217,7 +217,7 @@ function sameSourceDigests(current, stored) {
 }
 
 /** The package order sidecar contents. */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function workspaceSidecar(input) {
   const { order, edges, allocateManifest, artifact, views, treeManifest } = input;
   return {
@@ -252,7 +252,7 @@ function workspaceSidecar(input) {
  *   document: object, artifact: object, registry: Array<object>, treeManifest: object }} packageDerivationInput
  * @returns {Array<object>} the named findings this package contributes
  */
-// [::TICKET::] PX-327, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-327|PX-328) --for-spec --no-implementation-order`.
 function packagePrerequisiteFindings(packageDerivationInput) {
   const { workspaceRoot, pkg, view, graph, document, artifact, registry, treeManifest } = packageDerivationInput;
   const residualUnitIds = packageDerivationInput.residualUnitIds ?? new Set();
@@ -291,14 +291,14 @@ function packagePrerequisiteFindings(packageDerivationInput) {
  * after a failed run would let /workspacify-order print an order this gate just
  * rejected, so the failed verdict removes it rather than writing a second answer.
  */
-// [::TICKET::] PX-327, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-327|PX-328) --for-spec --no-implementation-order`.
 function removeSidecar(filePath) {
   if (existsSync(filePath)) rmSync(filePath, { force: true });
 }
 
 /** Run the workspace gate. */
-// [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function verifyWorkspace({ workspaceRoot, write }) {
   const treeManifest = readJson(join(workspaceRoot, TREE_MANIFEST_FILE_NAME));
   const allocateManifest = readJson(join(workspaceRoot, ALLOCATE_MANIFEST_FILE_NAME));
@@ -397,7 +397,7 @@ function verifyWorkspace({ workspaceRoot, write }) {
 }
 
 /** Run the package gate. */
-// [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
 function verifyPackage({ packageDir, write }) {
   const ticketsPath = join(packageDir, 'Tickets.json');
   const document = readJson(ticketsPath);
@@ -536,7 +536,7 @@ function verifyPackage({ packageDir, write }) {
 }
 
 /** The CLI entry point. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const write = argv.includes('--write');
   const workspaceArg = argumentFor(argv, 'workspace');

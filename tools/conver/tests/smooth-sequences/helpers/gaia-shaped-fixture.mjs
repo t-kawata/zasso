@@ -25,20 +25,20 @@ const NOT_A_SEQUENCE_COUNT = 434;
 const UNDECLARED_STATUS_COUNT = 9;
 
 /** The zero-padded boundary id. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function boundaryId(index) {
   return `boundary-${String(index).padStart(3, '0')}`;
 }
 
 /** Every boundary id in the fixture. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function boundaryIds() {
   return Array.from({ length: BOUNDARY_COUNT }, (_, index) => boundaryId(index + 1));
 }
 
 /** The two RFC bodies, naming every boundary the views carry. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function rfcBodies(boundaries) {
   const suffix = boundaries.map((boundary) => boundary).join('\n');
   return {

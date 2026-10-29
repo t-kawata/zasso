@@ -33,7 +33,7 @@ const { checkOnDiskMarker } = require("../tickets/batch-create-resolving-tickets
  * @param {string} newKey
  * @returns {boolean} — true when the stub was found and updated
  */
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-2 --for-spec --no-implementation-order`.
 function setStubDeferredTo(ticketsData, stubId, newKey) {
   for (const phase of ticketsData.phases) {
     for (const ticket of phase.tickets || []) {
@@ -54,7 +54,7 @@ function setStubDeferredTo(ticketsData, stubId, newKey) {
  * @param {string} newKey
  * @returns {boolean} — true when the crime was found and updated
  */
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-2 --for-spec --no-implementation-order`.
 function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
   for (const phase of ticketsData.phases) {
     for (const ticket of phase.tickets || []) {
@@ -75,7 +75,7 @@ function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
  * @param {string|null} sourceRoot — Repo root for resolving-seed file paths
  * @returns {{success: true, data: object, created: Array}|{success: false, error: string}}
  */
-// [::TICKET::] PX-2, PX-129, PX-130, PX-131, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2, PX-129, PX-130, PX-131, PX-143, PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-2|PX-129|PX-130|PX-131|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function createOne(data, seed, sourceRoot) {
   switch (seed.type) {
     case "resolving": {
@@ -151,7 +151,7 @@ function createOne(data, seed, sourceRoot) {
  * @returns {{success: true, data: object, created: Array, dryRun?: boolean}
  *          |{success: false, errors: Array, created: Array}}
  */
-// [::TICKET::] PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2, PX-129, PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function createTickets({ ticketsData, seeds, sourceRoot, noWrite = false }) {
   const errors = [];
   if (!Array.isArray(seeds)) {

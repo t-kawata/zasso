@@ -34,7 +34,7 @@ import {
   syntheticProjection,
 } from '../helpers/synthetic-facts.mjs';
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 postcondition: a point a question binds is bound and records that question number', () => {
   const projection = syntheticProjection();
   const documentText = authorDocument({
@@ -51,7 +51,7 @@ test('C003 postcondition: a point a question binds is bound and records that que
   assert.deepEqual(ledger.questions.map((question) => question.number), [1], 'the question that bound them is recorded');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 postcondition: a point a grounded pre-decision names is settled, and one an ungrounded item names is not', () => {
   const facts = syntheticFacts();
   const documentText = authorDocument({
@@ -66,7 +66,7 @@ test('C003 postcondition: a point a grounded pre-decision names is settled, and 
   assert.deepEqual([...ledger.open], []);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 postcondition: a recorded point no question and no pre-decision names is open', () => {
   const facts = syntheticFacts();
   const documentText = authorDocument({
@@ -80,7 +80,7 @@ test('C003 postcondition: a recorded point no question and no pre-decision names
   assert.deepEqual([...ledger.unsettled].sort(), ['boundary-001', 'residual-000001']);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 boundary: with an empty human section every recorded point is open and unsettled equals the recorded set', () => {
   const facts = syntheticFacts();
   const frame = fillEveryMarker(buildFrame({ facts, previous: null }).text);
@@ -91,7 +91,7 @@ test('C003 boundary: with an empty human section every recorded point is open an
   assert.equal(ledger.bound.size + ledger.settled.size, 0);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 invariant: the three sets are pairwise disjoint and their union is the recorded open set, for every fixture', () => {
   const cases = [
     { overrides: {}, bound: ['residual-000001', 'boundary-001'] },
@@ -118,7 +118,7 @@ test('C003 invariant: the three sets are pairwise disjoint and their union is th
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C005 normal condition: a point bound to a question with no answer is unsettled', () => {
   const facts = syntheticFacts();
   const documentText = authorDocument({
@@ -131,7 +131,7 @@ test('C005 normal condition: a point bound to a question with no answer is unset
   assert.deepEqual([...ledger.unsettled].sort(), ['boundary-001', 'residual-000001'], 'an unanswered question leaves its points unsettled');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 normal condition: the round count is the number of separators, and a document with none reports zero', () => {
   const facts = syntheticFacts();
   const withoutRound = authorDocument({ facts, questions: [] });
@@ -143,7 +143,7 @@ test('C001 normal condition: the round count is the number of separators, and a 
   assert.deepEqual(readQuestionNumbers(oneRound), [1]);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 normal condition: the number of a question is read from its heading, so Q12 and Q2 are told apart by value', () => {
   const documentText = authorDocument({
     facts: syntheticFacts(),
@@ -153,7 +153,7 @@ test('C001 normal condition: the number of a question is read from its heading, 
   assert.deepEqual(readQuestions({ documentText }).map((question) => question.number), [2, 12]);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 postcondition: the ids a question binds are read from its AI-only bound-points line', () => {
   const questionBody = [
     '- 判断の前提:',
@@ -167,7 +167,7 @@ test('C003 postcondition: the ids a question binds are read from its AI-only bou
   assert.deepEqual(readBoundPointIds({ questionBody }), ['residual-000001', 'boundary-001']);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C003 boundary: a question with no bound-points line binds nothing, and a line that only mentions the label is not one', () => {
   const withoutLine = '- 判断の前提:\n  この判断は境界の話である。\n<!-- 人間の判断 -->';
   assert.deepEqual(readBoundPointIds({ questionBody: withoutLine }), [], 'a question whose line is absent binds nothing');
@@ -184,12 +184,12 @@ test('C003 boundary: a question with no bound-points line binds nothing, and a l
 const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
 
 /** An authored document with one added-point block and the recorded points the caller bound. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function withAddedPoint(facts, { bound = syntheticOpenIds(facts.projection) } = {}) {
   return appendAddedPoint(authorExplanation({ facts, boundIds: bound }), ADDED_POINT);
 }
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 normal: a point the document adds joins the ledger universe as an open point', () => {
   const facts = syntheticFacts();
   const withBlock = withAddedPoint(facts);
@@ -203,7 +203,7 @@ test('C001 normal: a point the document adds joins the ledger universe as an ope
   assert.deepEqual([...ledger.added], ['added-001'], 'the ledger says which ids came from the document');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 normal: an added point a question\'s bound-points line names is bound, and records that question number', () => {
   const facts = syntheticFacts();
   const bound = bindPoints(withAddedPoint(facts), 'added-001');
@@ -214,7 +214,7 @@ test('C001 normal: an added point a question\'s bound-points line names is bound
   assert.deepEqual(ledger.unsettled.has('added-001'), true, 'bound is unsettled until an answer settles it');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 normal: an added point a pre-decided item carrying a ground names is settled, and records that ground', () => {
   const facts = syntheticFacts();
   const settled = appendPreDecision(withAddedPoint(facts), { reference: 'added-001', ground: 'Q1 A' });
@@ -225,7 +225,7 @@ test('C001 normal: an added point a pre-decided item carrying a ground names is 
   assert.equal(ledger.bound.has('added-001'), false);
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 invariant: settled wins over bound for an added point, so the three sets stay disjoint', () => {
   const facts = syntheticFacts();
   const both = appendPreDecision(bindPoints(withAddedPoint(facts), 'added-001'), { reference: 'added-001', ground: 'Q1 A' });
@@ -235,7 +235,7 @@ test('C001 invariant: settled wins over bound for an added point, so the three s
   assert.equal(ledger.bound.has('added-001'), false, 'a settled point is not also reported as bound');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 invariant: the union of open, bound and settled is exactly the recorded points together with the added ones, for every fixture', () => {
   for (const overrides of [{}, { settledElsewhere: SETTLED_ELSEWHERE }]) {
     const projection = syntheticProjection(overrides);
@@ -249,7 +249,7 @@ test('C001 invariant: the union of open, bound and settled is exactly the record
   }
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 boundary: a document that adds no point has exactly the recorded open set as its universe', () => {
   const facts = syntheticFacts();
   const plain = authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
@@ -261,7 +261,7 @@ test('C001 boundary: a document that adds no point has exactly the recorded open
   assert.deepEqual([...deriveLedger({ documentText: plain, projection: facts.projection }).added], []);
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C001 normal: an added point carries the origin it was refined from, so it can be told from a recorded one', () => {
   const facts = syntheticFacts();
   const ledger = deriveLedger({ documentText: withAddedPoint(facts), projection: facts.projection });
@@ -272,7 +272,7 @@ test('C001 normal: an added point carries the origin it was refined from, so it 
   }
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 invariant: adding a point can never shorten the loop, only lengthen it', () => {
   const facts = syntheticFacts();
   const plain = authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
@@ -283,7 +283,7 @@ test('C004 invariant: adding a point can never shorten the loop, only lengthen i
   assert.deepEqual(after, [...before, 'added-001'].sort(), 'the added point is one more thing to settle, never one fewer');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 normal: answers refuses while an added point is unsettled and accepts once it is settled with a ground', () => {
   const facts = syntheticFacts();
   const recorded = syntheticOpenIds(facts.projection);

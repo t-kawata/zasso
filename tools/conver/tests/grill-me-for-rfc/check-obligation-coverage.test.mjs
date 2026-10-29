@@ -12,9 +12,9 @@ import path from 'node:path';
 const GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js');
 
 /** A minimal workspace whose single operation one package owns, so the verdict starts at holds. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function workspaceWithOneOwnedOperation(overrides = {}) {
   // Destructured in the body rather than in the signature: the fixture has grown one knob per
   // ticket that touched the gate, and a five-parameter ceiling is what stops the call sites from
@@ -49,7 +49,7 @@ function workspaceWithOneOwnedOperation(overrides = {}) {
   return root;
 }
 
-// [::TICKET::] PX-259, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function writeView(packageDir, view) {
   fs.writeFileSync(path.join(packageDir, 'SEQUENCES.json'), JSON.stringify({
     packageId: 'pkg-a',
@@ -58,7 +58,7 @@ function writeView(packageDir, view) {
   }));
 }
 
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function runGate(root) {
   const result = spawnSync(process.execPath, [GATE, root], { encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
@@ -372,7 +372,7 @@ test('C004 an artifact exemption naming a column and no carrier is refused, and 
 // PX-263 — the claim is what this stage can establish
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 test('C004 the guarantee line claims an RFC section anchor and a ledger row, and no longer claims a node or a header', () => {
   const root = workspaceWithOneOwnedOperation();
   try {

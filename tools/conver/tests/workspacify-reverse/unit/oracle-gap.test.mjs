@@ -1,5 +1,5 @@
 // @verifies C003
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 // R5.5 classifies mutation survivors by cause and discards only what trivial
 // compiler equivalence positively decides. A mutation score is never coverage.
 import { test } from 'node:test';
@@ -28,7 +28,7 @@ import { GRAMMAR_BY_LANGUAGE } from '../../../.claude/scripts/workspacify-revers
 import { TARGET_LANGUAGES } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
 
 /** A survivor whose dynamic evidence is absent, which is every survivor in this run. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function survivor(mutantId, extra = {}) {
   return { mutant_id: mutantId, language: 'rust', original: 'if i < n {', mutated: 'if i <= n {', status: 'survived', ...extra };
 }

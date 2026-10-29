@@ -18,7 +18,7 @@ const require = createRequire(import.meta.url);
 const { projectBoundaryContracts } = require('../../.claude/scripts/rfc-graph/project-boundary-contracts.js');
 
 /** The two-package artifact: Op1 is pkg-1's, Op2 is pkg-2's. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function twoPackageArtifact() {
   return {
     spec: { lines: 10 },
@@ -35,7 +35,7 @@ function twoPackageArtifact() {
 }
 
 /** The tree manifest that makes the two operations belong to different packages. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function twoPackageTreeManifest() {
   return {
     inventory: {
@@ -49,7 +49,7 @@ function twoPackageTreeManifest() {
 }
 
 /** The view of one package in the two-package chain. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function packageView(packageId) {
   return buildPackageView({
     artifact: twoPackageArtifact(),
@@ -60,7 +60,7 @@ function packageView(packageId) {
 }
 
 /** A graph whose only edge is incident to the operation node. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function graphWithEdge(unitIds, note = null) {
   return {
     nodes: [{ id: 'N1', unitIds }, { id: 'N2', unitIds: [] }],
@@ -75,7 +75,7 @@ function graphWithEdge(unitIds, note = null) {
 }
 
 /** The same graph with the note the projection computed. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function withNote(graph, note) {
   return {
     ...graph,
@@ -86,7 +86,7 @@ function withNote(graph, note) {
 }
 
 /** A view with one owned sequence and `count` steps of one operation. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function viewWithSteps(operationId, count) {
   const steps = Array.from({ length: count }, (unused, index) => ({
     stepId: `s${index + 1}`,

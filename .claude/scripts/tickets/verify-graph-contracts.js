@@ -36,7 +36,7 @@ const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with']
 /** Edge types that are optional (no contract requirement) */
 const TYPES_OPTIONAL = ['references', 'refines', 'extends', 'supersedes', 'triggers', 'precedes', 'part_of', 'validates', 'implements'];
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-314|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-314, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-314|PX-318) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let graphPath = null;
@@ -73,7 +73,7 @@ function parseArgs() {
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function registryContracts(registryPath) {
   if (registryPath === null || !fs.existsSync(registryPath)) return [];
   const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
@@ -81,7 +81,7 @@ function registryContracts(registryPath) {
 }
 
 /** The boundary ids an allocate manifest declares, or an empty list without a manifest. */
-// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
 function registryBoundaryIds(registryPath) {
   return registryContracts(registryPath).map((row) => row.boundary_id);
 }
@@ -98,7 +98,7 @@ function registryBoundaryIds(registryPath) {
  * @param {string|null} registryPath
  * @returns {string|null}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function resolveRegistryPath(graphPath, registryPath) {
   if (registryPath !== null && registryPath !== undefined) return registryPath;
   return findAllocateManifest(path.dirname(graphPath));
@@ -109,16 +109,16 @@ function resolveRegistryPath(graphPath, registryPath) {
  * @param {object} graph — Parsed GRAPH.json
  * @returns {Array<{edge: string, detail: string}>} — Errors (empty array = pass)
  */
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
 /** Every direction a view declares for a ctr unit, deduplicated. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function directionsFor(view, unitId) {
   return [...new Set((collectViewUnits(view).get(unitId)?.records ?? [])
     .map((record) => record.direction)
     .filter((direction) => typeof direction === 'string'))];
 }
 
-// [::TICKET::] PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-321) --for-spec --no-implementation-order`.
 function verifyGraphContracts(graph, options = {}) {
   const errors = [];
   const seenIds = {};
@@ -238,7 +238,7 @@ function verifyGraphContracts(graph, options = {}) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-306, PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-306|PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-322) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath, registryPath, viewPath, sidecarPath: explicitSidecarPath, stepSidecarPath: explicitStepSidecarPath } = parseArgs();
   const sidecarPath = explicitSidecarPath ?? path.join(path.dirname(graphPath), 'RFC-BOUNDARY-CONTRACTS.json');

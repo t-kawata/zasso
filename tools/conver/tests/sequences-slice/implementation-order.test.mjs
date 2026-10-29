@@ -16,22 +16,22 @@ import {
   topologicalOrder,
 } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function ticket(id, phaseId, nodeIds, units = []) {
   return { id, phaseId, nodeIds, distribution: { units } };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function operationUnit(unitId, mode = 'implement') {
   return { unitId, kind: 'operation', obligation: { mode } };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function step(id, sequence, operation, order, contract) {
   return { id: `${sequence}__${id}`, stepId: `${sequence}__${id}`, sequence, operation, order, contract };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function registryRow(id, provider, consumer) {
   return { boundary_id: id, provider_package: provider, consumer_package: consumer };
 }
@@ -303,7 +303,7 @@ test('C006 a cross-package unfinished implementer is PREREQUISITE_NOT_DONE', () 
 });
 
 // PX-328 @verifies C002 — only an active operation is an implementation obligation.
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function activeSetOf(operations) {
   return activeOperationIdsOf({ operations });
 }

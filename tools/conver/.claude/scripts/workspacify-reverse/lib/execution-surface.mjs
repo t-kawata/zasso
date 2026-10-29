@@ -1,4 +1,4 @@
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * R2.5 — the execution surface: the dynamic mechanisms an import graph cannot
  * represent.
@@ -60,7 +60,7 @@ export const MECHANISM_KINDS = Object.freeze([
  * ones the design's sentence does not name — a run-time load, a build-tag
  * selection and a macro expansion — not a second vocabulary.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export const DESIGN_E6_CLASSES = Object.freeze([
   'ffi',
   'reflection',
@@ -98,7 +98,7 @@ const ENVIRONMENT_CALL_SUFFIXES = Object.freeze(['env::var', 'env::var_os']);
 const REFLECTION_CALL_SUFFIXES = Object.freeze(['TypeId::of', 'downcast_ref', 'downcast_mut', 'type_id']);
 
 /** True when a callee path names the given item, directly or through a module path. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function isPathTo(callee, item) {
   return callee === item || callee.endsWith(`::${item}`);
 }
@@ -119,19 +119,19 @@ export const PRESENCE_NOT_ABSENCE =
   + 'analysis of an arbitrary program can be exhaustive about dynamic mechanisms.';
 
 /** One mechanism, with the location that lets a human go and look at it. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function mechanism(kind, file, line, spelling, note) {
   return { id: `${kind}:${file}:${line}`, kind, file, line, spelling: spelling.trim(), note };
 }
 
 /** The macro a `macro_invocation` calls, or null. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function invokedMacroOf(node) {
   return node.childForFieldName?.('macro')?.text ?? null;
 }
 
 /** The callee path of a `call_expression`, or null. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function calleeOf(node) {
   if (node.type !== 'call_expression') return null;
   return node.childForFieldName?.('function')?.text ?? null;
@@ -279,7 +279,7 @@ export function detectRustMechanisms(tree, relativePath, { uses = [] } = {}) {
  * leaves a ledger row, rather than disappearing from the measurement without
  * anything recording that it was skipped.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function measuredFiles(root, excludedPaths) {
   const excluded = new Set(excludedPaths);
   return listArtefacts(root)
@@ -295,26 +295,26 @@ function measuredFiles(root, excludedPaths) {
 // ---------------------------------------------------------------------------
 
 /** The callee of a call node, or null when the node is not a call. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function callTargetOf(node) {
   return node.type === 'call_expression' ? node.childForFieldName?.('function')?.text ?? null : null;
 }
 
 /** Every argument expression a call node carries. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function callArgumentsOf(node) {
   return node.type === 'call_expression' ? [...(node.childForFieldName?.('arguments')?.namedChildren ?? [])] : [];
 }
 
 /** Whether every argument of a call is a literal the reader can resolve. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function callIsComputed(node) {
   const argumentsInCall = callArgumentsOf(node);
   return argumentsInCall.length > 0 && argumentsInCall.every((argument) => argument.type !== 'string');
 }
 
 /** Whether an import path names a module the standard library or a runtime provides. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function importNames(node, names) {
   const text = node.childForFieldName?.('path')?.text ?? node.childForFieldName?.('module_name')?.text ?? node.text;
   return names.some((name) => text.includes(name));
@@ -330,7 +330,7 @@ function importNames(node, names) {
  * entrance, and a class the representative does not exercise is recorded as
  * unverified rather than counted as absent.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function detectScriptMechanisms(language, tree, relativePath) {
   const found = [];
   walkNamed(tree.rootNode, (node) => {
@@ -388,7 +388,7 @@ function detectScriptMechanisms(language, tree, relativePath) {
  * import names. `reflect`, cgo and interface values are declared as the forms
  * this reader looks for; the representative exercises the build constraint.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function detectGoMechanisms(language, tree, relativePath) {
   const found = [];
   walkNamed(tree.rootNode, (node) => {
@@ -455,7 +455,7 @@ function detectGoMechanisms(language, tree, relativePath) {
  * `def` bound. Those three are the forms the representative carries, and they
  * are why a reader that lists declarations sees less than a caller can reach.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function detectPythonMechanisms(language, tree, relativePath) {
   const found = [];
   walkNamed(tree.rootNode, (node) => {
@@ -533,7 +533,7 @@ function detectPythonMechanisms(language, tree, relativePath) {
  * pointer names no function in the text, which is this language's dynamic
  * dispatch.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function detectCStyleMechanisms(language, tree, relativePath) {
   const found = [];
   walkNamed(tree.rootNode, (node) => {
@@ -597,7 +597,7 @@ function detectCStyleMechanisms(language, tree, relativePath) {
  * unverified rather than counted as absent, which is how the prediction is
  * checked rather than asserted.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export const DYNAMIC_MECHANISMS_BY_LANGUAGE = Object.freeze({
   rust: Object.freeze({
     declared: Object.freeze([
@@ -678,7 +678,7 @@ export const DYNAMIC_MECHANISMS_BY_LANGUAGE = Object.freeze({
  * refusal happens where the mechanism is built rather than where it is read, so
  * the name travels with the throw.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function assertDeclaredMechanismClass(kind) {
   if (!MECHANISM_KINDS.includes(kind)) {
     throw new Error(
@@ -695,7 +695,7 @@ export function assertDeclaredMechanismClass(kind) {
  * a library by name; the other five read the tree alone, so the argument is
  * named rather than defaulted for each of them.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function collectDynamicMechanisms(language, tree, relativePath, { uses = [] } = {}) {
   const row = DYNAMIC_MECHANISMS_BY_LANGUAGE[language];
   if (row === undefined) {
@@ -720,7 +720,7 @@ export function collectDynamicMechanisms(language, tree, relativePath, { uses = 
  * verification that did not happen. The two lists are disjoint, so no class is
  * counted twice.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function verifyMechanismInventory(language, mechanisms, { inventory = DYNAMIC_MECHANISMS_BY_LANGUAGE } = {}) {
   const row = inventory[language];
   if (row === undefined) {
@@ -748,7 +748,7 @@ export function verifyMechanismInventory(language, mechanisms, { inventory = DYN
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null}} params
  */
 export function measureExecutionSurface({ root, excludedPaths = [], grammar } = {}) {
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
   const limitations = [];

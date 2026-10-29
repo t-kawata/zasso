@@ -1,5 +1,5 @@
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 // PX-316 command Markdown contracts: the gate is documented before the source is changed,
 // and the downstream preflights name the stale/missing receipt codes.
 // @verifies C007
@@ -14,7 +14,7 @@ const BOUNDIFY = readFileSync(path.join(ROOT, '.claude/commands/boundify-graph.m
 const SPLIT = readFileSync(path.join(ROOT, '.claude/commands/split-to-tickets.md'), 'utf8');
 
 test('C007 graphify runs the smooth verdict gate before heading deduplication', () => {
-// [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-332 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-332 --for-spec --no-implementation-order`.
   const gate = GRAPHIFY.indexOf('verify-smooth-verdict.mjs" --package=');
   const dedup = GRAPHIFY.indexOf('deduplicate-headings.js" "$sourcePath"');
   assert.ok(gate >= 0, 'the verdict gate must be present');
@@ -33,7 +33,7 @@ test('C007 boundify and split preflights name the missing/stale receipt', () => 
   assert.match(SPLIT, /STALE_SMOOTH_VERDICT/);
 });
 
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 test('PX-317 graphify names the artifact denominator and view-digest receipt', () => {
   assert.match(GRAPHIFY, /MISSING_OPERATION/);
   assert.match(GRAPHIFY, /MISSING_SEQUENCE/);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * settle-run.js <session-dir> <operation> [args...]
  *
@@ -69,7 +69,7 @@ const REQUIRED_DIRECTIONS = 2;
  * letter used before the line that defines it is a defect at that line, and every
  * line the rule requires is required here too.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function shapeFaults(block) {
   const faults = [];
   const framing = { context: "", conclusion: "", settled: "", remainder: "", ...(block.framing ?? {}) };
@@ -126,7 +126,7 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// [::TICKET::] PX-234, PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
 function emptyBlock(number) {
   return {
     number,
@@ -140,7 +140,7 @@ function emptyBlock(number) {
 }
 
 /** Every node of the tree, parents before children. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function collectNodes(nodes, collected = []) {
   for (const node of nodes) {
     collected.push(node);
@@ -157,7 +157,7 @@ function collectNodes(nodes, collected = []) {
  * resolution with a decision and no ground rests on nothing, and reading it as
  * settled would report a point as decided while the gate is still refusing it.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function buildLedger() {
   const nodes = collectNodes(tree.nodes ?? []);
   const points = nodes.map((node) => node.id);
@@ -182,7 +182,7 @@ function buildLedger() {
   return partitionPoints({ points, questions, preDecided });
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function writeTree() {
   fs.writeFileSync(treePath, JSON.stringify(tree, null, 2), "utf-8");
   const errors = validateAll(sessionDir);
@@ -193,10 +193,10 @@ function writeTree() {
 }
 
 /** Read a file, or report that it could not be read rather than guessing at it. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 const unreadableDocuments = [];
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function readIfReadable(filePath) {
   try {
     return fs.readFileSync(filePath, "utf-8");
@@ -209,7 +209,7 @@ function readIfReadable(filePath) {
 }
 
 /** List a directory, or report that it could not be listed. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function listIfReadable(directory) {
   try {
     return fs.readdirSync(directory);
@@ -219,7 +219,7 @@ function listIfReadable(directory) {
 }
 
 /** What the prior artifacts carry, as the operator reads it. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function renderPrior(entries) {
   if (entries.length === 0) return "No prior decision was found in this package or its neighbours.\n";
 
@@ -232,7 +232,7 @@ function renderPrior(entries) {
   return `${lines.join("\n")}\n`;
 }
 
-// [::TICKET::] PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-237) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-237) --for-spec --no-implementation-order`.
 function runPrior(recordDirectories) {
   // The records live in the package directory, which for a drill session is one level
   // up from the session directory the tree lives in. The caller names the directories
@@ -268,7 +268,7 @@ function runPrior(recordDirectories) {
   return EXIT_OK;
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function runNext(countText) {
   const count = Number(countText);
   if (!Number.isInteger(count) || count < 1) {
@@ -314,7 +314,7 @@ function runNext(countText) {
  * @param {unknown} trace
  * @returns {{ state: 'absent' | 'prose' | 'entries', entries?: Array<object> }}
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function readSettleTrace(trace) {
   const blankProse = typeof trace === "string" && trace.trim() === "";
   const blankList = Array.isArray(trace) && trace.length === 0;
@@ -325,13 +325,13 @@ function readSettleTrace(trace) {
 }
 
 /** The record one trace entry names, or the empty string when it names none. */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function namedRecord(entry) {
   return typeof entry?.record === "string" ? entry.record : "";
 }
 
 /** Whether one trace entry states the fact that leaves its record's point open. */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function statesWhyOpen(entry) {
   return typeof entry?.leavesOpen === "string" && entry.leavesOpen.trim() !== "";
 }
@@ -349,7 +349,7 @@ function statesWhyOpen(entry) {
  * @param {{ entries: Array<object>, scannedArtifacts: string[], questionNumber: number, first: string }} input
  * @returns {Array<{ kind: string, detail: string }>}
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function silenceFaults({ entries, scannedArtifacts, questionNumber, first }) {
   const faults = [];
   const named = entries.map(namedRecord);
@@ -392,7 +392,7 @@ function silenceFaults({ entries, scannedArtifacts, questionNumber, first }) {
  * showing what leaves its point open. The last of these is the one the shape of the
  * trace exists to catch, and it is why naming a record is not a reason to ask.
  */
-// [::TICKET::] PX-234, PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-272) --for-spec --no-implementation-order`.
 function collectFaults() {
   const faults = [];
   const blocks = tree.questions ?? [];
@@ -445,7 +445,7 @@ function collectFaults() {
   return faults;
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function runCheck() {
   const faults = collectFaults();
   if (faults.length > 0) {
@@ -458,7 +458,7 @@ function runCheck() {
   return EXIT_OK;
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function runAnswers() {
   const blocks = tree.questions ?? [];
   const reading = readAnswers({ questions: blocks.map((block) => ({ number: block.number, answer: block.answer })) });

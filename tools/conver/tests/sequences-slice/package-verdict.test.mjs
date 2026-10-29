@@ -24,7 +24,7 @@ import { OBLIGATION_SOURCES } from '../../.claude/scripts/sequences-slice/lib/ob
 import { obligationSourceOf } from '../../.claude/scripts/sequences-slice/lib/view.mjs';
 
 /** The material of a package the distribution reached and whose ledger accounts for it. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function aCarriedPackage(overrides = {}) {
   return {
     view: { packageId: 'pkg-0001', obligationSource: OBLIGATION_SOURCES[0], obligationUnits: [{ unitId: 'ctr-boundary-001', relation: 'carries' }] },

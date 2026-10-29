@@ -1,6 +1,6 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C004
 /**
  * Reachability — which modules of the reverse tree the run entry point can
@@ -64,9 +64,9 @@ const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse
  * path would put a measurement of the chain inside one of the chain's own steps.
  */
 const STILL_ABSENT = Object.freeze([
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-7, P23-8, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8|P23-12) --for-spec --no-implementation-order`.
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7, P23-8, P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P23-7|P23-8|P23-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
   'invariant-audit.mjs',
   'language-representatives.mjs',
   'staleness.mjs',
@@ -76,7 +76,7 @@ const STILL_ABSENT = Object.freeze([
 
 /** The modules R2.5's dynamic half reaches through `dynamic-coupling.mjs`. */
 const TAKEN_BY_DYNAMIC_HALF = Object.freeze([
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
   'dynamic-coupling.mjs',
   'dynamic-surface.mjs',
   'record-replay.mjs',
@@ -93,7 +93,7 @@ const TAKEN_BY_DYNAMIC_HALF = Object.freeze([
  * array and falsified nothing.
  */
 const TAKEN_BY_R65 = Object.freeze([
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
   'counterexample-run.mjs',
   'counterexample.mjs',
   'worktree-isolation.mjs',

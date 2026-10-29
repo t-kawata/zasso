@@ -109,7 +109,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string, subcommand: string, stepId: string|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-313|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-334) --for-spec --no-implementation-order`.
 function parseArguments(argv = process.argv.slice(2)) {
   const args = [...argv];
 
@@ -210,7 +210,7 @@ function readStatus(statusPath) {
  * @param {string} statusPath — Path to the status file
  * @returns {StatusData} Default status
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
   const filename = path.basename(statusPath);
@@ -278,14 +278,14 @@ function executeStartStep(status, stepId) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID to finish
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeBeginRun(status, runId) {
   const next = beginRun(status, runId ?? `${Date.now()}-${process.pid}`);
   Object.assign(status, next);
   console.log(JSON.stringify({ runs: status.runs, runId: status.runId }));
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeEndStep(status, stepId, { audit = false } = {}) {
   status.steps[stepId] = STATUS_DONE;
   const idx = STEP_ORDER.indexOf(stepId);
@@ -365,7 +365,7 @@ function executeStatus(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeCleanup(status) {
   const removed = [];
 
@@ -415,7 +415,7 @@ function executeCleanup(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeBackup(status) {
   const graphFile = fromHomeRelative(status.graphFile);
   const bakPath = graphFile + '.bak';
@@ -619,7 +619,7 @@ Step IDs (definition order): ${STEP_ORDER.join(', ')}
 /**
  * Main processing: parse arguments, dispatch subcommand, write file
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
 

@@ -1,8 +1,8 @@
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 /**
  * R6 and R6.5 measured through the pipeline that runs them.
  *
@@ -31,7 +31,7 @@ import { createGitBackedTree, createSyntheticTree, hashTree } from '../helpers/s
 import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
 
 /**
  * Where the integration runs stop.
@@ -45,7 +45,7 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const THROUGH_R6_5 = 'r6.5';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-r6-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -77,7 +77,7 @@ const CLAIM_BEARING_TREE = Object.freeze({
 });
 
 test('IT-1: R6.5 is a declared stage, and the runs here pin their prefix explicitly', () => {
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
   assert.equal(ANALYSIS_STAGES.includes(THROUGH_R6_5), true);
   assert.equal(
     ANALYSIS_STAGES.indexOf('r6') < ANALYSIS_STAGES.indexOf(THROUGH_R6_5),
@@ -127,7 +127,7 @@ test('IT-1: a full run produces a plan in which every claim carries a plan ident
  * made rather than asserted by the test, so the boolean the analysis records is
  * evidence about that checkout.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 async function breakApiCarrier({ worktreePath }) {
   const carrier = join(worktreePath, 'src/api/login.rs');
   writeFileSync(carrier, readFileSync(carrier, 'utf8').replace('assert!(!user.name.is_empty());', 'assert!(true);'));

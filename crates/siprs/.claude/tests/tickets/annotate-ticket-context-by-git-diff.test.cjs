@@ -256,21 +256,21 @@ describe("changedLinesToDefinitions", () => {
 describe("detectAnnotationLine", () => {
   // ── Normal ──
   test("single format [::TICKET::] extracts one key", () => {
-    const line = "// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.";
+    const line = "// [::TICKET::] PX-63 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=PX-63 --for-spec --no-implementation-order`.";
     const result = detectAnnotationLine(line);
     assert.ok(result !== null, "Should detect annotation");
     assert.deepStrictEqual(result.ticketKeys, ["PX-63"]);
   });
 
   test("multi format with parenthesized keys extracts all keys", () => {
-    const line = "// [::TICKET::] PX-61, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-61|PX-63) --for-spec --no-implementation-order`.";
+    const line = "// [::TICKET::] PX-61, PX-63 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=(PX-61|PX-63) --for-spec --no-implementation-order`.";
     const result = detectAnnotationLine(line);
     assert.ok(result !== null, "Should detect annotation");
     assert.deepStrictEqual(result.ticketKeys, ["PX-61", "PX-63"]);
   });
 
   test("multi format with three keys", () => {
-    const line = "// [::TICKET::] PX-60, PX-61, PX-62 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.";
+    const line = "// [::TICKET::] PX-60, PX-61, PX-62 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.";
     const result = detectAnnotationLine(line);
     assert.ok(result !== null, "Should detect annotation");
     assert.deepStrictEqual(result.ticketKeys, ["PX-60", "PX-61", "PX-62"]);

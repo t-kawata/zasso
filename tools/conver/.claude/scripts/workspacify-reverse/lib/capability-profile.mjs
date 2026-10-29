@@ -1,4 +1,4 @@
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * R8 — what the analysis can prove, and what it cannot.
  *
@@ -48,7 +48,7 @@ const UNMEASURED =
   + 'to prove anything from and nothing to prove it against. Running that stage would settle it.';
 
 /** One dimension, with both halves of the statement and the material behind them. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function dimensionOf(name, parts) {
   const { canProve, cannotProve, evidence, determined, undeterminedReason = null } = parts;
   const entry = {
@@ -64,13 +64,13 @@ function dimensionOf(name, parts) {
 }
 
 /** A pluralised count, so a sentence about one claim does not read as a template. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function countOf(value, noun) {
   return `${value} ${noun}${value === 1 ? '' : 's'}`;
 }
 
 /** What can be proved, from the claims the ledger settled and the evidence under them. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function provableDimension(analysis) {
   const ledger = analysis.ledger;
   if (ledger === null || ledger === undefined) {
@@ -109,7 +109,7 @@ function provableDimension(analysis) {
 }
 
 /** What cannot be proved, named as bounded rather than left open. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function unprovableDimension(analysis) {
   const ledger = analysis.ledger;
   const channels = ledger?.unavailableChannels ?? [];
@@ -138,7 +138,7 @@ function unprovableDimension(analysis) {
 }
 
 /** How observable the system is, from the execution surface that was measured. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function observabilityDimension(analysis) {
   const surface = analysis.surface;
   if (surface === null || surface === undefined) {
@@ -175,7 +175,7 @@ function observabilityDimension(analysis) {
 }
 
 /** How falsifiable the claims are, from the plan that says what would refute them. */
-// [::TICKET::] P22-8, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P23-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-8|P23-7) --for-spec --no-implementation-order`.
 function falsifiabilityDimension(analysis) {
   const redPlan = analysis.redPlan;
   if (redPlan === null || redPlan === undefined) {
@@ -228,7 +228,7 @@ function falsifiabilityDimension(analysis) {
 }
 
 /** The refusal counts as one readable phrase, or the statement that there were none. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function describeRefusalCounts(refusedByReason) {
   const named = Object.entries(refusedByReason ?? {})
     .filter(([, count]) => count > 0)
@@ -237,7 +237,7 @@ function describeRefusalCounts(refusedByReason) {
 }
 
 /** Where risk concentrates, from the gaps the analysis found and where it found them. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function riskConcentrationDimension(analysis) {
   const gaps = analysis.gaps;
   if (gaps === null || gaps === undefined) {

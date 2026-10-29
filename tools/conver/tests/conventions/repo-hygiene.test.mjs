@@ -27,12 +27,12 @@ import {
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function sha256Of(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function git(args) {
   return spawnSync('git', args, { cwd: PROJECT_ROOT, encoding: 'utf8' });
 }

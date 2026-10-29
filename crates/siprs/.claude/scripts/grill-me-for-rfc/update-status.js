@@ -13,7 +13,7 @@
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const VALID_STATES = [
@@ -85,7 +85,7 @@ function saveAndValidate() {
  * new one. A record written before this field existed starts at one on its first
  * completion; the history before it is unknown and is not guessed.
  */
-// [::TICKET::] PX-238, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-238|PX-282) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238, PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-238|PX-282) --for-spec --no-implementation-order`.
 function recordCompletion(previousState) {
   status.completedAt = new Date().toISOString();
   if (previousState === COMPLETION_STATE) return;
@@ -103,7 +103,7 @@ function recordCompletion(previousState) {
  * same run continuing. A record written before the field existed starts from the sessions
  * it counted, a documented lower bound rather than a reconstruction.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function openRunGeneration() {
   const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
     ? status[GRILL_GENERATION_FIELD]

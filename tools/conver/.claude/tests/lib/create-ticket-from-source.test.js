@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-122: Create lib/create-ticket-from-source.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: Create lib/create-ticket-from-source.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
 
 /**
  * create-ticket-from-source.test.js — Tests for lib/create-ticket-from-source.js
@@ -17,19 +17,19 @@
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
 }
 
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assertDeepStrictEqual(actual, expected, message) {
   if (JSON.stringify(actual) === JSON.stringify(expected)) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }

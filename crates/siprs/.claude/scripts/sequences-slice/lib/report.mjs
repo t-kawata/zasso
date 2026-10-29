@@ -28,7 +28,7 @@ import { digestSnapshot } from './digest.mjs';
  * numbers PX-257 calibration-checks against, and a change in any of them is a change in
  * the join rather than a change in the code.
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const BASELINE = Object.freeze({
   emptyResultClasses: 47,
   exactlyOnePackage: 187,
@@ -43,7 +43,7 @@ export const BASELINE = Object.freeze({
 });
 
 /** The sentence that keeps the rejected key from being mistaken for an identity. */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const LINE_RANGE_IDENTITY_USE = 'not used as an identity';
 
 /**
@@ -55,7 +55,7 @@ export const LINE_RANGE_IDENTITY_USE = 'not used as an identity';
  * @param {ReturnType<typeof measureLineRangeJoin>} measured
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function renderLineRangeStatement(measured) {
   const packagesWithNoSegments = measured.packagesWithNoSegments.length;
   return [
@@ -77,7 +77,7 @@ export function renderLineRangeStatement(measured) {
  * }} input
  * @returns {object}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function buildCalibrationReport({ artifact, treeManifest, allocateManifest, packageSegments }) {
   const units = buildSequenceUnits(artifact);
   const ownershipByCanonicalName = resolveOwningPackages(treeManifest.inventory.objects);
@@ -144,7 +144,7 @@ export function buildCalibrationReport({ artifact, treeManifest, allocateManifes
  * @param {object} report
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function renderCalibrationJson(report) {
   return `${JSON.stringify(report, null, 2)}\n`;
 }
@@ -160,7 +160,7 @@ export function renderCalibrationJson(report) {
  * @param {string[]} packagePaths - the package directories that were read
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function renderCalibrationProse(report, { packagePaths }) {
   const lines = [
     '# Sequence-ledger calibration',

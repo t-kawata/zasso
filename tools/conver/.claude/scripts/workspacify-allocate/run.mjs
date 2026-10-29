@@ -1,4 +1,4 @@
-// [::TICKET::] PX-191, PX-193, PX-194, PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-191|PX-193|PX-194|PX-195) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-191, PX-193, PX-194, PX-195, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-191|PX-193|PX-194|PX-195) --for-spec --no-implementation-order`.
 /**
  * /workspacify-allocate command entry (corrected ALLOCATE).
  *
@@ -50,7 +50,7 @@ import { parseSeed } from './lib/seed-parse.mjs';
 import { runSeedParity } from './lib/seed-parity.mjs';
 import { runSeedLocalChecks } from './lib/seed-local-checks.mjs';
 import { validateSelfGrill, partitionResiduals } from './lib/self-grill.mjs';
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 import {
   ALLOCATE_MODES,
   TREE_MANIFEST_FILE_NAME,
@@ -67,7 +67,7 @@ import {
   sidecarReferenceOf,
   summarizeReverseAllocateGates,
 } from './lib/reverse-mode.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
@@ -106,7 +106,7 @@ function loadLockedInput(manifestPath) {
   return { manifest, manifestDir, sourceText: source.sourceText, sourceHash: source.sourceHash };
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function loadDecisions(decisionsPath) {
   const absPath = path.resolve(decisionsPath);
   let decisions;
@@ -219,7 +219,7 @@ function orderEntryForPackage({ manifest, packageId }) {
   };
 }
 
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function renderAllSeeds({ manifestRef, expectedByPackage, decisions, reverse }) {
   const { manifest, manifestPath, manifestDir } = manifestRef;
   const packages = manifest.workspace?.packages ?? [];
@@ -278,7 +278,7 @@ function renderAllSeeds({ manifestRef, expectedByPackage, decisions, reverse }) 
  * this seed must answer. Parsing straight back proves the document is well formed
  * before any gate looks at its content.
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residualQuestions }) {
   const { manifest, manifestPath, manifestDir, segmentIds, reverse } = workspace;
   const decision = packageDecisionByPackageId(decisions, pkg.id);
@@ -453,7 +453,7 @@ export function runGate(args) {
   guide('Gate PASS: every automatic gate is green and the AI semantic approval is recorded. Next: run finalize to publish.');
 }
 
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function runFinalize(args) {
   refuseDecisionsArgument(args.slice(1));
   const manifestPath = args[1];
@@ -579,7 +579,7 @@ const WITHDRAWN_FROM_REVERSE_OPTIONS = Object.freeze({
  * The manifest is not affected: it is a positional, it survives, and §2.1/§2.2 make
  * its directory the workspace root.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function refuseDecisionsArgument(args) {
   const drawn = args.filter((token) => token === '--decisions' || token.startsWith('--decisions='));
   if (drawn.length === 0) return;
@@ -592,7 +592,7 @@ function refuseDecisionsArgument(args) {
 }
 
 /** The withdrawn options present in an argument list, as the tokens the caller wrote. */
-// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
 function withdrawnReverseOptionsUsed(args) {
   return args.flatMap((token) => {
     const name = Object.keys(WITHDRAWN_FROM_REVERSE_OPTIONS)
@@ -602,7 +602,7 @@ function withdrawnReverseOptionsUsed(args) {
 }
 
 /** Refuse the withdrawn options a caller used, naming each token and why it cannot be honoured. */
-// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
 function refuseWithdrawnReverseOptions(drawn) {
   if (drawn.length === 0) return;
   const reasons = drawn.map(({ name, token }) => `${token}: ${WITHDRAWN_FROM_REVERSE_OPTIONS[name]}`).join(' ');
@@ -619,7 +619,7 @@ function refuseWithdrawnReverseOptions(drawn) {
  * would name a workspace the subcommand never looks at. Ignoring it would leave the
  * caller believing the run was scoped to the tree they named.
  */
-// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
 function refuseReversePositionalArguments(positionals) {
   if (positionals.length === 0) return;
   throw new WorkSpacifyTreeError(
@@ -638,8 +638,8 @@ function refuseReversePositionalArguments(positionals) {
  * rename a single top-level entry. The writes are the seeds and the manifest, and a
  * failure publishes nothing.
  */
-// [::TICKET::] P22-12, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|PX-214) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-12|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 export function runReverse(args) {
   // Judged before the manifest is read: a run that refused only after loading its
   // inputs would still have answered over a workspace the caller did not name.
@@ -774,7 +774,7 @@ export function runReverse(args) {
 }
 
 /** Publish the Markdown report, and say why when a gate refused. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function reportReverseOutcome(records) {
   const summary = summarizeReverseAllocateGates(records);
   process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
@@ -784,7 +784,7 @@ function reportReverseOutcome(records) {
 }
 
 /** Write one seed into each package directory. Nothing else is written. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function writeReverseSeeds({ manifestDir, renderedByPackage }) {
   for (const { seedText, package: pkg } of renderedByPackage.values()) {
     writeFileSync(path.join(manifestDir, pkg.path, SEED_FILE_NAME), seedText, 'utf8');
@@ -810,7 +810,7 @@ const SUBCOMMANDS = {
  * which the rotation implements as `workspaceRoot = dirname(manifestPath)`; the
  * decisions document is derived and is named here so a reader learns where it went.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function printUsage() {
   return [
     'Usage: run.mjs <validate|plan|packet|gate|finalize> <path-to-WORKSPACIFY-TREE-MANIFEST.json>',
@@ -834,7 +834,7 @@ function printUsage() {
   ].join('\n') + '\n';
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const subcommand = args[0];

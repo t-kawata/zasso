@@ -20,7 +20,7 @@ const { execFileSync } = require("child_process");
 
 // Reuse stub detection pattern from check-field-density.js
 const { STUB_PATTERN } = require("./check-field-density.js");
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_CLEAN = 0;
@@ -77,7 +77,7 @@ function fieldLabel(field) {
   return labels[field] || "";
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function main() {
   const ticketsPath = process.argv[2];
   const ticketKey = process.argv[3];

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 
 import { attachPrerequisites } from '../../.claude/scripts/tickets/add-tickets-for-phase.js';
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function workspaceFixture() {
   const root = mkdtempSync(join(tmpdir(), 'px323-split-'));
   writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ artifact_kind: 'workspacify-allocate-manifest', contract_registry: [] }));
@@ -27,7 +27,7 @@ function workspaceFixture() {
   return root;
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function view() {
   return {
     packageId: 'pkg-1',
@@ -41,7 +41,7 @@ function view() {
   };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function ticketDocument() {
   return {
     title: 't',

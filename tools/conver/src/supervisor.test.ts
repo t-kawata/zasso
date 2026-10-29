@@ -20,7 +20,7 @@ import { COMPLETION_TEMPLATE, completionPolicy } from "./completion-policy.js";
 import type { SessionConfig } from "./session.js";
 
 /** テスト用の入力。省略時は「/start-ticket が attempt 3 で停滞中」を表す */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function ingredients(
   overrides?: Partial<SupervisorIngredients>,
 ): SupervisorIngredients {
@@ -314,7 +314,7 @@ const CAPTURED_INSTRUCTION =
   "Finish the run: emit the status transition to done before returning.";
 
 /** 本文だけを差し替える輸送層 */
-// [::TICKET::] PX-212 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-212 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-212 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-212 --for-spec --no-implementation-order`.
 function transportReturning(body: string): HttpPostJson {
   return async () => ({ statusCode: 200, body });
 }

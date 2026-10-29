@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * R0-R2.5 measured against the real experiment input.
  *
@@ -25,7 +25,7 @@ import { analyzeProject, classifyArtefacts, resolveScope } from '../../../.claud
 import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
 import { TARGET_LANGUAGES } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
 import { GRAMMAR_BY_LANGUAGE } from '../../../.claude/scripts/workspacify-reverse/lib/structure.mjs';
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 import {
   DANGER_SIGNALS,
   ELIGIBILITY_CONDITIONS,
@@ -40,8 +40,8 @@ import { createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
 import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
 
 /**
  * Where these integration runs stop.
@@ -51,12 +51,12 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
  * experiment input, so they name where they stop rather than inheriting a
  * default that moves whenever a stage is added.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 const THROUGH_R2_5 = 'r2.5';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-r0r2-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -93,7 +93,7 @@ test('IT-2 the forward rotation still reproduces every frozen value', () => {
  * per test, so that the input every frozen count below was taken from can be
  * read and diffed by whoever has to re-derive them.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 const TWO_PACKAGE_ROOT = fileURLToPath(new URL('../fixtures/two-package-crate/', import.meta.url));
 
 /**
@@ -209,7 +209,7 @@ test('IT countBoundaryCrossings reads the same extraction the claim ledger reads
   assert.equal(unseen.callSiteCount, 0, 'dispatch is not in R3 vocabulary, and zero is reported rather than dropped');
 });
 
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 /**
  * R0's eligibility assessment, measured end to end.
  *
@@ -365,7 +365,7 @@ test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and 
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 /**
  * The six representatives, measured end to end.
  *
@@ -437,7 +437,7 @@ test('IT the graph\'s caveat names, per language, how many mechanisms stand betw
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 /**
  * The six representatives run end to end through R3.5.
  *

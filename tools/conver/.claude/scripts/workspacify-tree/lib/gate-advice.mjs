@@ -1,5 +1,5 @@
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-198, PX-200, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-200|PX-198) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-198, PX-200, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-200|PX-198) --for-spec --no-implementation-order`.
 // PX-198 @verifies C001 C002
 /**
  * Failure advice.
@@ -189,7 +189,7 @@ export function adviseFailure({ gateId, reason, stage = 'workspacify-allocate' }
  * stage 1 with stage-2 words would send the AI to edit a file that does not exist yet.
  */
 const TREE_ADVICE = Object.freeze({
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
   G0: {
     why: 'the specification must be the exact bytes the gates verified, or every source reference in the manifest would point at text that no longer exists.',
     how: [

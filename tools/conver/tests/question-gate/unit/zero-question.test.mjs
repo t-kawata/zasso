@@ -1,5 +1,5 @@
 // PX-234 @verifies C002
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The zero-question run.
  *

@@ -37,7 +37,7 @@ export const CONSTRUCTOR_MODULE = join(import.meta.dirname, 'checks.mjs');
  * passed. The rail-exit record is the only evidence that separates never falsified from
  * falsified and silent.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export const ADHOC_REFUSALS = Object.freeze({
   NOT_LOADED: 'does not load',
   NO_CHECK: 'exports no check with a run',
@@ -126,7 +126,7 @@ export function railExitTemplate({ check, defect, cases, executed = null }) {
  * Returns null when no specifier resolves, so a scaffold that would write a module
  * unable to reach the library is refused rather than written.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function importSpecifierFor(adhocDirectory) {
   // Both ends are resolved through any symlink first: a module specifier is resolved
   // against the path the module is actually loaded from, and a temporary directory
@@ -179,7 +179,7 @@ export function scaffoldCheck({ directory, check, defect, refuses, scope = 'ever
  *
  * @returns {Promise<{ok: boolean, executed?: object, problems?: string[], modulePath?: string}>}
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 export async function runScaffoldCases({ directory, check, artifact, specLines }) {
   const modulePath = join(directory, ADHOC_DIRECTORY, `${check}.mjs`);
   if (!existsSync(modulePath)) return { ok: false, problems: [`no scaffolded module ${check}`] };
@@ -216,7 +216,7 @@ export async function runScaffoldCases({ directory, check, artifact, specLines }
  *
  * @returns {Promise<{checks: Array<{id: string, run: Function}>, problems: string[]}>}
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export async function loadAdhocChecks({ directory }) {
   const checks = [];
   const problems = [];

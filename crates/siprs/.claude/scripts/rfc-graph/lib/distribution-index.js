@@ -13,7 +13,7 @@
  * @param {object|Array<object>} trees
  * @returns {Map<string, string[]>}
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function collectNodePaths(trees) {
   const paths = new Map();
   const roots = Array.isArray(trees) ? trees : Object.values(trees ?? {});
@@ -44,7 +44,7 @@ function collectNodePaths(trees) {
  * @param {object|Array<object>} trees
  * @returns {Map<string, string[]>}
  */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function collectNodeFilePaths(trees) {
   const paths = new Map();
   const roots = Array.isArray(trees) ? trees : Object.values(trees ?? {});
@@ -75,7 +75,7 @@ function collectNodeFilePaths(trees) {
  * @param {string} digest
  * @returns {{ digest: string, units: object }}
  */
-// [::TICKET::] PX-307, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-319) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-319) --for-spec --no-implementation-order`.
 function buildDistributionIndex(graph, nodeToPaths, digest, nodeToFilePaths = null) {
   const units = {};
   const includeFilePaths = nodeToFilePaths !== null;
@@ -117,7 +117,7 @@ function buildDistributionIndex(graph, nodeToPaths, digest, nodeToFilePaths = nu
  * @param {{ nodes?: Array<object> }} graph
  * @returns {{ ok: boolean, missing: string[], invented: string[], unmapped: string[] }}
  */
-// [::TICKET::] PX-307, PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-319) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-319) --for-spec --no-implementation-order`.
 function verifyDistributionCoverage(dirsTree, graph) {
   const index = dirsTree?.distribution?.units ?? {};
   const graphUnits = new Set();

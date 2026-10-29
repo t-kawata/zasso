@@ -16,7 +16,7 @@ export const REPAIR_FILE_NAME = 'SMOOTH-SEQUENCES-REPAIRS.json';
 export const REPAIR_SCHEMA_VERSION = 1;
 
 /** The empty record for a workspace that has not been repaired yet. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
 function emptyRecord(workspaceRoot) {
   return { schemaVersion: REPAIR_SCHEMA_VERSION, workspace: workspaceRoot, repairs: [] };
 }

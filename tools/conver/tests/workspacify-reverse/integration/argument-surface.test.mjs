@@ -1,4 +1,4 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -88,20 +88,20 @@ const SUBJECT_TREE = Object.freeze({
  * name one would silently analyse whatever the harness happens to be standing
  * in.
  */
-// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function runEntrance(args, cwd) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
 /** Every file under a root, relative to it, sorted, including the reserve. */
-// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function relativeFilesUnder(root) {
   return listTreeFiles(root, { excludedDirectoryNames: [] });
 }
 
 /** The `## Arguments` section of the command file. */
-// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function argumentsSection(text) {
   const start = text.indexOf('## Arguments');
   assert.notEqual(start, -1, 'the command file has an Arguments section');
@@ -110,7 +110,7 @@ function argumentsSection(text) {
 }
 
 /** The declared surface of the entrance, read from its one declaration. */
-// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function declaredUsage(source) {
   const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
   assert.notEqual(usage, null, 'the entrance declares its surface in one block');

@@ -1,7 +1,7 @@
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 /**
  * Pattern detection through the pipeline that runs it.
  *
@@ -39,7 +39,7 @@ import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const PATTERNS_FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/patterns');
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 const DESIGN_DOCUMENT = join(PROJECT_ROOT, 'docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const SCOPE_MODULE = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib/scope.mjs');
 
@@ -96,7 +96,7 @@ const REPRESENTATIVES = Object.freeze([
 ]);
 
 /** A throwaway destination: a run refuses to publish inside the tree it measures. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function scratchDirectory(prefix) {
   const root = mkdtempSync(join(tmpdir(), prefix));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -111,7 +111,7 @@ function scratchDirectory(prefix) {
  * A run this process did not execute also has no in-memory outcome to return,
  * which is why every reading below comes from a published artefact.
  */
-// [::TICKET::] P23-11, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-11|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P23-11|P25-5|P25-6) --for-spec --no-implementation-order`.
 async function runsOverEveryRepresentative({ through }) {
   // Requested in turn rather than at once. Asking for all four together was
   // measured on 2026-09-15 and made this file slower (146s against 112s): the
@@ -126,13 +126,13 @@ async function runsOverEveryRepresentative({ through }) {
 }
 
 /** The names a run published, read from the directory rather than from a declared list. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function publishedNames(root) {
   return readdirSync(root).sort();
 }
 
 /** The detection a run published, parsed from its own sidecar. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function publishedPattern(root) {
   return JSON.parse(readFileSync(join(root, PATTERN_FILE_NAME), 'utf8'));
 }

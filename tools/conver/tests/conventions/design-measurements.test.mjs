@@ -29,7 +29,7 @@ import { ENGINE_DECLARED_CHECK_COUNT } from '../../.claude/scripts/educe-sequenc
 import { flattenPins } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 import { DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';
 import { displayColumns, treeReading } from '../../.claude/scripts/educe-sequences/rail/text.mjs';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
@@ -198,7 +198,7 @@ test('the educe-sequences document states the check and pin counts the run repor
   assert.equal(Number(stated[2]), flattenPins(artifact.pins).length);
 });
 
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 test('the educe-sequences document states the size of the tree the artifact renders', () => {
   const stated = /the tree is (\d+) lines for its\s+(\d+) claiming sequences and (\d+) steps, the widest line (\d+) columns at a budget of (\d+)/.exec(EDUCE_DESIGN_TEXT);
   assert.notEqual(stated, null, 'the document states what the fourth reading renders');

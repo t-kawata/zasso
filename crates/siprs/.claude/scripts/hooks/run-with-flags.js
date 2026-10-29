@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { isHookEnabled } = require('../lib/hook-flags');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 const MAX_STDIN = 1024 * 1024;
@@ -87,7 +87,7 @@ function getPluginRoot() {
   return path.resolve(__dirname, '..', '..');
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 async function main() {
   const [, , hookId, relScriptPath, profilesCsv] = process.argv;
   const { raw, truncated } = await readStdinRaw();

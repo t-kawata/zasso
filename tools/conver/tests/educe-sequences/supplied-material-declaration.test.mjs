@@ -80,8 +80,8 @@ const CHECKER_DECLARATION = Object.freeze({
  * The declaration is the fixture's, because phase 4 also refuses an enumeration that occurs
  * nowhere — so a scratch declaration would fail the gate for a reason this file is not about.
  */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-declaration-'));
   const specPath = join(root, 'ledger.md');
@@ -92,19 +92,19 @@ function scratchRun() {
 }
 
 /** The fixture declaration with the sourceEnumerations a case is about. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function declarationWith(sourceEnumerations) {
   return { ...RUN_INPUT.declaration, sourceEnumerations };
 }
 
 /** Write the run's declaration. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function writeDeclaration(directory, declaration) {
   writeFileSync(join(directory, 'declaration.json'), `${JSON.stringify(declaration, null, 2)}\n`);
 }
 
 /** File material beside the specification, the way an invocation's material is filed. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function writeSupplied(directory, documents) {
   const supplied = join(directory, 'supplied');
   mkdirSync(supplied, { recursive: true });
@@ -112,7 +112,7 @@ function writeSupplied(directory, documents) {
 }
 
 /** One phase gate, driven the way the driver drives it. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function evaluatePhase(phaseId, { specPath, spec, directory, status }) {
   return evaluateGate(phaseId, buildContext({ specPath, spec, run: { directory, status }, recorded: {} }));
 }
@@ -124,7 +124,7 @@ function evaluatePhase(phaseId, { specPath, spec, directory, status }) {
  * that drive a run need a declaration whose enumerations occur in the document, and because a
  * run that was given material is the case this ticket is about.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function fixtureRun(prefix, documents) {
   const root = mkdtempSync(join(tmpdir(), prefix));
   const specPath = join(root, 'ledger.md');
@@ -140,7 +140,7 @@ function fixtureRun(prefix, documents) {
 }
 
 /** The census fixture's artifact with the borrowed entries a case is about. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function artifactWith(sourceEnumerations) {
   const artifact = structuredClone(CENSUS_GOLDEN);
   artifact.pins.sourceEnumerations = sourceEnumerations;
@@ -148,7 +148,7 @@ function artifactWith(sourceEnumerations) {
 }
 
 /** An established declaration pin, the way the rail records one. */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function establishedDeclaration(overrides = {}) {
   const run = scratchRun();
   writeSupplied(run.directory, { [CHECKER_FILE]: CHECKER });

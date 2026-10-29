@@ -7,7 +7,7 @@
  * pattern detection already found, the lifecycle status of every ticket, the DesignTree
  * and the partition a prior cycle left — so it is a script's work rather than a reader's.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +27,7 @@ export const INVENTORY_ARTEFACT_NAMES = Object.freeze([
 ]);
 
 /** Read a JSON file, reporting what went wrong rather than throwing on it. */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function readJsonIfPresent(filePath) {
   if (!existsSync(filePath)) return { value: null, finding: null };
   try {

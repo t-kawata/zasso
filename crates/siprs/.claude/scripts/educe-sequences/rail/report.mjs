@@ -1,4 +1,4 @@
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 // The closing report (PX-240, phase 18).
 //
 // The report separates two things and never adds them together. What was measured is a
@@ -11,7 +11,7 @@ import { describeRefusedExemption } from '../../sequences-slice/lib/obligation-c
 import { NOT_MEASURED, coverageTerms, mappingNote, predecessorValueFor } from './coverage.mjs';
 import { PHASES } from './gates.mjs';
 import { phaseState, readingOf } from './run-state.mjs';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 /** The line that names what no check in this run measured. */
 export const SIGNATURE_CAVEAT =
@@ -36,9 +36,9 @@ export function readPhaseSettled(status, phase) {
  * apparatus measured and what a reader was asked are different kinds of number, and one
  * total would make the second readable as the first.
  */
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function healthLines({ summary, status, inquest = null, demand = null }) {
   const done = PHASES.filter((phase) => phaseState(status, phase.id).status === 'done').length;
   const reads = readPhases();
@@ -72,7 +72,7 @@ export function healthLines({ summary, status, inquest = null, demand = null }) 
  * @param {{ facts: object, coverage: object }|null} demand
  * @returns {string[]}
  */
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 export function demandLines(demand) {
   if (demand === null || demand === undefined) return [];
   const { facts, coverage } = demand;
@@ -101,7 +101,7 @@ export function demandLines(demand) {
  * A run with no measurement prints no census, because an absent measurement is not a zero.
  */
 export function limbCensusLines(summary) {
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   if (summary === null || summary === undefined) return [];
   if (typeof summary.predicateLimbs !== 'number') return [];
   return [`predicateLimbs=${summary.predicateLimbs} cited=${summary.limbsCited ?? 0} unused=${summary.limbsUnused ?? 0}`];
@@ -118,9 +118,9 @@ const SELECTION_NAMES_PRINTED = 8;
  * this line existed, which is how a selection of nothing survived nine generations of a run
  * whose every phase passed. The names are capped so the line stays a fact rather than a list.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 export function selectionLines(summary) {
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   const examinations = summary?.examinations;
   if (examinations === undefined || examinations === null) return [];
   const ids = Object.keys(examinations);
@@ -134,7 +134,7 @@ export function selectionLines(summary) {
 }
 
 /** How far a count moved, spelled with its sign so a fall cannot read as a small rise. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function signedChange(change) {
   return change > 0 ? `+${change}` : `${change}`;
 }
@@ -146,7 +146,7 @@ function signedChange(change) {
  * the point of printing and never stored: a number describing movement is the kind of
  * number that becomes a target, and this one exists only as a string in a report.
  */
-// [::TICKET::] PX-243, PX-244, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-245) --for-spec --no-implementation-order`.
 /**
  * A spelled term with the generation before it beside it rather than added to it.
  *
@@ -155,14 +155,14 @@ function signedChange(change) {
  * this function only says what moved. It is the one place a `(previous generation …)` is
  * written, so the audit lines and the measured block annotate alike.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function withPrevious(spelled, previous, change = null) {
   if (previous === null || previous === undefined) return spelled;
   const moved = change === null ? '' : `, change ${signedChange(change)}`;
   return `${spelled} (previous generation: ${previous}${moved})`;
 }
 
-// [::TICKET::] PX-243, PX-244, PX-245, PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-245|PX-251) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-245, PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-245|PX-251) --for-spec --no-implementation-order`.
 function againstPrevious(name, value, previous, change = null) {
   return withPrevious(`${name}=${value}`, previous, change);
 }
@@ -174,7 +174,7 @@ function againstPrevious(name, value, previous, change = null) {
  * together: a count printed alone says how much was asked, and the same count beside the
  * generation before it says whether the asking moved anything.
  */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function inquestLines(inquest) {
   if (inquest === null || inquest === undefined) return [];
   const previous = inquest.previous ?? null;
@@ -193,7 +193,7 @@ function inquestLines(inquest) {
  * number alone: a first generation has nothing to be measured against, and printing a
  * zero in its place would read as a fall from a generation that never existed.
  */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 /**
  * The measured block: every term of the console line, one per line, with what moved.
  *
@@ -203,7 +203,7 @@ function inquestLines(inquest) {
  * `coverage` declares: a version-1 generation recorded other words, so it is read per key
  * and the terms it never measured are named rather than silenced.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function coverageLines(summary, status) {
   const previous = status?.history?.at(-1)?.coverage ?? null;
   // A run whose checks refused is reported with a null summary, so it has no measurement
@@ -226,7 +226,7 @@ function coverageLines(summary, status) {
  * document it was counted in; a term the predecessor never measured is named rather than
  * left blank or shown as a zero.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function predecessorDisplayFor(key, comparable, was) {
   if (comparable === null) return null;
   if (was === null) return NOT_MEASURED;
@@ -234,7 +234,7 @@ function predecessorDisplayFor(key, comparable, was) {
 }
 
 /** The counts whose movement is a plain subtraction. A reach and a census are not among them. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 const SUBTRACTABLE_TERMS = Object.freeze(['entries', 'sequences', 'steps', 'operations', 'placed', 'excused', 'sections']);
 
 /**
@@ -246,7 +246,7 @@ const SUBTRACTABLE_TERMS = Object.freeze(['entries', 'sequences', 'steps', 'oper
  * never measured has nothing to subtract from; both answer null, which prints no change
  * rather than a fall the run never took.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function changeFor(key, summary, comparable, was) {
   if (comparable === null || was === null) return null;
   if (key === 'linesReached') {
@@ -257,7 +257,7 @@ function changeFor(key, summary, comparable, was) {
 }
 
 /** Whether the run may be reported as complete. */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function isComplete({ summary, status }) {
   if (summary === null || summary === undefined) return false;
   if (summary.checksRun !== summary.checksDeclared) return false;

@@ -10,14 +10,14 @@
 const { factTexts } = require('./contract-facts');
 
 /** A ticket's public key, matching the project's ticket identity rule. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function publicTicketKey(ticket) {
   const phaseId = ticket?.phaseId ?? -1;
   return phaseId === -1 ? `PX-${ticket.id}` : `P${phaseId}-${ticket.id}`;
 }
 
 /** Every ticket in a document, in phase order, with its phase id. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function flattenTicketDocument(document) {
   return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
     ...ticket,
@@ -26,7 +26,7 @@ function flattenTicketDocument(document) {
 }
 
 /** The view unit carrying the same sequence as a ticket unit, or null. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function viewSequenceUnit(view, unit) {
   const candidates = [
     ...(Array.isArray(view?.ownedSequenceUnits) ? view.ownedSequenceUnits : []),
@@ -38,7 +38,7 @@ function viewSequenceUnit(view, unit) {
 }
 
 /** The owner label of one sequence step: this ticket, another ticket, or a package. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function stepOwnerLabel({ step, unit, ticket, ticketsDocument, view }) {
   const localSteps = Array.isArray(unit?.obligation?.steps) ? unit.obligation.steps : [];
   if (localSteps.some((candidate) => candidate?.stepId === step?.stepId)) return 'this ticket';
@@ -58,7 +58,7 @@ function stepOwnerLabel({ step, unit, ticket, ticketsDocument, view }) {
 }
 
 /** The steps of a sequence view unit that this ticket does not implement. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function foreignStepsForUnit({ view, unit }) {
   const unitInView = viewSequenceUnit(view, unit);
   if (unitInView === null) return [];
@@ -67,7 +67,7 @@ function foreignStepsForUnit({ view, unit }) {
 }
 
 /** Whether the earlier step produces a fact the later step consumes. */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function producesWhatLaterConsumes(earlier, later) {
   const produced = new Set(factTexts(earlier?.contract?.produces));
   return factTexts(later?.contract?.consumes).some((fact) => produced.has(fact));
@@ -80,7 +80,7 @@ function producesWhatLaterConsumes(earlier, later) {
  * boundary nor exchanges a produced/consumed fact with a local step is another ticket's
  * internal work, so requiring an integration test for it would be noise.
  */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function isInterfaceRelevantForeignStep({ foreignStep, localSteps, allSteps }) {
   if (factTexts(foreignStep?.contract?.crosses).length > 0) return true;
 

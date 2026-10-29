@@ -39,7 +39,7 @@ const NON_ASCII_SPEC = [
 ].join('\n');
 
 /** The segments, and the normalized bytes, of one specification. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function segmentSpecification(sourceText) {
   const headings = buildHeadingTree(sourceText.split('\n'), undefined, { sourceText });
   const { segments } = segmentAtHeadings({ sourceText, headings }, { segmentLevel: 2 });
@@ -48,13 +48,13 @@ function segmentSpecification(sourceText) {
 }
 
 /** The text a segment's offsets name. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function textOf(sourceText, segment) {
   return sourceText.slice(segment.byte_start, segment.byte_end);
 }
 
 /** The line number an offset falls on, counting from one. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function lineNumberAt(sourceText, offset) {
   return sourceText.slice(0, offset).split('\n').length;
 }

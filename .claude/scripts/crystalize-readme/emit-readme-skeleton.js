@@ -47,7 +47,7 @@ const README_FILENAME = 'README.md';
  * @returns {{ statusPath: string|null, graphPath: string|null }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let statusPath = null;
@@ -76,7 +76,7 @@ function parseArguments(args) {
  * @param {{ statusPath: string|null, graphPath: string|null }} parsed — Parsed arguments
  * @returns {string} Absolute status file path
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function resolveStatusPath(parsed) {
   if (parsed.statusPath) return parsed.statusPath;
   const graph = readGraphFile(parsed.graphPath);
@@ -90,7 +90,7 @@ function resolveStatusPath(parsed) {
  * @param {string} statusPath — Status file path
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   return JSON.parse(fs.readFileSync(statusPath, 'utf8'));
 }
@@ -101,7 +101,7 @@ function readStatus(statusPath) {
  * @param {Object} status — CRYSTALIZE-Status.json content
  * @returns {string} Absolute README path (<rfcDir>/README.md)
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function deriveReadmePath(status) {
   return path.join(path.dirname(status.sourceFile), README_FILENAME);
 }
@@ -112,7 +112,7 @@ function deriveReadmePath(status) {
  * @param {Object} status — CRYSTALIZE-Status.json content
  * @returns {string} README skeleton with per-section work-unit markers
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function emitSkeleton(status) {
   const title = path.basename(status.sourceFile, '.md');
   const lines = [
@@ -140,7 +140,7 @@ function emitSkeleton(status) {
  * @param {Object} status — CRYSTALIZE-Status.json content
  * @returns {string} The skeleton text written
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function emitSkeletonToFile(status) {
   const readmePath = deriveReadmePath(status);
   const text = emitSkeleton(status);
@@ -153,7 +153,7 @@ function emitSkeletonToFile(status) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function main() {
   const parsed = parseArguments();
   const statusPath = resolveStatusPath(parsed);

@@ -1,5 +1,5 @@
 // PX-234 @verifies C004
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * grill and drill are one implementation, not two that agree.
  *
@@ -26,7 +26,7 @@ const GRILL = join(PROJECT_ROOT, '.claude');
 const DRILL = join(PROJECT_ROOT, '.claude');
 
 /** The drill twin of a grill-side filename. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function drillTwin(relative) {
   return relative.replace('grill-me-for-rfc', 'drill-rfc-down');
 }
@@ -42,7 +42,7 @@ test('C004 invariant: the question-gate driver is byte-identical in both tools',
   );
 });
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C004 invariant: both drivers import the same parts of the core', () => {
   for (const tool of ['grill-me-for-rfc', 'drill-rfc-down']) {
     const source = readFileSync(join(GRILL, 'scripts', tool, 'settle-run.js'), 'utf8');

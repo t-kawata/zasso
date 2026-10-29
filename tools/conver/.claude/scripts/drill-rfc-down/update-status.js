@@ -23,7 +23,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateAll } from './check-all-schema.js';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const STATUS_FILE = 'Status.json';
@@ -64,7 +64,7 @@ const STEP_DEFINITIONS = {
 };
 
 /** Read Status.json from the session directory. */
-// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function readStatus(sessionDir) {
   const statusPath = path.join(path.resolve(sessionDir), STATUS_FILE);
   if (!fs.existsSync(statusPath)) {
@@ -75,7 +75,7 @@ function readStatus(sessionDir) {
 }
 
 /** Persist Status.json and validate the whole session schema. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function saveStatus(sessionDir, status) {
   status.updatedAt = new Date().toISOString();
   fs.writeFileSync(path.join(path.resolve(sessionDir), STATUS_FILE), JSON.stringify(status, null, 2), 'utf8');
@@ -87,7 +87,7 @@ function saveStatus(sessionDir, status) {
 }
 
 /** Print the current step, state, and the English nextAction (machine-readable). */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function printStatus(status) {
   const step = STEP_DEFINITIONS[status.currentStep];
   process.stdout.write(JSON.stringify({
@@ -102,7 +102,7 @@ function printStatus(status) {
   }) + '\n');
 }
 
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function main() {
   const [,, sessionDir, operation, ...args] = process.argv;
   if (!sessionDir || !operation) {

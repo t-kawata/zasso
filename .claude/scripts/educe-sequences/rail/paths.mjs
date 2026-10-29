@@ -7,7 +7,7 @@
 // yields `spec.v32.final-sequences.json` rather than losing `final` as well.
 import { existsSync, statSync } from 'node:fs';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 /** The suffix every artifact carries, and the extension each form uses. */
 export const ARTIFACT_SUFFIX = '-sequences';

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 
 /**
  * reverse-boundify.js — B1 through B3, the reverse branch of `/boundify-graph` (§6.7, §6.14.5).
@@ -74,7 +74,7 @@ const CORRESPONDENCE_ARG_PREFIX = '--correspondence=';
 const CANDIDATE_ARG_PREFIX = '--candidate=';
 
 /** The 3-element template every `rfc-graph/` CLI uses, so a failure reads the same way. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function formatError(problem, cause, remedy) {
   return `[ERROR] ${problem}\nCause: ${cause}\nAction: ${remedy}`;
 }
@@ -89,7 +89,7 @@ function formatError(problem, cause, remedy) {
  * @param {{exclude?: string[]}} [options]
  * @returns {string[]}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function buildFileInventory(root, { exclude = DEFAULT_EXCLUDED_DIRS } = {}) {
   const excluded = new Set(exclude);
   const found = [];
@@ -119,7 +119,7 @@ function buildFileInventory(root, { exclude = DEFAULT_EXCLUDED_DIRS } = {}) {
  * @param {object} dirsTree
  * @returns {Array<{declaredPath: string, lang: string, kind: string, mappedNodeIds: string[], nodeMappings: Array<object>}>}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function walkDirsTree(dirsTree) {
   const declared = [];
 
@@ -157,7 +157,7 @@ function walkDirsTree(dirsTree) {
  * @param {string} declaredPath
  * @returns {{path: string|null, reason: string|null}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function resolveExistingFile(root, declaredPath) {
   const full = path.join(root, declaredPath);
   try {
@@ -170,7 +170,7 @@ function resolveExistingFile(root, declaredPath) {
 }
 
 /** The header text for one declared file, assembled by the generator that owns the format. */
-// [::TICKET::] P22-15, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-336|PX-337) --for-spec --no-implementation-order`.
 function headerTextFor({ filePath, mapping, dirsTree, graphPath }) {
   const headerPaths = resolveHeaderPaths(filePath, path.dirname(graphPath));
   const crossReferences = dirsTree.trees?.[mapping.lang]?.crossReferences ?? [];
@@ -184,7 +184,7 @@ function headerTextFor({ filePath, mapping, dirsTree, graphPath }) {
 }
 
 /** Plan one declared file: resolve it, then attach, preserve or refuse. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function planDeclaredFile(mapping, { root, graphPath, dirsTree }) {
   const resolved = resolveExistingFile(root, mapping.declaredPath);
   const base = {
@@ -249,7 +249,7 @@ function planDeclaredFile(mapping, { root, graphPath, dirsTree }) {
  * @param {{dirsTree?: object, root?: string, graphPath?: string}} input
  * @returns {{root: string, graphPath: string, language: string, dirsTree: object, operations: Array<object>, correspondence: Array<object>, gates: object}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function planReverseBoundify({ dirsTree, root, graphPath } = {}) {
   if (!dirsTree || typeof dirsTree !== 'object') {
     throw new Error('planReverseBoundify needs a Dirs-Tree; the reverse flow describes an existing tree rather than creating one');
@@ -300,7 +300,7 @@ function planReverseBoundify({ dirsTree, root, graphPath } = {}) {
  * @param {{root?: string, outDir?: string, correspondencePath?: string, candidatePath?: string}} [options]
  * @returns {{attached: string[], written: string[], inventoryBefore: string[], inventoryAfter: string[]}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function applyReverseBoundify(plan, { root, outDir, correspondencePath, candidatePath } = {}) {
   const measuredRoot = root ?? plan.root;
   const inventoryBefore = buildFileInventory(measuredRoot);
@@ -351,7 +351,7 @@ function applyReverseBoundify(plan, { root, outDir, correspondencePath, candidat
  * @param {object} plan
  * @returns {string}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function renderCorrespondenceReport(plan) {
   const { gates, correspondence } = plan;
   const status = Object.values(gates).every((gate) => gate.status === GATE_STATUS.PASS)
@@ -400,7 +400,7 @@ function renderCorrespondenceReport(plan) {
  * @param {{language?: string}} [options]
  * @returns {{stage: string, corpus: object, entries: string[], unobserved: Array<object>}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function buildHeaderCandidate(plan, { language = 'rust' } = {}) {
   const entries = plan.correspondence
     .filter((row) => row.disposition === DISPOSITIONS.ATTACHED || row.disposition === DISPOSITIONS.PRESERVED)
@@ -420,7 +420,7 @@ function buildHeaderCandidate(plan, { language = 'rust' } = {}) {
  * @param {string} graphPath
  * @returns {object}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function loadDirsTreeFromForward(graphPath) {
   const result = spawnSync(process.execPath, [FORWARD_BUILDER, `--graph=${graphPath}`, '--dry-run', '--json'], {
     encoding: 'utf8',
@@ -435,13 +435,13 @@ function loadDirsTreeFromForward(graphPath) {
 }
 
 /** Read a JSON document, letting the caller turn a parse failure into the CLI's error template. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
 /** Parse the CLI arguments. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const read = (prefix) => argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length) ?? null;
 
@@ -457,7 +457,7 @@ function parseArguments(argv) {
   };
 }
 
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function printUsage() {
   process.stderr.write(
     'Usage: node reverse-boundify.js --graph=<path> --root=<path> [--dirs-tree=<path>]\n'
@@ -466,13 +466,13 @@ function printUsage() {
 }
 
 /** Read the Dirs-Tree the run describes, from the file given or from the forward builder. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function resolveDirsTree(options, graphPath) {
   return options.dirsTreePath ? readJson(path.resolve(options.dirsTreePath)) : loadDirsTreeFromForward(graphPath);
 }
 
 /** Write the artefacts a run produced, without touching the measured tree. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function writePlanArtefacts(plan, options) {
   return applyReverseBoundify({ ...plan, operations: [] }, {
     root: plan.root,
@@ -483,7 +483,7 @@ function writePlanArtefacts(plan, options) {
 }
 
 /** Report what the run did, in the order the decisions were taken. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function reportOutcome(plan, options) {
   if (options.apply) {
     const result = applyReverseBoundify(plan, {
@@ -508,7 +508,7 @@ function reportOutcome(plan, options) {
   return true;
 }
 
-// [::TICKET::] P22-15, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-334) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
   if (!options.root) {

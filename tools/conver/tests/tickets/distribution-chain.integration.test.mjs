@@ -21,7 +21,7 @@ import {
 import { verifyChain } from '../../.claude/scripts/sequences-slice/verify-chain.mjs';
 import { digestValue } from '../../.claude/scripts/sequences-slice/lib/digest.mjs';
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg-1',
@@ -43,7 +43,7 @@ function fixtureView() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureRfc() {
   return [
     '# Package RFC',
@@ -73,7 +73,7 @@ function fixtureRfc() {
   ].join('\n');
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureGraph() {
   return {
     sourceFile: 'RFC.md',
@@ -87,7 +87,7 @@ function fixtureGraph() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureDirsTrees() {
   return {
     rust: {
@@ -101,7 +101,7 @@ function fixtureDirsTrees() {
   };
 }
 
-// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 function fixturePhase() {
   return {
     id: -1,
@@ -114,7 +114,7 @@ function fixturePhase() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 async function runChain() {
   const rendered = renderDistribution(fixtureRfc(), fixtureView());
   assert.equal(rendered.ok, true, rendered.code);
@@ -158,7 +158,7 @@ test('C004 a node unit missing from its ticket is reported', async () => {
   assert.ok(findings.some((finding) => finding.code === 'MISSING_UNIT_AT_LAYER' && finding.unitId === 'op-Produce'));
 });
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function coveragePhase() {
   return {
     id: -1,
@@ -171,7 +171,7 @@ function coveragePhase() {
   };
 }
 
-// [::TICKET::] PX-308, PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-317) --for-spec --no-implementation-order`.
 async function runCoverageChain() {
   const { map, attached, dirsTree } = await runChain();
   const withUnits = await appendNodeUnitIds(coveragePhase().tickets, attached.graph);
@@ -228,7 +228,7 @@ test('C006 the final coverage gate names a dropped sequence step', async () => {
 });
 
 /** The artifact denominator for the synthetic package. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-317) --for-spec --no-implementation-order`.
 function artifactFixture() {
   return {
     operations: [
@@ -244,7 +244,7 @@ function artifactFixture() {
 }
 
 /** The object ownership the artifact denominator needs to scope a package. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-317) --for-spec --no-implementation-order`.
 function treeManifestFixture() {
   return {
     inventory: {

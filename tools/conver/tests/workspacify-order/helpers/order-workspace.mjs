@@ -41,13 +41,13 @@ const DEFAULT_LAYER = 'protocol';
 const DEFAULT_TOP_LEVEL = 'crates';
 
 /** `pkg-0001` from index 0, so a fixture reads the way a manifest does. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function packageIdAt(index) {
   return `pkg-${String(index + 1).padStart(4, '0')}`;
 }
 
 /** The provider-first levels of a fixture, when the caller does not author them. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function levelsFromEdges(packageIds, edges) {
   const providersOf = new Map(packageIds.map((id) => [id, []]));
   for (const [consumer, provider] of edges) {
@@ -92,10 +92,10 @@ function levelsFromEdges(packageIds, edges) {
  *   directoryOf: (id: string) => string,
  *   writeTreeManifest: (value: object) => void, remove: () => void }}
  */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function materializeOrderWorkspace(options = {}) {
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const {
     packages = ['pkg-0001'],
     edges = [],
@@ -205,7 +205,7 @@ export function materializeOrderWorkspace(options = {}) {
  * The parser accepts a closed list of kinds and refuses a row that names anything else, so a
  * fixture that guessed would fail for a reason that has nothing to do with the case at hand.
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function kindOfUnitId(unitId) {
   if (unitId.startsWith('ctr-')) return 'contract';
   if (unitId.startsWith('op-')) return 'operation';
@@ -213,7 +213,7 @@ function kindOfUnitId(unitId) {
 }
 
 /** The design document a carrying package is grilled into: the ledger its view is judged against. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function renderCarriedRfc({ packageId, units, location }) {
   return [
     `# ${packageId} design`,
@@ -238,7 +238,7 @@ function renderCarriedRfc({ packageId, units, location }) {
  * `location` is a parameter because a case needs a ledger that cites something the document does
  * not hold, which is the one way a well-formed ledger is still refused.
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 export function writeCarriedView(workspace, id, { units = ['op-0001'], source = 'undeclared', location = CITED_SECTION } = {}) {
   const directory = workspace.directoryOf(id);
   writeView(workspace, id, {
@@ -260,7 +260,7 @@ export function writeCarriedView(workspace, id, { units = ['op-0001'], source = 
  * ~/shyme/gaia is 26 of these. The field's absence is what tells a reader the obligations were
  * never attempted here, so a fixture that set it would remove the case it exists to build.
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 export function writePreCarriageView(workspace, id, { units = ['op-0001'] } = {}) {
   writeView(workspace, id, {
     packageId: id,
@@ -274,7 +274,7 @@ export function writePreCarriageView(workspace, id, { units = ['op-0001'] } = {}
 }
 
 /** Write a view verbatim, so a case can build the shape it is about rather than a convenient one. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 export function writeView(workspace, id, view) {
   writeFileSync(workspace.viewPathOf(id), JSON.stringify(view, null, 2));
 }

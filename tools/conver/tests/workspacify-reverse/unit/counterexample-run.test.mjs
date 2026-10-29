@@ -59,7 +59,7 @@ const COUNTEREXAMPLE_RUN_MODULE = join(
 // --- Fixtures -------------------------------------------------------------------
 
 /** A ledger in the shape R3.5 emits, reduced to what the channel reads. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function ledgerWith(...claimIds) {
   return {
     root: '/tmp/subject',
@@ -77,7 +77,7 @@ function ledgerWith(...claimIds) {
 const LEDGER = ledgerWith('clm-a', 'clm-b', 'clm-c', 'clm-d');
 
 /** One plan entry, in the shape `planRedReconstruction` emits. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function ticket({ claim_id, plan_id, technique = 'mutation', line = 1 }) {
   return {
     claim_id,
@@ -90,7 +90,7 @@ function ticket({ claim_id, plan_id, technique = 'mutation', line = 1 }) {
 }
 
 /** A plan carrying three reconstruction tickets and one entry that carries none. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function planWithThree() {
   return {
     stage: 'r6',
@@ -105,7 +105,7 @@ function planWithThree() {
 }
 
 /** A subject the isolation can cut a worktree from. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function gitSubject() {
   return createGitBackedTree({
     'package.json': '{"name":"mini"}\n',
@@ -114,7 +114,7 @@ function gitSubject() {
 }
 
 /** The command the fixture subject answers: it fails exactly when the carrier was broken. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function runFixtureCheck(worktreePath) {
   return spawnSync(
     process.execPath,
@@ -124,7 +124,7 @@ function runFixtureCheck(worktreePath) {
 }
 
 /** An executor that breaks the carrier and reports the red it observed. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 async function breakingExecutor({ worktreePath }) {
   writeFileSync(join(worktreePath, 'src/a.rs'), 'pub fn a() -> bool { false }\n');
   const check = runFixtureCheck(worktreePath);
@@ -135,7 +135,7 @@ async function breakingExecutor({ worktreePath }) {
 }
 
 /** An executor that runs the check without touching the carrier. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 async function quietExecutor({ worktreePath }) {
   const check = runFixtureCheck(worktreePath);
   return {
@@ -145,7 +145,7 @@ async function quietExecutor({ worktreePath }) {
 }
 
 /** An executor that throws, as a missing tool or an unreadable carrier would. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 async function throwingExecutor() {
   throw new Error('the carrier could not be rewritten');
 }

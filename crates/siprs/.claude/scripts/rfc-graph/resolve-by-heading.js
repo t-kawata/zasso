@@ -38,7 +38,7 @@ function exitWithError(summary, cause, action) {
  *   line: 1-based line number. null if unresolvable
  *   confidence: "exact" | "partial" | null
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function resolveByHeading(sourceLines, heading, texts) {
   if (!Array.isArray(texts) || texts.length === 0) return null;
 
@@ -132,7 +132,7 @@ function parseArguments(argv) {
   return result;
 }
 
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {

@@ -1,7 +1,7 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // The borrowed census: the artifact is told what it must account for — PX-248.
 //
 // The rail's yardstick was the artifact itself: `every-operation-reached` compared the
@@ -53,26 +53,26 @@ const SUPPLIED = suppliedDocumentsOf(RUN_DIRECTORY);
  * A borrowed census is re-derived from the supplied file, so an artifact that carries one
  * cannot be judged without the material it names: the check that would answer is the
  * re-derivation, and it has nothing to read. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function verify(artifact) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied: SUPPLIED } });
 }
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** The borrowed pins of an artifact, by role. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function borrowed(artifact, role) {
   return (artifact.pins.sourceEnumerations ?? []).find((pin) => pin.role === role) ?? null;
 }
 
 /** A fenced document holding one JSON object per line. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function fenced(rows) {
   return ['```json', ...rows.map((row) => JSON.stringify(row)), '```', ''].join('\n');
 }
@@ -84,7 +84,7 @@ function fenced(rows) {
  * readings instead, because the product path reads them from there. The driver is the
  * surface this test needs, so the two are joined the way a reader writes them.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function driverReadings() {
   const steps = RUN_INPUT.readings.steps;
   return RUN_INPUT.readings.sequences.map((reading) => ({
@@ -98,7 +98,7 @@ function driverReadings() {
 }
 
 /** A run directory whose specification and supplied material are the fixture's. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px248-census-'));
   copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
@@ -107,7 +107,7 @@ function scratchRun() {
 }
 
 /** Declare the given source enumerations, keeping the rest of the declaration as it stands. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function declare(directory, sourceEnumerations) {
   const declaration = { ...RUN_INPUT.declaration, sourceEnumerations };
   writeFileSync(join(directory, 'declaration.json'), `${JSON.stringify(declaration, null, 2)}\n`);
@@ -447,7 +447,7 @@ test('the registry the fixture borrows is committed beside the fixture specifica
   assert.equal(typeof SUPPLIED['ledger-registry.md'], 'string');
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('the check count follows the registry it is declared in', () => {
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);

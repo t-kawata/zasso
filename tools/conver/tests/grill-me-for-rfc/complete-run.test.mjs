@@ -17,7 +17,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPLETE_RUN = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/complete-run.js');
 const GRILL_COMMAND = join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md');
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg-1',
@@ -35,7 +35,7 @@ function fixtureView() {
   };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function fixtureRfc() {
   return [
     '# Package RFC',
@@ -62,7 +62,7 @@ function fixtureRfc() {
  * the checklist as well as the status, so the fixture carries all three: a completion test
  * that skipped them would prove only the happy half of the transition.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function writePackage(directory, { state = 'GRILLING', view = fixtureView(), rfcText = fixtureRfc() } = {}) {
   const rfcPath = join(directory, 'RFC.md');
   const statusPath = join(directory, 'Status.json');
@@ -82,12 +82,12 @@ function writePackage(directory, { state = 'GRILLING', view = fixtureView(), rfc
   return { rfcPath, statusPath };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function runCompletion(directory) {
   return spawnSync(process.execPath, [COMPLETE_RUN, directory], { encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   return JSON.parse(readFileSync(statusPath, 'utf8'));
 }

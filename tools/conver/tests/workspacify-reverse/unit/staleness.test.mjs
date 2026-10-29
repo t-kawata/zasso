@@ -57,7 +57,7 @@ const DIRS_TREE_FILE = 'subject-Dirs-Tree.json';
  * rotation's own writing. Keeping them apart in the fixture is what makes that
  * difference observable.
  */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'wsp-staleness-'));
   const subjectRoot = join(root, 'subject');
@@ -74,13 +74,13 @@ function scratch() {
 }
 
 /** Write a claim ledger where the propagation will read it. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function writeLedger(sidecarRoot, ledger) {
   writeFileSync(join(sidecarRoot, CLAIM_LEDGER_FILE_NAME), `${JSON.stringify(ledger, null, 2)}\n`);
 }
 
 /** A claim carrying recorded reference hashes, in the shape ABOUT-REVERSE 6.12.2 fixes. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function claimWithRefHashes({ claimId, refHashes, rfcHeadingRefs = [] }) {
   return {
     claim_id: claimId,
@@ -96,7 +96,7 @@ function claimWithRefHashes({ claimId, refHashes, rfcHeadingRefs = [] }) {
  * a hardcoded digest would make the test agree with itself rather than with the
  * file.
  */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function arrangeRecordedClaim() {
   const fixture = scratch();
   writeFileSync(fixture.graphPath, 'original graph\n');

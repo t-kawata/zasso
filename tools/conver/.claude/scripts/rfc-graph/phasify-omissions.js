@@ -84,7 +84,7 @@ const AUTO_SIZE_DIVISOR = 7;
  * Find the latest OMISSIONS-*.json in CWD by scanning for files matching the pattern.
  * @returns {string|null} — Absolute path, or null if none found
  */
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function findLatestOmissions() {
   var pattern = /^OMISSIONS-\d{14}\.json$/;
   var files;
@@ -95,7 +95,7 @@ function findLatestOmissions() {
   return path.resolve(matches[0]);
 }
 
-// [::TICKET::] PX-107, PX-108, PX-109, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
     omissionsPath: '',
@@ -186,7 +186,7 @@ function parseArguments(argv) {
  * @param {string} ticketsPath — Absolute path to Tickets.json
  * @returns {number} — max(id) + 1, or 0 if no phases
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function computePhaseIdOffset(ticketsPath) {
   try {
     const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
@@ -205,7 +205,7 @@ function computePhaseIdOffset(ticketsPath) {
  * @param {number} totalNodes — Total nodes in O_NODES set
  * @returns {number} — Between MIN_SIZE_LOWER_BOUND and MIN_SIZE_UPPER_BOUND
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function autoMinSize(totalNodes) {
   const calculated = Math.ceil(totalNodes / AUTO_SIZE_DIVISOR);
   return Math.max(MIN_SIZE_LOWER_BOUND, Math.min(MIN_SIZE_UPPER_BOUND, calculated));
@@ -217,7 +217,7 @@ function autoMinSize(totalNodes) {
  * @param {string} filePath — Absolute path
  * @param {string} label — Human-readable label for error messages
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function validateFileExists(filePath, label) {
   if (!fs.existsSync(filePath)) {
     console.error('[ERROR] ' + label + ' not found: ' + filePath);
@@ -232,7 +232,7 @@ function validateFileExists(filePath, label) {
  * @param {object} graphData — Parsed RFC-ROOT-GRAPH.json
  * @returns {{ nodes: object[], edges: object[], omissionNodeIds: Set<string> }}
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function extractOmissionSubgraph(omissionsData, graphData) {
   const omissionNodeIds = new Set();
   const phases = omissionsData.phases || [];
@@ -262,7 +262,7 @@ function extractOmissionSubgraph(omissionsData, graphData) {
  * @param {object[]} allTickets — All tickets from OMISSIONS file
  * @returns {{ actionTickets: object[], referenceTickets: object[], actionTicketKeys: Set<string> }}
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function dedupTickets(allTickets) {
   const byKey = new Map();
   const referenceTickets = [];
@@ -300,7 +300,7 @@ function dedupTickets(allTickets) {
  * @param {object} omissionsData — OMISSIONS JSON
  * @returns {string[]} — Ordered node IDs
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function buildFallbackOrder(omissionsData) {
   const order = [];
   const seen = new Set();
@@ -328,7 +328,7 @@ function buildFallbackOrder(omissionsData) {
  * @param {number} offset — Phase ID offset
  * @returns {Array<{id:number, name:string, nodeIds:string[]}>} — Offset-aware phases
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function reassignPhaseIdsWithOffset(phases, offset) {
   // Import phasify-helpers lazily to avoid circular dependency at module load
   let reassignPhaseIds;
@@ -368,7 +368,7 @@ function reassignPhaseIdsWithOffset(phases, offset) {
  * @param {string[]} nodeOrder — Topologically sorted node order
  * @returns {Array} — Phases with tickets assigned
  */
-// [::TICKET::] PX-107, PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108) --for-spec --no-implementation-order`.
 function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
   // Build node -> phase map
   const nodeToPhase = {};
@@ -460,7 +460,7 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
  * @param {Array<{from:string, to:string}>} [hardEdges] — Array of weight ∞ edges
  * @returns {Array} — Consolidated phases (immutable, new array)
  */
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function consolidatePhasesByTicketCount(phases, hardEdges) {
   if (!Array.isArray(phases) || phases.length <= 1) return phases;
 
@@ -550,8 +550,8 @@ function consolidatePhasesByTicketCount(phases, hardEdges) {
  * @param {Array<{id:number, nodeIds:string[], tickets:object[]}>} phases — Phases with tickets
  * @returns {Array} — New phases with tickets renumbered (immutable)
  */
-// [::TICKET::] PX-115: re-index IDs after consolidation. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115: re-index IDs after consolidation. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 function renumberTicketIdsInPhases(phases) {
   if (!Array.isArray(phases)) return [];
 
@@ -568,7 +568,7 @@ function renumberTicketIdsInPhases(phases) {
  *
  * @param {object[]} actionTickets — Tickets to repair
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function repairInspectionPrefixes(actionTickets, quiet) {
   if (!Array.isArray(actionTickets)) return;
 
@@ -606,7 +606,7 @@ function repairInspectionPrefixes(actionTickets, quiet) {
  * @param {Set<string>} omissionNodeIds — Expected O_NODES set
  * @returns {{ valid: boolean, checks: object }}
  */
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds) {
   const checks = {};
   let valid = true;
@@ -685,7 +685,7 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
  * @param {object} metadata — Metadata object
  * @returns {object} — Full output JSON
  */
-// [::TICKET::] PX-107, PX-108, PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-113) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-113 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-113) --for-spec --no-implementation-order`.
 function buildOutput(phases, referenceTickets, metadata) {
   // PX-113: Deep clone preserves ALL fields — no whitelist, no field loss
   var nonEmptyPhases = phases.filter(function(p) {
@@ -725,7 +725,7 @@ function buildOutput(phases, referenceTickets, metadata) {
  * @param {number} ticketId — Ticket id
  * @returns {string}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function formatTicketKey(phaseId, ticketId) {
   const prefix = phaseId === -1 ? 'X' : phaseId;
   return 'P' + prefix + '-' + ticketId;
@@ -741,9 +741,9 @@ function formatTicketKey(phaseId, ticketId) {
  * @param {object} output — buildOutput() result { phases[] }
  * @returns {object} — Same output object, mutated with rewritten stub contents
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142: marker rewrite self-verification. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: marker rewrite self-verification. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function rewriteOutputStubKeys(output) {
   const helpers = require('./phasify-helpers.js');
   const validator = require('../tickets/validate-no-external-excuses.js');
@@ -785,7 +785,7 @@ function rewriteOutputStubKeys(output) {
  * @param {object} output — buildOutput() result { phases[] }
  * @returns {{ ok: boolean, failures: string[] }}
  */
-// [::TICKET::] PX-142: marker rewrite self-verification. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: marker rewrite self-verification. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function verifyMarkerRewrites(output) {
   const failures = [];
   for (const phase of output.phases || []) {
@@ -816,9 +816,9 @@ function verifyMarkerRewrites(output) {
  * @param {Array<{file:string,line:number,content:string}>} stubs — Stub entries
  * @param {object} oldToNew — { oldKey: newKey }
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142: plan-text fallback for line-less stubs. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: plan-text fallback for line-less stubs. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function rewriteSourceMarkerLines(stubs, oldToNew) {
   for (const stub of stubs) {
     if (!stub.file) continue;
@@ -859,8 +859,8 @@ function rewriteSourceMarkerLines(stubs, oldToNew) {
  * @param {string} targetPath — Backup target path
  * @returns {{ success: boolean, backupPath: string }}
  */
-// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function backupTickets(sourcePath, targetPath) {
   if (!fs.existsSync(sourcePath)) {
     throw new Error('Source not found: ' + sourcePath);
@@ -879,8 +879,8 @@ function backupTickets(sourcePath, targetPath) {
  * @returns {{ success: boolean, data: object }}
  * @throws {TypeError} On null/invalid input
  */
-// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-108|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108, PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-108|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new TypeError('ticketsData must be a non-null object');
@@ -921,8 +921,8 @@ function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
  * @param {object} mergedData — Merged Tickets.json { title, metadata, phases[] }
  * @returns {{ valid: boolean, errors: string[] }}
  */
-// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function validateMergedTickets(mergedData) {
   var validator;
   try {
@@ -951,8 +951,8 @@ function validateMergedTickets(mergedData) {
  * @param {string} targetPath — Target file path
  * @param {string} data — Content to write (UTF-8 string)
  */
-// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, data) {
   var tmpPath = targetPath + '.tmp.' + process.pid;
   fs.writeFileSync(tmpPath, data, 'utf8');
@@ -972,8 +972,8 @@ function atomicWrite(targetPath, data) {
  * @throws {Error} When metadata.phasifyMerge is missing, its offset is not a
  *   finite number, or the rollback would remove every phase (data loss guard).
  */
-// [::TICKET::] PX-109: phasify-omissions --rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-109: phasify-omissions --rollback. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-109 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-109 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-109 --for-spec --no-implementation-order`.
 function rollbackPhasifyMerge(ticketsData) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new TypeError('ticketsData must be a non-null object');
@@ -1010,8 +1010,8 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {string[]} paths — Absolute file paths to delete
  */
-// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function cleanupFiles(paths) {
   if (!Array.isArray(paths)) return;
   for (var i = 0; i < paths.length; i++) {
@@ -1053,9 +1053,9 @@ function isRoundMarked(status) {
  * @param {number} round — Current round number (>= 1); unmarked pre-merge tickets get 'R' + round
  * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets round-aware
  */
-// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-114, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|PX-141) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-141) --for-spec --no-implementation-order`.
 function markPreMergeTicketsReviewed(mergedData, offset, round) {
   if (!mergedData || typeof mergedData !== 'object') {
     throw new Error('mergedData must be a non-null object');
@@ -1095,7 +1095,7 @@ function markPreMergeTicketsReviewed(mergedData, offset, round) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {object} — Deep-cloned Tickets.json with round incremented (default 1 -> 2)
  */
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function incrementRound(ticketsData) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new Error('ticketsData must be a non-null object');
@@ -1114,8 +1114,8 @@ function incrementRound(ticketsData) {
  * @param {string} ts — Timestamp string (YYYYMMDDhhmmss)
  * @returns {{ success: boolean, snapshotPath?: string }}
  */
-// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-111 --for-spec --no-implementation-order`.
 function createSnapshot(sourcePath, ts) {
   try {
     if (!fs.existsSync(sourcePath)) return { success: false };
@@ -1131,8 +1131,8 @@ function createSnapshot(sourcePath, ts) {
 // PX-112: Move artifacts to omissions/ and tickets/ dirs
 // ============================================================
 
-// [::TICKET::] PX-112: move artifacts. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-112: move artifacts. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-112 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-112 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-112 --for-spec --no-implementation-order`.
 function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
   try {
     var baseDir = path.dirname(opts.ticketsPath);
@@ -1199,8 +1199,8 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
  * @returns {string} — Absolute path of the snapshot to restore
  * @throws {Error} If metadata.phasifyMerge is missing or has no resolvable pointer
  */
-// [::TICKET::] PX-115: snapshot-based rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115: snapshot-based rollback. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 function resolveSnapshotPath(ticketsData, ticketsDir) {
   var mergeInfo = ticketsData.metadata && ticketsData.metadata.phasifyMerge;
   if (!mergeInfo) {
@@ -1241,8 +1241,8 @@ function resolveSnapshotPath(ticketsData, ticketsDir) {
  * @returns {{ success: boolean, snapshotPath: string }}
  * @throws {Error} When no resolvable snapshot exists or the restore fails
  */
-// [::TICKET::] PX-115: snapshot-based rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115: snapshot-based rollback. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 function rollbackFromSnapshot(ticketsPath, withBackup) {
   var ticketsDir = path.dirname(ticketsPath);
   var ticketsData;
@@ -1793,7 +1793,7 @@ function runPhasifyOmissions(opts) {
 // Entry point
 // ============================================================
 
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArguments(process.argv.slice(2));
   runPhasifyOmissions(opts);

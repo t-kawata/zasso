@@ -34,7 +34,7 @@ test('C005 the spec requirement is conditional', () => {
   assert.match(DOCUMENT, /A ticket with no distribution units writes no such section, so Case B is unchanged/);
 });
 
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 test('C007 the delivery gate runs after the spec is written', () => {
   const specStep = DOCUMENT.indexOf('### Step 9: Write spec file');
   const gateStep = DOCUMENT.indexOf('### Step 9.5: Distribution delivery gate');

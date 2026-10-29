@@ -32,7 +32,7 @@ import {
 } from '../../../.claude/scripts/sequences-slice/lib/package-verdict.mjs';
 
 /** The three-package workspace the reader is asked about, with no package reached yet. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function workspaceOf(t, options = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -48,7 +48,7 @@ function workspaceOf(t, options = {}) {
 }
 
 /** The verdicts of a workspace, read the way the plan reads them. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function verdictsOf(workspace) {
   return readSequenceVerdicts({ root: workspace.root, packages: workspace.treeManifest.workspace.packages });
 }

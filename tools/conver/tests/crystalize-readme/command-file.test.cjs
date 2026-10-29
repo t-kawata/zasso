@@ -84,7 +84,7 @@ const STALE_FILE = [
 const SILENT_FILE = STALE_FILE.replace(/^\*\*Exception.*$/m, '');
 
 /** Write one command file into a directory of its own and hand its path to the run. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function withCommandFile(text, run) {
   const directory = mkdtempSync(path.join(tmpdir(), 'px271-'));
   try {
@@ -97,19 +97,19 @@ function withCommandFile(text, run) {
 }
 
 /** Run the guard against one file and report how it ended. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function runGuard(file) {
   return spawnSync(process.execPath, [GUARD, `--file=${file}`], { encoding: 'utf8' });
 }
 
 /** Run the guard with one argument exactly as given, so its own parsing is under test. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function runGuardWithArgument(argument) {
   return spawnSync(process.execPath, [GUARD, argument], { encoding: 'utf8' });
 }
 
 /** The identifiers the guard refused, in the order it reported them. */
-// [::TICKET::] PX-271 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
 function refusedIdentifiers(result) {
   const [, listed] = result.stderr.split('does not define:');
   if (listed === undefined) return [];

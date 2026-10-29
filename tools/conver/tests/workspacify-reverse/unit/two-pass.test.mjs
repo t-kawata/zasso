@@ -1,5 +1,5 @@
 // @verifies C003
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * 7.7.1 — the 2-Pass Hybrid: vertical at the boundaries, horizontal inside.
  *
@@ -42,7 +42,7 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const ANALYSIS_ROOT = fileURLToPath(new URL('../analysis/', import.meta.url));
 
 /** One measured import edge, in the shape `measureDependencies` writes. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function importEdge(from, to) {
   return {
     from,
@@ -54,7 +54,7 @@ function importEdge(from, to) {
 }
 
 /** Two packages that import each other, one that only consumes, one that stands alone. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function syntheticPackages() {
   return [
     { directory: 'examples', members: ['examples/demo.rs'] },
@@ -65,7 +65,7 @@ function syntheticPackages() {
 }
 
 /** The crossings among the synthetic packages. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function syntheticEdges() {
   return [
     importEdge('examples', 'src'),
@@ -76,7 +76,7 @@ function syntheticEdges() {
 }
 
 /** Read the R1 and R2 measurements P22-4 wrote. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function recordedMeasurements() {
   return {
     structure: JSON.parse(readFileSync(join(ANALYSIS_ROOT, 'STRUCTURE.json'), 'utf8')),
@@ -85,7 +85,7 @@ function recordedMeasurements() {
 }
 
 /** Every member a horizontal scope sweep accounts for, in one flat list. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function sweptMembers(horizontals) {
   return horizontals.flatMap((scope) => scope.members);
 }

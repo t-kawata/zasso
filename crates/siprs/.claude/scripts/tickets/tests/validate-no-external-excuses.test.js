@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-120: validate-no-external-excuses — tests for the no-excuse validator.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-120 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-120 --for-spec --no-implementation-order`.
 
 /**
  * validate-no-external-excuses.test.js — RED tests for validate-no-external-excuses.js
@@ -14,7 +14,7 @@ const path = require('path');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) {
     passed++;
@@ -36,8 +36,8 @@ try {
 const { classifyVerdict, checkKeyValidity, EXCUSE_PATTERNS, WORK_ITEM_VERB_RE } = v;
 
 // Fixture: build a Tickets.json-like structure with the correct phase per key
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function fixtureTickets(map) {
   const byPhase = {};
   for (const key of Object.keys(map)) {

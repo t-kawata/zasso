@@ -36,7 +36,7 @@ export const ACTIVE_STATES = Object.freeze(new Set([
   STATES.JUDGMENT_REQUIRED,
 ]));
 
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 /** The states a transaction never leaves; they are records, not edit surfaces. */
 export const TERMINAL_STATES = Object.freeze(new Set([
   STATES.COMMITTED,
@@ -49,7 +49,7 @@ export function ledgerPath(root) {
 }
 
 /** Read the ledger, or the empty ledger when none exists. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 export function readLedger(root) {
   const path = ledgerPath(root);
   if (!existsSync(path)) return { schemaVersion: LEDGER_SCHEMA_VERSION, transactions: [] };

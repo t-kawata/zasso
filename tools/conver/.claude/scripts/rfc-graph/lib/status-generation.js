@@ -6,7 +6,7 @@
  * decrease is refused before the status file is written. The rules live in one module so
  * graphify, boundify and split cannot disagree about what a run is.
  *
- * [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
  */
 'use strict';
 
@@ -24,7 +24,7 @@ const COVERAGE_FIELD = 'coverage';
 const COVERAGE_KEYS = Object.freeze(['units', 'steps', 'boundaries']);
 
 /** A new status with the invocation counted once for a new runId. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function beginRun(status, runId) {
   const current = status ?? {};
   if (current[RUN_ID_FIELD] === runId) return { ...current };
@@ -36,7 +36,7 @@ function beginRun(status, runId) {
 }
 
 /** The counts that decreased between two coverage records. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function compareCoverage(previous, next) {
   if (previous === null || previous === undefined || next === null || next === undefined) {
     return { ok: true, decreased: [] };
@@ -55,7 +55,7 @@ function compareCoverage(previous, next) {
  * An unchanged output digest is a verification: it keeps the generation and the coverage
  * record. A changed digest advances the generation. Audit never writes either.
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function completeGeneration(status, { outputDigest, coverage = null, audit = false } = {}) {
   const current = status ?? {};
   if (audit) return { ok: true, status: { ...current } };
@@ -77,7 +77,7 @@ function completeGeneration(status, { outputDigest, coverage = null, audit = fal
 }
 
 /** The sha256 of a file, or null when it is absent or unreadable. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function outputDigest(filePath) {
   if (typeof filePath !== 'string' || !existsSync(filePath)) return null;
   try {
@@ -88,7 +88,7 @@ function outputDigest(filePath) {
 }
 
 /** The steps the sibling package view carries, or null when it is absent. */
-// [::TICKET::] PX-313, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-313|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-322) --for-spec --no-implementation-order`.
 function stepCountFromView(packageDirectory) {
   const viewPath = join(packageDirectory, 'SEQUENCES.json');
   if (!existsSync(viewPath)) return null;
@@ -110,7 +110,7 @@ function stepCountFromView(packageDirectory) {
 }
 
 /** A coverage record for one stage's output, or null when the output is unreadable. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function coverageFor(kind, filePath) {
   if (typeof filePath !== 'string' || !existsSync(filePath)) return null;
   let document;

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 // The split command is argument-free: the source is the package canonical RFC.md and
 // every other fixed artifact is derived by the scripts from the invocation directory.
 // @verifies C003

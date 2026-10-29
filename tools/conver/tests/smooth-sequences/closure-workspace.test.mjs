@@ -16,7 +16,7 @@ import { ARTIFACT_DIGEST, buildClosureWorkspace } from '../fixtures/closure-work
 const READER = 'educe-sequences/generation-1';
 const ATTACK_READER = 'educe-sequences/generation-1/attack';
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function evaluate(workspace) {
   const derived = deriveObligations({
     census: workspace.census,
@@ -57,12 +57,12 @@ function evaluate(workspace) {
   return { obligations, worklist, ...result };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function decisionOf(result, id) {
   return result.decisions.find((entry) => entry.obligationId === id);
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function judgmentRecord(item) {
   const field = String(item.id).startsWith('JUDGE:')
     ? String(item.id).split(':')[1].toLowerCase()
@@ -84,7 +84,7 @@ function judgmentRecord(item) {
   return { ...record, recordId: recordIdOf(record) };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function attackRecord(item) {
   return {
     obligationId: item.obligationId,
@@ -96,7 +96,7 @@ function attackRecord(item) {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function answerWorklist(result) {
   const judgments = [];
   const attacks = [];
@@ -120,7 +120,7 @@ function answerWorklist(result) {
 }
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the second workspace exposes one defect per inquest lens', () => {
   const result = evaluate(buildClosureWorkspace());
   assert.equal(decisionOf(result, 'READ:INQUEST:s1:omission').state, 'open');
@@ -133,7 +133,7 @@ test('the second workspace exposes one defect per inquest lens', () => {
 
 // @verifies C001
 // @verifies C004
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the four defects clear after the resolution and judgment pass', () => {
   const result = evaluate(buildClosureWorkspace({ fixed: true }));
   const answered = answerWorklist(result);

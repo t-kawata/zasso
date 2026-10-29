@@ -113,7 +113,7 @@ export function readSharedRun(directory) {
 }
 
 /** The directory a request is served from, named so that root, stage and instrument all separate. */
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 function keyFor({ root, through }) {
   return createHash('sha256')
     .update(root).update('\0').update(through).update('\0').update(instrumentDigest())
@@ -122,7 +122,7 @@ function keyFor({ root, through }) {
 }
 
 /** A completed run already in place, or null when there is none to read. */
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 function completedRunAt(directory, request) {
   if (!existsSync(join(directory, MARKER_FILE_NAME))) return null;
   const marker = readSharedRun(directory);
@@ -137,7 +137,7 @@ function completedRunAt(directory, request) {
 }
 
 /** Wait for another process to publish the run, or report the stall rather than racing it. */
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 async function waitForPublishedRun(finalDirectory, request) {
   const deadline = Date.now() + LOCK_WAIT_MS;
   while (Date.now() < deadline) {

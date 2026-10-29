@@ -30,14 +30,14 @@ const { extractTicketKey } = require("./validate-no-external-excuses.js");
 const { scanStubs, runPrinter } = require("./print-manifest-for-find-omissions.js");
 
 /** Parse a "file:line" reference. @returns {{file: string, line: number}|null} */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function parseMarkerReference(ref) {
   const m = String(ref).match(/^(.+):(\d+)$/);
   return m ? { file: m[1], line: parseInt(m[2], 10) } : null;
 }
 
 /** Canonical marker key: root-resolved absolute file + line. */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function markerKey(file, line, root) {
   return path.resolve(root, file) + ":" + line;
 }
@@ -49,7 +49,7 @@ function markerKey(file, line, root) {
  * @param {Array} units — Parsed decision file
  * @returns {Array} — [{where, unitId?, ref?, problem, cause, fix}]
  */
-// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function validateDecisionUnits(units) {
   const problems = [];
   const seenUnitIds = new Set();
@@ -154,7 +154,7 @@ function validateDecisionUnits(units) {
  * @param {string} root — Target tree root for path resolution
  * @returns {{resolved: Array, assigned: Set, failures: Array}}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function resolveMarkerLines(decision, scanned, root) {
   const scannedByRef = new Map();
   for (const s of scanned) scannedByRef.set(markerKey(s.file, s.line, root), s);
@@ -178,7 +178,7 @@ function resolveMarkerLines(decision, scanned, root) {
 }
 
 /** Omissions: scanned markers not assigned to any unit. */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function findUnassigned(scanned, assigned, root) {
   return scanned.filter((s) => !assigned.has(markerKey(s.file, s.line, root)));
 }
@@ -189,7 +189,7 @@ function findUnassigned(scanned, assigned, root) {
  * @param {object} unit
  * @returns {string|null}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function deriveResolveKey(unit) {
   if (unit.resolveByTicket) return unit.resolveByTicket;
   const first = unit.markers[0];
@@ -203,7 +203,7 @@ function deriveResolveKey(unit) {
  * @param {string} ticketsPath
  * @returns {{ok: boolean, edits?: Array, failures?: Array}}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function prepareAllEdits(units, ticketsPath) {
   const edits = [];
   const failures = [];
@@ -241,7 +241,7 @@ function prepareAllEdits(units, ticketsPath) {
  * @param {Array} edits — Prepared edits [{file, line, newContent, unitId, key}]
  * @returns {{kept: Array, removed: Array}}
  */
-// [::TICKET::] PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-135 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-135 --for-spec --no-implementation-order`.
 function mergeUnitDuplicates(edits) {
   const byUnit = {};
   for (const e of edits) {
@@ -274,7 +274,7 @@ function mergeUnitDuplicates(edits) {
  * @param {Array} keptEdits — Survivor edits [{file, line, newContent}]
  * @param {Array} removedEdits — Merged-away edits [{file, line}]
  */
-// [::TICKET::] PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-135 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-135 --for-spec --no-implementation-order`.
 function commitConsolidated(keptEdits, removedEdits) {
   const byFile = {};
   for (const e of keptEdits) {
@@ -297,7 +297,7 @@ function commitConsolidated(keptEdits, removedEdits) {
 }
 
 /** Current timestamp as YYYYMMDDhhmmss (same format as print-manifest). */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function rollbackTimestamp() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -314,7 +314,7 @@ function rollbackTimestamp() {
  * @param {string} root — Target tree root
  * @returns {{ok: boolean, rollbackPath?: string, error?: string}}
  */
-// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function writeRollbackFile(keptEdits, removedEdits, root) {
   const manifestsDir = path.join(root, "manifests");
   try {
@@ -339,7 +339,7 @@ function writeRollbackFile(keptEdits, removedEdits, root) {
  * @param {string} params.backupPath — Path to the ROLLBACK-*.json file
  * @returns {{ok: boolean, restored?: number, error?: string}}
  */
-// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function runRollback({ backupPath }) {
   if (!backupPath) return { ok: false, error: "--rollback requires a backup path" };
   let backup;
@@ -400,7 +400,7 @@ function runRollback({ backupPath }) {
  * @param {string} [params.ticketsPath] — Tickets.json (defaults to cwd)
  * @returns {{ok: boolean, manifestPath?: string, markers?: number, units?: number, unassigned?: Array, problems?: Array, failures?: Array, error?: string}}
  */
-// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = false }) {
   const root = dir ? path.resolve(dir) : process.cwd();
   const tickets = ticketsPath || path.resolve("Tickets.json");
@@ -485,7 +485,7 @@ function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = fal
  * @param {number} n — 1-based problem number
  * @param {object} entry — {problem|error, where, cause, fix}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function printProblem(n, entry) {
   process.stderr.write("[batch-update-stub] Problem " + n + ": " + (entry.problem || entry.error) + "\n");
   if (entry.where) process.stderr.write("[batch-update-stub]   Where: " + entry.where + "\n");
@@ -573,7 +573,7 @@ function main() {
 }
 
 /** Group a flat edit plan by unitId for a readable dry-run report. */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function groupPlanByUnit(plan) {
   const byUnit = new Map();
   for (const e of plan) {

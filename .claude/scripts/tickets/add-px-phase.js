@@ -55,7 +55,7 @@ function main() {
 
   // Create PX phase and insert at the beginning
   // PX-92: Added phaseId and status to ensure schema completeness.
-  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+  // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-92 --for-spec --no-implementation-order`
   const pxPhase = {
     id: -1,
     phaseId: -1,

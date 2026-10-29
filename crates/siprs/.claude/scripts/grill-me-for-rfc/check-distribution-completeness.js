@@ -35,7 +35,7 @@ const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const GATE_FILENAME = 'check-obligation-coverage.js';
 
 /** The sources whose claims the closure clause reads: this gate's siblings. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function siblingSourceTexts() {
   return fs.readdirSync(import.meta.dirname)
     .filter((name) => name.startsWith('check-') && name.endsWith('.js'))
@@ -44,13 +44,13 @@ function siblingSourceTexts() {
 }
 
 /** The document a ledger lives in, as the resolver reads one: its own line count and its labels. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function documentViewOf(rfcText) {
   return { spec: { lines: String(rfcText).split('\n').length }, sections: [], operations: [], sequences: [] };
 }
 
 /** The ledger locations that cite something and contradict the document they cite. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function unresolvedLocations(ledgerRows) {
   const unresolved = [];
   for (const [packageId, entry] of ledgerRows) {
@@ -72,7 +72,7 @@ function unresolvedLocations(ledgerRows) {
  * visited almost none of it. They are reported apart for the same reason the gate already reports a
  * declaration that did not bind apart from an unserved column — the two call for different repairs.
  */
-// [::TICKET::] PX-263, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
 function packageCoverage(allocateManifest, views) {
   const named = new Set();
   for (const contract of allocateManifest?.contract_registry ?? []) {
@@ -98,7 +98,7 @@ function packageCoverage(allocateManifest, views) {
  * The clause id leads so a reader can scan the list, and the check that measured it is printed
  * beside the state so a short clause names where to look rather than only that something is short.
  */
-// [::TICKET::] PX-263, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
 function renderCriterionLines(findings) {
   return findings.flatMap((finding) => {
     const state = finding.holds ? 'holds' : 'not established';
@@ -108,7 +108,7 @@ function renderCriterionLines(findings) {
 }
 
 /** Measure the criterion over one workspace and print it. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {

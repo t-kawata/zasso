@@ -44,7 +44,7 @@ import { listArtefacts } from './analysis-tech.mjs';
 import { EVIDENCE_MODES, buildDynamicSurface } from './dynamic-surface.mjs';
 import { SandboxError } from './sandbox-error.mjs';
 import { NEVER_WALKED_DIRECTORY_NAMES, compareText, digestTree } from './holdout-ledger.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 export { SandboxError };
@@ -341,13 +341,13 @@ export function isObservedSandbox(handle) {
 // ---------------------------------------------------------------------------
 
 /** SHA-256 of a file's bytes, lowercase hex. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sha256File(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 /** SHA-256 of a string, lowercase hex. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -369,7 +369,7 @@ export function assertNoRenamedGuardOption(options) {
 }
 
 /** Refuse a root that is absent, naming the path that was looked for. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function assertTargetRoot(root) {
   if (typeof root !== 'string' || root.length === 0) {
     throw new SandboxError('root-missing', 'a sandbox needs a target root, and none was given');
@@ -383,13 +383,13 @@ function assertTargetRoot(root) {
 }
 
 /** How deep a relative path sits, counted in directory separators. */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function measurePathDepth(relativePath) {
   return relativePath.split('/').length - 1;
 }
 
 /** The artefact paths a set of manifest names matches, shallowest first. */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function matchManifests(artefacts, manifestNames) {
   const names = new Set(manifestNames);
   return artefacts
@@ -406,7 +406,7 @@ function matchManifests(artefacts, manifestNames) {
  * is a statement about how this project is installed — more specific than the
  * ecosystem's own default, and the reason the table needs no branch.
  */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function selectShape(ecosystem, matchedFrom, artefacts) {
   const present = new Set(artefacts.filter((artefact) => artefact.exclusion === false).map((artefact) => artefact.path));
   const directory = dirname(matchedFrom);
@@ -422,7 +422,7 @@ function selectShape(ecosystem, matchedFrom, artefacts) {
 }
 
 /** The plan one matched ecosystem declares, naming every artefact the choice rests on. */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function buildStartPlan(ecosystem, candidates, artefacts) {
   const matchedFrom = candidates[0];
   const { shape, namedBy } = selectShape(ecosystem, matchedFrom, artefacts);
@@ -536,14 +536,14 @@ export function discoverDatabaseKinds(root, { indicators = DATABASE_INDICATORS, 
 }
 
 /** The first declared marker appearing as a whole word in the text, or null. */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function findMarker(text, markers) {
   const haystack = text.toLowerCase();
   return markers.find((marker) => new RegExp(`\\b${escapeRegExp(marker)}\\b`).test(haystack)) ?? null;
 }
 
 /** A literal string as a regular expression that matches only itself. */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function escapeRegExp(literal) {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -555,7 +555,7 @@ function escapeRegExp(literal) {
  * — a production path. A transition writing through it would leave the sandbox
  * without leaving the filesystem, and nothing would report it.
  */
-// [::TICKET::] P22-18, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|PX-231) --for-spec --no-implementation-order`.
 function assertLinkStaysInside(candidate, sourceBase) {
   if (!lstatSync(candidate).isSymbolicLink()) return;
   const target = resolve(dirname(candidate), readlinkSync(candidate));
@@ -567,7 +567,7 @@ function assertLinkStaysInside(candidate, sourceBase) {
 }
 
 /** Copy a tree, leaving behind what is not project content. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function copyTree(source, destination, excludeDirectoryNames) {
   const excluded = new Set(excludeDirectoryNames);
   const sourceBase = resolve(source);
@@ -583,7 +583,7 @@ function copyTree(source, destination, excludeDirectoryNames) {
 }
 
 /** The declared database, resolved inside the sandbox and nowhere else. */
-// [::TICKET::] P22-18, P23-5, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5|PX-231) --for-spec --no-implementation-order`.
 function resolveDatabase(sandboxRoot, database) {
   const kind = database?.kind ?? 'none';
   if (!DECLARABLE_DATABASE_KINDS.includes(kind)) {
@@ -624,7 +624,7 @@ function resolveDatabase(sandboxRoot, database) {
  * rather than raising: the question being asked is whether it changed, and "it
  * is no longer there" is an answer to that question.
  */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function digestGuardedPaths(guardedPaths) {
   const digests = {};
   for (const guardedPath of guardedPaths) {
@@ -683,7 +683,7 @@ export function resolveGuardedPaths({ subjectRoot, declared = DEFAULT_GUARDED_PA
  * mirror, and only this function adds to the set, so a caller cannot arm a
  * sandbox by assigning to it.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function recordReset(handle) {
   handle.resetHandle = {
     resetId: `reset-${handle.sandboxId}`,
@@ -701,7 +701,7 @@ function recordReset(handle) {
  * away and only then discovering there is none is the ordering this exists to
  * avoid.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function restoreFromSnapshot(handle) {
   if (!existsSync(handle.snapshotRoot)) {
     throw new SandboxError(
@@ -719,7 +719,7 @@ function restoreFromSnapshot(handle) {
 }
 
 /** Whether the declared database still holds the bytes it held at creation. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function databaseState(handle) {
   if (handle.database.kind === 'none') {
     return { matchesInitial: true, sha256: null };
@@ -732,7 +732,7 @@ function databaseState(handle) {
 }
 
 /** Refuse any operation on a sandbox that is no longer usable, or was never ours. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function assertUsable(handle) {
   if (!isObservedSandbox(handle)) {
     throw new SandboxError(
@@ -754,7 +754,7 @@ function assertUsable(handle) {
  * The check reads the module-private arming set, so the ordering cannot be
  * talked around by setting a field on the handle.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function assertResetArmed(handle, transitionName) {
   if (!ARMED_SANDBOXES.has(handle)) {
     throw new SandboxError(
@@ -765,7 +765,7 @@ function assertResetArmed(handle, transitionName) {
 }
 
 /** Mark a sandbox unusable with a reason a caller can branch on. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function markUnusable(handle, reason, detail) {
   handle.sandboxUsable = false;
   ARMED_SANDBOXES.delete(handle);
@@ -781,7 +781,7 @@ function markUnusable(handle, reason, detail) {
  * caller remembers to ask, because the damage this guards against is attributed
  * to the reverse rotation rather than to the sandbox.
  */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function assertSubjectStillUntouched(handle, operation) {
   const audit = assertSubjectUntouched(handle);
   if (audit.untouched) return audit;
@@ -847,7 +847,7 @@ export function createSandbox(root, options = {}) {
  * way back does not work is never returned and never becomes something a
  * destructive transition can be run against.
  */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function assembleSandbox(root, sandboxDir, setup) {
   const excludeDirectoryNames = setup.excludeDirectoryNames;
   const database = setup.database;
@@ -1011,7 +1011,7 @@ export function runTransition(handle, transition = {}) {
 }
 
 /** The plan a session will start from, or a refusal naming why there is none. */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function resolveStartPlan(handle, tier) {
   if (tier !== null && tier !== undefined) {
     const plan = handle.startPlans.find((candidate) => candidate.kind === tier);
@@ -1033,7 +1033,7 @@ function resolveStartPlan(handle, tier) {
 }
 
 /** The plan kinds a target declares, named for a human reading a refusal. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function describePlanKinds(handle) {
   return handle.startPlans.length === 0
     ? 'none at all'
@@ -1041,7 +1041,7 @@ function describePlanKinds(handle) {
 }
 
 /** The first non-empty stderr line, so a failure message quotes the cause and not a wall of text. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function firstNonEmptyLine(text) {
   return text.split('\n').map((line) => line.trim()).find((line) => line.length > 0) ?? '';
 }

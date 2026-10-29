@@ -1,6 +1,6 @@
-// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
 
-// [::TICKET::] PX-106 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-106 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-106 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-106 --for-spec --no-implementation-order`.
 
 const fs = require('fs'), path = require('path');
 const { isContractId } = require('../tickets/lib/contract-id');
@@ -9,7 +9,7 @@ const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
 const isRoundStatus = (s) => /^R[1-9]\d*$/.test(s);
 
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114, P25-2, P25-3, P25-4, P25-5, P25-6, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114|P25-2|P25-3|P25-4|P25-5|P25-6|PX-326) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114, P25-2, P25-3, P25-4, P25-5, P25-6, PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114|P25-2|P25-3|P25-4|P25-5|P25-6|PX-326) --for-spec --no-implementation-order`.
 function validateTickets(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
@@ -91,7 +91,7 @@ function validateTickets(data) {
   return { valid: errors.length === 0, errors };
 }
 
-// [::TICKET::] PX-114, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function validateTicketRecord(ticket, prefix) {
   const errors = [];
   if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { errors.push(prefix + ': must be object'); return errors; }
@@ -126,7 +126,7 @@ const CHANGE_RECORD_FIELD = 'changes';
  * @param {object} data — a parsed Tickets.json
  * @returns {string[]} findings, ordered by phase then ticket id
  */
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function reportEmptyChangeSets(data) {
   if (!data || !Array.isArray(data.phases)) return [];
 
@@ -147,7 +147,7 @@ function reportEmptyChangeSets(data) {
       CHANGE_RECORD_FIELD + ' must be a non-empty array');
 }
 
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function parseTicketKey(key) {
   const match = key.match(KEY_RE);
   if (!match) return null;
@@ -164,12 +164,12 @@ function parseTicketKey(key) {
  *
  * @param {object} verdict
  */
-// [::TICKET::] P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function emitVerdict(verdict) {
   process.stdout.write(JSON.stringify(verdict) + '\n');
 }
 
-// [::TICKET::] P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function main() {
   const ticketsPath = process.argv[2];
   if (!ticketsPath) { emitVerdict({ success: false, error: 'Usage: ...' }); process.exit(1); }

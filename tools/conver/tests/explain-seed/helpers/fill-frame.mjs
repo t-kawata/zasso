@@ -76,9 +76,9 @@ const FALLBACK_PROSE = 'この点は記録された事実だけでは決まら�
  * caller hands in: a question binds points the test chose, and a helper that invented its own
  * ids would author a document about a different package.
  */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function proseForLine(line, { humanDecisionCount, boundIds }) {
   if (line.includes(BOUND_POINTS_LABEL)) return boundIds.join(', ');
   const matched = PROSE_BY_LABEL.find((entry) => line.includes(entry.label));
@@ -88,13 +88,13 @@ function proseForLine(line, { humanDecisionCount, boundIds }) {
 }
 
 /** How many items the human is being asked to decide, counted from the frame's own headings. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function countHumanDecisionItems(frameText) {
   return frameText.split('\n').filter((line) => line.startsWith(HUMAN_ITEM_HEADING)).length;
 }
 
 /** Resolve every marker, leaving the labels, the headings and the placeholders in place. */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function resolveMarkers(frameText, answers) {
   return frameText
     .split('\n')
@@ -154,7 +154,7 @@ export function authorExplanation({ facts, previous = null, size = 1, boundIds =
 }
 
 /** Replace one section's body, keeping every other section exactly as it was. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function spliceSectionBody(documentText, title, bodyText) {
   const heading = `## ${title}`;
   const start = documentText.indexOf(heading);
@@ -167,7 +167,7 @@ function spliceSectionBody(documentText, title, bodyText) {
 }
 
 /** One question block, filled with the prose the caller asked for and the points it binds. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function authorQuestionBlock({ number, bound = [], answer = null }) {
   const rendered = renderQuestionBlock({ number });
   const filled = resolveMarkers(rendered, { humanDecisionCount: 0, boundIds: bound });
@@ -179,7 +179,7 @@ function authorQuestionBlock({ number, bound = [], answer = null }) {
 }
 
 /** The human's section as the AI authors it: one round, the questions the caller named. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function authorQuestionSection(questions) {
   if (questions.length === 0) return ABSENT_RESIDUALS_STATEMENT;
   const blocks = questions.map((question) => authorQuestionBlock(question));
@@ -187,7 +187,7 @@ function authorQuestionSection(questions) {
 }
 
 /** The pre-decided section with the items the caller named, each grounded as asked. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function authorPreDecidedSection(preDecided) {
   return preDecided
     .map((item, index) =>
@@ -215,7 +215,7 @@ function authorPreDecidedSection(preDecided) {
  *   preDecided?: Array<{ reference: string, ground: string }> }} input
  * @returns {string} a document the caller describes exactly
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function authorDocument({ facts, questions = [], preDecided = [] }) {
   const published = buildFrame({ facts, previous: null }).text;
   let text = spliceSectionBody(published, FRAME_SECTIONS[4].title, authorQuestionSection(questions));
@@ -226,7 +226,7 @@ export function authorDocument({ facts, questions = [], preDecided = [] }) {
 }
 
 /** One section's body appended to, keeping every other section exactly as it was. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function appendToSection(documentText, sectionIndex, blockText) {
   const title = FRAME_SECTIONS[sectionIndex].title;
   const heading = `## ${title}`;
@@ -253,7 +253,7 @@ function appendToSection(documentText, sectionIndex, blockText) {
  * @param {{ id: string, origin: string, statement: string }} point
  * @returns {string} the same document with the block appended to the human's section
  */
-// [::TICKET::] PX-230, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-230|PX-236) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-230|PX-236) --for-spec --no-implementation-order`.
 export function appendAddedPoint(documentText, { id, origin, statement }) {
   return appendAddedPointBlock({ documentText, id, origin, statement });
 }
@@ -269,7 +269,7 @@ export function appendAddedPoint(documentText, { id, origin, statement }) {
  * @param {string} ids - the bound-points line the test wants, already comma-separated
  * @returns {string} the same document with the first question's bound points replaced
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function bindPoints(documentText, ids) {
   return documentText.replace(new RegExp(`(- ${BOUND_POINTS_LABEL}:\\n)[^\\n]*`), `$1${ids}`);
 }
@@ -284,7 +284,7 @@ export function bindPoints(documentText, ids) {
  * @param {{ reference: string, ground: string }} item
  * @returns {string} the same document with the item appended to the pre-decided section
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function appendPreDecision(documentText, { reference, ground }) {
   const item = [
     `${PREDECIDED_ITEM_HEADING} — ${reference}`,

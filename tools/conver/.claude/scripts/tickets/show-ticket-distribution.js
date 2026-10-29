@@ -37,7 +37,7 @@ const EXIT_FAILURE = 1;
  * @param {number} phaseId
  * @returns {string}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function phaseLabel(phaseId) {
   return phaseId === -1 ? 'PX' : 'P' + phaseId;
 }
@@ -48,7 +48,7 @@ function phaseLabel(phaseId) {
  * @param {object} ticketsData — parsed Tickets.json
  * @returns {Array<{ ticketKey: string, ticketId: number, title: string, distribution: object|null }>}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function collectTicketDistribution(ticketsData) {
   const records = [];
   for (const phase of ticketsData?.phases ?? []) {
@@ -70,7 +70,7 @@ function collectTicketDistribution(ticketsData) {
  * @param {{ nodes?: Array<object> }|null} graph
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function graphUnitIds(graph) {
   return new Set((graph?.nodes ?? []).flatMap((node) => node.unitIds ?? []));
 }
@@ -85,7 +85,7 @@ function graphUnitIds(graph) {
  * @param {{ nodes?: Array<object> }|null} graph
  * @returns {Array<{ code: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function findDistributionGaps(ticketsData, graph) {
   const units = graphUnitIds(graph);
   if (units.size === 0) return [];
@@ -103,13 +103,13 @@ function findDistributionGaps(ticketsData, graph) {
 }
 
 /** One line per spec reference. */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function renderSpecRef(ref) {
   return `  - ${ref.path}:${ref.line}${ref.quote ? ` "${ref.quote}"` : ''}`;
 }
 
 /** One sequence step, with its operation-boundary contract. */
-// [::TICKET::] PX-308, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-318|PX-322) --for-spec --no-implementation-order`.
 function renderStep(step) {
   const location = typeof step.line === 'number' && step.line > 0 ? ` line ${step.line}` : '';
   const statement = ['subject', 'predicate', 'object']
@@ -140,7 +140,7 @@ function renderStep(step) {
  * @param {object} unit
  * @returns {string[]}
  */
-// [::TICKET::] PX-308, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-321|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-321, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderUnit(unit) {
   const lines = [];
   const surface = unit.surface ? `, surface: ${unit.surface}` : '';
@@ -197,7 +197,7 @@ function renderUnit(unit) {
  * @param {Array<object>} records — output of collectTicketDistribution
  * @returns {string}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function renderTicketDistribution(records) {
   const lines = ['# Ticket Distribution', '', `${records.length} ticket(s).`, ''];
   for (const record of records) {
@@ -218,7 +218,7 @@ function renderTicketDistribution(records) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-308, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-308|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-334) --for-spec --no-implementation-order`.
 function main() {
   let ticketsPath = process.argv[2];
   if (!ticketsPath) {

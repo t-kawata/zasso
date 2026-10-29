@@ -26,7 +26,7 @@ const VERIFIES_RE = new RegExp(`@verifies\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 const REQUIRES_RE = new RegExp(`@requires\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 const ASSERT_INV_RE = new RegExp(`@assert-invariant\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 
-// [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let ticketKey, testDir = '.';
@@ -50,7 +50,7 @@ function parseArgs() {
  * @param {Set<string>} expectedIds — Set of expected contract IDs
  * @returns {{ covered: Set<string>, missing: string[], unknown: Array<{file: string, id: string}> }}
  */
-// [::TICKET::] PX-70, PX-71, PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71|PX-326) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-70, PX-71, PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71|PX-326) --for-spec --no-implementation-order`.
 function scanContractCoverage(content, expectedIds) {
   const foundIds = new Set();
   const unknownAnnotations = [];
@@ -91,7 +91,7 @@ function scanContractCoverage(content, expectedIds) {
 /**
  * Recursively find test files
  */
-// [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
 function findTestFiles(dir) {
   const results = [];
   if (!fs.existsSync(dir)) return results;
@@ -107,7 +107,7 @@ function findTestFiles(dir) {
   return results;
 }
 
-// [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, testDir } = parseArgs();
   // Parse ticket key: PX-{id} or P{phase}-{id}

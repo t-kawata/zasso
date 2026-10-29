@@ -56,14 +56,14 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const CLI_PATH = path.join(PROJECT_ROOT, '.claude/scripts/tickets/lib/reverse-split.js');
 
 /** A scratch tree, disposed by the caller's `finally`. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function createTree(prefix) {
   const root = mkdtempSync(path.join(tmpdir(), prefix));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
 /** Write a `{ 'relative/path': contents }` map under a root. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function writeTree(root, layout) {
   for (const [relativePath, contents] of Object.entries(layout)) {
     const absolute = path.join(root, relativePath);
@@ -73,13 +73,13 @@ function writeTree(root, layout) {
 }
 
 /** A declared ticket document, as `Tickets.json` writes it. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function ticketsDocument(tickets, phaseId = 7) {
   return JSON.stringify({ phases: [{ id: phaseId, tickets }] });
 }
 
 /** A lifecycle document assembled directly, for the tests that do not need a file. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function lifecycleDocument(tickets) {
   return { present: true, source: TICKETS_FILE_NAME, reason: null, tickets };
 }
@@ -92,7 +92,7 @@ function lifecycleDocument(tickets) {
  * file no package holds, a ticket naming two files in different packages, and terminal
  * tickets mixed in among the in-flight ones.
  */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function generateTicketSetAndPartition(seed) {
   const packages = [{ id: 'root', path: '.' }, { id: 'a', path: 'src/a' }, { id: 'b', path: 'src/b' }];
   const implementations = new Map([
@@ -126,7 +126,7 @@ function generateTicketSetAndPartition(seed) {
 }
 
 /** Whether a ticket is in flight, using the module's own vocabulary. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function isNonTerminal(ticket) {
   return !TERMINAL_TICKET_STATUSES.includes(ticket.status);
 }

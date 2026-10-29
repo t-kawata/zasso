@@ -1,4 +1,4 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -12,7 +12,7 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 /** The input `migrateArtifactToV3` reads from a materialized workspace. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {
@@ -24,7 +24,7 @@ function migrationInput(workspace) {
 }
 
 /** A v2 artifact whose first operation targets an undeclared status. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function openTargetArtifact({ ground = null } = {}) {
   const artifact = minimalV2Artifact();
   artifact.operations[0].initial_status = 'open';
@@ -34,12 +34,12 @@ function openTargetArtifact({ ground = null } = {}) {
 }
 
 /** The findings of one check id in a result. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function findingsOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId);
 }
 
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the migration does not silently close an ungranted transition target', () => {
   const workspace = materializeSmoothWorkspace({ artifact: openTargetArtifact() });
   try {

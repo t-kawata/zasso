@@ -4,13 +4,11 @@
 
 ## スクリプトの実行方法
 
-すべてのスクリプトは `.claude/scripts/tickets/` に配置されている。カレントディレクトリ（プロジェクトルートまたは tools/conver など）からの相対パスで実行する：
+すべてのスクリプトは git リポジトリルートの `.claude/scripts/tickets/` に配置されている。実行するディレクトリに依存しないよう、常に git ルートから解決する：
 
 ```bash
-node ".claude/scripts/tickets/<script-name>.js" "<args>"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/<script-name>.js" "<args>"
 ```
-
-絶対パスが必要な場合は `$(git rev-parse --show-toplevel)` でプロジェクトルートを取得し、その下の `.claude/scripts/tickets/` を指定する。
 
 ## 出力形式
 
@@ -441,10 +439,10 @@ node "$_R/scripts/tickets/review/find-all-stubs.js" "$(git rev-parse --show-topl
 **使用例**:
 ```bash
 # CWD に作成
-node .claude/scripts/tickets/ensure-malfeasance.js
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-malfeasance.js"
 
 # 指定ディレクトリに作成（CLAUDE.md と同じ階層を想定）
-node .claude/scripts/tickets/ensure-malfeasance.js "crates/ggufrs"
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-malfeasance.js" "crates/ggufrs"
 ```
 
 **出力**:
@@ -917,10 +915,10 @@ node "$_R/scripts/tickets/resync-queue.js"
 **使用例**:
 ```bash
 # CWD に Tickets.json を保証
-node .claude/scripts/tickets/ensure-tickets-json.js
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-tickets-json.js"
 
 # 特定ディレクトリに保証
-node .claude/scripts/tickets/ensure-tickets-json.js --dir=/path/to/project
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/ensure-tickets-json.js" --dir=/path/to/project
 ```
 
 **出力（既存時）**:
@@ -950,7 +948,7 @@ node .claude/scripts/tickets/ensure-tickets-json.js --dir=/path/to/project
 
 **使用例**:
 ```bash
-node .claude/scripts/tickets/resolve-ticket-context.js \
+node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/resolve-ticket-context.js" \
   --tickets=Tickets.json \
   --ticket-key=PX-1
 ```

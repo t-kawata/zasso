@@ -124,7 +124,7 @@ const LIMIT = /does not guarantee/;
  * @param {string} sourceText
  * @returns {string[]}
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function claimsIn(sourceText) {
   const claims = [];
   for (const match of String(sourceText ?? '').matchAll(CLAIM)) {
@@ -152,7 +152,7 @@ export function claimsIn(sourceText) {
  * @param {string} sourceText
  * @returns {string[]}
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function uncoveredClaims(sourceText) {
   return claimsIn(sourceText).filter((claim) => !CLAIM_CLAUSES.some((entry) => entry.pattern.test(claim)));
 }
@@ -163,8 +163,8 @@ export function uncoveredClaims(sourceText) {
  * @param {{ coverage: object, discharge: object, locations: object, packages: object, gateSource: string }} context
  * @returns {Array<{ id: string, claim: string, measuredBy: string, holds: boolean, detail: string|null }>}
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function criterionFindings(context) {
   return CRITERION_CLAUSES.map((clause) => ({
     id: clause.id,

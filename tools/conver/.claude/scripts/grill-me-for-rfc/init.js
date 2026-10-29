@@ -57,7 +57,7 @@ const HOME_DIRECTORY = os.homedir();
  * @param {string[]} givenMaterialPaths — this invocation's arguments, already resolved
  * @returns {{ refreshed: Array<{view: string, packageId: string}>, recordedMaterials: string[], reason: string|null }}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function refreshRecordedView(rfcDir, givenMaterialPaths) {
   const io = { ...nodeFileSystem(fs), basename: path.basename, join: path.join };
   const answer = findSequenceMaterial({ rfcDir, homeDirectory: HOME_DIRECTORY, io });
@@ -129,7 +129,7 @@ if (statusExists) {
  * @param {object} status — the parsed Status.json
  * @returns {string[]}
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function materialPathsOf(status) {
   if (Array.isArray(status.materialPaths)) return status.materialPaths;
   return status.researchPath ? [status.researchPath] : [];
@@ -148,7 +148,7 @@ function materialPathsOf(status) {
  * @param {string[]} given — the material paths this invocation was handed
  * @returns {{ merged: string[], added: string[] }}
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function mergeMaterialPaths(recorded, given) {
   const merged = [...recorded];
   const added = [];
@@ -208,7 +208,7 @@ fs.mkdirSync(rfcDir, { recursive: true });
 // and check-all-schema.js still requires it; a run with no material records the
 // empty string rather than null, which that same check rejects as missing.
 const statusTemplate = {
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
   state: "GRILLING",
   researchPath: materialPaths[0] ?? "",
   materialPaths,
@@ -248,7 +248,7 @@ fs.writeFileSync(treePath, JSON.stringify(treeTemplate, null, 2), "utf-8");
 // trailing comment is what lets the first generation migrate this file instead
 // of refusing it, and the header is carried into the generated body rather than
 // duplicated outside the fence.
-// [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-233 --for-spec --no-implementation-order`.
 const checklistTemplate = `# RFC 要件チェックリスト\n\n${AI_SUPPLEMENT_COMMENT}\n`;
 fs.writeFileSync(checklistPath, checklistTemplate, "utf-8");
 

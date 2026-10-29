@@ -50,6 +50,8 @@ const SCRIPTS_DIRECTORY = join(MODULE_DIRECTORY, '..', '..');
 
 const NEXT_CONTINUE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue';
 const NEXT_DETECTOR = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
+/** Command documents are anchored at the git root, so a handoff works from any directory. */
+const COMMANDS_DIRECTORY = '$(git rev-parse --show-toplevel)/.claude/commands';
 
 /** The next action a state names. */
 const NEXT_ACTION = Object.freeze({
@@ -65,9 +67,9 @@ const NEXT_ACTION = Object.freeze({
 });
 
 /** The educe command that settles a staged specification. */
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
 function educeCommandFor(stagingSpecPath) {
-  return `run .claude/commands/educe-sequences.md with ${stagingSpecPath}, then ${NEXT_CONTINUE}`;
+  return `run "${COMMANDS_DIRECTORY}/educe-sequences.md" with ${stagingSpecPath}, then ${NEXT_CONTINUE}`;
 }
 
 /**
@@ -81,9 +83,9 @@ export function groundHandoff({ stagingRoot, reason = 'a ground no longer resolv
   const ownsSeed = /RFC[- ]?SEED/i.test(reason);
   if (ownsSeed) {
     // /explain-seed takes one RFC-SEED.md path, not a directory.
-    return `run .claude/commands/explain-seed.md on the RFC seed named in the ground under ${stagingRoot}, then ${NEXT_CONTINUE}`;
+    return `run "${COMMANDS_DIRECTORY}/explain-seed.md" on the RFC seed named in the ground under ${stagingRoot}, then ${NEXT_CONTINUE}`;
   }
-  return `run .claude/commands/grill-me-for-rfc.md on ${stagingRoot}, then ${NEXT_CONTINUE}`;
+  return `run "${COMMANDS_DIRECTORY}/grill-me-for-rfc.md" on ${stagingRoot}, then ${NEXT_CONTINUE}`;
 }
 
 /**
@@ -104,25 +106,25 @@ export function describeThroughHandoff({ exitCode, stdout = '', stderr = '' }, s
 }
 
 /** A stable transaction id. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function newTransactionId() {
   return `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 }
 
 /** The live spec hash. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function computeFileDigest(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
 /** The hash of a file, or null when it does not exist. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function hashIfPresent(path) {
   return existsSync(path) ? computeFileDigest(path) : null;
 }
 
 /** Refuse a candidate path a caller named but did not write. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function assertCandidateExists(candidatePath) {
   if (candidatePath === null || candidatePath === undefined) return;
   if (existsSync(candidatePath)) return;
@@ -140,7 +142,7 @@ function assertCandidateExists(candidatePath) {
  * documents participate only when supplied; a missing live decisions document is a
  * null hash, so supplying one is a change.
  */
-// [::TICKET::] PX-279, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-287, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
 function resolveCandidateInputs(input) {
   const { root, candidateSpec, candidateAllocateDecisions, candidateTreeDecisions, candidateAnnotations, candidateEvidence } = input;
   const specRelativePath = liveSpecPath(root);
@@ -227,7 +229,7 @@ export function openTransaction(input) {
 
 
 /** Refuse a thaw that cannot safely start. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
 function assertThawable({ root, reason }) {
   const chain = verifyChain(root);
   if (!chain.declared) {
@@ -256,7 +258,7 @@ function assertThawable({ root, reason }) {
 }
 
 /** Refuse an action that would rewrite a committed or aborted record. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function assertMutable(entry) {
   if (!TERMINAL_STATES.has(entry.state)) return;
   throw new RegenerationError(`transaction ${entry.id} is ${entry.state}`, {
@@ -283,7 +285,7 @@ export function abortTransaction({ root, transactionId }) {
 }
 
 /** Run one producer script and report its stderr on failure. */
-// [::TICKET::] PX-278, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-280) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-280) --for-spec --no-implementation-order`.
 function runNode(cwd, script, args) {
   try {
     const stdout = execFileSync(process.execPath, [join(SCRIPTS_DIRECTORY, script), ...args], {
@@ -304,7 +306,7 @@ function runNode(cwd, script, args) {
  * regeneration inherits the live artifact. The raw digest is the same function the
  * chain uses, so an artifact the chain would reject is never reported current.
  */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function readArtifactCurrency({ stagingRoot, specPath }) {
   const names = readdirSync(stagingRoot).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
   if (names.length === 0) return { state: 'missing' };
@@ -331,7 +333,7 @@ const READ_PHASE_DONE = 'done';
 const EVIDENCE_DIRECTORY = 'educe-sequences';
 
 /** The one artifact digest every reading row carries, or null when they disagree. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function readingsArtifactDigest(stagingRoot) {
   const directory = join(stagingRoot, EVIDENCE_DIRECTORY);
   if (!existsSync(directory)) return null;
@@ -358,7 +360,7 @@ function readingsArtifactDigest(stagingRoot) {
 }
 
 /** Whether an educe generation still has a reader phase open. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function hasOpenReadPhases(stagingRoot) {
   const statusPath = join(stagingRoot, EVIDENCE_DIRECTORY, 'status.json');
   if (!existsSync(statusPath)) return false;
@@ -503,7 +505,7 @@ export function advanceManifestArtifactIfFresh({ manifestDirectory, artifactDige
 }
 
 /** Apply the staged annotations, returning whether the artifact bytes changed. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function applyAnnotations({ stagingRoot }) {
   const annotationsPath = join(stagingRoot, ANNOTATIONS_FILE_NAME);
   if (!existsSync(annotationsPath)) return { ok: true, changed: false };
@@ -551,7 +553,7 @@ export function renderDistributionRefresh({ stagingRoot, treeManifest, onlyExist
  * so the staged artifact already records the candidate spec; beginning a generation
  * there would discard readings no reader is going to rewrite.
  */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function runSetup({ root, stagingRoot, candidateSpec, runNodeFn = runNode }) {
   const tree = runNodeFn(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
   if (!tree.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-tree', stderr: tree.stderr } };
@@ -572,7 +574,7 @@ export function runSetup({ root, stagingRoot, candidateSpec, runNodeFn = runNode
 }
 
 /** Project every package view from the current artifact. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function runPackageViews({ stagingRoot, treeManifest, artifactPath }) {
   for (const pkg of treeManifest.workspace?.packages ?? []) {
     const view = runNode(stagingRoot, 'sequences-slice/run.mjs', [artifactPath, join(stagingRoot, pkg.path)]);
@@ -734,7 +736,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
  * `defect-report.js` takes the root before its flag; omitting it prints usage instead of
  * measuring, which the transaction would surface as a judgment ground that cannot settle.
  */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 export function groundCommands(stagingRoot) {
   return [
     ['grill-me-for-rfc/check-obligation-coverage.js', [stagingRoot]],
@@ -803,7 +805,7 @@ export function deriveGeneration({ root, transactionId, runProducer = runPipelin
 }
 
 /** Refuse a staged authored input that no longer matches the candidate recorded at open. */
-// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
 function assertStagedCandidatesMatch(entry) {
   const specRelativePath = entry.specRelativePath ?? liveSpecPath(entry.stagingRoot);
   const mismatches = [];
@@ -831,7 +833,7 @@ function assertStagedCandidatesMatch(entry) {
  * @param {{ root: string, transactionId: string, runGrounds?: Function, runDetector?: Function }} input
  */
 export function verifyGeneration({ root, transactionId, runGrounds = runGrillGates, runDetector }) {
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   if (typeof runDetector !== 'function') {
     throw new RegenerationError('verification needs a detector', { code: 'DETECTOR_REQUIRED', path: root, repair: 'Pass runDetector when verifying a generation.' });
   }
@@ -896,7 +898,7 @@ export function verifyGeneration({ root, transactionId, runGrounds = runGrillGat
 }
 
 /** Whether the entry's last verification receipt records a failure. */
-// [::TICKET::] PX-280, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-280|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-280|PX-287) --for-spec --no-implementation-order`.
 function receiptFailed(entry) {
   const chainFailed = entry.receipt?.chain !== undefined && entry.receipt.chain !== null && entry.receipt.chain.ok === false;
   const debtFailed = entry.receipt?.debt?.increase?.increased === true;
@@ -904,7 +906,7 @@ function receiptFailed(entry) {
 }
 
 /** The exact next command for one entry, including a failed verification. */
-// [::TICKET::] PX-279, PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-280) --for-spec --no-implementation-order`.
 function nextCommandFor(entry) {
   if (entry.state === STATES.JUDGMENT_REQUIRED) return groundHandoff(entry);
   if (entry.state === STATES.DERIVED && entry.receipt !== undefined && receiptFailed(entry)) {
@@ -914,7 +916,7 @@ function nextCommandFor(entry) {
 }
 
 /** A terminal entry, returned without rewriting the ledger. */
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
 function terminalResult(entry, transactionId) {
   return {
     state: entry.state,

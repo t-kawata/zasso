@@ -1,5 +1,5 @@
 // @verifies C001
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 /**
  * The graph node set is read from the origin spec, in the shape T3 judges.
  *
@@ -18,7 +18,7 @@ import { FIXTURE_SOURCE_FILES } from '../../workspacify-tree/reverse/helpers/rev
 import { assertGrounding } from '../../../.claude/scripts/workspacify-tree/lib/structure-parity.mjs';
 
 /** A throwaway directory for one origin spec, so nothing is written into the project. */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 function withSpec(document, body) {
   const root = mkdtempSync(join(tmpdir(), 'wsp-p24-10-graph-'));
   const specPath = join(root, 'ORIGIN-LONG-SPEC.json');
@@ -31,13 +31,13 @@ function withSpec(document, body) {
 }
 
 /** A claim grounded in one file, in the shape the analysis run publishes. */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 function claimGrounding(file, claimId = 'clm-1') {
   return { claim_id: claimId, evidence: [{ evidence_mode: 'source_static', source_span: { file, line: 5 } }] };
 }
 
 /** A throwaway measured tree holding one file per path, so T3 can resolve against it. */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 function writeMeasuredTree(files) {
   const root = mkdtempSync(join(tmpdir(), 'wsp-p24-10-measured-'));
   for (const file of files) {

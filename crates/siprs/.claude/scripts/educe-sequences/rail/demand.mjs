@@ -24,7 +24,7 @@ import { PACKAGE_ROOT_DIRECTORY } from '../../sequences-slice/lib/segments.mjs';
 import { replaceFile, runDirectoryFor } from './run-state.mjs';
 
 /** The name the demand record carries inside the run directory. */
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export const DEMAND_RECORD_NAME = 'demand.json';
 
 /** The manifests a workspace carries beside its specification. */
@@ -32,7 +32,7 @@ const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 
 /** Read and parse one JSON file beside the specification, or null when it cannot be read. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function readJsonOrNull(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -42,7 +42,7 @@ function readJsonOrNull(filePath) {
 }
 
 /** Every package view beneath a workspace root, in path order. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function readViewsBeneath(root) {
   const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
   if (!fs.existsSync(packageRoot)) return [];
@@ -71,7 +71,7 @@ function readViewsBeneath(root) {
  * @param {string} specPath
  * @returns {{ allocateManifest: object, treeManifest: object|null, views: object[] }}
  */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function readWorkspaceBeside(specPath) {
   const root = path.dirname(specPath);
   return {
@@ -88,7 +88,7 @@ function readWorkspaceBeside(specPath) {
  * @param {object} artifact — the artifact being composed, which is what the columns are read from
  * @returns {{ candidateColumns: string[], boundaryCount: number, counts: object }}
  */
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 export function demandFactsBeside(specPath, artifact) {
   return demandFactsOf({ artifact, allocateManifest: readWorkspaceBeside(specPath).allocateManifest });
 }
@@ -104,7 +104,7 @@ export function demandFactsBeside(specPath, artifact) {
  * @param {object} artifact
  * @returns {{ facts: object, denominator: object, coverage: object }}
  */
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 /**
  * Write the demand this run measured, beside the run that measured it.
  *
@@ -122,7 +122,7 @@ export function demandFactsBeside(specPath, artifact) {
  * @param {object} artifact
  * @returns {string} the path the record was written to
  */
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function writeDemandRecord(specPath, artifact) {
   const directory = runDirectoryFor(specPath);
   if (!existsSync(directory)) mkdirSync(directory, { recursive: true });
@@ -145,7 +145,7 @@ export function writeDemandRecord(specPath, artifact) {
   return recordPath;
 }
 
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function demandSummaryBeside(specPath, artifact) {
   const workspace = readWorkspaceBeside(specPath);
   const measured = measureCoverage({

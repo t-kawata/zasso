@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 
 import { run } from '../../.claude/scripts/tickets/check-ticket-prerequisites.js';
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function workspace() {
   const root = mkdtempSync(join(tmpdir(), 'px323-'));
   writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ artifact_kind: 'workspacify-allocate-manifest' }));
@@ -18,7 +18,7 @@ function workspace() {
   return root;
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function writeTickets(directory, phases, extra = {}) {
   mkdirSync(directory, { recursive: true });
   const path = join(directory, 'Tickets.json');
@@ -26,12 +26,12 @@ function writeTickets(directory, phases, extra = {}) {
   return path;
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function ticket(id, status, prerequisites = [], units = []) {
   return { id, phaseId: 0, title: `t${id}`, status, contracts: [], prerequisites, distribution: { units } };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function operationUnit(unitId) {
   return { unitId, kind: 'operation', obligation: { mode: 'implement' } };
 }

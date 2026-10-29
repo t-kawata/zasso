@@ -1,5 +1,5 @@
 // @verifies C014
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -9,7 +9,7 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';
 
 /** The index a materialized workspace produces. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function indexOf(workspace) {
   return indexArtifact(loadWorkspace(workspace.root));
 }

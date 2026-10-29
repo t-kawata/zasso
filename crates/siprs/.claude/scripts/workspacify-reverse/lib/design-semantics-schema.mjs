@@ -1,4 +1,4 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * What a design semantics must say, as a closed set of items.
  *
@@ -26,7 +26,7 @@
 const UNIVERSAL_CHECKS = Object.freeze(['grounded', 'refutable', 'not_restatement', 'not_reused']);
 
 /** One item: what it asks, and what the machine does about it. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function item(key, group, heading, requires, extraChecks = []) {
   return Object.freeze({
     key,

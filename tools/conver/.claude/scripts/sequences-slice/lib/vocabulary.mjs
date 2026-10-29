@@ -25,7 +25,7 @@ export const PINNED_VOCABULARY_NAMES = Object.freeze([
  *
  * @param {{ name: string, members: string[], ranges?: number[][], closedness?: string }} entry
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function readVocabulary(entry) {
   return {
     name: entry.name,
@@ -43,7 +43,7 @@ function readVocabulary(entry) {
  * @returns {Map<string, { name: string, members: string[], memberSet: Set<string>, ranges: number[][], closed: boolean }>}
  * @throws {Error} naming a vocabulary the artifact does not pin
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function readPinnedVocabularies(artifact) {
   const byName = new Map((artifact?.pins?.enumerations ?? []).map((entry) => [entry.name, entry]));
 
@@ -65,7 +65,7 @@ export function readPinnedVocabularies(artifact) {
  * @param {string} axis
  * @returns {Array<{ name: string, where: string }>}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function namesOnAxis(sightings, axis) {
   return sightings.filter((sighting) => sighting.axis === axis).map(({ name, where }) => ({ name, where }));
 }

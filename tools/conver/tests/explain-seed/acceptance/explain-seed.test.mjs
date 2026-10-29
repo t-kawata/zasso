@@ -75,7 +75,7 @@ const NEIGHBOUR_PACKAGE = 'pkg-0002';
 const NEIGHBOUR_DECISION = '却下はエラーコードで返す。真偽値で読み飛ばせないようにする。';
 
 /** A neighbour explanation in which the shared question has already been answered. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 const NEIGHBOUR_EXPLANATION = [
   '## 人間が決めること（ここだけ）',
   '',
@@ -89,19 +89,19 @@ const NEIGHBOUR_EXPLANATION = [
 ].join('\n');
 
 /** Put the neighbour's answer beside its seed, the way an earlier run of this command would have. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function writeNeighbourAnswer(workspace) {
   return writeNeighbourExplanation({ workspace, packageId: NEIGHBOUR_PACKAGE, documentText: NEIGHBOUR_EXPLANATION });
 }
 
 /** The item headings one section of an explanation opens. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function itemHeadings(documentText, heading) {
   return documentText.split('\n').filter((line) => line.startsWith(`${heading} `));
 }
 
 /** Run the command and keep both sinks as bytes. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function runExplainSeed(argv, { cwd, env } = {}) {
   return spawnSync(process.execPath, [RUN, ...argv], {
     cwd,
@@ -111,12 +111,12 @@ function runExplainSeed(argv, { cwd, env } = {}) {
 }
 
 /** The ids a document cites, and the ids the manifests actually hold. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function citedIds(document) {
   return [...document.matchAll(/\b(?:contract-boundary|boundary|pkg|obj|claim|req)-\d{3,6}\b/g)].map((match) => match[0]);
 }
 
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function knownIds({ tree, allocate }) {
   return new Set([
     ...(tree.workspace?.packages ?? []).map((entry) => entry.id),
@@ -130,7 +130,7 @@ function knownIds({ tree, allocate }) {
 }
 
 /** The INFO and EXPLAIN of one workspace, as text. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function documentsOf(workspace) {
   return {
     info: readFileSync(workspace.infoPath, 'utf8'),
@@ -139,7 +139,7 @@ function documentsOf(workspace) {
 }
 
 /** Put a person's own note under the first placeholder, the way an operator would. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function withHumanNote(documentText) {
   const lines = [];
   let written = false;
@@ -154,14 +154,14 @@ function withHumanNote(documentText) {
 }
 
 /** The recorded points the fixture manifests leave open, which a round of questions must bind. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function openIdsOf(workspace) {
   const { unresolved = [], risky_boundaries: risky = [] } = workspace.manifests.allocate.handoff_summary;
   return [...unresolved.map((entry) => entry.residual_id), ...risky];
 }
 
 /** One section's body, read the way the gate reads it. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function sectionBody(documentText, sectionId) {
   return locateSections(documentText).bodies[sectionId] ?? '';
 }
@@ -172,7 +172,7 @@ function sectionBody(documentText, sectionId) {
  * The frame holds no question of its own: a round is appended by `next` first, and the points
  * that round binds are what the AI writes on each question's bound-points line.
  */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function authorFrame(workspace, { size = 1, boundIds = openIdsOf(workspace) } = {}) {
   const appended = runExplainSeed(['next', workspace.seedPath, String(size)], { cwd: workspace.root });
   assert.equal(appended.status, 0, appended.stderr.toString('utf8'));
@@ -435,7 +435,7 @@ test('C008 postcondition: an unchanged re-run keeps every filled explanation and
 });
 
 test('C008 postcondition: a re-run after one fact moved reopens only the sections that rest on it', () => {
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
   writeFileSync(workspace.explainPath, withHumanNote(authorFrame(workspace)), 'utf8');
@@ -459,7 +459,7 @@ test('C008 postcondition: a re-run after one fact moved reopens only the section
 });
 
 test('C004 invariant: an order that disagrees with its own edges is refused, and no document is written', () => {
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
   const workspace = materializeExplainSeedWorkspace();
 
   // The published order is reversed, so it no longer follows from the canonical edges. The
@@ -623,11 +623,11 @@ test('C006 postcondition: a workspace whose neighbours have decided nothing gain
 });
 
 /** The labels whose blocks the frame that asked for directions added, in one list for the surgery below. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
 
 /** The same document with the blocks under the given labels taken out of every question. */
-// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function withoutLabelBlocks(documentText, labels) {
   const kept = [];
   let skipping = false;
@@ -644,7 +644,7 @@ function withoutLabelBlocks(documentText, labels) {
 }
 
 /** Append pre-decided items grounded on the answer, the way step 4c settles a bound point. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function withSettledPoints(documentText, points, ground) {
   const heading = `## ${FRAME_SECTIONS[5].title}`;
   const start = documentText.indexOf(heading);
@@ -668,7 +668,7 @@ function withSettledPoints(documentText, points, ground) {
   return `${documentText.slice(0, start + heading.length)}${body}\n${block}${tail}`;
 }
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C003 postcondition: answers stays non-zero until every question is answered and every point is settled, then stops', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -698,7 +698,7 @@ test('C003 postcondition: answers stays non-zero until every question is answere
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C003 invariant: the asking round reads the explanation and changes nothing in it', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -716,7 +716,7 @@ test('C003 invariant: the asking round reads the explanation and changes nothing
   assert.match(absent.stderr.toString('utf8'), new RegExp(EXPLAIN_FILE_NAME), 'and it names the path it looked for');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 postcondition: a question that lost its second direction is refused, naming the section and the question', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -730,7 +730,7 @@ test('C002 postcondition: a question that lost its second direction is refused, 
   assert.match(verdict.stdout.toString('utf8'), /Q1/, 'and so is the question, by the number the frame gave it');
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C004 invariant: next is accepted with its size, and every other argv is refused with all four operations named', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -755,7 +755,7 @@ test('C004 invariant: next is accepted with its size, and every other argv is re
   }
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: info repairs a human section written before this command asked for directions', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -775,7 +775,7 @@ test('C001 invariant: info repairs a human section written before this command a
   assert.equal(runExplainSeed(['check', workspace.seedPath], { cwd: workspace.root }).status, 0, 'so the document can be completed again');
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: info repairs a human section written before this command carried the context element', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -799,7 +799,7 @@ test('C001 invariant: info repairs a human section written before this command c
   );
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C002 postcondition: a question whose context was never written is refused, naming the section and the question', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -819,10 +819,10 @@ test('C002 postcondition: a question whose context was never written is refused,
 });
 
 /** The added point the human's answer raised, in the shape these cases use. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 postcondition: an info run over a document holding an added-point block keeps it and exits zero', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -834,7 +834,7 @@ test('C002 postcondition: an info run over a document holding an added-point blo
   assert.match(readFileSync(workspace.explainPath, 'utf8'), /added-001/, 'the block survives the run that would otherwise lose it');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 postcondition and invariant: answers stays non-zero while an added point is unsettled, and turns zero once it is settled', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -852,7 +852,7 @@ test('C004 postcondition and invariant: answers stays non-zero while an added po
   assert.equal(settled.status, 0, settled.stdout.toString('utf8') + settled.stderr.toString('utf8'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C004 postcondition: next refuses when nothing is unattached, and opens a round once an added point is there', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -867,7 +867,7 @@ test('C004 postcondition: next refuses when nothing is unattached, and opens a r
 });
 
 /** Put an answer under the nth place the human writes, counted from one. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function answerPlaceholder(documentText, answer, nth) {
   const lines = [];
   let seen = 0;
@@ -881,7 +881,7 @@ function answerPlaceholder(documentText, answer, nth) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 test('C004 postcondition: a viewpoint brought after Done re-opens the run, and the loop closes again', () => {
   const workspace = materializeExplainSeedWorkspace();
   runExplainSeed(['info', workspace.seedPath], { cwd: workspace.root });
@@ -926,7 +926,7 @@ test('C004 postcondition: a viewpoint brought after Done re-opens the run, and t
  * the system temporary directory lies outside every home directory, and a conversion test
  * run against it would pass whether or not the conversion happened.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function workspaceUnderInjectedHome() {
   const injectedHome = mkdtempSync(join(tmpdir(), 'px231-home-'));
   const previousTmpdir = process.env.TMPDIR;
@@ -940,7 +940,7 @@ function workspaceUnderInjectedHome() {
 }
 
 /** Every line of a document that begins with a path in a code span, as written. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function pathLinesOf(documentText) {
   return documentText.split('\n').filter((line) => /`[^`]*\/[^`]*`/.test(line));
 }

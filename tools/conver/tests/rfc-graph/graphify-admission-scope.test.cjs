@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const { verifyViewAgainstMap } = require('../../.claude/scripts/rfc-graph/attach-unit-ids.js');
 const { multiPackageFixture } = require('../sequences-slice/helpers/multi-package-fixture.mjs');
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 test('C001 a foreign step and a foreign boundary produce no admission finding', async () => {
   const { view, map, artifact, registry } = await multiPackageFixture();
   const findings = verifyViewAgainstMap({ view, map, artifact, registry });

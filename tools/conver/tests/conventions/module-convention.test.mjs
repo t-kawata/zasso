@@ -33,7 +33,7 @@ import {
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** A scratch tree whose ancestor declarations vary, so a case is independent of this repository. */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function makeDeclaredTree(files) {
   const root = mkdtempSync(join(tmpdir(), 'px205-convention-'));
   for (const [relative, contents] of Object.entries(files)) {

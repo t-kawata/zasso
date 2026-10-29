@@ -56,7 +56,7 @@ const ABSENT = BUILD_DATABASE_LIMITATION_CODES.absent;
  * relative directory against the database's own location rather than against
  * whatever directory the process happens to be in.
  */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function compileCommandsFor(files, { includePaths = ['src'], defines = [] } = {}) {
   return JSON.stringify(files.map((file) => ({
     directory: '.',
@@ -66,7 +66,7 @@ function compileCommandsFor(files, { includePaths = ['src'], defines = [] } = {}
 }
 
 /** A C/C++ subject whose three translation units are named by its database. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function subjectWithDatabase() {
   const sources = ['src/widget.cpp', 'src/widget_extra.cpp', 'tests/test_widget.cpp'];
   const files = {
@@ -82,7 +82,7 @@ function subjectWithDatabase() {
 }
 
 /** A C/C++ subject that carries no database, which is the common case. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function subjectWithoutDatabase() {
   return createSyntheticTree({
     'src/widget.h': 'int widget();\n',
@@ -91,7 +91,7 @@ function subjectWithoutDatabase() {
 }
 
 /** The limitation one measurement carries for a given code, or undefined. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function limitationFor(measurement, code) {
   return measurement.limitations.find((limitation) => limitation.code === code);
 }

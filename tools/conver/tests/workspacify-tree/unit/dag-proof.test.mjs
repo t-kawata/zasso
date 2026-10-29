@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C001
 // The dependency proof must survive in the published manifest: the canonical edge
 // list it was computed from, the existing consumers-first topological order, and a

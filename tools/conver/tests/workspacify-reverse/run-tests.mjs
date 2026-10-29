@@ -1,4 +1,4 @@
-// [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-203 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-203 --for-spec --no-implementation-order`.
 /**
  * Aggregate test runner for the workspacify-reverse suite.
  *
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { collectTestFilesUnder } from '../lib/test-discovery.mjs';
 
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 const SUITE_ROOT = fileURLToPath(new URL('.', import.meta.url));
 
 const testFiles = collectTestFilesUnder(SUITE_ROOT, { extensions: ['.test.mjs'] });

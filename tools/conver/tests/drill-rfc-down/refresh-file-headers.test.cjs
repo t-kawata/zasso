@@ -108,11 +108,11 @@ function buildHeader(extraLines = []) {
 
 /** A header-carrying file: a [::TICKET::] annotation ABOVE the header, then the header block. */
 function buildFile(extraLines = []) {
-  return '// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.\n\n' + buildHeader(extraLines);
+  return '// [::TICKET::] P4-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P4-1 --for-spec --no-implementation-order`.\n\n' + buildHeader(extraLines);
 }
 
 /** Build a fixture project: graph, Dirs-Tree, src files, graph-delta. */
-// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-338 --for-spec --no-implementation-order`.
 function setupProject({ includeHandWritten = true, preCreateTemplate = false, includeUnits = true } = {}) {
   const tmp = fs.mkdtempSync(path.join(tmpRoot, 'proj-'));
   const graphPath = path.join(tmp, 'RFC-GRAPH.json');

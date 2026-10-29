@@ -24,7 +24,7 @@ const GOLDEN_PATH = join(FIXTURES, 'spec', 'ledger-sequences.json');
 const RENDER_PATH = join(FIXTURES, 'spec', 'ledger-sequences.md');
 
 /** Every file beneath a root, as paths relative to it. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function filesBeneath(root, prefix = '') {
   const found = [];
   for (const name of readdirSync(root)) {

@@ -59,7 +59,7 @@ const SERVES_RELATION = 'serves';
  * @param {string} role
  * @returns {string[]|null}
  */
-// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
 function sequenceCensusMembers(artifact) {
   const dedicated = borrowedCensusMembers(artifact, 'sequences');
   if (dedicated !== null) return dedicated;
@@ -73,7 +73,7 @@ function sequenceCensusMembers(artifact) {
   return entries.every((member) => sequenceIds.has(member)) ? entries : null;
 }
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function borrowedCensusMembers(artifact, role) {
   const pins = artifact?.pins?.sourceEnumerations;
   if (!Array.isArray(pins)) return null;
@@ -100,7 +100,7 @@ function borrowedCensusMembers(artifact, role) {
  * @param {object[]} views
  * @returns {number|null}
  */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function declaredSurfaceCount(allocateManifest, views) {
   const fromManifest = allocateManifest?.[DECLARED_INTERFACES_FIELD];
   const manifestColumns = new Set();
@@ -138,7 +138,7 @@ function declaredSurfaceCount(allocateManifest, views) {
 }
 
 /** One axis, stated or unstated, with the member count the statement carries. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function axisEntry(axis, source, members) {
   return { axis, source, members, borrowed: source !== DENOMINATOR_SOURCES[3] };
 }
@@ -155,7 +155,7 @@ function axisEntry(axis, source, members) {
  * @param {{ artifact?: object, allocateManifest?: object, treeManifest?: object, views?: object[] }} input
  * @returns {{ operations: object, sequences: object, boundaries: object, surfaces: object }}
  */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 export function denominatorOf({ artifact = null, allocateManifest = null, treeManifest = null, views = [] } = {}) {
   const censusOf = (axis) => {
     const members = axis === 'sequences' ? sequenceCensusMembers(artifact) : borrowedCensusMembers(artifact, CENSUS_ROLE_BY_AXIS[axis]);
@@ -189,7 +189,7 @@ export function denominatorOf({ artifact = null, allocateManifest = null, treeMa
 }
 
 /** The structure to supply for an axis, and what supplying it would settle. */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 const REPAIR_BY_AXIS = Object.freeze({
   operations: 'supply the census for the operations role beside the run, so the operation list answers to a reading of the specification rather than to itself',
   sequences: 'supply a census for the sequences role, or an entries census whose members are the realized sequence ids',
@@ -198,7 +198,7 @@ const REPAIR_BY_AXIS = Object.freeze({
 });
 
 /** Why an axis is unstated, in the terms of the structure that is missing. */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 const REASON_BY_AXIS = Object.freeze({
   operations: 'no census is borrowed for the operations role, so the artifact is its own denominator',
   sequences: 'no census names the realized sequences, so the artifact is its own denominator',
@@ -217,7 +217,7 @@ const REASON_BY_AXIS = Object.freeze({
  * @param {{ [axis: string]: number }} demandCounts — how many demands each axis asks about
  * @returns {Array<{ axis: string, why: string, repair: string }>}
  */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 export function gapsIn(denominator, demandCounts = {}) {
   return DENOMINATOR_AXES
     .filter((axis) => denominator?.[axis]?.source === DENOMINATOR_SOURCES[3])

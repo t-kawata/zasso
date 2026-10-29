@@ -46,7 +46,7 @@ export const SPEC_TEXT = [
 ].join('\n');
 
 /** The heading whose section contains an offset into the fixture specification. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionIdAt(offset) {
   const headings = buildHeadingTree(SPEC_TEXT.split('\n'), undefined, { sourceText: SPEC_TEXT });
   const containing = headings
@@ -56,7 +56,7 @@ function sectionIdAt(offset) {
 }
 
 /** One inventory record, with the range of the specification text it came from. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function inventoryRecord({ id, canonicalName, classification }, { ownerPackage, needle }) {
   const start = SPEC_TEXT.indexOf(needle);
   if (start < 0) throw new Error(`fixture spec does not contain ${needle}`);
@@ -82,7 +82,7 @@ function inventoryRecord({ id, canonicalName, classification }, { ownerPackage, 
 }
 
 /** The segments, headings and hashes of the fixture specification. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function analyzeSpecification() {
   const headings = buildHeadingTree(SPEC_TEXT.split('\n'), undefined, { sourceText: SPEC_TEXT });
   const { segments } = segmentAtHeadings({ sourceText: SPEC_TEXT, headings }, { segmentLevel: 2 });
@@ -91,7 +91,7 @@ function analyzeSpecification() {
 }
 
 /** Extra records with no source range, used to drive a package past the document's caps. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function syntheticObjects({ packageId, count }) {
   return Array.from({ length: count }, (_, index) => ({
     id: `obj-9${String(index).padStart(5, '0')}`,
@@ -105,7 +105,7 @@ function syntheticObjects({ packageId, count }) {
 }
 
 /** The two-package workspace the command is pointed at. */
-// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 function buildTreeManifest({ scale, extraPackages = [], edges = [{ from: 'pkg-0002', to: 'pkg-0001' }] } = {}) {
   const { extraObjects = 0, extraContracts = 0, clauseLength = 40 } = scale ?? {};
   const { headings, segments, bytes, sourceHash } = analyzeSpecification();
@@ -251,7 +251,7 @@ function buildTreeManifest({ scale, extraPackages = [], edges = [{ from: 'pkg-00
 }
 
 /** Extra boundaries and their contracts, used to drive a package past the document's caps. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function syntheticCoupling({ packageId, count, clauseLength }) {
   const clauseText = '仕様が定めた条項の本文。'.repeat(Math.ceil(clauseLength / 12)).slice(0, clauseLength);
   const boundaries = Array.from({ length: count }, (_, index) => ({
@@ -274,7 +274,7 @@ function syntheticCoupling({ packageId, count, clauseLength }) {
 }
 
 /** The order block stage two injects, which is level adjacency rather than edges. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 export const INJECTED_ORDER = Object.freeze({
   before: [],
   after: ['pkg-0002'],
@@ -284,7 +284,7 @@ export const INJECTED_ORDER = Object.freeze({
 });
 
 /** The seed text, which records the paths and hashes the command must verify. */
-// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 function renderSeed({ seedRelativePath, sourceHash, implementationOrder = INJECTED_ORDER }) {
   const identity = {
     package: {
@@ -393,7 +393,7 @@ function renderSeed({ seedRelativePath, sourceHash, implementationOrder = INJECT
 }
 
 /** The stage-two manifest, whose seed index must agree with the seed's bytes. */
-// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 function buildAllocateManifest({ provenance, options }) {
   const { seedRelativePath, seedHash, sourceHash } = provenance;
   const { extraContracts = 0, clauseLength = 40, ownsResiduals = true, recordsRiskyBoundaries = true, order } = options ?? {};
@@ -523,7 +523,7 @@ export function materializeExplainSeedWorkspace({
  * something at level zero, so a level-mate that shares no edge with alpha must depend on a root
  * of its own. That is why this fixture holds four packages rather than three.
  */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 export function materializeAdjacentLevelWorkspace() {
   const packageRecord = (id, name, responsibility) => ({
     id,
@@ -581,7 +581,7 @@ export function snapshotWorkspace(root) {
  *
  * @returns {string} the absolute path written, so a test can assert what the facts name it as
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function writeNeighbourExplanation({ workspace, packageId, documentText }) {
   const documentPath = join(dirname(workspace.seedPathOf(packageId)), EXPLAIN_FILE_NAME);
   mkdirSync(dirname(documentPath), { recursive: true });

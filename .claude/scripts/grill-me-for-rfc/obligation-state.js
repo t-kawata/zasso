@@ -18,7 +18,7 @@
  * carries, and asking about one directory at a time means a view written into the wrong directory
  * cannot be read as its neighbour's — a question a whole-workspace reading has no way to answer.
  *
- * Design context: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+ * Design context: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,7 +39,7 @@ import { readLedgers } from './check-ledger-discharge.js';
  * predicate accepts the view a slice that predates the carriage wrote, which carries neither the
  * source field nor the obligation units, so the shape it insists on is the one every view has had.
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function isAProjectedView(document) {
   return typeof document === 'object' && document !== null && !Array.isArray(document);
 }
@@ -54,7 +54,7 @@ function isAProjectedView(document) {
  *
  * @returns {{ view: object|null, readError: string|null }}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function readView(material, viewPath) {
   const parsed = material.views[0] ?? null;
   if (isAProjectedView(parsed)) return { view: parsed, readError: null };
@@ -75,7 +75,7 @@ function readView(material, viewPath) {
  * @param {string} directory — one package's directory
  * @returns {{ material: object, verdict: { state: string, reason: string|null } }}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function readPackageObligationState(directory) {
   const ledgers = readLedgers([directory]);
   const measured = measureDischarge({ views: ledgers.views, ledgersByPackage: ledgers.ledgers });

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C003
 // Zero-omission transfer needs two machine facts from stage 1: the segment list is
 // a total partition of the normalised specification, and every harvested candidate

@@ -1,5 +1,5 @@
 // PX-238 @verifies C003
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * The copy STEP 5 leaves behind.
  *
@@ -22,7 +22,7 @@ const RFC_BACKUP_PATTERN = /^RFC\..+\.bak\.md$/;
 const PRE_REWRITE_RFC = '# RFC\n\n## Abstract\nThe settled design.\n\n```js\nconst a = 1;\n```\n';
 
 /** A directory holding an RFC with content worth losing. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function makeRfcDir() {
   const dir = mkdtempSync(join(tmpdir(), 'px238-backup-'));
   const rfcPath = join(dir, 'RFC.md');

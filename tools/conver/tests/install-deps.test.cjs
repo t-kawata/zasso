@@ -59,21 +59,21 @@ const FAKE_SQLJS = {
 };
 
 /** An `ajv` that carries the dependencies the real one carries, so a tree can hold them. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 const FAKE_AJV_WITH_DEPS = {
   'package.json': JSON.stringify({ name: 'ajv', version: '8.20.0', main: 'dist/ajv.js', dependencies: { 'fast-deep-equal': '^3.1.3' } }),
   'dist/ajv.js': 'module.exports = {};',
 };
 
 /** A dependency of `ajv`, which nothing declares and which is therefore not extraneous. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 const FAKE_TRANSITIVE = {
   'package.json': JSON.stringify({ name: 'fast-deep-equal', version: '3.1.3', main: 'index.js' }),
   'index.js': 'module.exports = {};',
 };
 
 /** A package nobody declared and nothing reaches — the shape the caution exists for. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 const FAKE_FOREIGN = {
   'package.json': JSON.stringify({ name: 'left-pad', version: '1.3.0', main: 'index.js' }),
   'index.js': 'module.exports = {};',
@@ -310,7 +310,7 @@ describe('readManifestDependencies', () => {
 // whether anything present lies outside the closure of the declared set.
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 describe('classifyDependencyAction — a populated tree and a declared package that is absent', () => {
   it('returns install-missing when nothing present lies outside the declared closure (C004)', () => {
     const fx = makeClaudeFixture({ ajv: FAKE_AJV_WITH_DEPS, 'fast-deep-equal': FAKE_TRANSITIVE });
@@ -360,7 +360,7 @@ describe('classifyDependencyAction — a populated tree and a declared package t
   });
 });
 
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 describe('resolveTargetDependencies — adding a missing declaration without destroying the tree', () => {
   it('installs into the existing tree and reports what it did (C004)', () => {
     const fx = makeClaudeFixture({ ajv: FAKE_AJV_WITH_DEPS, 'fast-deep-equal': FAKE_TRANSITIVE });

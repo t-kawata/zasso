@@ -11,13 +11,13 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 /** The index a materialized workspace produces. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function indexOf(workspace) {
   return indexArtifact(loadWorkspace(workspace.root));
 }
 
 /** The blocked entry for one check id. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function blockedOf(result, checkId) {
   return result.blocked.find((entry) => entry.checkId === checkId);
 }

@@ -224,7 +224,7 @@ test('database invariant [@verifies C005]: domain/protocol never reference concr
 });
 
 // ---- PX-217: the gate judges every count it computes ----------------------
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 //
 // Every assertion below toggles exactly one field of one input that reaches
 // COMPLETE, so a status change can only come from the field under test. The

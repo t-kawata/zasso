@@ -23,7 +23,7 @@ const path = require('path');
 // [::TICKET::] PX-83: @verifies integration via scanContractCoverage
 const { scanContractCoverage, findTestFiles } = require('./verify-red-coverage');
 
-// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath, testDir = '.';
@@ -48,7 +48,7 @@ function parseArgs() {
  * @returns {string}
  */
 // [::TICKET::] PX-83: extracted formatError for DRY 3-line error template
-// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-83 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-83 --for-spec --no-implementation-order`.
 function formatError(id, description, cause, action) {
   return '[ERROR] [' + id + '] ' + description + '\nCause: ' + cause + '\nAction: ' + action;
 }
@@ -61,7 +61,7 @@ function formatError(id, description, cause, action) {
  * @returns {{valid: boolean, missing: string[], total: number, covered: number}}
  */
 // [::TICKET::] PX-83: checkVerifiesCoverage — @verifies annotation scan
-// [::TICKET::] PX-83, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-83|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-83, PX-84, PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-83|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function checkVerifiesCoverage(ticket, testDir) {
   const contractIds = new Set();
   const contracts = ticket.contracts || [];
@@ -109,7 +109,7 @@ function checkVerifiesCoverage(ticket, testDir) {
  * @returns {{valid: boolean, unresolved: string[], total: number}}
  */
 // [::TICKET::] PX-83: checkStubResolution — targetStub status check
-// [::TICKET::] PX-83, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-83|PX-89) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-83, PX-89 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-83|PX-89) --for-spec --no-implementation-order`.
 function checkStubResolution(targetStubs, ticketsData) {
   // verified_empty or undefined — no stubs to check
   if (targetStubs === 'verified_empty' || targetStubs === undefined || targetStubs === null) {
@@ -173,7 +173,7 @@ function checkStubResolution(targetStubs, ticketsData) {
  * @param {object} opts — { tickets: Array, contractsCheck: boolean, testDir?: string }
  * @returns {{ valid: boolean, report: object }}
  */
-// [::TICKET::] PX-71, PX-83, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83, PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-71|PX-83|PX-114) --for-spec --no-implementation-order`.
 function verifyFinalContracts(opts) {
   const { tickets, contractsCheck, testDir, ticketsData } = opts;
   const details = [];
@@ -233,7 +233,7 @@ function verifyFinalContracts(opts) {
   };
 }
 
-// [::TICKET::] PX-71, PX-83, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83|PX-89) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83, PX-89 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-71|PX-83|PX-89) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath, testDir } = parseArgs();
 

@@ -44,8 +44,8 @@ import { selectNeighbourFor } from './pins.mjs';
  * is a role rather than a note because the author needs the same discipline the readers
  * get: one question, the verbatim-quote clause, the no-window clause, and the worklist.
  */
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 export const BRIEF_NAMES = Object.freeze(['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest', 'uncovered']);
 
 /** The two clauses a brief must carry verbatim, so removing one breaks rendering. */
@@ -80,7 +80,7 @@ export const PREDICATE_PLACEHOLDER = '{{PREDICATE}}';
  * other purpose. A verdict made against it rather than against the line would be the artifact
  * agreeing with itself, which is the one thing this apparatus is built not to do.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export const TREE_PLACEHOLDER = '{{TREE}}';
 
 /**
@@ -91,7 +91,7 @@ export const TREE_PLACEHOLDER = '{{TREE}}';
  * them as two parameters put every renderer over the parameter limit for one concept, and a
  * brief that read them as two would have two places to forget to fill.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export const EMPTY_ORIENTATION = Object.freeze({ previousAnswers: [], tree: '' });
 
 /**
@@ -254,7 +254,7 @@ const BRIEFS_ROOT = join(import.meta.dirname, '..', 'briefs');
  * asked", which is a wrong brief rather than a missing one. This module refuses a flag that
  * cannot act on the mode it was given, and for the same reason it refuses this.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function refuseSupersededOrientation(options, caller) {
   const superseded = ['previousAnswers', 'tree'].filter((key) => key in options);
   if (superseded.length > 0) {
@@ -295,7 +295,7 @@ export function neighbourIsCited(artifact, entry, namedNeighbour) {
 }
 
 /** A refusal names the subject and the field, so the reader knows which reading to redo. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function refuse(refusals, subject, field, why, extra = {}) {
   refusals.push({ subject, field, why, ...extra });
 }
@@ -307,7 +307,7 @@ function refuse(refusals, subject, field, why, extra = {}) {
  * line rather than the whole reading, and a refusal that named the reading would send the
  * reader back over steps that were already grounded.
  */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function proveStepsGroundThemselves({ reading, subject, refusals }) {
   for (const step of reading.steps ?? []) {
     for (const field of missingStepFields(step)) {
@@ -327,7 +327,7 @@ function proveStepsGroundThemselves({ reading, subject, refusals }) {
  * declaration is read from the artifact rather than from the reading, because the limbs
  * are the declaration's and a reading cannot narrow them to the ones it can answer.
  */
-// [::TICKET::] PX-246, PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
 function proveRulingAppliesThePredicate({ reading, subject, artifact, refusals }) {
   if (!LIMB_RULING_OUTCOMES.includes(reading.outcome)) return;
   const limbs = artifact.pins?.predicate?.limbs ?? [];
@@ -354,7 +354,7 @@ function proveRulingAppliesThePredicate({ reading, subject, artifact, refusals }
  * as many words), so requiring the subject to resolve would refuse the repair the merge path is
  * built on. What a ruling is held to is the vocabulary it answers in and the limb it names.
  */
-// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
 function proveReading({ reading, artifact, specLines, refusals, subjectIsAName = false }) {
   const subject = reading.subject ?? '(unnamed)';
 
@@ -400,7 +400,7 @@ function proveReading({ reading, artifact, specLines, refusals, subjectIsAName =
 }
 
 /** Prove a supplied rule: its presupposition must be an integer line naming its subject. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function proveSuppliedRule({ reading, artifact, specLines, refusals, subject }) {
   for (const field of SUPPLIED_RULE_FIELDS) {
     if (reading[field] === undefined) refuse(refusals, subject, field, `the supplied rule carries no ${field}`);
@@ -437,7 +437,7 @@ function proveSuppliedRule({ reading, artifact, specLines, refusals, subject }) 
  * the same finding whichever collection they were written for, and a second copy of the rule is
  * a second thing that can disagree about what a repair is.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function proveReadings({ readings, artifact, specLines, subjectIsAName = false }) {
   const refusals = [];
   const seen = new Set();
@@ -461,7 +461,7 @@ function proveReadings({ readings, artifact, specLines, subjectIsAName = false }
  * the phase that composes the artifact, before anything is written, and at the gate of the
  * phase that dispatched the brief.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 export function proveAdjudicationReadings({ readings, artifact, specLines }) {
   return { refused: proveReadings({ readings, artifact, specLines, subjectIsAName: true }) };
 }
@@ -471,7 +471,7 @@ export function proveAdjudicationReadings({ readings, artifact, specLines }) {
  *
  * @returns {{written: number} | {refused: Array<{subject: string, field: string, why: string}>}}
  */
-// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-246, PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-246|PX-268) --for-spec --no-implementation-order`.
 export function applyReadings({ artifactPath, readings, artifact, specLines }) {
   const target = artifact ?? JSON.parse(readFileSync(artifactPath, 'utf8'));
   const refusals = proveReadings({ readings, artifact: target, specLines });
@@ -494,7 +494,7 @@ export function artifactDigest(artifactPath) {
  * record would make this module decide how an operation ought to be described — the
  * judgement no library here may make.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 export function subjectsNamedBy(artifact) {
   const names = new Set();
   for (const operation of artifact.operations ?? []) if (typeof operation.id === 'string') names.add(operation.id);
@@ -514,7 +514,7 @@ export function subjectsNamedBy(artifact) {
  * repair would be to make the same ruling again, which is a rule that refuses the merge it
  * exists to permit.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 export function subjectsHeldBy(artifact) {
   const names = new Set();
   for (const operation of artifact.operations ?? []) if (typeof operation.id === 'string') names.add(operation.id);
@@ -540,8 +540,8 @@ export function subjectsHeldBy(artifact) {
  *   the one composed from this generation's declaration and readings
  * @returns {string[]} — the names that left, in the order the previous artifact held them
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function vanishedSubjects({ previous, next }) {
   if (previous === null || previous === undefined) return [];
   if (!isSameRevision(previous, next)) return [];
@@ -558,7 +558,7 @@ export function vanishedSubjects({ previous, next }) {
  * in step. The remedies are the closed vocabularies rather than a procedure, because the
  * repair is a reading and a library may not write one for the reader.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 export function vanishedRefusal(subject) {
   return `${subject} was named by the artifact this generation replaces and is named nowhere in the one it writes;`
     + ' name it in the artifact, with a declared escape position for an operation or a declared outcome for an entry,'

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-125: Abolish phasify --src-dir. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-125 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125: Abolish phasify --src-dir. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-125 --for-spec --no-implementation-order`.
 
 /**
  * phasify-srcdir.test.js — Tests for phasify --src-dir abolition (always CWD).
@@ -21,13 +21,13 @@ const path = require('path');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -87,7 +87,7 @@ try {
 // C004: find-omissions.md Step 9 documentation
 
 (function testC004Step9NoSrcDirOption() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const md = fs.readFileSync(path.resolve(__dirname, '../../commands/find-omissions.md'), 'utf8');
   const step9 = md.slice(md.indexOf('# Step 9'), md.indexOf('# Step 10'));
   assert(!step9.includes('--src-dir'), 'C004: Step 9 no longer mentions --src-dir as an option');
@@ -98,7 +98,7 @@ try {
 // C005: test regression — no --src-dir reference remains
 
 (function testC005TestsNoSrcDirReference() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const t1 = fs.readFileSync(path.resolve(__dirname, '../../scripts/rfc-graph/phasify-omissions.test.js'), 'utf8');
   const t2 = fs.readFileSync(path.resolve(__dirname, '../../scripts/tickets/tests/phasify-key-rewrite.test.js'), 'utf8');
   assert(!t1.includes('--src-dir') && !t2.includes('--src-dir'), 'C005: phasify tests updated to always-CWD behavior');
@@ -108,7 +108,7 @@ try {
 // PX-142 Defect 2: line-less stubs fall back to plan-text marker location
 
 (function testPX142Defect2LineLessFallback() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const tmpFile = '_px142_marker_noline.rs';
   const absTmp = path.resolve(tmpFile);
   try {
@@ -136,7 +136,7 @@ try {
 // PX-142 Defect 2: leftover old-key marker triggers an explicit failure
 
 (function testPX142Defect2SelfVerificationFailsLoudly() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const tmpFile = '_px142_marker_selfcheck.rs';
   const absTmp = path.resolve(tmpFile);
   try {

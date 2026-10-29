@@ -1,4 +1,4 @@
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 // PX-222 @verifies C004
 //
 // The two tokens the frame and the gate are built on. Both are detected by one predicate

@@ -35,7 +35,7 @@ import {
   renderPlan,
 } from '../../../.claude/scripts/workspacify-order/lib/render.mjs';
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function twoLevelModel(workspace) {
   return buildModel({
     root: workspace.root,
@@ -44,7 +44,7 @@ function twoLevelModel(workspace) {
   });
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function fixture(t) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -250,7 +250,7 @@ test('C004 postcondition: render with no focus equals the plan and render with a
 // EXP_LABEL, so a typo inside that constant cannot satisfy the test meant to catch it.
 
 /** The two-level fixture with pkg-0001 and pkg-0003 explained: one on the chain, one beside it. */
-// [::TICKET::] PX-228, PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
 function explainedFixture(t) {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
@@ -261,7 +261,7 @@ function explainedFixture(t) {
 }
 
 /** The plan of that fixture, line by line, written out rather than rebuilt from the renderer. */
-// [::TICKET::] PX-228, PX-282, PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-282|PX-323) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-282, PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-282|PX-323) --for-spec --no-implementation-order`.
 function explainedPlanLines(workspace) {
   return [
     '',
@@ -445,7 +445,7 @@ test('C004 boundary: the heading is a blank line followed by the hash-marked H1'
 // as a literal in the assertions below for the same reason as the explained mark above.
 
 /** The two-level fixture marked on both axes: pkg-0001 both, pkg-0002 grilled only, pkg-0003 explained only. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function grilledFixture(t) {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
@@ -605,7 +605,7 @@ test('C001 invariant: the focused block is unchanged by the grilled state', (t) 
  * of the mark chain would get the first two lines wrong, and one that printed a mark for a
  * missing step would get the third wrong.
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function sequencedFixture(t) {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'], edges: [
       ['pkg-0002', 'pkg-0001'],
@@ -823,7 +823,7 @@ test('C001 invariant: the focused block is unchanged by the verdict', (t) => {
  * fixed output contains none. The wide ranges cover the characters the fixtures use: CJK,
  * full-width forms, the pipeline emoji and U+274C (East Asian Wide, below the CJK block).
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function terminalWidth(text, tabWidth = 8) {
   let width = 0;
   for (const character of text) {
@@ -845,7 +845,7 @@ function terminalWidth(text, tabWidth = 8) {
 }
 
 /** The terminal column at which `needle` begins, or -1 when absent. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function columnOf(text, needle) {
   const index = text.indexOf(needle);
   return index === -1 ? -1 : terminalWidth(text.slice(0, index));
@@ -855,7 +855,7 @@ const FIRST_MARK = /[🟤🔴🟠🟡🟢❌]/u;
 const PACKAGE_PATH = 'crates/protocol/package-1';
 
 /** A two-package chain with every counter present on the first package. */
-// [::TICKET::] PX-282, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282, PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
 function countedFixture(t) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],

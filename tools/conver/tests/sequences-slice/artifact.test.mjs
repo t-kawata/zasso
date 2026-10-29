@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { parseSequencesArtifact } from '../../.claude/scripts/sequences-slice/lib/artifact.mjs';
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 a well formed artifact parses to the document it names', () => {
   const artifact = parseSequencesArtifact(
     JSON.stringify({ schema_version: 2, sequences: [], steps: [], operations: [] }),
@@ -19,7 +19,7 @@ test('C001 a well formed artifact parses to the document it names', () => {
   assert.deepEqual(artifact.operations, []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 a document that is not JSON is rejected with the source named', () => {
   assert.throws(
     () => parseSequencesArtifact('{ "schema_version": 2, ', '/tmp/malformed.json'),
@@ -27,7 +27,7 @@ test('C001 a document that is not JSON is rejected with the source named', () =>
   );
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 a document whose three arrays are not arrays is rejected with the field named', () => {
   assert.throws(
     () => parseSequencesArtifact(JSON.stringify({ schema_version: 2, sequences: [], steps: [], operations: {} }), '/tmp/a.json'),
@@ -43,7 +43,7 @@ test('C001 a document whose three arrays are not arrays is rejected with the fie
   );
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 a document with no numeric schema_version is rejected as not being this artifact', () => {
   assert.throws(
     () => parseSequencesArtifact(JSON.stringify({ sequences: [], steps: [], operations: [] }), '/tmp/a.json'),

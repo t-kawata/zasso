@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * insert-io-boundary-template.js <rfc-file>
  *
@@ -12,13 +12,13 @@
  *
  * If the section already exists, exits normally without making changes (prevents duplicate insertion).
  */
-// [::TICKET::] PX-157 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-157 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-159 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-157 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-158 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-159 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-158 --for-spec --no-implementation-order`.
 import fs from "node:fs";
 import path from "node:path";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const RFC_PATH = process.argv[2];

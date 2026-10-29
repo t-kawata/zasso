@@ -1,4 +1,4 @@
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 // PX-219 @verifies C003 C004
 /**
  * Publication and its undo, as unit cases.
@@ -20,7 +20,7 @@ import {
   rollbackPublication,
 } from '../../../.claude/scripts/workspacify-allocate/publish-allocate-manifest.mjs';
 
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 function tempDir(label) {
   return mkdtempSync(join(tmpdir(), label));
 }

@@ -48,7 +48,7 @@ const NODE_KINDS = JSON.parse(
 const SUBCOMMANDS = ['add-dir', 'add-file', 'update-node', 'update-mapped', 'remove-node'];
 
 /** Emit an English Error/Cause/Action message and exit with status 1. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function failWithEnglishError(error, cause, action) {
   console.error(`[ERROR] dirs-tree-crud: ${error}`);
   console.error(`Cause: ${cause}`);
@@ -57,7 +57,7 @@ function failWithEnglishError(error, cause, action) {
 }
 
 /** Reject a kind that is not in the node-schema enum (validate-dirs-tree-schema does not check it). */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function assertValidKind(kind) {
   if (!NODE_KINDS.includes(kind)) {
     failWithEnglishError(
@@ -69,7 +69,7 @@ function assertValidKind(kind) {
 }
 
 /** Parse "--mapped=N0003:Title A,N0004:Title B" into mappedNodeIds. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function parseMappedNodeIds(raw) {
   if (!raw) return [];
   return raw.split(',').filter(Boolean).map((entry) => {
@@ -86,7 +86,7 @@ function parseMappedNodeIds(raw) {
 }
 
 /** Find the language tree whose root name equals the first path segment. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function resolveTreeRoot(dirsTree, rootName) {
   const matches = Object.entries(dirsTree.trees || {}).filter(([, tree]) => tree.name === rootName);
   if (matches.length === 0) {
@@ -107,7 +107,7 @@ function resolveTreeRoot(dirsTree, rootName) {
 }
 
 /** Navigate to the node at the given path (the first segment is the tree root). */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function navigateToNode(dirsTree, nodePath) {
   const segments = nodePath.split('/').filter(Boolean);
   if (segments.length < 2) {
@@ -126,7 +126,7 @@ function navigateToNode(dirsTree, nodePath) {
 }
 
 /** Navigate to the parent of the last path segment (the node being added). */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function navigateToParent(dirsTree, nodePath, kind) {
   const segments = nodePath.split('/').filter(Boolean);
   if (segments.length < 2) {
@@ -148,7 +148,7 @@ function navigateToParent(dirsTree, nodePath, kind) {
 }
 
 /** Validate the candidate Dirs-Tree and atomically write it; on failure no write. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function validateAndWrite(dirsTreePath, dirsTree, graphPath, subcommand) {
   const tempPath = path.join(os.tmpdir(), `dirs-tree-crud-${process.pid}-${Date.now()}.json`);
   fs.writeFileSync(tempPath, JSON.stringify(dirsTree, null, 2) + '\n', 'utf8');
@@ -165,14 +165,14 @@ function validateAndWrite(dirsTreePath, dirsTree, graphPath, subcommand) {
 }
 
 /** Perform an edit on a fresh in-memory tree, then validate and write. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function editAndWrite(dirsTreePath, graphPath, subcommand, editFn) {
   const dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
   editFn(dirsTree);
   validateAndWrite(dirsTreePath, dirsTree, graphPath, subcommand);
 }
 
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirsTreePath = '';

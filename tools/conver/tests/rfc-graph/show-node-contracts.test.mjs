@@ -93,7 +93,7 @@ const REGISTRY = {
 };
 
 /** Create a package directory with the three readable artifacts. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function makePackage({ omitView = false, omitSteps = false, registry = false } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'px337-cli-'));
   writeFileSync(join(directory, 'RFC-GRAPH.json'), `${JSON.stringify(GRAPH, null, 2)}\n`);
@@ -104,7 +104,7 @@ function makePackage({ omitView = false, omitSteps = false, registry = false } =
 }
 
 /** Run the CLI against a package directory. The package directory is the only input. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function runCli(directory, extraArgs = []) {
   return spawnSync(process.execPath, [CLI, ...extraArgs], { cwd: directory, encoding: 'utf8' });
 }

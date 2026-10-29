@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 /**
  * G1 to G3 — the reverse grill's question generation.
  *
@@ -304,7 +304,7 @@ export function renderUnaskedReport(unasked = []) {
 }
 
 /** Why no question can be built for a claim, or null when one can. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function claimQuestionBlocker(claim) {
   if (typeof claim.statement !== 'string' || claim.statement.trim().length === 0) {
     return 'the claim states no proposition, so there is nothing to ask a human about';
@@ -313,7 +313,7 @@ function claimQuestionBlocker(claim) {
 }
 
 /** Why no question can be built for a residual, or null when one can. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function residualQuestionBlocker(residual) {
   const alternatives = Array.isArray(residual?.alternatives) ? residual.alternatives : [];
   if (alternatives.length > OPTION_IDS.length) {
@@ -331,7 +331,7 @@ function residualQuestionBlocker(residual) {
 }
 
 /** The intent-or-accident question, plus the question the claim already carried. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function buildIntentOrAccidentQuestion(claim, index) {
   return {
     question_id: questionIdAt(index),
@@ -351,7 +351,7 @@ function buildIntentOrAccidentQuestion(claim, index) {
 }
 
 /** The question a residual is asked, with its own question carried verbatim. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function buildResidualQuestion(residual, index) {
   const options = residual.alternatives
     .slice(0, OPTION_IDS.length)
@@ -379,7 +379,7 @@ function buildResidualQuestion(residual, index) {
 }
 
 /** The one question block, in the order the command's first-class rules demand. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function renderOneQuestion(question) {
   const lines = [`${question.question_id} — ${questionTitle(question)}`, '', backgroundOf(question), ''];
   for (const option of question.options) {
@@ -390,7 +390,7 @@ function renderOneQuestion(question) {
 }
 
 /** The title line, which names what the question is about without restating the answer. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function questionTitle(question) {
   if (question.question_kind === QUESTION_KINDS.intentOrAccident) {
     return 'Is this behaviour intended, or accidental?';
@@ -399,7 +399,7 @@ function questionTitle(question) {
 }
 
 /** The background and rationale, which must say why the question is worth a human's time. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function backgroundOf(question) {
   if (question.question_kind === QUESTION_KINDS.intentOrAccident) {
     const carried = question.carried_grill_question === null
@@ -416,7 +416,7 @@ function backgroundOf(question) {
 }
 
 /** The report of a run: counts and what could not be asked, never a verdict. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function describeQuestionRun(questions, unasked) {
   if (questions.length === 0 && unasked.length === 0) {
     return 'This run asked nothing: there were no unresolved claims and no residuals to ask about.';
@@ -430,19 +430,19 @@ function describeQuestionRun(questions, unasked) {
 }
 
 /** The canonical id of the nth question. The turn's order is the identity. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function questionIdAt(index) {
   return `${QUESTION_ID_PREFIX}${index + 1}`;
 }
 
 /** The identifier a residual is known by: its stage-one candidate when it has one. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function residualIdentifierOf(residual) {
   return residual?.origin_candidate_id ?? residual?.candidate_id ?? residual?.id ?? null;
 }
 
 /** One carried field, compared verbatim, with the difference named. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function assertCarriedField(entry, source, field, candidateId) {
   if (entry[field] !== source[field]) {
     throw new WorkSpacifyTreeError(
@@ -454,13 +454,13 @@ function assertCarriedField(entry, source, field, candidateId) {
 }
 
 /** A string that carries something, or null. An empty string is the absence of a value. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function nonEmptyStringOrNull(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }
 
 /** The CLI layer: read the seed and the sidecars, print the questions as Markdown. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function runCli(argv) {
   const [seedPath, ...options] = argv;
   if (seedPath === undefined) {
@@ -501,7 +501,7 @@ function runCli(argv) {
  * is one mechanical rule rather than a per-option guess, and the refusal names it
  * so a caller never has to guess back.
  */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function readJsonOption(options, name) {
   const match = options.find((option) => option.startsWith(`${name}=`));
   if (match === undefined) {

@@ -18,7 +18,7 @@ import { validateAll } from "./check-all-schema.js";
 import { MAX_POINTS_PER_AXIS_FLOOR, bundleAxes } from "../question-gate/bundle.mjs";
 import { refineLetterlessAnswer } from "../question-gate/answers.mjs";
 import { settlePoint } from "../question-gate/settle.mjs";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const [,, rfcDir, operation, ...args] = process.argv;
@@ -76,7 +76,7 @@ function saveAndValidate() {
  * A settlement may rest only on one of these. A ground the AI never read is not a
  * ground it has, which is why an empty scan settles nothing.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function recordsOf() {
   const scan = tree.priorScan;
   if (scan === undefined) return [];
@@ -86,7 +86,7 @@ function recordsOf() {
     ...(scan.grounds ?? []).map((entry) => entry.statement),
   ];
 }
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function refuseSettlement(settlement) {
   const required = ["decision", "ground", "override"];
   const missing = required.filter((field) => typeof settlement[field] !== "string" || settlement[field].trim() === "");
@@ -101,7 +101,7 @@ function refuseSettlement(settlement) {
  * afterwards, and whether its trace accounts for the records read is the gate's
  * judgement, not the writer's.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function refuseBlock(block) {
   const boundIds = Array.isArray(block.boundNodeIds) ? block.boundNodeIds : [];
   // The floor is the core's, not a second copy of it: a question binds at least
@@ -127,7 +127,7 @@ function refuseBlock(block) {
  * @param {unknown} trace
  * @returns {Array<{ record: string, leavesOpen: string }>}
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function readTraceEntries(trace) {
   if (!Array.isArray(trace)) return [];
   return trace.map((entry) => ({
@@ -136,7 +136,7 @@ function readTraceEntries(trace) {
   }));
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function ensureQuestions() {
   if (!Array.isArray(tree.questions)) tree.questions = [];
 }

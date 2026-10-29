@@ -17,12 +17,12 @@ const verifyModule = require('../.claude/scripts/tickets/verify-ticket-closure.j
 const stats = { passed: 0, failed: 0, total: 0 };
 
 /** Write one report line without the debug-output check mistaking the harness for logging. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function log(...parts) {
   process.stdout.write(parts.map(String).join(' ') + '\n');
 }
 
-// [::TICKET::] PX-306, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-321) --for-spec --no-implementation-order`.
 function test(name, fn) {
   stats.total++;
   try {
@@ -40,7 +40,7 @@ function makeTicket(id, nodeIds, contracts, extra) {
   return Object.assign({ id, phaseId: 0, title: 'T' + id, status: 'todo', nodeIds, contracts }, extra || {});
 }
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function makeGraph(edges, nodes) {
   return { sourceFile: 't.md', mainLanguage: 'rust', nodes: nodes || [], edges };
 }
@@ -55,7 +55,7 @@ function makeContract(id, pre, post, inv) {
 
 log('\n--- verify-ticket-closure tests ---\n');
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('passes an intra-ticket chain whose incoming postcondition satisfies the next precondition', () => {
   const contracts = [
     { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token', invariant: 'mem' },
@@ -70,7 +70,7 @@ test('passes an intra-ticket chain whose incoming postcondition satisfies the ne
   assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
 });
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('rejects a substring as a closure', () => {
   const contracts = [
     { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
@@ -86,7 +86,7 @@ test('rejects a substring as a closure', () => {
   assert.ok(result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'));
 });
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('accepts an explicit satisfiedBy link as a closure', () => {
   const contracts = [
     { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'key loaded', postcondition: 'token issued', invariant: 'mem' },
@@ -116,7 +116,7 @@ test('blocks an intra-ticket chain whose incoming postcondition does not satisfy
   assert.ok(result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'));
 });
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('passes an inter-ticket bridge whose postcondition satisfies the target precondition', () => {
   const tickets = [
     makeTicket(1, ['N0001'], [{ id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'token issued', invariant: 'state' }]),

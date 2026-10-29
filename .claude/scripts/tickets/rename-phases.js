@@ -38,8 +38,8 @@ const path = require('path');
  * @returns {object} — Deep-cloned Tickets.json with updated phase names
  * @throws {Error} On invalid phaseId, empty name, or PX rename attempt
  */
-// [::TICKET::] PX-110: rename-phases.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110: rename-phases.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
 function renamePhases(ticketsData, renames) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new Error('ticketsData must be a non-null object');
@@ -95,8 +95,8 @@ function renamePhases(ticketsData, renames) {
  * @param {string} targetPath — Target file path
  * @param {string} data — Content to write
  */
-// [::TICKET::] PX-110: rename-phases.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110: rename-phases.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, data) {
   var tmpPath = targetPath + '.tmp.' + process.pid;
   fs.writeFileSync(tmpPath, data, 'utf8');
@@ -107,8 +107,8 @@ function atomicWrite(targetPath, data) {
 // CLI
 // ============================================================
 
-// [::TICKET::] PX-110: rename-phases.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110: rename-phases.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   var opts = { ticketsPath: '', renames: [] };
 
@@ -150,8 +150,8 @@ function parseArgs(argv) {
   return opts;
 }
 
-// [::TICKET::] PX-110: rename-phases.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110: rename-phases.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
 function main() {
   var opts = parseArgs(process.argv.slice(2));
 

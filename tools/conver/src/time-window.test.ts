@@ -145,7 +145,7 @@ describe("isInTimeWindow", () => {
 // @verifies C003
 // @verifies C004
 // ============================================================
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 describe("isInTimeWindow — daysOfWeek", () => {
   // --- C001: 後方互換（undefined = 全曜日） ---
 

@@ -53,7 +53,7 @@ export const NOT_A_REPOSITORY = 'not-a-repository';
  * @param {string[]} args
  * @returns {{ status: number|null, stdout: string, stderr: string }}
  */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function runGit(projectRoot, args) {
   const result = spawnSync('git', args, { cwd: projectRoot, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
@@ -91,7 +91,7 @@ export function trackedPaths(projectRoot) {
  * @param {string} directory
  * @returns {string|null} null when the directory belongs to no repository
  */
-// [::TICKET::] P25-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-1 --for-spec --no-implementation-order`.
 export function repositoryRootFrom(directory) {
   const result = runGit(directory, ['rev-parse', '--show-toplevel']);
   if (result.status !== 0) return null;
@@ -109,7 +109,7 @@ export function repositoryRootFrom(directory) {
  * @param {string} name
  * @returns {string[]}
  */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function redundantIgnoreRules(projectRoot, name) {
   const result = runGit(projectRoot, ['check-ignore', '-v', name]);
   if (result.status !== 0) return [];
@@ -180,7 +180,7 @@ export const FROZEN_DERIVED_ARTEFACT_DIGEST = '1ced02bf1375e674c5a889b0d224e84a1
  * @param {string} directory
  * @returns {string[]}
  */
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function filesUnder(directory) {
   if (!existsSync(directory)) return [];
   return readdirSync(directory, { withFileTypes: true, recursive: true })

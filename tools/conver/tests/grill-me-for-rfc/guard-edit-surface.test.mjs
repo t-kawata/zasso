@@ -1,5 +1,5 @@
 // PX-239 @verifies C001
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 /**
  * The edit boundary, decided by name.
  *
@@ -98,8 +98,8 @@ test('C001 precondition: a missing argument is a usage error, not a silent allow
 // PX-260 — the record a run writes is admitted, and nothing frozen is
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 test('PX-260 postcondition: the package obligation record is writable, and its rule is named', () => {
   const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json', '--why']);
 

@@ -8,13 +8,13 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import { checkDangers } from '../../.claude/scripts/smooth-sequences/lib/checks-danger.mjs';
 import { materializeSmoothWorkspace, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function indexOf(artifact) {
   const workspace = materializeSmoothWorkspace({ artifact });
   return { workspace, index: indexArtifact(loadWorkspace(workspace.root)) };
 }
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function subjectsOf(findings, checkId) {
   return findings.filter((finding) => finding.checkId === checkId).map((finding) => finding.subject);
 }

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-202 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-202 --for-spec --no-implementation-order`.
 // PX-202 @verifies C001
 // A package catalogue and the ownership table are two statements about the same
 // fact. When they disagree, the machine must say so: an item a package declares in

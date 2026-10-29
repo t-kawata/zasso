@@ -45,7 +45,7 @@ const USAGE = [
 ].join('\n');
 
 /** Resolve the specification argument, refusing everything else. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function resolveSpec(argv) {
   const parsed = parseSpecArgument([argv[0]]);
   if (!parsed.ok) return { ok: false, reason: parsed.reason };
@@ -60,7 +60,7 @@ function resolveSpec(argv) {
  * artifacts produced before this command existed — is material for the reading rather
  * than an argument, so it is separated here instead of being refused as a second one.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function splitInvocation(text) {
   const trimmed = String(text ?? '').trim();
   const boundary = trimmed.search(/\s/);
@@ -80,7 +80,7 @@ function splitInvocation(text) {
  * that never existed together. A word that merely begins with a slash and names nothing
  * — the name of this command, say — is prose, so guidance can mention it.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function looksLikePath(token) {
   // Written like a file: the last segment carries an extension, and the token either starts
   // at a root or goes somewhere. A letter class would have made every path in a script the
@@ -102,15 +102,15 @@ function looksLikePath(token) {
  * reader writes paths was classified as a path and then reported as not existing, which
  * named the symptom and hid the cause.
  */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function expandHome(token) {
   if (!token.startsWith('~/')) return token;
   return join(homedir(), token.slice(2));
 }
 
 /** The paths a block of material names, so `begin` can file them or refuse them by name. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function namedPathsIn(material) {
   return material
     .split(/\s+/)
@@ -127,7 +127,7 @@ function namedPathsIn(material) {
  * visible as a different digest), how much material was filed, how much of the inherited
  * material no longer cites the text, and which phase comes next.
  */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-245, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-245|PX-254) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-245, PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-245|PX-254) --for-spec --no-implementation-order`.
 function beginCommand(rest) {
   const { specText, material } = splitInvocation(rest.join(' '));
   const parsed = parseSpecArgument([specText]);
@@ -175,7 +175,7 @@ function beginCommand(rest) {
  * move there is to stop, not to render another brief — and anything else shows the file
  * its reader must produce.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function waitingFor(phase, record) {
   if (record.status === 'done') return record.verdict;
   if (record.loops >= phase.maxLoops) return `HALTED — the last refusal was: ${record.verdict}`;
@@ -183,7 +183,7 @@ function waitingFor(phase, record) {
 }
 
 /** Report every phase, its tag, its verdict and what it is waiting for. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function statusLines(status) {
   return PHASES.map((phase) => {
     const record = phaseState(status, phase.id);
@@ -195,7 +195,7 @@ function statusLines(status) {
 }
 
 /** Enter one phase and print its verdict, the back-edge and what it expects. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function runOne(context, id) {
   const result = runPhase(id, context);
   const lines = [
@@ -220,7 +220,7 @@ function runOne(context, id) {
  * is handed a list of questions and turns it into prose. A brief for any other role is
  * handed an empty list and is untouched by the substitution.
  */
-// [::TICKET::] PX-243, PX-244, PX-248, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-248|PX-288) --for-spec --no-implementation-order`.
 function inquestQuestionsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return [];
@@ -232,7 +232,7 @@ function inquestQuestionsIn(directory, specPath) {
 }
 
 /** Print the closing report for a run. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248|PX-260|PX-261) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-248, PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-248|PX-260|PX-261) --for-spec --no-implementation-order`.
 function report(context) {
   const status = readStatus(context.directory);
   if (status === null) {
@@ -274,7 +274,7 @@ function report(context) {
  * it. The record is written only when the execution observed a red on the defect and a
  * silence on correct work, so a check that was never falsified leaves no record.
  */
-// [::TICKET::] PX-241, PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
 async function scaffold(context, [check, defect]) {
   const modulePath = join(context.directory, ADHOC_DIRECTORY, `${check}.mjs`);
   const exists = existsSync(modulePath);
@@ -315,7 +315,7 @@ async function scaffold(context, [check, defect]) {
  * under a ticket rather than by a run. The file the splice must edit is named, so the
  * reader has somewhere to take it.
  */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function promote(context, [id, secondSpecification]) {
   const store = railExitStoreFor(context.directory);
   const promoted = promoteRecord(readRailExits(store), id, { secondSpecification: secondSpecification ?? '' });
@@ -334,7 +334,7 @@ function promote(context, [id, secondSpecification]) {
 }
 
 /** The entry point. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export async function main(argv) {
   const [subcommand, ...rest] = argv;
   if (subcommand === undefined) {

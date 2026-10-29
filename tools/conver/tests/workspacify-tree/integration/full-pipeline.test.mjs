@@ -25,7 +25,7 @@ function makeWorkingSpecDir() {
   return dir;
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('cli C003 [@verifies C003]: no arguments prints usage and exits non-zero', () => {
   const usage = runCli([]);
   assert.notEqual(usage.status, 0);

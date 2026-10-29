@@ -1,4 +1,4 @@
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 // Three readings of one artifact: the list, the drawing, and the Mermaid the drawing came from.
 //
 // The three modes are one surface over one generator, so what is held here is not that each
@@ -35,19 +35,19 @@ const ARTIFACT = join(FIXTURE, 'ledger-sequences.json');
 const RENDER_PATH = join(FIXTURE, 'ledger-sequences.md');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(ARTIFACT, 'utf8'));
 }
 
 /** The sequences that claim to be sequences, which are the ones a diagram is owed for. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function drawable(artifact) {
   return artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
 }
 
 /** The steps one sequence owns, in artifact order — what the emitter draws. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function stepsOf(artifact, id) {
   return artifact.steps.filter((step) => step.sequence === id);
 }
@@ -57,7 +57,7 @@ function stepsOf(artifact, id) {
  * The library is the one part of this surface that is not ours, so what the drawn mode owes
  * is the text it hands over. Recording that text is how the composition is asserted without
  * a dependency, and the marker is what proves the record reached the output. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function recordingRenderer() {
   const handed = [];
   return {
@@ -70,7 +70,7 @@ function recordingRenderer() {
 }
 
 /** A renderer reporting the library absent, which is what the lazy import produces. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 const absentRenderer = {
   render: () => ({ ok: false, reason: 'beautiful-mermaid is not installed, so nothing can be drawn; install it with `node install.js`' }),
 };
@@ -457,13 +457,13 @@ const HEADER = /^▸ /;
 const BRANCH = /^\s+[├└]─ \d\d  /;
 
 /** The sequence an id names, which is what a header line's first word must be. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function headerIds(output) {
   return output.split('\n').filter((line) => HEADER.test(line)).map((line) => line.slice(2).split(' ')[0]);
 }
 
 /** Build an artifact in a temporary directory, read it, then remove the directory. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 async function withArtifact(document, read) {
   const root = mkdtempSync(join(tmpdir(), 'px252-tree-'));
   const path = join(root, 'artifact.json');
@@ -476,7 +476,7 @@ async function withArtifact(document, read) {
 }
 
 /** One step of a synthetic artifact, carrying only what the schema requires plus the acts. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function stepAct(id, sequence, operation, line) {
   return { id, sequence, operation, subject: 'an actor', predicate: 'performs', object: 'an act', line, quote: 'the act' };
 }

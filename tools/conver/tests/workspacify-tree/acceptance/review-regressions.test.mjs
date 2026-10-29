@@ -1,4 +1,4 @@
-// [::TICKET::] PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-202 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-202 --for-spec --no-implementation-order`.
 // PX-202 @verifies C001 C002 C003 C004 C005
 // The five defects the PX-192..PX-201 review found by hand, frozen as a regression:
 // each must be refused by the real CLI, nothing may be published, and a clean payload
@@ -27,7 +27,7 @@ const APPROVALS = JSON.parse(readFileSync(join(ROOT, 'tests/workspacify-tree/fix
 const owns = (objects) => ({ objects, claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] });
 
 /** A two-package workspace that publishes cleanly when nothing is mutated. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function decisionsFor(objectIds) {
   return {
     workspace: [
@@ -56,7 +56,7 @@ function decisionsFor(objectIds) {
 }
 
 /** Run finalize over a payload built from the base decisions through one mutation. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function finalizeWith(mutate) {
   const dir = mkdtempSync(join(tmpdir(), 'wst-202-reg-'));
   const specPath = join(dir, 'spec.md');

@@ -14,7 +14,7 @@ try {
 }
 
 const stats = { passed: 0, failed: 0, total: 0 };
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function test(name, fn) {
   stats.total++;
   try {
@@ -28,7 +28,7 @@ function test(name, fn) {
   }
 }
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function ticketsWith(nodeIds) {
   return { phases: [{ id: -1, name: 'PX', nodeIds: ['N1'], tickets: [{ id: 1, phaseId: -1, nodeIds }] }] };
 }

@@ -46,7 +46,7 @@ export function writeCommitJournal(root, journal) {
 }
 
 /** Write through a temp file beside the target, then rename over it. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
 function atomicWrite(fileSystem, target, bytes) {
   mkdirSync(dirname(target), { recursive: true });
   tempCounter += 1;
@@ -65,13 +65,13 @@ function atomicWrite(fileSystem, target, bytes) {
 }
 
 /** The union of the live and staged design paths. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function collectTargetPaths(root, stagingRoot) {
   return [...new Set([...collectDesignFiles(root), ...collectDesignFiles(stagingRoot)])].sort();
 }
 
 /** Back up every existing target, returning the journal targets. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function backupTargets(root, stagingRoot, archiveRoot) {
   return collectTargetPaths(root, stagingRoot).map((path) => {
     const livePath = join(root, path);
@@ -86,7 +86,7 @@ function backupTargets(root, stagingRoot, archiveRoot) {
 }
 
 /** Restore every target from its backup, or remove a file that did not exist. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function rollbackTargets(root, journal) {
   for (const target of journal.targets) {
     const livePath = join(root, target.path);
@@ -134,8 +134,8 @@ export function commitGeneration({ root, transactionId, fileSystem = nodeFs, run
 }
 
 /** The entry a commit may act on, or a refusal that names why not. */
-// [::TICKET::] PX-278, PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function requireVerifiedEntry(root, transactionId, runDetector) {
   const entry = readEntry(root, transactionId);
   if (entry === null) {
@@ -194,7 +194,7 @@ function requireVerifiedEntry(root, transactionId, runDetector) {
 }
 
 /** Back up the live targets and write the prepared journal. */
-// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
 function prepareCommit(root, entry, baseline) {
   mkdirSync(entry.archiveRoot, { recursive: true });
   const stagedAnnotations = join(entry.stagingRoot, ANNOTATIONS_FILE_NAME);
@@ -215,7 +215,7 @@ function prepareCommit(root, entry, baseline) {
 }
 
 /** Write every staged target over its live counterpart. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function applyTargets(root, stagingRoot, journal, fileSystem) {
   journal.state = JOURNAL_STATES.APPLYING;
   writeCommitJournal(root, journal);
@@ -226,7 +226,7 @@ function applyTargets(root, stagingRoot, journal, fileSystem) {
 }
 
 /** Verify the live chain and the detector after the write. */
-// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
 function verifyCommitted(root, journal, runDetector, baseline) {
   journal.state = JOURNAL_STATES.VERIFYING;
   writeCommitJournal(root, journal);
@@ -251,7 +251,7 @@ function verifyCommitted(root, journal, runDetector, baseline) {
 }
 
 /** Close the journal, record the commit and discard staging. */
-// [::TICKET::] PX-278, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-287) --for-spec --no-implementation-order`.
 function finishCommit(root, transactionId, entry, journal, debt) {
   rmSync(commitJournalPath(root), { force: true });
   transition(root, transactionId, STATES.COMMITTED, { committedAt: new Date().toISOString(), debt });

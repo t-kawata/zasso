@@ -23,7 +23,7 @@ const { renderPhaseDistribution } = require('../../.claude/scripts/tickets/show-
 const STEP_1 = { stepId: 's1', operationId: 'A', order: 0, line: 1, quote: 'a' };
 const STEP_2 = { stepId: 's2', operationId: 'B', order: 1, line: 2, quote: 'b' };
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function twoPhaseView() {
   return {
     packageId: 'pkg-A',

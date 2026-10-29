@@ -14,7 +14,7 @@ import { evaluateGate } from '../../.claude/scripts/educe-sequences/rail/gates.m
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { buildContext } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const FIXTURE_ROOT = new URL('./fixtures/spec/', import.meta.url).pathname;
 const spec = readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname);
@@ -67,7 +67,7 @@ test('C005 a case whose named check never fired is reported as carrying no verdi
 // ---------------------------------------------------------------------------
 
 /** The golden artifact with its operation vocabulary renamed away from the fixture's. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function renamedVocabulary() {
   const renamed = structuredClone(golden);
   const rename = new Map([['Admit', 'ZenithAdmit'], ['Settle', 'ZenithSettle']]);

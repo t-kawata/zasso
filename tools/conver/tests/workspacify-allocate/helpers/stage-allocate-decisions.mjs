@@ -37,7 +37,7 @@ export function stageAllocateDecisionsFrom(workspaceRoot, sourcePath) {
   return write(reservedAllocateDecisionsPath(workspaceRoot), readFileSync(sourcePath, 'utf8'));
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function write(decisionsPath, text) {
   mkdirSync(dirname(decisionsPath), { recursive: true });
   writeFileSync(decisionsPath, text);

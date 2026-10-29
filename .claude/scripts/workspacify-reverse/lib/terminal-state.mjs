@@ -49,7 +49,7 @@ import { join } from 'node:path';
  * @returns {string} the bytes to write, and the bytes to digest
  */
 export function decisionsInputText(skeleton) {
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
   return `${JSON.stringify(skeleton, null, 2)}\n`;
 }
 
@@ -60,7 +60,7 @@ export function decisionsInputText(skeleton) {
  * @returns {string} the sha256 of the bytes `decisionsInputText` produces
  */
 export function decisionsInputDigest(skeleton) {
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
   return createHash('sha256').update(decisionsInputText(skeleton), 'utf8').digest('hex');
 }
 
@@ -162,7 +162,7 @@ const LADDER_UNREPORTED = Object.freeze({
 
 
 /** True when a path exists and is a directory. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function isDirectory(path) {
   try {
     return statSync(path).isDirectory();
@@ -198,7 +198,7 @@ const ROOT_SCOPE = 'root';
 const ROOT_PACKAGE_PATH = '.';
 
 /** Whether a declared package path names the root rather than a directory under it. */
-// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function isRootPackagePath(path) {
   return path === ROOT_PACKAGE_PATH || path === '';
 }
@@ -212,7 +212,7 @@ function isRootPackagePath(path) {
  * partition is the source of record where one exists, and why the state records which
  * source produced the scope it reports.
  */
-// [::TICKET::] P24-8, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-8|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function directoriesUnder(root) {
   try {
     return readdirSync(root)
@@ -241,7 +241,7 @@ function directoriesUnder(root) {
  * @param {Array<{name: string, path: string}>|null|undefined} partition
  * @returns {Array<{name: string, path: string}>}
  */
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
 export function packagesFromPartition(partition) {
   if (!Array.isArray(partition)) return [];
   return partition
@@ -258,7 +258,7 @@ export function packagesFromPartition(partition) {
  * know which one a given scope takes. The scope is a path — `src/api` for a nested
  * package — or the root label for the eleven the root owes.
  */
-// [::TICKET::] P24-12, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-12|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-12|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function artefactExists(root, { scope, artefact }) {
   return existsSync(scope === ROOT_SCOPE ? join(root, artefact) : join(root, scope, artefact));
 }
@@ -334,7 +334,7 @@ export function measureTerminalState({ root, manifest = null, partition = null }
 }
 
 /** The artefact names a state holds, per package, with the root's under `''`. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function artefactNamesOf(state) {
   const byPackage = {};
   for (const entry of state.present) {
@@ -461,7 +461,7 @@ export function outcomeOf(states = []) {
  * measurement to recover it. The scope names where the artefact was looked for, so a
  * tree that stopped at one layer reads differently from one that never began.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function stateTable(states) {
   if (states.length === 0) return ['No representative reached the terminal state in this observation.', ''];
 
@@ -516,7 +516,7 @@ export function renderTerminalStateReport({ states = [], comparison = null, verd
  * stage — an operator reading the report learns where the chain stopped and on what,
  * without re-running the command to find out.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function stageSection(stages) {
   if (stages === null) return [];
 
@@ -534,7 +534,7 @@ function stageSection(stages) {
  * reported as a signal, not dropped, because a table that printed only the differences
  * would leave a reader unable to tell agreement from a dimension nobody measured.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function comparisonSection(comparison) {
   if (comparison === null) return [];
 
@@ -587,7 +587,7 @@ function comparisonSection(comparison) {
  * The machine states a position and stops. `omission 0` is reported as material and
  * never as the success condition, because §5.9 says in as many words that it is not.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function outcomeSection({ ladder, outcome }) {
   const lines = ['## The outcome', '', `Outcome: ${outcome}.`, '', INSTRUMENT_LIMIT, ''];
   lines.push(`Ladder position reached: \`${ladder.position}\`.`, '');

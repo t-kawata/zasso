@@ -16,7 +16,7 @@ const GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-di
  * vocabulary the operation instantiates, an agreeing registry, and one RFC whose ledger accounts
  * for the unit the view holds and cites a section the RFC carries.
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function completeWorkspace(overrides = {}) {
   const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px263-criterion-'));
   const packageDir = path.join(root, 'crates', 'pkg-a');
@@ -59,7 +59,7 @@ function completeWorkspace(overrides = {}) {
   return root;
 }
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function runGate(root) {
   const result = spawnSync(process.execPath, [GATE, root], { encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };

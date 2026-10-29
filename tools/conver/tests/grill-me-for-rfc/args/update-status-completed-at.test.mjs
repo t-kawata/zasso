@@ -1,5 +1,5 @@
 // PX-238 @verifies C004
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * The moment a run completes, written down.
  *
@@ -24,13 +24,13 @@ import {
 } from '../../question-gate/helpers/fixture-workspace.mjs';
 
 /** What update-status.js recorded. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function readStatus(rfcDir) {
   return JSON.parse(readFileSync(join(rfcDir, 'Status.json'), 'utf8'));
 }
 
 /** A session directory in a fresh temporary tree. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function makeSession() {
   const base = mkdtempSync(join(tmpdir(), 'px238-completed-'));
   const rfcDir = join(base, 'pkg');
@@ -92,7 +92,7 @@ test('a record written before this ticket still validates', () => {
 // review loop is spent. The counter is prospective: a Status.json written before this
 // ticket starts at zero and its first completion records one.
 
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('C002 postcondition: a transition into DONE records one completed session', () => {
   const rfcDir = makeSession();
 

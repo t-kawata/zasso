@@ -12,7 +12,7 @@ import path from "node:path";
 import os from "node:os";
 
 /** 単一チケットの情報 */
-// [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
 export interface Ticket {
   id: number;
   phaseId: number;
@@ -43,7 +43,7 @@ export interface Phase {
 }
 
 /** Tickets.json のルート構造 */
-// [::TICKET::] PX-114, PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|PX-116) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-116) --for-spec --no-implementation-order`.
 export interface TicketsJson {
   title?: string;
   /** 処理ラウンド番号（新規作成時は 1、サイクル完了ごとにインクリメント） */
@@ -142,7 +142,7 @@ const GRAPH_FILE_SUFFIX = "-GRAPH.json";
  * @param p チルダ付きの可能性があるパス
  * @returns チルダ展開済みのパス
  */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
 function expandTilde(p: string): string {
   return p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
 }
@@ -152,8 +152,8 @@ function expandTilde(p: string): string {
  * @param source RFC markdown のパス（metadata.source）
  * @returns 導出したパス。source が無ければ undefined
  */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function deriveGraphPath(source?: string): string | undefined {
   if (!source) return undefined;
   return source.replace(/\.md$/, "") + GRAPH_FILE_SUFFIX;

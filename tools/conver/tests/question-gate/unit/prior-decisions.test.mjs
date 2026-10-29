@@ -1,7 +1,7 @@
 // PX-233 @verifies C004
 // @verifies C001
 // @verifies C002
-// [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-233 --for-spec --no-implementation-order`.
 /**
  * The four artifacts a package directory may already hold.
  *
@@ -39,7 +39,7 @@ const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
  * document, because the property under test is that the reader recovers whatever
  * the producer writes — including a document that does not exist yet.
  */
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 function explanationWrittenByFrame(records) {
   return records
     .map((record, index) =>

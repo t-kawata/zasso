@@ -35,7 +35,7 @@ import {
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 /** Every file a complete terminal tree holds, as a path-to-content map. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function terminalFiles(packages) {
   const files = {};
   for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer]) {
@@ -52,13 +52,13 @@ function terminalFiles(packages) {
 }
 
 /** A complete terminal tree over the named packages. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function terminalTree(packages) {
   return createSyntheticTree(terminalFiles(packages), { prefix: 'wsp-p24-8-' });
 }
 
 /** A measured state, as the comparison receives it. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function stateFor(representative, packages, gates = {}) {
   const tree = terminalTree(packages);
   const state = { representative, ...measureTerminalState({ root: tree.root }) };
@@ -67,7 +67,7 @@ function stateFor(representative, packages, gates = {}) {
 }
 
 /** The rendered report for one comparison, so two renderings can be compared. */
-// [::TICKET::] P24-8, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|P24-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8, P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-8|P24-12) --for-spec --no-implementation-order`.
 function rendered(comparison) {
   return renderTerminalStateReport({ states: [], comparison, verdict: { ladder: { position: 'L0' }, stages: null, outcome: 'not proved' } });
 }
@@ -209,7 +209,7 @@ test('C004 invariant — a full-depth walk of the published record finds no verd
 
   const forbidden = ['success', 'verdict', 'score', 'passed'];
   const offenders = [];
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
   (function walk(value, path) {
     if (Array.isArray(value)) { value.forEach((entry, index) => walk(entry, path + '[' + index + ']')); return; }
     if (value === null || typeof value !== 'object') return;
@@ -262,7 +262,7 @@ test('C001 — the report says a representative that never began carries a prior
 // ---------------------------------------------------------------------------
 
 /** Every file a terminal tree holds for a declared scope, at the path it declares. */
-// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function terminalFilesFor(scopes) {
   const files = {};
   for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer]) files[name] = '{}\n';
@@ -418,7 +418,7 @@ test('C003 invariant: the inventory is design section 2.3\'s list, eleven at the
 
 /** A skeleton whose pretty and compact serializations differ, as the real one's do. */
 const SERIALIZATION_SAMPLE = Object.freeze({
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
   tree: [{ path: 'src', owned: true }],
   notes: ['a skeleton the chain could not configure'],
 });

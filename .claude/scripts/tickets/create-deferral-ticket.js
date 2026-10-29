@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-124: Create create-deferral-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124: Create create-deferral-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
 
 /**
  * create-deferral-ticket.js — resolve-ticket escape hatch: create a deferral ticket.
@@ -29,6 +29,9 @@ const SUGGESTED_REWRITE_ORDER = '`title` → `background` → `scope` → `accep
 /** Relational fields inherited from the clone that must never be overwritten. */
 const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `referenceUrls`, `sourcePaths`, `rfcDiscrepancies`';
 
+/** The runnable commands in the guidance resolve this directory from any working directory. */
+const TICKETS_SCRIPT_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/tickets';
+
 // -- Pure helpers (exported for testing) --
 
 /**
@@ -40,8 +43,8 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
  * @returns {{ success: true, key: string, ticket: object, data: object }
  *          |{ success: false, error: string, errors?: string[] }}
  */
-// [::TICKET::] PX-124: createDeferralTicket. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124: createDeferralTicket. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-2: setStubDeferredTo moved to the shared core (generic-ticket-creation.js) and re-exported for backward compatibility.
 
 /**
@@ -56,7 +59,7 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
  * @returns {{ success: true, key: string, ticket: object, data: object }
  *          |{ success: false, error: string, errors?: string[] }}
  */
-// [::TICKET::] PX-124, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-127|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-127, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-127|PX-2) --for-spec --no-implementation-order`.
 function createDeferralTicket({ ticketsData, sourceKey, seed, stubId = null }) {
   // [::TICKET::] PX-2: route through the shared core (generic-ticket-creation.js) with a deferral seed.
   const res = createTickets({
@@ -77,8 +80,8 @@ function createDeferralTicket({ ticketsData, sourceKey, seed, stubId = null }) {
  * @param {{ key: string, sourceKey: string }} params — New key and source key
  * @returns {string} — Markdown guidance
  */
-// [::TICKET::] PX-124: buildMarkdownGuidance. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-123 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-123) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124: buildMarkdownGuidance. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-123 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-123) --for-spec --no-implementation-order`.
 function buildMarkdownGuidance({ key, sourceKey }) {
   return [
     '## Created: ' + key,
@@ -90,7 +93,7 @@ function buildMarkdownGuidance({ key, sourceKey }) {
     'The new ticket carries ' + sourceKey + '\'s previous spec. Verify before editing:',
     '',
     '```bash',
-    'node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="' + key + '" --for-spec',
+    'node "' + TICKETS_SCRIPT_DIR + '/show-ticket-context.js" --ticket-key="' + key + '" --for-spec',
     '```',
     '',
     '### 2. Rewrite OLD → NEW (one field at a time)',
@@ -102,7 +105,7 @@ function buildMarkdownGuidance({ key, sourceKey }) {
     'Example (single field):',
     '',
     '```bash',
-    'echo \'{"title":"..."}\' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "' + key + '"',
+    'echo \'{"title":"..."}\' | node "' + TICKETS_SCRIPT_DIR + '/update-ticket.js" "Tickets.json" "' + key + '"',
     '```',
     '',
     '### 3. deferredTo set by the script; rewrite the marker key',
@@ -120,8 +123,8 @@ function buildMarkdownGuidance({ key, sourceKey }) {
  * @param {string[]} [argv] — Arguments (defaults to process.argv.slice(2))
  * @returns {{ sourceKey: string|null, deferredTo: string|null, tickets: string }}
  */
-// [::TICKET::] PX-124: parseArgs. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124: parseArgs. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv || process.argv.slice(2);
   // --tickets is removed: Tickets.json is always ./Tickets.json (cwd).
@@ -141,7 +144,7 @@ function parseArgs(argv) {
 // -- CLI entry point --
 
 /** Read all of stdin as a string. */
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function readStdin() {
   return new Promise((resolve) => {
     let chunks = '';
@@ -150,7 +153,7 @@ function readStdin() {
   });
 }
 
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
 async function main() {
   const { sourceKey, deferredTo, stubId } = parseArgs();
   if (!sourceKey) {

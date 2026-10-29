@@ -1,4 +1,4 @@
-// [::TICKET::] PX-181, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-181|PX-183|PX-185|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-181, PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-181|PX-183|PX-185|PX-192) --for-spec --no-implementation-order`.
 /**
  * First-stage manifest entry-check parity with ALLOCATE §7.1-§7.4.
  *

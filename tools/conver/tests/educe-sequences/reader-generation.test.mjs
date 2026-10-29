@@ -10,18 +10,18 @@ import {
   readReadingsFile,
 } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 const NAMED = 'educe-sequences/generation-12';
 const DATED = 'educe-sequences/2026-10-21-generation12';
 const OLD = 'educe-sequences/generation-11';
 const LEGACY = 'span';
 
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 function sequenceRow(reader) {
   return { subject: 'A-1', outcome: 'direct', reader };
 }
 
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 function inquestRow(reader) {
   return { subject: 'A-1', lens: 'omission', question: 'q', answer: 'No', line: 1, quote: 'q', reader };
 }

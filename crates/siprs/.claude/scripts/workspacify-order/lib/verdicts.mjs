@@ -8,7 +8,7 @@
  * packageId named something else still belongs to the directory it sits in, and judging it under its
  * own name would leave the printed line without an answer.
  *
- * Design context: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+ * Design context: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
  */
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ import { readPackageObligationState } from '../../grill-me-for-rfc/obligation-st
  * @param {{ root: string, packages: Array<{ id: string, path: string }> }} input
  * @returns {Map<string, { state: string, reason: string|null }>}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function readSequenceVerdicts({ root, packages }) {
   const verdicts = new Map();
   for (const pkg of packages ?? []) {

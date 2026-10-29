@@ -37,7 +37,7 @@ const CODE_PATTERNS = [
   /```(rust|ts|js|typescript|javascript)?/  // Code fence
 ];
 
-// [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-74 --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath;
@@ -59,7 +59,7 @@ function parseArgs() {
  * @param {string} text — Combined testUnit text
  * @returns {boolean}
  */
-// [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-74 --for-spec --no-implementation-order`.
 function hasConcreteCode(text) {
   return CODE_PATTERNS.some(function (pattern) {
     return pattern.test(text);
@@ -73,7 +73,7 @@ function hasConcreteCode(text) {
  * @param {string} testUnitText — Combined testUnit text
  * @returns {boolean} — true if valid (empty element or covered by code)
  */
-// [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-74 --for-spec --no-implementation-order`.
 function elementIsCovered(elementText, testUnitText) {
   // Empty string → nothing to verify → covered
   if (!elementText || elementText.trim().length === 0) return true;
@@ -86,8 +86,8 @@ function elementIsCovered(elementText, testUnitText) {
  * @param {object} ticket — Ticket object with contracts and testUnit
  * @returns {Array<{ticket: number, contract: string|null, element: string, detail: string}>}
  */
-// [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-75, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-75|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-75, PX-84, PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-75|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function verifyPlanContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
@@ -142,7 +142,7 @@ function verifyPlanContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 

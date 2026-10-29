@@ -46,15 +46,15 @@ export const REGISTRY = [
 ];
 
 /** A deep copy so a mutation test changes one layer, not all layers. */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
 /** One consistent package chain plus one foreign step and boundary. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function multiPackageFixture(options = {}) {
   const stepContract = {
     pre: [{ factId: 'identity', text: 'identity present' }],
@@ -279,7 +279,7 @@ const PASS_VERDICT = Object.freeze({
 });
 
 /** The digest smooth-sequences/run.mjs computes from the frozen design snapshot. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function designInputDigest(root) {
   const snapshot = snapshotDesignFiles(root);
   const lines = Object.keys(snapshot).sort().map((path) => `${path}\u0000${snapshot[path]}`);
@@ -287,14 +287,14 @@ function designInputDigest(root) {
 }
 
 /** The single root `*-sequences.json`, or null. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function rootArtifactPath(root) {
   const matches = readdirSync(root).filter((name) => name.endsWith('-sequences.json'));
   return matches.length === 1 ? join(root, matches[0]) : null;
 }
 
 /** The sha256 of a file the gate reads. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function sha256OfFile(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
@@ -304,7 +304,7 @@ export function sha256OfFile(filePath) {
  *
  * Call this after every design file exists: the input digest covers the whole snapshot.
  */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function writeSmoothVerdict(root, options = {}) {
   const {
     verdict = PASS_VERDICT,
@@ -345,7 +345,7 @@ export function writeSmoothVerdict(root, options = {}) {
 }
 
 /** Write the workspace-level receipt through the real gate. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export async function writeSmoothReceipt(packageDir) {
   const { verifySmoothVerdict } = await import('../../../.claude/scripts/sequences-slice/lib/smooth-verdict.mjs');
   return verifySmoothVerdict({ packageDir, writeReceipt: true });

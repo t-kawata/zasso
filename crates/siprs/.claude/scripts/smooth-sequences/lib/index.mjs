@@ -18,7 +18,7 @@ const REQUIRED_REPAIR_FIELDS = Object.freeze(['where', 'why', 'fix', 'producer']
  * A finding that cannot say where to edit and what to rerun is not a finding but a
  * complaint; the constructor refuses it rather than rendering a blank repair line.
  */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 export function finding(checkId, className, subject, details = {}) {
   for (const field of REQUIRED_REPAIR_FIELDS) {
     const value = details[field];
@@ -39,9 +39,9 @@ export function finding(checkId, className, subject, details = {}) {
 }
 
 /** Index rows by id and report duplicate ids without dropping either row. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function indexRows(rows, label, duplicates, routeContext) {
   const byId = new Map();
   const positions = new Map();
@@ -76,8 +76,8 @@ function indexRows(rows, label, duplicates, routeContext) {
 }
 
 /** Build the operation-id to owning-package map from every view's owned units. */
-// [::TICKET::] PX-273, PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-273|PX-274) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function operationOwners(packages) {
   const owners = new Map();
   const add = (operationId, packageId) => {
@@ -100,7 +100,7 @@ function operationOwners(packages) {
 }
 
 /** Build the sequence-id to owning-package map from every view's sequence units. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function buildSequenceOwners(packages) {
   const owners = new Map();
   const add = (sequenceId, packageId) => {
@@ -140,7 +140,7 @@ export function sequenceOwners(index) {
  * @param {Array<object>} packages
  * @returns {Map<string, Array<{ packageId: string, unitId: string, field: string, steps: Array<object> }>>}
  */
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
 export function buildStepBearingSequenceRecords(packages) {
   const bySequence = new Map();
   for (const pkg of packages ?? []) {
@@ -167,8 +167,8 @@ export function buildStepBearingSequenceRecords(packages) {
  * @param {object} loaded — the value `loadWorkspace` returns
  * @returns {object} the frozen index
  */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 export function indexArtifact(loaded) {
   const duplicates = [];
   const artifact = loaded.artifact;
@@ -196,7 +196,7 @@ export function indexArtifact(loaded) {
 }
 
 /** The two directions a step is looked up by: its sequence and its operation. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function buildStepMaps(artifact) {
   const stepsBySequence = new Map();
   const stepsByOperation = new Map();
@@ -210,7 +210,7 @@ function buildStepMaps(artifact) {
 }
 
 /** The declared boundaries and the contract rows that bind them. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function buildBoundaryMaps(loaded) {
   const boundaries = loaded.treeManifest.dependencies?.boundaries ?? [];
   const contracts = loaded.allocateManifest.contract_registry ?? [];
@@ -229,7 +229,7 @@ function buildBoundaryMaps(loaded) {
 }
 
 /** The package records, their views, and the operations each view owns. */
-// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
 function buildPackageMaps(packages) {
   const ownedOperationUnitsByPackage = new Map();
   const ownedOperationIdsByPackage = new Map();

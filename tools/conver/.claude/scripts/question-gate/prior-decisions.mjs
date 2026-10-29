@@ -21,7 +21,7 @@
 import { join } from 'node:path';
 
 // The converter every path leaving this process passes through. The rule and its reason
-// are PX-231's: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// are PX-231's: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 // The explanation's own vocabulary, taken from the module that writes it: the heading
@@ -51,7 +51,7 @@ const INFO_ARTIFACT = 'INFO-RFC-SEED.md';
  * @param {string} text
  * @returns {Array<{ heading: string, labels: Record<string, string> }>}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function readLabelledItems(text) {
   const items = [];
   let current = null;
@@ -77,7 +77,7 @@ function readLabelledItems(text) {
  * @param {{ artifact: string, source: string, text: string }} input
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
 function decisionsOfExplanation({ artifact, source, text }) {
   return readLabelledItems(text)
     .filter((item) => isItemHeading(item.heading, PREDECIDED_ITEM_HEADING))
@@ -101,7 +101,7 @@ function decisionsOfExplanation({ artifact, source, text }) {
  * @param {{ artifact: string, source: string, text: string }} input
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function groundsOfStatements({ artifact, source, text }) {
   const statements = text
     .split('\n')
@@ -127,7 +127,7 @@ function groundsOfStatements({ artifact, source, text }) {
  * @param {{ artifact: string, source: string, text: string }} input
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function decisionsOfCanonicalRfc({ artifact, source, text }) {
   const entries = [];
   let heading = null;
@@ -171,7 +171,7 @@ function decisionsOfCanonicalRfc({ artifact, source, text }) {
  * @param {{ artifact: string, source: string, text: string }} input
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function entriesOfArtifact({ artifact, source, text }) {
   if (artifact === EXPLAIN_ARTIFACT) return decisionsOfExplanation({ artifact, source, text });
   if (artifact === INFO_ARTIFACT || artifact === SEED_ARTIFACT) {
@@ -186,7 +186,7 @@ function entriesOfArtifact({ artifact, source, text }) {
  * @param {{ directory: string, listDirectory: (directory: string) => string[] }} input
  * @returns {string[]} filenames, in the order the three seeds are declared followed by the RFC
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function artifactNamesOf({ directory, listDirectory }) {
   const names = new Set(PRIOR_ARTIFACTS);
   for (const name of listDirectory(directory)) {
@@ -206,7 +206,7 @@ function artifactNamesOf({ directory, listDirectory }) {
  * @param {{ directory: string, readFile: (path: string) => string|null, listDirectory: (directory: string) => string[] }} input
  * @returns {{ entries: Array<object>, artifactsRead: string[] }}
  */
-// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234, PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234|PX-237) --for-spec --no-implementation-order`.
 function entriesOfDirectory({ directory, readFile, listDirectory }) {
   const entries = [];
   const artifactsRead = [];

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-202 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-202 --for-spec --no-implementation-order`.
 // PX-202 @verifies C004
 // The pulse decided which observations the AI must settle, but it was only computed
 // inside the gate: the operator saw candidate ids in a failure message and authored
@@ -20,7 +20,7 @@ function runExtract(specPath) {
   return spawnSync(process.execPath, [RUN, 'extract', specPath], { encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C004 extract prints the pulse candidates the gate will require to be settled', () => {
   const result = runExtract(SPEC);
   assert.equal(result.status, 0, result.stdout + result.stderr);

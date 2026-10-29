@@ -1,4 +1,4 @@
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * The 2-Pass Hybrid — vertical at the boundaries, horizontal inside (§7.7.1).
  *
@@ -196,7 +196,7 @@ export function buildTwoPassRun({ structure, dependencies, slice = null } = {}) 
  * partition, which satisfies every predicate here without having looked at
  * anything — the failure mode that reads as a pass.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function requireMeasuredPackages(structure) {
   const packages = packagesOf(structure);
   if (packages.length === 0) {
@@ -206,7 +206,7 @@ function requireMeasuredPackages(structure) {
 }
 
 /** The measured crossings, which the run cannot be built without. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function requireMeasuredEdges(dependencies) {
   if (!Array.isArray(dependencies?.edges)) {
     throw new Error('a two-pass run consumes the R2 dependency measurement and it carries no edges array');
@@ -215,13 +215,13 @@ function requireMeasuredEdges(dependencies) {
 }
 
 /** How one crossing is named, so two runs sort and compare the same way. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function edgeKey(edge) {
   return `${edge.from}->${edge.to}`;
 }
 
 /** The first few of a long list, with the remainder counted rather than dropped silently. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function sample(items) {
   const head = items.slice(0, 5).join(', ');
   return items.length <= 5 ? head : `${head} and ${items.length - 5} more`;

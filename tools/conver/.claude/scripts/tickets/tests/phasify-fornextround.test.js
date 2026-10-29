@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-144: phasify merge clears forNextRound. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-144 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-144: phasify merge clears forNextRound. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-144 --for-spec --no-implementation-order`.
 
 /**
  * phasify-fornextround.test.js — Tests for the round-transition clearing.
@@ -10,13 +10,13 @@
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function ok(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function strictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }

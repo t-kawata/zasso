@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 import { computeDebtIncrease } from '../../.claude/scripts/regeneration/lib/debt.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function baseline() {
   return { findings: new Set(), blocked: new Set(), readingSubjects: new Set(['op-1', 'op-2']), readingCount: 201 };
 }

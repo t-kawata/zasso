@@ -49,7 +49,7 @@ const EXIT_ADVISORY = 0;
  * @param {() => number} runGate
  * @returns {{ status: number, output: string }}
  */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 function captureGateOutput(runGate) {
   const written = [];
   const originalWrite = process.stdout.write.bind(process.stdout);
@@ -65,7 +65,7 @@ function captureGateOutput(runGate) {
 }
 
 /** The findings a gate printed, as lines, or nothing when it found nothing to report. */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 function findingsOf(gate, subject) {
   if (gate.status === EXIT_ADVISORY) return [`${subject}: reported nothing to repair`];
   return gate.output.split('\n').filter((line) => line.trim().length > 0).map((line) => `  ${line}`);
@@ -78,7 +78,7 @@ function findingsOf(gate, subject) {
  * directory; a workspace that carries none still receives an answer, keyed by the directory's own
  * name, because a report that refused would be a report nobody could read.
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function packageDirectoriesOf(root) {
   const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
   const packages = treeManifest?.workspace?.packages;
@@ -89,7 +89,7 @@ function packageDirectoriesOf(root) {
 }
 
 /** What is wrong with one directory, and what writing it right would consist of. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function describeEntry(root, { packageId, directory }) {
   const { material, verdict } = readPackageObligationState(directory);
   const relative = path.relative(root, directory);
@@ -112,13 +112,13 @@ function describeEntry(root, { packageId, directory }) {
  * A template plural renders as "(s)" or "(ies)", which is the mark of a sentence assembled from
  * parts; the section exists to be read by whoever has to repair the workspace.
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function countNoun(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /** The lines one failed directory contributes: what is missing, what to write, and the command. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function renderFailedEntry(entry) {
   return [
     '',
@@ -149,7 +149,7 @@ function renderFailedEntry(entry) {
  * @param {{ root: string }} input
  * @returns {{ entries: object[], failedPackageIds: string[], notYetPackageIds: string[], completePackageIds: string[], text: string }}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function describeCarriage({ root }) {
   const entries = packageDirectoriesOf(root).map((entry) => describeEntry(root, entry));
   const idsInState = (state) => entries.filter((entry) => entry.state === state).map((entry) => entry.packageId).sort();
@@ -186,7 +186,7 @@ export function describeCarriage({ root }) {
  * @param {string[]} [argv]
  * @returns {number}
  */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const [rootArgument, ...materials] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {

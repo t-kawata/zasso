@@ -32,13 +32,13 @@ const SUPPLIED = suppliedDocumentsOf(join(FIXTURE, 'educe-sequences'));
  * A borrowed census is re-derived from the supplied file, so an artifact that carries one
  * cannot be judged without the material it names: the check that would answer is the
  * re-derivation, and it has nothing to read. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function verify(artifact) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied: SUPPLIED } });
 }
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
@@ -49,7 +49,7 @@ function golden() {
  * copy of the diagrammed outcomes is a second place to edit when the vocabulary moves,
  * and the two would drift without either being wrong on its own.
  */
-// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 function drawable(artifact) {
   return artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome));
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-121: integer step renumbering — consistency test for the command docs.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-121 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-121 --for-spec --no-implementation-order`.
 
 /**
  * renumbering-consistency.test.js — RED tests for integer step renumbering.
@@ -19,7 +19,7 @@ const DOCS = [
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-121 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-121 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }

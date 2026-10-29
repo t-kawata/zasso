@@ -94,7 +94,7 @@ const BROKEN_TARGET = Object.freeze({
  * The guarded path is the target root itself, which is the real-world case:
  * the tree a sandbox is made from is the tree that must not change.
  */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function createSandboxOver(filesByPath, options = {}) {
   const target = createSyntheticTree(filesByPath, { prefix: 'wsp-p22-18-target-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-scratch-' });

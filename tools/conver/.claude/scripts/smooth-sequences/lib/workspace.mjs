@@ -22,8 +22,8 @@ export const RFC_FILE_NAME = 'RFC.md';
 export const ARTIFACT_SUFFIX = '-sequences.json';
 
 /** Read one JSON file, or raise the error a caller can repair. */
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function readJsonFile(filePath, { code, artefact }) {
   if (!existsSync(filePath)) {
     throw new SmoothSequencesError(`${artefact} does not exist: ${filePath}`, {
@@ -44,7 +44,7 @@ function readJsonFile(filePath, { code, artefact }) {
 }
 
 /** The single sequences artifact at the workspace root. */
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 function findArtifactPath(root) {
   const candidates = readdirSync(root)
     .filter((name) => name.endsWith(ARTIFACT_SUFFIX))
@@ -66,7 +66,7 @@ function findArtifactPath(root) {
 }
 
 /** The package directory a manifest path names, absolute to the workspace root. */
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 function packageDirectory(root, packagePath) {
   return isAbsolute(packagePath) ? packagePath : join(root, packagePath);
 }
@@ -77,7 +77,7 @@ function packageDirectory(root, packagePath) {
  * @param {string} root — a directory holding both manifests
  * @returns {object} a frozen workspace value
  */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function loadWorkspace(root) {
   const treeManifest = readJsonFile(join(root, TREE_MANIFEST_FILE_NAME), {
     code: 'UNREADABLE_TREE_MANIFEST',

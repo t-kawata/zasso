@@ -43,7 +43,7 @@ const PROJECT_TOKENS = Object.freeze([
 ]);
 
 /** Every file beneath a root, as absolute paths. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function filesBeneath(root) {
   const found = [];
   for (const name of readdirSync(root)) {
@@ -55,7 +55,7 @@ function filesBeneath(root) {
 }
 
 /** The project tokens a file carries. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function projectTokensIn(filePath) {
   const text = readFileSync(filePath, 'utf8');
   return PROJECT_TOKENS.filter((token) => new RegExp(`\\b${token}\\b`, 'i').test(text));

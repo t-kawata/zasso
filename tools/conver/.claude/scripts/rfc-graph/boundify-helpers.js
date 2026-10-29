@@ -528,7 +528,7 @@ const DESIGN_SOURCE_FILES = Object.freeze({
  * @param {string} graphDirAbs - absolute directory holding the graph
  * @returns {{view: string|null, stepContracts: string|null}}
  */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function resolveDesignSourceBasenames(graphDirAbs) {
   const fs = require('fs');
   const path = require('path');

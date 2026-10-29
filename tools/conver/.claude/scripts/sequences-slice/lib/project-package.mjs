@@ -11,7 +11,7 @@
  * callers run inside a pipeline, and a workspace that cannot be projected is a finding about the
  * workspace rather than a reason to stop the command.
  *
- * Design context: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+ * Design context: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,7 +28,7 @@ export const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 export const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 
 /** A failure that is reported rather than thrown out of the process. */
-// [::TICKET::] PX-256, PX-260, PX-261, PX-264, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-260|PX-261|PX-264|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-260, PX-261, PX-264, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-260|PX-261|PX-264|PX-270) --for-spec --no-implementation-order`.
 export class ProjectionRefused extends Error {}
 
 /**
@@ -37,7 +37,7 @@ export class ProjectionRefused extends Error {}
  * @param {string} filePath
  * @returns {string}
  */
-// [::TICKET::] PX-256, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
 function readTextOrRefuse(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -52,7 +52,7 @@ function readTextOrRefuse(filePath) {
  * @param {string} filePath
  * @returns {unknown}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function readJsonOrRefuse(filePath) {
   const text = readTextOrRefuse(filePath);
   try {
@@ -73,7 +73,7 @@ export function readJsonOrRefuse(filePath) {
  * @param {string} root
  * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function readWorkspaceSegmentsOrRefuse(root) {
   const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
 
@@ -102,7 +102,7 @@ export function readWorkspaceSegmentsOrRefuse(root) {
  * @param {string} viewJson — the exact bytes written to SEQUENCES.json
  * @returns {{ changed: boolean, distributions: number|null, reason: string|null }}
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function recordDistribution(packageDir, viewJson) {
   const digest = digestOf(viewJson);
   const previous = readDistributionRecord(packageDir);
@@ -148,7 +148,7 @@ export function packageRecordFor(obligationsByPath, root, packageDir) {
  * @returns {{ written: string[], packageId: string, reason: string|null, refused: string[],
  *   distribution: { changed: boolean, distributions: number|null, reason: string|null } }}
  */
-// [::TICKET::] PX-256, PX-259, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-259|PX-260|PX-261) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-259, PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-259|PX-260|PX-261) --for-spec --no-implementation-order`.
 export function projectPackageView(artifactPath, packageDir) {
   const root = path.dirname(artifactPath);
 

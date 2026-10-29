@@ -1,4 +1,4 @@
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 /**
  * E12 — dead and unreachable code, kept apart from what this reader cannot see.
  *
@@ -124,7 +124,7 @@ function requireList(name, value) {
 }
 
 /** The package each file belongs to, as the structure measurement grouped them. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function packageByFile(packages) {
   const byFile = new Map();
   for (const entry of packages) {
@@ -140,7 +140,7 @@ function packageByFile(packages) {
  * which is not a reference: counting it would report an unreferenced package as
  * referenced. This is the same rule R5's dead-code reading already applies.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function referencedPackages(edges) {
   const referenced = new Set();
   for (const edge of edges) {
@@ -151,7 +151,7 @@ function referencedPackages(edges) {
 }
 
 /** The packages a walk from the declared entrypoints reaches, following observed edges. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function packagesReachedFrom(entrypointPackages, edges) {
   const outgoing = new Map();
   for (const edge of edges) {
@@ -172,7 +172,7 @@ function packagesReachedFrom(entrypointPackages, edges) {
 }
 
 /** The entrypoints as a list, refusing a shape this reading cannot use. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function normaliseEntrypoints(entrypoints) {
   if (!Array.isArray(entrypoints)) {
     throw new Error(
@@ -192,7 +192,7 @@ function normaliseEntrypoints(entrypoints) {
 }
 
 /** One region of a file the grammar could not read whole. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function unreadableFileRegion(file) {
   return Object.freeze({
     symbol: null,
@@ -207,7 +207,7 @@ function unreadableFileRegion(file) {
 }
 
 /** The declarations the structure measurement enumerated, one region each. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function enumeratedRegions(structure) {
   const regions = [];
   for (const { field, regionKind } of REGION_SOURCES) {
@@ -225,7 +225,7 @@ function enumeratedRegions(structure) {
 }
 
 /** The state one enumerated region carries, and the reason it carries it. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function decideRegion(region, context) {
   const { language, packageOfFile, referenced, reachedFromEntrypoints, hasEntrypoints } = context;
 
@@ -266,7 +266,7 @@ function decideRegion(region, context) {
 }
 
 /** The counts, with the partition asserted before the value is handed back. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function countsOf(regions) {
   const counts = { reachable: 0, unreachable: 0, notAnalysable: 0, population: regions.length };
   for (const region of regions) {
@@ -295,7 +295,7 @@ function countsOf(regions) {
  * @param {ReadonlyArray<{file: string, reason?: string}>} [params.entrypoints] - the roots the caller declares
  * @returns {object} the measurement, with the partition asserted before it is returned
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function measureReachability({ language, structure, dependencies, entrypoints = [] } = {}) {
   if (structure === null || typeof structure !== 'object') {
     throw new Error('measureReachability needs the R1 structure measurement to enumerate its population from; it was given none');

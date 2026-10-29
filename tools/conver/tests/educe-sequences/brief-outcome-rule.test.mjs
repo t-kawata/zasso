@@ -1,4 +1,4 @@
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // The rule the reading brief states, and the check that holds it (PX-251, contract C005).
 //
 // `singleStep` is a member of two closed vocabularies. As an operation `position` it says
@@ -25,7 +25,7 @@ const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/
 const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
 const DRAWN_CHECK = 'every-step-belongs-to-a-drawn-sequence';
 
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function goldenArtifact() {
   return JSON.parse(readFileSync(GOLDEN_ARTIFACT, 'utf8'));
 }
@@ -48,7 +48,7 @@ test('C005 the brief states that the owning entry outcome, not the operation pos
 // ---------------------------------------------------------------------------
 
 /** An entry the golden artifact draws, and the steps placed inside it. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function aDrawnEntryWithSteps(artifact) {
   const entry = artifact.sequences.find(
     (candidate) => DIAGRAMMED_OUTCOMES.includes(candidate.outcome)
@@ -59,7 +59,7 @@ function aDrawnEntryWithSteps(artifact) {
 }
 
 /** The same artifact with one entry ruled away, and every other field left alone. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function withEntryRuledAway(artifact, entry) {
   return {
     ...artifact,

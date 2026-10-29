@@ -4,7 +4,7 @@ const path = require('path');
 
 const { resolveInstallPlan, loadInstallManifests } = require('./install-manifests');
 const { readInstallState, writeInstallState } = require('./install-state');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('./path-utils');
 const {
   createManifestInstallPlan,
@@ -311,7 +311,7 @@ function shouldRepairFromRecordedOperations(state) {
   return getManagedOperations(state).some(operation => operation.kind !== 'copy-file');
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function executeRepairOperation(repoRoot, operation) {
   if (operation.kind === 'copy-file') {
     const sourcePath = resolveOperationSourcePath(repoRoot, operation);
@@ -363,7 +363,7 @@ function executeRepairOperation(repoRoot, operation) {
   throw new Error(`Unsupported repair operation kind: ${operation.kind}`);
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function executeUninstallOperation(operation) {
   if (operation.kind === 'copy-file') {
     if (!fs.existsSync(operation.destinationPath)) {

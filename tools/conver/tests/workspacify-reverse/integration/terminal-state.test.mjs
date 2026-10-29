@@ -112,7 +112,7 @@ const RECORD_PATH = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis
 const RECORD_REGENERATE_ENV = 'WSP_TERMINAL_STATE_REGENERATE';
 
 /** The design document §7.3 lives in, and where the claim it records is replaced by a citation. */
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 const DESIGN_PATH = join('docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 
 /** The design section §7.3 occupies, so the assertions read the claim rather than the whole document. */
@@ -127,7 +127,7 @@ const NOT_VERIFIED_SECTION = Object.freeze({ from: '### 7.3', to: '### 7.4' });
  * measures the trees that come out, so it can report that the bottom rung was reached and
  * no further. Recording a higher position would state a grade this run did not take.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 const LADDER_WITNESSED_BY_THIS_OBSERVATION = LADDER_POSITIONS[0];
 
 /** A representative the chain cannot configure: it carries no source in any target language. */
@@ -168,7 +168,7 @@ const GROUNDED_DECISIONS = join('tests', 'workspacify-tree', 'fixtures', 'decisi
  * input carrying `tree: []` says there are none. The instrument reports which of the
  * two it was given, so this reader must not collapse them.
  */
-// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function readDecisionsPartition(decisionsPath) {
   const parsed = JSON.parse(readFileSync(decisionsPath, 'utf8'));
   return Array.isArray(parsed.tree) ? parsed.tree : null;
@@ -178,7 +178,7 @@ function readDecisionsPartition(decisionsPath) {
 const selected = process.env.WSP_TERMINAL_STATE === '1';
 
 /** A throwaway directory, so no command publishes into the project. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-p24-8-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -196,7 +196,7 @@ function scratchOutput() {
  * key the oracle rests on. A skeleton written into a subject would edit the very
  * instrument the digest exists to prove untouched.
  */
-// [::TICKET::] P24-11, P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|P26-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-11|P26-1) --for-spec --no-implementation-order`.
 function decisionsFor(representative, scratchRoot) {
   const authored = decisionsPathFor(representative);
   if (existsSync(authored)) return authored;
@@ -223,7 +223,7 @@ const SCRATCH_PLACEHOLDER = '<scratch>';
  * A path alone would not: it names where this operator happened to keep the file, and
  * the file can be edited between runs without the path changing at all.
  */
-// [::TICKET::] P24-12, P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-12|P26-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12, P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-12|P26-1) --for-spec --no-implementation-order`.
 function decisionsDigestFor(representative) {
   const authored = decisionsPathFor(representative, PROJECT_ROOT);
   if (existsSync(authored)) {
@@ -246,7 +246,7 @@ function decisionsDigestFor(representative) {
  * committed record reproduce nowhere — the same defect the forward baseline carried
  * until `normaliseMarkerRewritePaths` replaced its absolute path.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function normaliseScratchPaths(stages) {
   return stages.map((entry) => ({
     ...entry,
@@ -262,7 +262,7 @@ function normaliseScratchPaths(stages) {
  * asserting against the whole file would accept a citation added elsewhere in place of
  * the one §7.3 needs.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function sectionNotVerified() {
   const design = readFileSync(join(PROJECT_ROOT, DESIGN_PATH), 'utf8');
   const from = design.indexOf(NOT_VERIFIED_SECTION.from);
@@ -274,7 +274,7 @@ function sectionNotVerified() {
 }
 
 /** Assert §7.3 records a measurement rather than the claim that none was ever taken. */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function assertSectionCitesTheRecord() {
   const section = sectionNotVerified();
   assert.doesNotMatch(section, /Nobody has ever observed a project reach the terminal state/);
@@ -282,7 +282,7 @@ function assertSectionCitesTheRecord() {
 }
 
 /** Run one command of the chain and report its exit status and output. */
-// [::TICKET::] P24-8, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8, PX-213, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-8|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
   const result = spawnSync(process.execPath, [join(COMMAND_ROOT, command), ...args], {
     cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
@@ -301,7 +301,7 @@ function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
  * The graph is materialised beside the other documents because `--graph` takes a path:
  * a node set has to exist on disk before a command can be told to read it.
  */
-// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function reverseInputsFor({ inputsRoot, workspaceRoot, preparedGraphPath = null }) {
   // The graph is the subject's own: a project already driven through conver's loop
   // carries one, and the rotation reads it from the subject rather than being told
@@ -336,7 +336,7 @@ function reverseInputsFor({ inputsRoot, workspaceRoot, preparedGraphPath = null 
  * produced. The **documents** are the analysis's own output, which the run reads by
  * path and never writes to.
  */
-// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function reverseArgs({ subject, documents }) {
   // The origin spec and the measured edge set were published by the analysis run
   // into the reserved directory beneath the subject, which is where the rotation
@@ -385,7 +385,7 @@ const FAILING_GATES_SUMMARY = /"failing":\[([^\]]*)\]/g;
  * A stage that refused carries what it refused on, so a reader learns where the
  * chain stopped and why, rather than having to re-run the command to find out.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-11 --for-spec --no-implementation-order`.
 function stagesFrom(output) {
   const text = String(output ?? '');
   const stages = [];
@@ -455,7 +455,7 @@ function stagesFrom(output) {
  * @param {{ subject: object, documents: object, through?: 'tree'|'allocate' }} input
  * @returns {{ invocation: object, tree: object, allocate: object|null, stages: Array<object>, manifestPath: string }}
  */
-// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function runReverseChain({ subject, documents, through = 'allocate' }) {
   const invocation = reverseArgs({ subject, documents });
   const tree = runChain('workspacify-tree/run.mjs', ['reverse', ...invocation.args], { cwd: subject.root });
@@ -731,7 +731,7 @@ test('IT: the two refusals a decisions input meets are each named, and neither p
  * printed only when every gate passed. A failing run still names each verdict in
  * the report, which is where an operator reads what stopped it.
  */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 function gatesFrom(output) {
   const verdicts = {};
   for (const [, gateId, status] of output.matchAll(/^## (T\d) — (\w+)$/gm)) {
@@ -746,7 +746,7 @@ function gatesFrom(output) {
  * The caller reads the published documents, so the scratch directories are handed
  * back with the run rather than disposed of here: `dispose` closes both.
  */
-// [::TICKET::] P24-10, P24-11, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-10|P24-11|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10, P24-11, PX-213, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-10|P24-11|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 
 function buildGroundedWorkspace() {
   const decisions = JSON.parse(readFileSync(join(PROJECT_ROOT, GROUNDED_DECISIONS), 'utf8'));
@@ -800,7 +800,7 @@ function buildGroundedWorkspace() {
  * refusal observed over an already-published fifth layer would be looking at the
  * artefacts of the run before it.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-11 --for-spec --no-implementation-order`.
 function seedTheFourthLayer(workspace, { through = 'allocate' } = {}) {
   return runReverseChain({
     subject: { root: workspace.root, specPath: workspace.specPath },
@@ -822,14 +822,14 @@ function seedTheFourthLayer(workspace, { through = 'allocate' } = {}) {
  * derived from the manifest that plan produced, so the seeds restate the partition
  * rather than an invention beside it.
  */
-// [::TICKET::] P24-11, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-215|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-215, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-11|PX-215|PX-213) --for-spec --no-implementation-order`.
 function allocateDecisionsFor({ workspaceRoot, inputsRoot }) {
   const manifest = JSON.parse(readFileSync(join(workspaceRoot, TREE_MANIFEST_FILE_NAME), 'utf8'));
   return stageAllocateDecisions(workspaceRoot, makeDecisions(manifest));
 }
 
 /** The manifest as a forward run would have published it, self-hash recomputed. */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-11 --for-spec --no-implementation-order`.
 function withoutReverseProvenance(manifest) {
   const copy = JSON.parse(JSON.stringify(manifest));
   delete copy[REVERSE_PROVENANCE_FIELD];
@@ -837,7 +837,7 @@ function withoutReverseProvenance(manifest) {
 }
 
 /** Every seed under a root, as root-relative POSIX paths. */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-11 --for-spec --no-implementation-order`.
 function seedsUnder(root) {
   const found = [];
   const walk = (dir, relative) => {
@@ -855,7 +855,7 @@ function seedsUnder(root) {
 }
 
 /** The top-level directory names under a root, sorted. Only directories: A2 counts entries that can be renamed. */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-11 --for-spec --no-implementation-order`.
 function topLevelDirectories(root) {
   return readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())

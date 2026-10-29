@@ -20,7 +20,7 @@ import {
   liveShapedSequenceAxis,
 } from './fixtures/synthetic-workspace.mjs';
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the sequence axis keeps only the outcomes that are sequences, with ids unchanged', () => {
   const artifact = {
     schema_version: 2,
@@ -44,7 +44,7 @@ test('C001 the sequence axis keeps only the outcomes that are sequences, with id
   assert.deepEqual(units.unknownOutcomes, []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 an outcome outside the known set is reported rather than silently absorbed', () => {
   const artifact = {
     schema_version: 2,
@@ -58,7 +58,7 @@ test('C001 an outcome outside the known set is reported rather than silently abs
   assert.equal(NOT_A_SEQUENCE, 'notASequence');
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the unit vocabulary is closed over the artifact', () => {
   const { sequences, steps } = liveShapedSequenceAxis();
   const artifact = { schema_version: 2, sequences, steps, operations: [] };
@@ -71,7 +71,7 @@ test('C001 the unit vocabulary is closed over the artifact', () => {
   assert.equal(units.sequences.length, sequences.filter((sequence) => sequence.outcome !== NOT_A_SEQUENCE).length);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the sequence buckets follow from the operation buckets through the same join', () => {
   const { sequences, steps } = liveShapedSequenceAxis();
   const artifact = { schema_version: 2, sequences, steps, operations: [] };
@@ -82,7 +82,7 @@ test('C001 the sequence buckets follow from the operation buckets through the sa
   assert.equal(buckets.total, 116);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the sequences that resolve to no package are named rather than only counted', () => {
   const { sequences, steps } = liveShapedSequenceAxis();
   const units = buildSequenceUnits({ schema_version: 2, sequences, steps, operations: liveShapedOperations() });

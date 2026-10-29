@@ -5,7 +5,7 @@ import { summarizeReadings } from '../../.claude/scripts/smooth-sequences/lib/re
 import { buildCertificate } from '../../.claude/scripts/shared-obligations/certificate.mjs';
 import { materializeSmoothWorkspace } from '../smooth-sequences/helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('absent readings leave the worklist open and the certificate incomplete', () => {
   const workspace = materializeSmoothWorkspace();
   const registry = [{ id: 'READ:UNCOVERED:OpA', class: 'semantic', state: 'open', required: true }];
@@ -20,7 +20,7 @@ test('absent readings leave the worklist open and the certificate incomplete', (
   }
 });
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('an empty uncovered file does not close a non-empty worklist', () => {
   const workspace = materializeSmoothWorkspace({ readings: { uncovered: [] } });
   const registry = [

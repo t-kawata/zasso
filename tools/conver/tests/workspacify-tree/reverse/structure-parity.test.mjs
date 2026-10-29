@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 // P22-11 @verifies C001
 // T1 to T4: the reverse rotation must be grounded in a tree that was measured,
 // not in one that was assumed. Every difference is named, and a gate that cannot
@@ -24,7 +24,7 @@ import {
 } from './helpers/reverse-fixture.mjs';
 
 /** Run a body against a freshly written measured tree and always clean up. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function withMeasuredTree(body) {
   const root = writeTree();
   try {

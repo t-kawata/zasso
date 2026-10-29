@@ -10,7 +10,7 @@ import {
 } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';
 import { renderDistribution } from '../../.claude/scripts/grill-me-for-rfc/render-distribution.mjs';
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureView(packageId = 'pkg-1') {
   return {
     packageId,
@@ -28,7 +28,7 @@ function fixtureView(packageId = 'pkg-1') {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureRfc() {
   return [
     '# Package RFC',

@@ -17,13 +17,13 @@ const os = require('os');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }

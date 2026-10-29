@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * generate-checklist.js <rfc-dir>
  *
@@ -23,7 +23,7 @@ import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 import { AI_SUPPLEMENT_COMMENT, carriesHandWrittenText, composeFencedFile } from "./lib/checklist-fence.mjs";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const rfcDir = path.resolve(process.argv[2] ?? ".");
@@ -50,7 +50,7 @@ const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
  */
 const DEFERRED_WORK_TOKEN = ["TO", "DO"].join("");
 
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 const FORBIDDEN = `TBD / ${DEFERRED_WORK_TOKEN} / 別バージョンで対応 という表現が含まれていないこと`;
 
 function nodeChecks(title) {

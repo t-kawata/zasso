@@ -71,7 +71,7 @@ const USAGE = `usage: sequences-ledger.js <project-dir> [${UNITS_FLAG_PREFIX}<pa
  * @param {string} materialKind
  * @returns {{ kind: string, subject: string, ledgerTitle: string }}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function registerObligation(materialKind) {
   if (materialKind !== DISTRIBUTION_OBLIGATION.kind) {
     throw new Error(`${materialKind} is not an obligation this registry knows`);
@@ -80,7 +80,7 @@ export function registerObligation(materialKind) {
 }
 
 /** The material paths a session record holds, by the rule init.js and list-files.js apply. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function materialPathsOf(record) {
   if (Array.isArray(record?.materialPaths)) return record.materialPaths;
   return record?.researchPath ? [record.researchPath] : [];
@@ -95,7 +95,7 @@ function materialPathsOf(record) {
  * @param {{ materialPaths?: string[], researchPath?: string }} statusRecord
  * @returns {Array<{ kind: string, subject: string, ledgerTitle: string }>}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function obligationsFor(statusRecord) {
   const carriesDistributionMaterial = materialPathsOf(statusRecord).some((materialPath) => {
     const name = path.basename(materialPath);
@@ -111,13 +111,13 @@ export function obligationsFor(statusRecord) {
  * @param {string} layer
  * @returns {string} one line, beginning with proved or not proved
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function reportUnit(unit, layer) {
   return `${unit.discharged ? MACHINE_VERDICTS[0] : MACHINE_VERDICTS[1]}: ${unit.unitId} at ${layer}`;
 }
 
 /** The stage report, one line per unit, in the machine vocabulary. */
-// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
 function renderStageReport({ stage, units, obligationSource = null }) {
   const lines = [`# Distribution ledger at ${stage}`, ''];
   if (units.length === 0) {
@@ -151,7 +151,7 @@ const FILE_SYSTEM = {
  *
  * Design context: docs/FIX-PLAN005.md.
  */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function readObligationSource(unitsPath) {
   try {
     return obligationSourceOf(JSON.parse(fs.readFileSync(unitsPath, 'utf8')));
@@ -160,7 +160,7 @@ function readObligationSource(unitsPath) {
   }
 }
 
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function readDistributedUnitIds(unitsPath) {
   try {
     return collectUnitIds(JSON.parse(fs.readFileSync(unitsPath, 'utf8')));
@@ -193,7 +193,7 @@ function dischargedUnitIds({ stage, rfcDir, unitIds }) {
   return new Set(verdict.rows.map((row) => row.unit));
 }
 
-// [::TICKET::] PX-257, PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-259) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const stageArgument = argv.find((argument) => argument.startsWith(STAGE_FLAG_PREFIX));
   const stage = stageArgument === undefined ? DEFAULT_STAGE : stageArgument.slice(STAGE_FLAG_PREFIX.length);

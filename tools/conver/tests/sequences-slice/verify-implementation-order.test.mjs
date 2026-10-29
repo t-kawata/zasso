@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 
 import { verifyPackage, verifyWorkspace } from '../../.claude/scripts/sequences-slice/verify-implementation-order.mjs';
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function workspace() {
   const root = mkdtempSync(join(tmpdir(), 'px323-order-'));
   writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({
@@ -44,7 +44,7 @@ function workspace() {
   return root;
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function tickets(prerequisite, reversed = false) {
   const first = { id: 1, phaseId: 0, title: 'a', status: 'todo', contracts: [], nodeIds: ['N0001'], distribution: { units: [{ unitId: 'op-A', kind: 'operation', obligation: { mode: 'implement' } }] } };
   const second = { id: 2, phaseId: 0, title: 'b', status: 'todo', contracts: [], nodeIds: ['N0002'], distribution: { units: [{ unitId: 'op-B', kind: 'operation', obligation: { mode: 'implement' } }] } };
@@ -52,7 +52,7 @@ function tickets(prerequisite, reversed = false) {
   return { title: 't', metadata: {}, phases: [{ id: 0, tickets: reversed ? [second, first] : [first, second] }] };
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function writeTickets(root, document) {
   writeFileSync(join(root, 'crates/pkg-1/Tickets.json'), JSON.stringify(document));
 }
@@ -233,7 +233,7 @@ test('C003 a package without Tickets.json is skipped, not failed', () => {
 });
 
 // PX-328 @verifies C003 — the workspace gate uses the same active-operation filter as smooth.
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function activeWorkspace(disposition) {
   const root = mkdtempSync(join(tmpdir(), 'px328-active-'));
   writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({

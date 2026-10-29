@@ -1,4 +1,4 @@
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * R2 — the dependency measurement, recorded as a hypothesis.
  *
@@ -126,7 +126,7 @@ export function externalDependenciesIn(root, manifestPath) {
 }
 
 /** The build manifests present in the measured population. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function manifestsInScope(root, excludedPaths) {
   const excluded = new Set(excludedPaths);
   return listArtefacts(root)
@@ -143,7 +143,7 @@ function manifestsInScope(root, excludedPaths) {
  * unit the design's directory-boundary work consumes; a per-file graph would be
  * a different measurement wearing the same name.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function packageOf(relativePath) {
   return relativePath.includes('/') ? relativePath.slice(0, relativePath.lastIndexOf('/')) : '.';
 }
@@ -155,7 +155,7 @@ function packageOf(relativePath) {
  * supported by one `use` and an edge supported by forty are different evidence
  * for the boundary work downstream, and discarding the count would hide that.
  */
-// [::TICKET::] P22-4, P22-5, P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-5|P24-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-5, P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-5|P24-3) --for-spec --no-implementation-order`.
 function edgesFrom(records) {
   const byPair = new Map();
   for (const record of records) {
@@ -261,7 +261,7 @@ export function findPackageCycles(edges, packages) {
 }
 
 /** The requirement every measurement in this module states about its inputs. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function requireArrays({ packages, edges }, functionName) {
   if (!Array.isArray(packages)) {
     throw new Error(`${functionName} needs the measured package set it is to measure; it was given no array of packages`);
@@ -285,7 +285,7 @@ function requireArrays({ packages, edges }, functionName) {
  * by one. Counting it once would make one of the two read as less coupled than
  * it is.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 export function measureCohesion({ packages, edges } = {}) {
   requireArrays({ packages, edges }, 'measureCohesion');
 
@@ -342,7 +342,7 @@ export function measureCohesion({ packages, edges } = {}) {
  * self-edge, so the honest reading is "nothing to divide"; a zero denominator
  * would make the ratio undefined and the report unreadable.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 export function measureDependencyDensity({ packages, edges } = {}) {
   requireArrays({ packages, edges }, 'measureDependencyDensity');
 
@@ -379,7 +379,7 @@ export function measureDependencyDensity({ packages, edges } = {}) {
  * rather than surfacing as a property access on `undefined` several frames
  * deeper, where the message would name neither the input nor the caller.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function assertCallSites(callSites) {
   for (const site of callSites) {
     if (typeof site?.file !== 'string' || typeof site?.name !== 'string') {
@@ -392,7 +392,7 @@ function assertCallSites(callSites) {
 }
 
 /** The item or module names an edge's `use` locations resolved to. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function targetedNamesOf(edge) {
   const names = new Set();
   for (const location of edge.locations ?? []) {
@@ -418,7 +418,7 @@ function targetedNamesOf(edge) {
  * were never extracted reports every crossing as not measured, with the missing
  * input named — never as a count of zero.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 export function countBoundaryCrossings({ packages, edges, callSites = NOT_MEASURED } = {}) {
   requireArrays({ packages, edges }, 'countBoundaryCrossings');
 
@@ -466,7 +466,7 @@ export function countBoundaryCrossings({ packages, edges, callSites = NOT_MEASUR
  * leaves a ledger row, rather than disappearing from the measurement without
  * anything recording that it was skipped.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function measuredFiles(root, excludedPaths) {
   const excluded = new Set(excludedPaths);
   return listArtefacts(root)
@@ -507,27 +507,27 @@ const EXTENSIONS_BY_LANGUAGE = Object.freeze({
 });
 
 /** The directory an include path is looked for in, as the build manifest declares it. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 const CMAKE_INCLUDE_DIRECTIVE = /target_include_directories\s*\([^)]*?\b(?:PUBLIC|PRIVATE|INTERFACE)\b([^)]*)\)/;
 
 /** The module path a Go tree declares, which every import path is written against. */
 const GO_MODULE_CLAUSE = /^\s*module\s+(\S+)\s*$/m;
 
 /** Strips the quotes a string literal's text carries, or null when it is not one. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function unquoted(text) {
   const match = /^(['"`])(.*)\1$/s.exec(text ?? '');
   return match === null ? null : match[2];
 }
 
 /** The directory a relative path sits in, as a POSIX path the tree index uses. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function directoryOf(relativePath) {
   return relativePath.includes('/') ? relativePath.slice(0, relativePath.lastIndexOf('/')) : '';
 }
 
 /** A specifier joined onto the importing file's directory, with `..` resolved. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveAgainst(importerDirectory, specifier) {
   const joined = posix.normalize(posix.join(importerDirectory, specifier));
   return joined.startsWith('./') ? joined.slice(2) : joined.replace(/^\/+/, '');
@@ -541,7 +541,7 @@ function resolveAgainst(importerDirectory, specifier) {
  * directory holding an index module — so that a resolution is a fact about the
  * tree rather than a preference between two files that both exist.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveRelativeFile(root, importerDirectory, specifier, extensions) {
   const base = resolveAgainst(importerDirectory, specifier);
   if (base.length === 0) return null;
@@ -567,7 +567,7 @@ function resolveRelativeFile(root, importerDirectory, specifier, extensions) {
  * would read as having no dependency at all. A generator expression is a value
  * this layer cannot resolve and is skipped rather than guessed at.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function declaredIncludeDirectories(root, files) {
   const directories = new Set();
   for (const manifest of files.filter((path) => path.split('/').pop() === 'CMakeLists.txt')) {
@@ -591,7 +591,7 @@ function declaredIncludeDirectories(root, files) {
 }
 
 /** The Go module path the measured tree declares, or null when it declares none. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function declaredGoModulePath(root, files) {
   const manifest = files.find((path) => path === 'go.mod' || path.endsWith('/go.mod'));
   if (manifest === undefined) return null;
@@ -611,7 +611,7 @@ function declaredGoModulePath(root, files) {
  * rather than resolved to one of them: choosing between two would be a guess
  * wearing a measurement's clothes.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function pythonModuleIndex(files) {
   const byName = new Map();
   for (const file of files) {
@@ -624,7 +624,7 @@ function pythonModuleIndex(files) {
 }
 
 /** The package a resolved member belongs to, given whether that member is itself a directory. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function packageOfMember(member, { isDirectory }) {
   return isDirectory ? member : directoryOf(member);
 }
@@ -637,7 +637,7 @@ function packageOfMember(member, { isDirectory }) {
  * reimplemented — the two stages cannot disagree about which module a path
  * names.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveRustSpecifier(specifier, { root }) {
   const firstSegment = specifier.replace(/^(crate|self|super)::/, '').split('::')[0];
   const member = resolveSourceMember(root, firstSegment);
@@ -645,7 +645,7 @@ function resolveRustSpecifier(specifier, { root }) {
 }
 
 /** A relative specifier — one the importing file's own directory resolves. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveRelativeSpecifier(specifier, { language, file, root }) {
   if (!specifier.startsWith('.')) return null;
   const member = resolveRelativeFile(root, directoryOf(file), specifier, EXTENSIONS_BY_LANGUAGE[language]);
@@ -659,7 +659,7 @@ function resolveRelativeSpecifier(specifier, { language, file, root }) {
  * outside the tree — the standard library, or another module — and is recorded
  * as unresolved rather than folded into the local graph.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveGoSpecifier(specifier, { root, goModulePath }) {
   if (goModulePath === null || !specifier.startsWith(`${goModulePath}/`)) return null;
   const member = specifier.slice(goModulePath.length + 1);
@@ -673,7 +673,7 @@ function resolveGoSpecifier(specifier, { root, goModulePath }) {
  * sibling a reader looks for; a name that is not there is looked up in the
  * tree-wide index, which is what a configured import root would have provided.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolvePythonSpecifier(specifier, { file, root, pythonModules }) {
   const leaf = specifier.split('.').pop();
   const sibling = resolveRelativeFile(root, directoryOf(file), `./${leaf}`, EXTENSIONS_BY_LANGUAGE.python);
@@ -689,7 +689,7 @@ function resolvePythonSpecifier(specifier, { file, root, pythonModules }) {
  * the include path the build declares; an angled include is looked for only
  * along that path, because that is the difference the two spellings carry.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function resolveIncludeSpecifier(specifier, { root, file, includeDirectories }) {
   const searchPaths = specifier.quoted ? [directoryOf(file), ...includeDirectories] : [...includeDirectories];
   for (const searchPath of searchPaths) {
@@ -700,7 +700,7 @@ function resolveIncludeSpecifier(specifier, { root, file, includeDirectories }) 
 }
 
 /** Every `require('...')` a JavaScript file writes with a specifier it can name. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function literalRequiresOf(tree, relativePath) {
   const requires = [];
   walkNamed(tree.rootNode, (node) => {
@@ -718,7 +718,7 @@ function literalRequiresOf(tree, relativePath) {
 }
 
 /** Every specifier one file states, as the language under measurement writes it. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function importSpecifiersIn(language, tree, relativePath) {
   if (language === 'rust') {
     return collectRustUses(tree, relativePath).map((use) => ({ specifier: use.target, line: use.line }));
@@ -778,7 +778,7 @@ function importSpecifiersIn(language, tree, relativePath) {
  * becomes a package, and the two are the same for all six only in that they are
  * read here.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export const EDGE_QUERIES_BY_LANGUAGE = Object.freeze({
   rust: Object.freeze({ importNodeTypes: Object.freeze(['use_declaration']), resolve: resolveRustSpecifier }),
   typescript: Object.freeze({ importNodeTypes: Object.freeze(['import_statement', 'export_statement']), resolve: resolveRelativeSpecifier }),
@@ -801,7 +801,7 @@ export const EDGE_QUERIES_BY_LANGUAGE = Object.freeze({
  * from the syntax population would answer "no module path" and "no include
  * path" for every tree, which is a fact about the reader and not about the tree.
  */
-// [::TICKET::] P24-3, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-3|P24-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3, P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-3|P24-6) --for-spec --no-implementation-order`.
 function resolutionContextOf(root, excludedPaths, configuration = null) {
   const excluded = new Set(excludedPaths);
   const inScopePaths = listArtefacts(root)
@@ -835,7 +835,7 @@ function resolutionContextOf(root, excludedPaths, configuration = null) {
  * @param {object|null} configuration - a discovery record from `discoverBuildDatabase`
  * @returns {{all: ReadonlyArray<string>, byFile: object}} the recorded paths
  */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function recordedIncludeDirectories(root, configuration) {
   if (configuration === null || reportDatabaseLimitation({ discovery: configuration }) !== null) {
     return { all: [], byFile: {} };
@@ -863,7 +863,7 @@ function recordedIncludeDirectories(root, configuration) {
  * the count travels into the report's limitations, so an absent edge reads as a
  * gap in the measurement instead of as an absence of coupling.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function collectDependencyEdges(language, tree, relativePath, { context }) {
   const queries = EDGE_QUERIES_BY_LANGUAGE[language];
   if (queries === undefined) {
@@ -904,7 +904,7 @@ export function collectDependencyEdges(language, tree, relativePath, { context }
  * able to assert: the six never carry it and a language outside them always
  * does, and a guard no test can reach cannot be asserted to persist.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function hasEdgeExtractor(language) {
   return LANGUAGES_WITH_EXTRACTORS.E5.includes(language);
 }
@@ -921,7 +921,7 @@ export function hasEdgeExtractor(language) {
  * Exported for the same reason `hasEdgeExtractor` is: the invariant is about
  * the row, and a row no test can produce is a claim nobody checks.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function recordSkippedLanguage({ file, language }) {
   return recordAttempt({
     target: file,
@@ -944,7 +944,7 @@ export function recordSkippedLanguage({ file, language }) {
  * which of the graphs below is the one carrying them. This is the reason R2.5
  * runs before R2: the caveat has to exist when the graph is read.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 function dynamicMechanismClause(surface) {
   if (!Array.isArray(surface?.mechanisms)) return '';
 
@@ -972,8 +972,8 @@ function dynamicMechanismClause(surface) {
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null, surface?: object|null}} params
  */
 export function measureDependencies({ root, excludedPaths = [], grammar, surface = null, configuration = null } = {}) {
-// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
   const limitations = [];
@@ -1105,7 +1105,7 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
 }
 
 /** The heading and the standing caveat the rest of the report is read under. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderHeaderSection(dependencies) {
   return [
     '# R2 — the dependency hypothesis',
@@ -1118,7 +1118,7 @@ function renderHeaderSection(dependencies) {
 }
 
 /** The edges themselves, with the location that first produced each one. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderMeasuredEdgesSection(dependencies) {
   return [
     '## Measured edges',
@@ -1133,7 +1133,7 @@ function renderMeasuredEdgesSection(dependencies) {
 }
 
 /** The strongly connected components, stated so that no component reads as a path. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderCyclesSection(dependencies) {
   const body = dependencies.cycles.length === 0
     ? 'No cycle was found among the packages this import graph reaches. That is a fact about this'
@@ -1148,7 +1148,7 @@ function renderCyclesSection(dependencies) {
 }
 
 /** What each build manifest declares, and which manifest could not be read. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderExternalDependenciesSection(dependencies) {
   return [
     '## External dependencies',
@@ -1167,7 +1167,7 @@ function renderExternalDependenciesSection(dependencies) {
 }
 
 /** Every way this measurement is not the whole of the coupling the source states. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderLimitationsSection(dependencies) {
   return [
     '## Limitations',
@@ -1180,7 +1180,7 @@ function renderLimitationsSection(dependencies) {
 }
 
 /** The first `file:line` the graph holds for a package, so a reader can open it. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function evidenceFor(packageName, edges) {
   const leaving = edges.find((edge) => edge.from === packageName && edge.locations.length > 0);
   const arriving = edges.find((edge) => edge.to === packageName && edge.locations.length > 0);
@@ -1190,7 +1190,7 @@ function evidenceFor(packageName, edges) {
 }
 
 /** The directory the coupling leaves most often, which is where a reader starts. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function widestBoundary(rows) {
   return [...rows].sort((left, right) => (
     (right.externalRatio ?? 0) - (left.externalRatio ?? 0) || compareText(left.package, right.package)
@@ -1198,7 +1198,7 @@ function widestBoundary(rows) {
 }
 
 /** The cohesion counts, with the ratio stated beside the counts rather than instead of them. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderCohesionTable(rows) {
   return [
     '| package | member files | internal | external | incident | external ratio |',
@@ -1211,7 +1211,7 @@ function renderCohesionTable(rows) {
 }
 
 /** The cohesion counts and the directory that reads most sharply as a boundary. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderCohesionSection(dependencies) {
   const { rows } = dependencies.cohesion;
   if (rows.length === 0) {
@@ -1247,7 +1247,7 @@ function renderCohesionSection(dependencies) {
 }
 
 /** The density ratio, with its numerator, its denominator and its population named. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderDensitySection(dependencies) {
   const measured = dependencies.density;
   const population = measured.population;
@@ -1266,7 +1266,7 @@ function renderDensitySection(dependencies) {
 }
 
 /** The call sites that cross each boundary, or the reason there are none to count. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderCrossingsSection(dependencies) {
   const crossings = dependencies.boundaryCrossings;
   if (crossings.length === 0) {
@@ -1310,7 +1310,7 @@ function renderCrossingsSection(dependencies) {
 }
 
 /** The decision this material exists to serve, stated rather than answered. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderPartitionQuestion(dependencies) {
   const { rows, unresolvedEdges } = dependencies.cohesion;
   const unresolved = unresolvedEdges.length === 0
@@ -1332,7 +1332,7 @@ function renderPartitionQuestion(dependencies) {
 }
 
 /** The partition material: the ground the terminal structure stands on. */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function renderPartitionMaterialSection(dependencies) {
   return [
     '## The partition material',

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 /**
  * The pipeline counters the implementation order reads.
  *
@@ -14,7 +14,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { generationOf as educeGenerationOfStatus } from '../../educe-sequences/rail/run-state.mjs';
-// [::TICKET::] PX-282, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-282|PX-285) --for-spec --no-implementation-order`.
 import { readGenerationNumber as readSmoothGenerationNumber } from '../../smooth-sequences/lib/generation.mjs';
 import { readDistributionRecord } from '../../sequences-slice/lib/distribution-record.mjs';
 
@@ -23,21 +23,21 @@ export const SMOOTH_SEQUENCES_DIRECTORY = 'smooth-sequences';
 export const STATUS_FILE_NAME = 'status.json';
 
 /** The status file a grill session keeps in its package directory. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const PACKAGE_STATUS_FILE_NAME = 'Status.json';
 
 /** The status suffix each downstream stage writes beside its artifact stem. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 export const GRAPHIFY_STATUS_SUFFIX = '-GRAPHIFY-Status.json';
 export const BOUNDIFY_STATUS_SUFFIX = '-BOUNDIFY-Status.json';
 export const SPLIT_STATUS_SUFFIX = '-SPLIT-Status.json';
 
 /** The generation a grill opens on every new run. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const FIRST_GENERATION = 1;
 
 /** The status fields that carry the two generations. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const GRILL_GENERATION_FIELD = 'grillGeneration';
 export const DISTRIBUTION_GENERATION_FIELD = 'distributionGeneration';
 
@@ -57,7 +57,7 @@ const DISTRIBUTION_MAP_FENCE = /^```json\s+distribution-map\s*$/m;
  * re-reading the file. The public readers below answer null, which is the whole answer a
  * display needs.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function readJsonFile(path) {
   if (!existsSync(path)) return { value: null, reason: 'absent' };
   try {
@@ -68,7 +68,7 @@ function readJsonFile(path) {
 }
 
 /** A positive integer, or null for every other value. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function positiveGeneration(status) {
   return Number.isInteger(status?.generation) && status.generation > 0 ? status.generation : null;
 }
@@ -80,21 +80,21 @@ function positiveGeneration(status) {
  * written before generations existed (phases but no number) is generation 1 here exactly
  * as it is in educe's console.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function educeGenerationOf(status) {
   const generation = educeGenerationOfStatus(status);
   return generation > 0 ? generation : null;
 }
 
 /** The root educe generation, or null when the run directory records none. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readRootEduceGeneration(root) {
   const status = readJsonFile(join(root, EDUSEQUENCES_DIRECTORY, STATUS_FILE_NAME)).value;
   return status === null ? null : educeGenerationOf(status);
 }
 
 /** The root smooth generation, or null when smooth has not written a generation. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readRootSmoothGeneration(root) {
   const status = readJsonFile(join(root, SMOOTH_SEQUENCES_DIRECTORY, STATUS_FILE_NAME)).value;
   if (status === null) return null;
@@ -109,14 +109,14 @@ export function readRootSmoothGeneration(root) {
  * before that field existed answers null, which the display reads as "unknown" and renders
  * with the document mark rather than as zero sessions.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readCompletedSessions(packageDirectory) {
   const value = readJsonFile(join(packageDirectory, STATUS_FILE_NAME)).value?.completedSessions;
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 /** Whether an RFC carries the map a distribution generation writes. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function carriesDistributionMap(rfcPath) {
   if (!existsSync(rfcPath)) return false;
   try {
@@ -133,7 +133,7 @@ function carriesDistributionMap(rfcPath) {
  * is a lower bound rather than a reconstruction. Zero completed sessions is no generation
  * at all, so it answers null and the display keeps its unknown mark.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function readGrillGeneration(packageDirectory) {
   const status = readJsonFile(join(packageDirectory, PACKAGE_STATUS_FILE_NAME)).value;
   if (status === null) return null;
@@ -150,7 +150,7 @@ export function readGrillGeneration(packageDirectory) {
  * a map, because that map is one distribution the package received; the history before it
  * is unknown and is not guessed.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function readDistributionGeneration(packageDirectory) {
   const status = readJsonFile(join(packageDirectory, PACKAGE_STATUS_FILE_NAME)).value;
   const recorded = status?.[DISTRIBUTION_GENERATION_FIELD];
@@ -159,13 +159,13 @@ export function readDistributionGeneration(packageDirectory) {
 }
 
 /** The distribution record a package carries, or null when it carries none. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readPackageDistribution(packageDirectory) {
   return readDistributionRecord(packageDirectory);
 }
 
 /** One downstream stage generation, or null when the status is absent or unknown. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 export function readStageGeneration(packageDirectory, stem, suffix) {
   if (typeof stem !== 'string' || stem.length === 0) return null;
   const status = readJsonFile(join(packageDirectory, `${stem}${suffix}`)).value;
@@ -174,7 +174,7 @@ export function readStageGeneration(packageDirectory, stem, suffix) {
 }
 
 /** One downstream stage run count, or null when the status is absent or unknown. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 export function readStageRuns(packageDirectory, stem, suffix) {
   if (typeof stem !== 'string' || stem.length === 0) return null;
   const status = readJsonFile(join(packageDirectory, `${stem}${suffix}`)).value;

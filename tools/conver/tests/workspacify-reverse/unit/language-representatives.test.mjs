@@ -50,7 +50,7 @@ const COMMAND_LINE_SHAPE = /^node -e "(.*)"$/s;
 const declaration = loadLanguageRepresentatives({ projectRoot: PROJECT_ROOT });
 
 /** One representative by language, failing loudly rather than returning undefined. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function representative(language) {
   const entry = declaration.languages.find((candidate) => candidate.language === language);
   assert.ok(entry, `${language} has a representative in the declaration`);
@@ -58,7 +58,7 @@ function representative(language) {
 }
 
 /** The line of a file at a 1-indexed number, or `undefined` when the file is shorter. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function lineAt(file, lineNumber) {
   return readFileSync(file, 'utf8').split('\n')[lineNumber - 1];
 }

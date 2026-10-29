@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { renderPhaseDistribution } = require('../../.claude/scripts/tickets/show-phase-distribution.js');
 const { viewDigest, mapDigest } = require('../../.claude/scripts/sequences-slice/lib/distribution-map.mjs');
 
-// [::TICKET::] PX-312, PX-313, PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-320) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-320) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',

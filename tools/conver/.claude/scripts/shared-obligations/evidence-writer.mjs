@@ -37,7 +37,7 @@ export const EVIDENCE_FILE_BY_KIND = Object.freeze({
  * by the rail's reading phases, and all of them are evidence the certificate counts. A
  * file outside this list would be a reading no receipt can vouch for.
  */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export const EVIDENCE_FILE_PATHS = Object.freeze([
   'educe-sequences/readings-judgment.jsonl',
   'educe-sequences/readings-attack.jsonl',
@@ -51,19 +51,19 @@ export const EVIDENCE_FILE_PATHS = Object.freeze([
 ]);
 
 /** A non-empty string. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function text(value) {
   return typeof value === 'string' && value.trim() !== '';
 }
 
 /** Whether a record carries a field the writer is responsible for stamping. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function hasWriterStamp(record) {
   return record?.readAt !== undefined || record?.readerGeneration !== undefined;
 }
 
 /** The attempt to stamp, or a refusal when the reader already supplied one. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function stampRecord(record, { generation, now }) {
   if (hasWriterStamp(record)) {
     return { ok: false, code: 'WRITER_STAMPED_FIELD' };
@@ -75,7 +75,7 @@ function stampRecord(record, { generation, now }) {
 }
 
 /** The judgment a staged attack names, when it is available. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function judgmentFor(record, judgments) {
   return (Array.isArray(judgments) ? judgments : [])
     .find((entry) => entry?.obligationId === record?.obligationId) ?? null;
@@ -151,7 +151,7 @@ export function writeAtomically(path, rows) {
  *   generation: number, generationStartedAt?: string|null, now?: Date,
  *   linesByPath?: object, contractRegistry?: object[], rfcByPackage?: object}} request
  */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function writeEvidence(request) {
   const {
     root, kind, records, worklist, judgments = [], artifact, artifactDigest,
@@ -253,7 +253,7 @@ function mergeBatch(existing, batch) {
 }
 
 /** Read a JSON file, or null when it is absent or unreadable. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function readJsonIfPresent(path) {
   if (!existsSync(path)) return null;
   try {
@@ -264,7 +264,7 @@ function readJsonIfPresent(path) {
 }
 
 /** Read JSONL rows, or an empty list. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function readJsonLinesIfPresent(path) {
   if (!existsSync(path)) return [];
   return readFileSync(path, 'utf8')
@@ -274,7 +274,7 @@ function readJsonLinesIfPresent(path) {
 }
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -283,7 +283,7 @@ function argumentFor(argv, name) {
 }
 
 /** The reader context a staged record is validated against. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function readerContext(root) {
   const status = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
   const allocate = readJsonIfPresent(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));
@@ -316,8 +316,8 @@ function readerContext(root) {
 }
 
 /** Run the CLI. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function runCli(argv) {
   const root = resolve(argumentFor(argv, 'root') ?? process.cwd());
   const kind = argumentFor(argv, 'kind');

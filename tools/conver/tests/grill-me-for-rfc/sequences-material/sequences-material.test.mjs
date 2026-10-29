@@ -24,7 +24,7 @@ import {
 
 const SOURCE_ARTIFACT_TEXT = JSON.stringify({ schema_version: 2, sequences: [], steps: [], operations: [] });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a session with no sequences material answers absence and exits 0', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -37,7 +37,7 @@ test('C001 a session with no sequences material answers absence and exits 0', ()
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a recorded source artifact is reported with present true and its path', () => {
   withScratch('px256-det-', (root) => {
     const sourcePath = path.join(root, SOURCE_ARTIFACT_NAME);
@@ -51,7 +51,7 @@ test('C001 a recorded source artifact is reported with present true and its path
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a recorded view name reports the view without mistaking it for a source', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = path.join(root, 'pkg');
@@ -67,7 +67,7 @@ test('C001 a recorded view name reports the view without mistaking it for a sour
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a record with no materialPaths falls back to the single researchPath', () => {
   withScratch('px256-det-', (root) => {
     const sourcePath = path.join(root, SOURCE_ARTIFACT_NAME);
@@ -84,7 +84,7 @@ test('C001 a record with no materialPaths falls back to the single researchPath'
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a record with neither field answers absence rather than throwing', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -98,7 +98,7 @@ test('C001 a record with neither field answers absence rather than throwing', ()
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a recorded path that has been deleted is reported stale and the detector still exits 0', () => {
   withScratch('px256-det-', (root) => {
     const deletedPath = path.join(root, 'gone', 'GaiaSekkeiShiyousho_v9-sequences.json');
@@ -114,7 +114,7 @@ test('C001 a recorded path that has been deleted is reported stale and the detec
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 an absent record, a malformed record and a deleted path all exit 0', () => {
   withScratch('px256-det-', (root) => {
     const absentDir = path.join(root, 'absent');
@@ -139,7 +139,7 @@ test('C001 an absent record, a malformed record and a deleted path all exit 0', 
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 the answer carries every field a caller branches on', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -155,7 +155,7 @@ test('C001 the answer carries every field a caller branches on', () => {
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 the detector writes nothing: the tree is byte-identical before and after', () => {
   withScratch('px256-det-', (root) => {
     const sourcePath = path.join(root, SOURCE_ARTIFACT_NAME);
@@ -169,7 +169,7 @@ test('C001 the detector writes nothing: the tree is byte-identical before and af
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 a drill session record is searched first and the RFC_DIR record second', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -185,7 +185,7 @@ test('C004 a drill session record is searched first and the RFC_DIR record secon
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 a session directory that does not exist is reported unreadable rather than skipped', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -196,7 +196,7 @@ test('C004 a session directory that does not exist is reported unreadable rather
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 the drill session record carrying no materialPaths falls through to the view', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -209,7 +209,7 @@ test('C004 the drill session record carrying no materialPaths falls through to t
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 the search order changes nothing a caller can observe when the view exists', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));
@@ -223,7 +223,7 @@ test('C004 the search order changes nothing a caller can observe when the view e
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 both entry points answer identically, so the two commands cannot diverge', () => {
   withScratch('px256-det-', (root) => {
     const packageDir = makeGrillSession(path.join(root, 'pkg'));

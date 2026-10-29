@@ -300,13 +300,13 @@ function renumberTicketIds(phases) {
 }
 
 /** The public key of a phase-local ticket identity. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function ticketKeyOfPhase(phaseId, ticketId) {
   return phaseId === -1 ? `PX-${ticketId}` : `P${phaseId}-${ticketId}`;
 }
 
 /** The numeric ticket id encoded in a public key, or null. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function numericIdOfKey(key) {
   const match = /-(\d+)$/.exec(String(key));
   return match === null ? null : parseInt(match[1], 10);
@@ -324,7 +324,7 @@ function numericIdOfKey(key) {
  * @param {Map<string, string>} mapping — old public key to new public key
  * @returns {object} a remapped copy
  */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function remapTicketKeyReferences(document, mapping) {
   const remapped = JSON.parse(JSON.stringify(document));
   const keyMapping = mapping instanceof Map ? mapping : new Map(Object.entries(mapping ?? {}));
@@ -573,7 +573,7 @@ function atomicWriteJson(targetPath, data) {
  * @param {string[]} argv — equivalent to process.argv.slice(2)
  * @returns {{ ticketsPath: string, statusPath: string, dryRun: boolean, error: string|null }}
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseCliArgs(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   const positional = [];
@@ -642,7 +642,7 @@ function parseCliArgs(argv, options = {}) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
-// [::TICKET::] PX-315, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);

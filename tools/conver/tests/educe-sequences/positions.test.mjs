@@ -27,13 +27,13 @@ const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledg
 const spec = readSpecification(SPEC_PATH);
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** The verdicts one check raised over an artifact, by check id. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function verdictsOf(artifact, check) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === check);
 }

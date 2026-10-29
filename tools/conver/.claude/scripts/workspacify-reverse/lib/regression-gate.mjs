@@ -1,4 +1,4 @@
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The forward-rotation regression gate.
  *
@@ -40,7 +40,7 @@ import {
   RESERVED_TREE_SUBDIRECTORY,
 } from '../../workspacify-tree/lib/reserved-root.mjs';
 import { COMMAND_FILE_NAMES, COMMANDS_RELATIVE_DIR, compareDigests, digestCommandFiles } from './command-file-digest.mjs';
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 import { FORWARD_SURFACES_KEY, captureForwardSurfaces, checkForwardSurfaces } from './forward-surface-baseline.mjs';
 
 // Callers of the gate need the command-file vocabulary too; re-exporting it here
@@ -93,7 +93,7 @@ export function allocateBaselineKey(fixture) {
 // Exported so staleness propagation hashes an input exactly as this gate does.
 // Two mechanisms that hash the same file two ways can disagree about whether it
 // changed, and the disagreement would surface as a claim that is silently stale.
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 export function sha256Hex(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
@@ -123,7 +123,7 @@ export function stableManifestDigest(manifest) {
 }
 
 /** Every file beneath a directory, depth first and name-sorted, as absolute paths. */
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function listFilesRecursively(dir) {
   if (!existsSync(dir)) {
     return [];
@@ -167,13 +167,13 @@ export function readFixtureDigests(projectRoot) {
  * directory carries no reserve, and a rotation asked to read a document that is not
  * there refuses — which is the behaviour the gate would then report as a regression.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function stageDecisions(stagingDirectory, sourcePath) {
   mkdirSync(stagingDirectory, { recursive: true });
   cpSync(sourcePath, join(stagingDirectory, RESERVED_DECISIONS_FILE_NAME));
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function sortKeys(record) {
   const sorted = {};
   for (const key of Object.keys(record).sort()) {
@@ -291,7 +291,7 @@ export function captureBaselines({
     // The forward surfaces P22 modified are captured by delegation, under a key of
     // their own. The three above are written exactly as they were: re-capturing
     // them would erase the evidence that the surfaces P22-1 froze are still intact.
-    // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
     [FORWARD_SURFACES_KEY]: captureForwardSurfaces({ projectRoot }),
   };
 
@@ -380,14 +380,14 @@ export function checkBaselines({
   // The forward surfaces are checked by delegation and folded into the same
   // verdict. A drifted header and a drifted manifest are the same kind of
   // observation; only the report separates them.
-  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
   // A tree that carries none of this section's fixtures has nothing to compare,
   // which is P22-1's own `nothingToCheck` state rather than a disagreement. The
   // distinction is stated rather than assumed: the report names every surface it
   // could not produce, and the test that runs against this repository asserts all
   // five are available, so a fixture set that vanished from the real tree fails
   // there rather than passing quietly here.
-  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
   const forwardFindings =
     baseline[FORWARD_SURFACES_KEY] === undefined
       ? { proved: true, verdict: 'proved', drifted: [], unavailable: [], evaluated: false }
@@ -437,7 +437,7 @@ export function renderCheckReport(result) {
 
   // Reported before the verdict branches, because the declared-baseline case
   // returns early and a frozen value nobody lists is one a reader cannot audit.
-  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
   if (result.forwardFindings !== undefined) {
     lines.push('### Forward surfaces', '');
     for (const drift of result.forwardFindings.drifted) {

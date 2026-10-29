@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url';
 import { verifySmoothVerdict } from '../sequences-slice/lib/smooth-verdict.mjs';
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -23,7 +23,7 @@ function argumentFor(argv, name) {
 }
 
 /** The CLI entry point. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
   const packageDir = argumentFor(argv, 'package');
   if (packageDir === null || packageDir === '') {

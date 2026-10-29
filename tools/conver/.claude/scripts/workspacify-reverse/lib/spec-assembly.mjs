@@ -1,4 +1,4 @@
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 /**
  * The origin spec, assembled from everything the run published.
  *
@@ -74,7 +74,7 @@ export function buildPublishedSpec({ analysis, authoredSemantics = null }) {
 }
 
 /** The readings file as the operator wrote it, or `null` when none was named. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function readAuthoredReadings(authoredSemantics) {
   if (authoredSemantics === null || authoredSemantics === undefined) return null;
   const { entries, findings } = readSemanticsFile(authoredSemantics);
@@ -89,7 +89,7 @@ function readAuthoredReadings(authoredSemantics) {
  * the other half: a package that holds measurements and no declaration still owes a
  * semantics, and a declared package with no measurements owes one too.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function packageNamesOf({ ledger, decisions }) {
   const declared = decisions?.package_boundary?.packages ?? [];
   const measured = (ledger.claims ?? []).map((claim) => claim.scope);
@@ -103,7 +103,7 @@ function packageNamesOf({ ledger, decisions }) {
  * operator handed a file over, and a publication that silently omitted it would differ
  * from what they asked for in a way no document would record.
  */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function mergeAuthored({ ledger, readings, packages }) {
   if (readings === null) return ledger.claims;
 
@@ -114,7 +114,7 @@ function mergeAuthored({ ledger, readings, packages }) {
 }
 
 /** A refusal as one sentence naming the file and every finding, so the operator can act. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function renderRefusal(findings, path) {
   return `the design semantics at ${path} were refused, so nothing was published: ${findings.join('; ')}`;
 }
@@ -127,7 +127,7 @@ function renderRefusal(findings, path) {
  * three sections that carry the spec's own structure are recorded whenever a spec exists
  * at all.
  */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function sectionsFrom({ documents, decisions, readings, packages }) {
   const published = documents ?? {};
   return Object.fromEntries(
@@ -158,7 +158,7 @@ function sectionsFrom({ documents, decisions, readings, packages }) {
  * where it belongs — the decisions as the partition they decided, the readings under the
  * package each one is about.
  */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function contentFor(entry, { decisions, readings, packages }) {
   // The decisions are written after the run publishes, by the operator answering the six
   // questions, so a re-run is what brings them into the spec. Absent means absent, and
@@ -171,7 +171,7 @@ function contentFor(entry, { decisions, readings, packages }) {
 }
 
 /** The decisions document as the run found it beside the destination, or `null`. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function readDecisions(destination) {
   const path = join(destination, DECISIONS_FILE_NAME);
   if (!existsSync(path)) return null;

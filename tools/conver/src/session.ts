@@ -51,7 +51,7 @@ export const CHILD_GRACE_MS = 2000;
 const SESSION_INIT_TIMEOUT_MS = 30000;
 
 // ACP セッションの状態を保持するインターフェース
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
 export interface AcpSession {
   proc: ChildProcess;
   stream: acp.Stream;
@@ -70,7 +70,7 @@ export interface RunCommandOptions {
 
 // プロバイダー接続設定。claude-agent-acp（Claude Code）の ANTHROPIC_* env 契約に
 // 委ね、baseUrl / model / apiKey を外部から注入可能にする（PX-151）。
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 export interface SessionConfig {
   apiKey: string;
   model: string;
@@ -404,7 +404,7 @@ export async function shutdownChildProcess(
  * teardown and hold the working-directory session for the next spawn. Falls
  * back to the single process when the child is not a group leader or is gone.
  */
-// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-150 --for-spec --no-implementation-order`.
 function signalChildProcess(proc: ChildProcess, signal: NodeJS.Signals): void {
   const pid = proc.pid;
   if (pid != null) {

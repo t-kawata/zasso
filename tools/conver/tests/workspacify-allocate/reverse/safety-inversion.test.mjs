@@ -1,4 +1,4 @@
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 // P22-12 @verifies C001 C002
 // A1 through A6 of the reverse rotation, and the safety guarantee they invert.
 //
@@ -402,7 +402,7 @@ test('the report is Markdown the AI can read, and it names what has to be repair
 // end-to-end: the CLI, the filesystem, and the forward rotation
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-1 every package receives exactly one seed and the measured tree is byte-identical afterwards', () => {
   const workspace = buildReverseWorkspace();
   try {
@@ -446,7 +446,7 @@ test('IT-1 every package receives exactly one seed and the measured tree is byte
   }
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-2 a tree with one extra path is BLOCKED, the path is named, and nothing is written', () => {
   // `docker` is a real directory no package claims. `vendor` would not do: it is a
   // dependency population the reverse measurement never counts, so an A1 that
@@ -530,7 +530,7 @@ test('A1 follows a linked directory, because the tree measurement that produced 
   }
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-2b a tree missing one planned path is BLOCKED, the path is named, and no top-level rename occurs', () => {
   const workspace = buildReverseWorkspace();
   try {
@@ -556,7 +556,7 @@ test('IT-2b a tree missing one planned path is BLOCKED, the path is named, and n
   }
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-2c a withdrawn --root is refused by name rather than silently dropped', () => {
   const workspace = buildReverseWorkspace();
   try {
@@ -598,8 +598,8 @@ test('IT-4 the forward-rotation regression gate still exits 0 and reports "prove
 });
 
 /** Stage the decisions payload where the reverse rotation derives it. */
-// [::TICKET::] P22-12, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|PX-215) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206, PX-207, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-12|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-206|PX-207|PX-215) --for-spec --no-implementation-order`.
 function stageDecisions(workspace) {
   return stageAllocateDecisions(workspace.dir, workspace.decisions);
 }

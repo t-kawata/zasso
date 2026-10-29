@@ -3,17 +3,17 @@
  * The regeneration transaction CLI.
  *
  * Usage:
- *   node .claude/scripts/regeneration/run.mjs open --spec=<candidate> --reason="..."
- *   node .claude/scripts/regeneration/run.mjs open --allocate-decisions=<candidate> --reason="..."
- *   node .claude/scripts/regeneration/run.mjs open --tree-decisions=<candidate> --reason="..."
- *   node .claude/scripts/regeneration/run.mjs open --annotations=<candidate> --reason="..."
- *   node .claude/scripts/regeneration/run.mjs status
- *   node .claude/scripts/regeneration/run.mjs continue [--transaction=<id>]
- *   node .claude/scripts/regeneration/run.mjs derive [--transaction=<id>]
- *   node .claude/scripts/regeneration/run.mjs verify [--transaction=<id>]
- *   node .claude/scripts/regeneration/run.mjs commit [--transaction=<id>]
- *   node .claude/scripts/regeneration/run.mjs abort [--transaction=<id>]
- *   node .claude/scripts/regeneration/run.mjs recover
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason="..."
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --allocate-decisions=<candidate> --reason="..."
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --tree-decisions=<candidate> --reason="..."
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --annotations=<candidate> --reason="..."
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue [--transaction=<id>]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" derive [--transaction=<id>]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify [--transaction=<id>]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" commit [--transaction=<id>]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort [--transaction=<id>]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" recover
  *
  * The current directory is the live workspace. The CLI never accepts a hash or a force
  * flag: the chain is computed here, and an invalid chain is refused rather than
@@ -49,14 +49,14 @@ const EXIT_MISUSE = 2;
 const EXIT_HANDOFF = 3;
 
 /** A value a one-line console report can carry. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function display(value) {
   if (value === null || value === undefined) return 'none';
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 /** A detector run over one workspace root. */
-// [::TICKET::] PX-278, PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279|PX-287) --for-spec --no-implementation-order`.
 function detect({ root, allowTransaction }) {
   const result = runCommand([root], { stdout: () => {}, stderr: () => {}, allowTransaction });
   return {
@@ -69,7 +69,7 @@ function detect({ root, allowTransaction }) {
 }
 
 /** Parse the command line, refusing any force or hash argument. */
-// [::TICKET::] PX-278, PX-279, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-278|PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278, PX-279, PX-287, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-278|PX-279|PX-287|PX-290) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const [command, ...rest] = argv;
   const options = {};
@@ -99,7 +99,7 @@ function parseArguments(argv) {
 }
 
 /** The transaction the command names, or the active one. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function transactionIdOf(root, options) {
   if (options.transaction !== undefined) return options.transaction;
   const active = activeTransaction(root);
@@ -113,7 +113,7 @@ function transactionIdOf(root, options) {
 }
 
 /** Print the identity and next command of one transaction. */
-// [::TICKET::] PX-279, PX-280, PX-287, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-280|PX-287|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-280, PX-287, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-280|PX-287|PX-290) --for-spec --no-implementation-order`.
 function printTransaction(entry, status) {
   process.stdout.write(`id: ${entry.id}\n`);
   process.stdout.write(`state: ${entry.state}\n`);
@@ -128,7 +128,7 @@ function printTransaction(entry, status) {
 }
 
 /** Print the unverified chain links and detector findings. */
-// [::TICKET::] PX-279, PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-287) --for-spec --no-implementation-order`.
 function printUnverified(receipt) {
   for (const link of receipt?.chain?.links ?? []) {
     if (!link.ok) process.stdout.write(`link: ${link.link} ${link.code} expected=${display(link.expected)} actual=${display(link.actual)}\n`);

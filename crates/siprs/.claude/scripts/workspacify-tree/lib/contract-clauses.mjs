@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C002
 /**
  * The contract-clause vocabulary stage 2 must fill in for every dependency
@@ -48,7 +48,7 @@ export const CORE_CONTRACT_CLAUSES = Object.freeze([
  * kind cannot crash a build, but unregisteredConnectionKinds names it and the
  * tree finalize refuses to write a boundary before the kind is registered.
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export const CLAUSES_BY_CONNECTION_KIND = Object.freeze({
   value_only: Object.freeze(['errors', 'canonicalization', 'tests']),
   typed_protocol_input: Object.freeze(['errors', 'canonicalization', 'signature', 'tests']),
@@ -63,17 +63,17 @@ export const CLAUSES_BY_CONNECTION_KIND = Object.freeze({
 });
 
 /** Every connection kind the contract scope map registers. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export const CONNECTION_KINDS = Object.freeze(Object.keys(CLAUSES_BY_CONNECTION_KIND));
 
 /** Whether a connection kind has an explicit scope row. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function isRegisteredConnectionKind(connectionKind) {
   return typeof connectionKind === 'string' && Object.hasOwn(CLAUSES_BY_CONNECTION_KIND, connectionKind);
 }
 
 /** The kinds in a census that have no explicit scope row. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function unregisteredConnectionKinds(connectionKinds = []) {
   return [...new Set((Array.isArray(connectionKinds) ? connectionKinds : [])
     .filter((connectionKind) => !isRegisteredConnectionKind(connectionKind)))];
@@ -85,7 +85,7 @@ export function unregisteredConnectionKinds(connectionKinds = []) {
  * @param {string} [connectionKind] - declared connection kind of the edge
  * @returns {string[]} core clauses first, then the kind-specific clauses in vocabulary order
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function buildBoundaryContractScope(connectionKind) {
   const extraClauses = CLAUSES_BY_CONNECTION_KIND[connectionKind] ?? [];
   const selected = new Set([...CORE_CONTRACT_CLAUSES, ...extraClauses]);

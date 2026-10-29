@@ -1,4 +1,4 @@
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 /**
  * The record of how many times a package's view changed when it was distributed.
  *
@@ -39,7 +39,7 @@ export function digestOf(text) {
  * @param {string} packageDirectory
  * @returns {{ distributions: number, digest: string }|null}
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function readDistributionRecord(packageDirectory) {
   const recordPath = distributionRecordPath(packageDirectory);
   if (!existsSync(recordPath)) return null;
@@ -64,7 +64,7 @@ export function readDistributionRecord(packageDirectory) {
  * @param {string} packageDirectory
  * @param {{ distributions: number, digest: string }} record
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function writeDistributionRecord(packageDirectory, { distributions, digest }) {
   const target = distributionRecordPath(packageDirectory);
   const staged = `${target}.partial`;

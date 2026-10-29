@@ -27,7 +27,7 @@ const INJECTED_HOME = '/tmp/px231-message-home';
  * The identity a seed records. Its paths are workspace-relative, which is what the seed
  * format records: the reader joins them onto the root it resolved from the seed itself.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function recordedIdentity() {
   return {
     package: { id: 'pkg-0001', name: 'alpha' },
@@ -43,7 +43,7 @@ function recordedIdentity() {
  * The home is set for the duration so that a conversion inside the throwing function
  * reads the injected value rather than the machine's own.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function messageFrom(subject) {
   const previous = process.env.HOME;
   process.env.HOME = INJECTED_HOME;
@@ -65,7 +65,7 @@ function messageFrom(subject) {
  * ticket exists: a fixture outside every home directory cannot tell a converted path from
  * an unconverted one, because both come out absolute.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function fixtureUnderHome(build = () => {}) {
   mkdirSync(INJECTED_HOME, { recursive: true });
   const root = mkdtempSync(join(INJECTED_HOME, 'fixture-'));

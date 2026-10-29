@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-190 @verifies C003 C004 C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

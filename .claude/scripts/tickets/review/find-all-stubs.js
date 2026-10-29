@@ -5,7 +5,7 @@ const path = require('path');
 const { CFG } = require('../../lib/tickets');
 
 const { containsStubMarker, isStubInQuotes, FIXTURE_STORAGE_DIR } = require('../../lib/stub-marker-scan');
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-2 --for-spec --no-implementation-order`.
 // Quoted-string marker rejection and the exceptional `fixtures` storage-directory
 // skip are single-sourced in lib/stub-marker-scan.js (PX-139).
 const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', FIXTURE_STORAGE_DIR]);
@@ -49,7 +49,7 @@ function scanDirectory(dirPath, results) {
   }
 }
 
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
 function scanFile(filePath, results) {
   let content;
   try {

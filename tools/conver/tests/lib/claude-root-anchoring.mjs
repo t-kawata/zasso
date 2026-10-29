@@ -32,12 +32,36 @@ export const FILE_ALLOWLIST = Object.freeze([
     prefix: 'tests/rfc-graph/header-anchor.integration.test.mjs',
     reason: 'the negative fixture deliberately builds the old relative form to prove it fails',
   },
+  {
+    prefix: 'tests/regeneration/staging-toolchain.test.mjs',
+    reason: 'the constant is a module path the test spawns from the repository root, not a command written for a reader',
+  },
+  {
+    prefix: 'tests/smooth-sequences/portability.test.mjs',
+    reason: 'the constant names the directory the test inspects, not a command written for a reader',
+  },
+  {
+    prefix: 'tests/smooth-sequences/vocabulary.test.mjs',
+    reason: 'the constant names the directory the test inspects, not a command written for a reader',
+  },
 ]);
 
 /** Values that name the global or plugin namespace rather than the repository anchor. */
 const GLOBAL_NAMESPACE = /~\/\.claude|\.claude-plugin|CLAUDE_PLUGIN_ROOT|install-targets|resolve-ecc-root|mcp-health-check/;
 
 const ANCHOR = /\$\(git rev-parse --show-toplevel\)|\$CLAUDE_DIR|\$REPO_ROOT|\$HOME|~\//;
+
+/** A command that runs a repository script from whatever directory the reader stands in. */
+const BARE_COMMAND = /\bnode\s+["'`]?\.claude\/scripts\//;
+
+/**
+ * A directory constant emitted into a generated command.
+ *
+ * The name is constrained to *_DIR / *_COMMAND / *_SCRIPT so a data literal that
+ * merely names a directory for a scan or a digest is not mistaken for an emitter.
+ */
+const BARE_SCRIPT_DIR_CONSTANT =
+  /^\s*(?:const|let|var)\s+\w+_(?:DIR|DIRECTORY|COMMAND|COMMANDS|SCRIPT|SCRIPTS)\s*=\s*['"]\.claude\/(?:scripts|commands)\//;
 
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function isComment(line, suffix) {
@@ -53,13 +77,16 @@ function isFileAllowed(file) {
 
 /** The findings the source scan makes on one line, or an empty array. */
 export function scanSourceLine(line, { suffix = '.js', file = '' } = {}) {
-  if (isComment(line, suffix)) return [];
   if (isFileAllowed(file)) return [];
-  if (line.includes('[::TICKET::]')) return [];
+  // A provenance annotation is a runnable command written into the source, so it is
+  // held to the same anchor. It is checked before the comment skip for that reason.
+  if (line.includes('[::TICKET::]')) return BARE_COMMAND.test(line) ? ['bare-annotation'] : [];
+  if (isComment(line, suffix)) return [];
   if (GLOBAL_NAMESPACE.test(line)) return [];
 
   const findings = [];
-  if (/\bnode\s+\.claude\/scripts\//.test(line)) findings.push('bare-command');
+  if (BARE_COMMAND.test(line)) findings.push('bare-command');
+  if (BARE_SCRIPT_DIR_CONSTANT.test(line)) findings.push('bare-script-dir');
   if (/cd\s+\.\.\/\.\.\s*&&\s*node\s+\.claude/.test(line)) findings.push('relative-cd');
   if (/path\.(?:join|resolve)\(\s*process\.cwd\(\),?\s*['"]\.claude['"]/.test(line)) findings.push('cwd-claude');
   if (/(?:execFileSync|execSync|spawnSync|spawn|execFile|exec)\([^)]*__dirname[^)]*['"]\.claude['"]/.test(line)) {

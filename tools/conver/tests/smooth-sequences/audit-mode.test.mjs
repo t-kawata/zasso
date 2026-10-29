@@ -5,8 +5,8 @@ import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { defectiveWorkspace, materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
 /** Capture the detector's streams without touching the test runner's. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function capture() {
   const stdout = [];
   const stderr = [];

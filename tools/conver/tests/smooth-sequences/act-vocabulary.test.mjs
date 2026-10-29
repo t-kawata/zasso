@@ -1,4 +1,4 @@
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-297 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -9,7 +9,7 @@ import { DEFAULT_ACT_PATTERNS, resolveActPatterns } from '../../.claude/scripts/
 import { materializeSmoothWorkspace, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
 /** An artifact with one excluded operation whose cited line orders an English act. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function englishEscapeArtifact() {
   const artifact = minimalV3Artifact();
   artifact.vocabulary = {
@@ -30,7 +30,7 @@ function englishEscapeArtifact() {
 }
 
 /** The danger findings for one artifact, with the specification line supplied. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function dangerFindings(artifact) {
   const workspace = materializeSmoothWorkspace({ artifact });
   try {

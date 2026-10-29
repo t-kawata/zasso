@@ -80,7 +80,7 @@ const ERROR_CREATE_FAILED = (filePath, message) =>
  * @returns {object} Result. Success: {ok:true, dirsTreePath, rootDir, lang, isDryRun, isForce, isDelete}
  *                   Failure: {ok:false, error:string}
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArgs(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   const dirsTreeFlag = argv.find(a => a.startsWith('--dirs-tree='));
@@ -145,7 +145,7 @@ function parseArgs(argv, options = {}) {
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   Array of items to generate (no file creation)
  */
-// [::TICKET::] P22-15, PX-334, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-334|PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-334, PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-334|PX-336|PX-337) --for-spec --no-implementation-order`.
 function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
@@ -385,7 +385,7 @@ function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
  *
  * @param {string[]} [testArgs] - Test argument array (defaults to process.argv.slice(2))
  */
-// [::TICKET::] PX-334, PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-334|PX-336) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-336) --for-spec --no-implementation-order`.
 async function main(testArgs) {
   const args = testArgs || process.argv.slice(2);
 

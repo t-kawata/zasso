@@ -13,7 +13,7 @@ export const NOTE_PART_SEPARATOR = '|';
  * @param {{ limit: number, replacePrefixes?: string[] }} options
  * @returns {string}
  */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function composeNote(existing, part, { limit, replacePrefixes = [] } = {}) {
   const parts = String(existing ?? '')
     .split(NOTE_PART_SEPARATOR)

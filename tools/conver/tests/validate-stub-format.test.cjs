@@ -7,7 +7,7 @@
  *   C002 a malformed marker exits 1 and stderr lists file:line + each error
  *   C003 no-arg invocation still exits 1 with a usage message (backward compat)
  *   C004 the consolidate-stubs gate runs the scan mode
- * [::TICKET::] PX-134 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-134 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-134 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-134 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");

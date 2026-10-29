@@ -1,7 +1,7 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -58,13 +58,13 @@ const bytesOf = (path) => createHash('sha256').update(readFileSync(path)).digest
 const linesOf = (path) => readFileSync(path, 'utf8').split('\n');
 const commandLines = (name) => linesOf(join(COMMANDS, `${name}.md`));
 
-// [::TICKET::] PX-210, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-210|P23-12) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210, P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-210|P23-12) --for-spec --no-implementation-order`.
 function fixture(name, lines) {
   return createThrowawayFile(name, lines, { prefix: 'px210-' });
 }
 
 /** The first non-blank line after the single reverse heading of a command file. */
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
 function gateLineOf(name) {
   const lines = commandLines(name);
   const heading = lines.findIndex((line) => /^#{1,6} .*[Rr]everse/.test(line));

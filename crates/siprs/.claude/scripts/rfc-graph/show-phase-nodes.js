@@ -68,7 +68,7 @@ const EXIT_FAILURE = 1;
  * @param {string[]} args — process.argv.slice(2)
  * @returns {{ ticketsPath: string, graphPath: string, dirsTreePath: string, phaseArg: string }}
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseCliArguments(args, options = {}) {
   const cwd = options.cwd || process.cwd();
   let ticketsPath = null;

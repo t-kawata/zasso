@@ -27,7 +27,7 @@ const VOCABULARIES = { pins: { enumerations: [{ name: 'VerbMethod', members: ['o
 // The census the workspace borrowed, in the shape the rail's pin carries. A fixture that asserts
 // the guarantee holds must state its denominator, because an artifact that is its own denominator
 // is exactly what the coverage gate withholds a verdict on.
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 const CENSUS = {
   sourceEnumerations: [
     { role: 'operations', name: 'census-operations', members: ['R-0001', 'R-0002'] },
@@ -36,8 +36,8 @@ const CENSUS = {
 };
 
 /** A workspace whose one package owns the first operation and serves the verb column. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function workspaceWithOwnership({ serveVerb = false, contractSide = null, assignments = [] } = {}) {
   const obligations = [];
   if (serveVerb) obligations.push({ unitId: 'obl-surface-one', relation: 'serves', subject: 'surface-one', coverage: { column: 'verb', carried: 2, total: 2, uncoveredSpellings: ['object.unsubscribe'], crossChecked: true } });
@@ -53,7 +53,7 @@ function workspaceWithOwnership({ serveVerb = false, contractSide = null, assign
 }
 
 /** The recorded judgment that places one demand, in the shape the view carries it. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function assignmentOf(unitId, kind, ground = 'the specification states it on line 412') {
   return { unitId, relation: 'assigns', subject: unitId.slice(unitId.indexOf('-') + 1), kind, ground };
 }
@@ -253,7 +253,7 @@ test('C003 a second measurement over unchanged inputs is byte-identical, and a w
 // ---------------------------------------------------------------------------
 
 /** A view carrying the columns its package adjudicated away. */
-// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function workspaceWithAdjudications(adjudicatedColumns) {
   return workspaceWithOwnership().map((view) => ({ ...view, adjudicatedColumns: adjudicatedColumns.map((entry) => ({ carriedBy: 'pkg-a', ...entry })) }));
 }
@@ -352,13 +352,13 @@ test('C003 the objects owned by packages no operation reaches are counted beside
 // ---------------------------------------------------------------------------
 
 /** The same artifact with no census borrowed, which is the state the live workspace is in. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function artifactWithoutCensus() {
   return { spec: { lines: 1000 }, ...VOCABULARIES, pins: { ...VOCABULARIES.pins, sourceEnumerations: [] }, operations: OPERATIONS, sequences: [{ id: 'S-0001', outcome: 'direct' }], steps: [] };
 }
 
 /** A workspace in which every demand is placed: the ownership relation plus a served column. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function fullyAssignedViews() {
   return workspaceWithOwnership({ serveVerb: true, assignments: [assignmentOf('seq-S-0001', 'sequence')] });
 }

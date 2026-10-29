@@ -69,7 +69,7 @@ const RECONSTRUCTION_TICKET = Object.freeze({
   counterexample_plan_basis: 'mutation',
 });
 
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function ticketFixture() {
   return { ...RECONSTRUCTION_TICKET };
 }
@@ -81,7 +81,7 @@ function ticketFixture() {
  * `expectedHash` is taken before anything runs, by a walker that shares no code
  * with the module under test.
  */
-// [::TICKET::] P22-19, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
 function createFixture() {
   const tree = createGitBackedTree({ ...FIXTURE_FILES });
   const guardedPath = mkdtempSync(join(tmpdir(), 'wsp-guard-'));
@@ -90,7 +90,7 @@ function createFixture() {
     root: tree.root,
     guardedPath,
     expectedHash: hashTree(guardedPath),
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
     dispose() {
       tree.dispose();
       rmSync(guardedPath, { recursive: true, force: true });
@@ -99,7 +99,7 @@ function createFixture() {
 }
 
 /** Run the body against a fresh fixture, disposing it whatever the body does. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 async function withFixture(body) {
   const fixture = createFixture();
   try {
@@ -110,7 +110,7 @@ async function withFixture(body) {
 }
 
 /** The error a promise rejected with, or null when it resolved. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 async function captureRejection(promise) {
   try {
     await promise;

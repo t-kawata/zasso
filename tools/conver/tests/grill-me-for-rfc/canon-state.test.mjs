@@ -1,5 +1,5 @@
 // PX-238 @verifies C004
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * Whether the canon stands alone.
  *
@@ -24,7 +24,7 @@ import { GRILL_CANON_STATE, runCommand } from '../question-gate/helpers/fixture-
 const DERIVED_ARTIFACTS = ['RFC-GRAPH.json', 'RFC-Dirs-Tree.json', 'Tickets.json'];
 
 /** A package directory holding an RFC and, optionally, one derived artifact. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function makeCanon(artifact) {
   const dir = mkdtempSync(join(tmpdir(), 'px238-canon-'));
   writeFileSync(join(dir, 'RFC.md'), '# RFC\n\n## Design\n', 'utf8');

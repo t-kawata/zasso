@@ -7,7 +7,7 @@
  *   C002 the gate exits 0 on a valid tree and 1 on a malformed marker / missing manifest
  *   C003 when more than one manifest exists the newest is validated
  *   C004 the doc description is operator-level (names failure modes, not wiring)
- * [::TICKET::] PX-136 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-136 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-136 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-136 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");
@@ -55,7 +55,7 @@ function gateStatus(dir) {
 test("C001: doc Step 5 shows exactly one gate invocation and leaks no internal commands", () => {
   const doc = fs.readFileSync(DOC_PATH, "utf8");
   const step5 = doc.split("### Step 5")[1] || "";
-  assert.ok(step5.includes("bash .claude/scripts/tickets/consolidate-stubs-gate.sh"), "doc invokes the gate with bash");
+  assert.ok(step5.includes('bash "$CLAUDE_DIR/scripts/tickets/consolidate-stubs-gate.sh"'), "doc invokes the gate with bash from the resolved .claude directory");
   assert.ok(!/node .*consolidate-stubs-gate\.sh/.test(step5), "doc does not run a bash script with node");
   assert.ok(!/--for-consolidate|--no-write|validate-no-external-excuses|batch-create-resolving-tickets/.test(step5), "no internal scripts or flags in the doc");
 });

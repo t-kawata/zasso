@@ -484,7 +484,7 @@ function testUpdateStatusJson() {
 // テスト: parseCliArgs
 // ============================================================
 
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function testParseCliArgs() {
   console.log('\n=== parseCliArgs ===');
 

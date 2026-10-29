@@ -24,7 +24,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './errors.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The command whose output is the order, and the manifest that says which workspace it is. */
@@ -47,7 +47,7 @@ const RELATED_ENTRY = /^ {4}(.+?)\s+level\s+(\d+)$/;
 const DECLARED_COUNT = /\((\d+)\)/;
 
 /** The one error this module raises, always naming the artefact it could not read. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function rejectFocusBlock(detail) {
   return new ExplainSeedError(`the implementation-order focus block ${detail}`, {
     field: 'implementation_order',
@@ -55,7 +55,7 @@ function rejectFocusBlock(detail) {
 }
 
 /** Every ancestor directory of `startDirectory`, nearest first. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function ancestorsOf(startDirectory) {
   const ancestors = [];
   let current = resolve(startDirectory);
@@ -74,7 +74,7 @@ function ancestorsOf(startDirectory) {
  * repeats only the search — not the ordering — because pairing one workspace's manifests with
  * another workspace's order would produce a document that is internally consistent and wrong.
  */
-// [::TICKET::] PX-224, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-224|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-224|PX-231) --for-spec --no-implementation-order`.
 function resolveOrderRoot(seedPath) {
   const candidates = ancestorsOf(dirname(resolve(seedPath))).filter((directory) =>
     existsSync(join(directory, ALLOCATE_MANIFEST_FILE_NAME)),
@@ -96,7 +96,7 @@ function resolveOrderRoot(seedPath) {
 }
 
 /** One related list: the heading, the count it declares, and the paths under it. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function readRelatedSection(lines, heading) {
   const index = lines.findIndex((line) => line.trimStart().startsWith(heading));
   if (index < 0) throw rejectFocusBlock(`carries no "${heading}" list`);
@@ -118,7 +118,7 @@ function readRelatedSection(lines, heading) {
 }
 
 /** How many packages the critical chain holds, counted from the arrows that join them. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function readCriticalChainLength(lines) {
   const index = lines.findIndex((line) => line.trimStart().startsWith(CHAIN_HEADING));
   if (index < 0) throw rejectFocusBlock('carries no critical chain');
@@ -133,7 +133,7 @@ function readCriticalChainLength(lines) {
 }
 
 /** The plan shape, read from the one line that states it. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function readPlan(lines, criticalChainLength) {
   for (const line of lines) {
     const stated = PLAN_LINE.exec(line);
@@ -182,7 +182,7 @@ export function parseFocusBlock(text) {
 }
 
 /** The path-to-id map the manifests carry, so printed paths become the ids the facts name. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function indexByPath(packages) {
   if (!Array.isArray(packages) || packages.length === 0) {
     throw new ExplainSeedError(
@@ -194,7 +194,7 @@ function indexByPath(packages) {
 }
 
 /** One printed list, as package ids. A path the workspace does not hold is a broken manifest. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function resolveIds(paths, idOfPath) {
   return paths.map((path) => {
     const id = idOfPath.get(path);

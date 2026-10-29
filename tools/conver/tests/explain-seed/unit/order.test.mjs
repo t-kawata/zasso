@@ -60,7 +60,7 @@ const FOCUS_CAPTURE = [
 ].join('\n');
 
 /** The order facts for one package of a fixture, with the packages they are resolved against. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function orderOf(workspace, packageId) {
   return loadOrderFacts({
     root: workspace.root,
@@ -261,7 +261,7 @@ test('C003 invariant: the fact-to-section wiring still names INFO 2 alone for E2
   // declares how many things the human is asked to decide, so a boundary joining or leaving
   // the human's section moves the number E1 states. PX-224's guarantee is untouched — only the
   // sections resting on INFO 2 reopen when the order moves, which the test above asserts.
-  // [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
   assert.deepEqual(wiring.E1, ['I2', 'I3', 'I10']);
 });
 

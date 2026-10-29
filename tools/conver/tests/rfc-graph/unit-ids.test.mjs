@@ -52,7 +52,7 @@ const PRE_CHANGE_NODE = Object.freeze({
 
 const nodeWithUnits = (id, unitIds) => ({ ...PRE_CHANGE_NODE, id, title: id, slug: 'node_' + id.toLowerCase(), unitIds });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C001 a graph written before the change still validates, and unitIds is not required', () => {
   assert.equal(validateNode(PRE_CHANGE_NODE), true, JSON.stringify(validateNode(PRE_CHANGE_NODE)));
   assert.equal(Object.hasOwn(PRE_CHANGE_NODE, 'unitIds'), false);
@@ -63,14 +63,14 @@ test('C001 a graph written before the change still validates, and unitIds is not
   assert.equal(schema.additionalProperties, false);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C001 a graph carrying unitIds validates too, and an empty array is a node with no units', () => {
   assert.equal(validateNode({ ...PRE_CHANGE_NODE, unitIds: ['op-IssueCertificate', 'seq-S-application-and-payment', 'xdir-S-crossing'] }), true, JSON.stringify(validateNode(PRE_CHANGE_NODE)));
   assert.equal(validateNode({ ...PRE_CHANGE_NODE, unitIds: [] }), true, JSON.stringify(validateNode(PRE_CHANGE_NODE)));
   assert.equal(validateNode({ ...PRE_CHANGE_NODE, unitIds: 'op-IssueCertificate' }), false, 'a bare string is not a list');
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C001 a graph carrying an undeclared property is still rejected, so the schema did not open', () => {
   const bare = validateAgainstSchema({ ...PRE_CHANGE_NODE, inventedProperty: 'x' }, 'node.schema.json', SCHEMA_DIR);
   assert.equal(bare.valid, false);
@@ -80,7 +80,7 @@ test('C001 a graph carrying an undeclared property is still rejected, so the sch
   assert.equal(withUnits.valid, false, 'listing unitIds did not open the schema to anything else');
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C001 the frozen baseline names the schema only inside a recorded command heading, so the edit is a schema change alone', () => {
   const baseline = JSON.parse(readFileSync(path.join(PROJECT_ROOT, 'tests/workspacify-tree/baselines/manifest-hashes.json'), 'utf8'));
   // MEASURED: manifestHashes records no schema key at all. The only occurrence of
@@ -91,7 +91,7 @@ test('C001 the frozen baseline names the schema only inside a recorded command h
   assert.equal(JSON.stringify(baseline).includes('"node.schema.json":'), false, 'no digest is recorded under the schema path');
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C002 an RFC section carrying a unit anchor yields the id and carries it to the node', () => {
   const section = ['## 3.2 Issuance', '', '<!-- unit: op-IssueCertificate -->', 'Issues a certificate.', ''].join('\n');
   assert.deepEqual(readUnitAnchors(section), ['op-IssueCertificate']);
@@ -101,7 +101,7 @@ test('C002 an RFC section carrying a unit anchor yields the id and carries it to
   assert.deepEqual(readUnitIds(carried), ['op-IssueCertificate'], 'a repeated anchor contributes once');
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C002 a node without the property yields an empty list rather than throwing', () => {
   assert.deepEqual(readUnitIds(PRE_CHANGE_NODE), []);
   assert.deepEqual(readUnitIds({}), []);
@@ -110,7 +110,7 @@ test('C002 a node without the property yields an empty list rather than throwing
   assert.deepEqual(readGraphUnitIds({ nodes: [nodeWithUnits('N0001', ['op-A']), nodeWithUnits('N0002', ['seq-B'])] }).sort(), ['op-A', 'seq-B']);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C003 a boundify header yields its node and its unit ids, and a headerless file yields nothing', () => {
   const header = [
     '<!-- Initial Design Artifact — RFC-driven Implementation',
@@ -126,7 +126,7 @@ test('C003 a boundify header yields its node and its unit ids, and a headerless 
   assert.deepEqual(readHeaderUnitIds('<!-- Initial Design Artifact — RFC-driven Implementation\n  node: N0007\n-->'), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 the ticket level is the level the consumers read, and the id round-trips through the accessor', () => {
   const tickets = {
     phases: [{ id: 0, name: 'phase', nodeIds: ['N0001'], tickets: [{ id: 1, phaseId: 0, nodeIds: ['op-A', 'N0001'] }] }],
@@ -143,14 +143,14 @@ test('C004 the ticket level is the level the consumers read, and the id round-tr
   assert.deepEqual(again.nodeIds, written.nodeIds, 'writing an id twice changes nothing');
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 a ticket carrying no nodeIds at all gains only the unit ids', () => {
   const written = writeUnitIdsToTicket({ id: 2, phaseId: 0, title: 't', status: 'todo', contracts: [] }, ['op-A']);
   assert.deepEqual(written.nodeIds, ['op-A']);
   assert.deepEqual(resolveUnitIdsFromTickets({ phases: [{ id: 0, name: 'p', tickets: [written] }] }), ['op-A']);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C005 the edge type precedes is accepted by edge.schema.json, so a cross-boundary order has a schema-legal carrier', () => {
   const edgeSchema = JSON.parse(readFileSync(EDGE_SCHEMA_PATH, 'utf8'));
   assert.ok(edgeSchema.properties.type.enum.includes('precedes'));
@@ -167,8 +167,8 @@ test('C005 the edge type precedes is accepted by edge.schema.json, so a cross-bo
   assert.equal(result.valid, true, JSON.stringify(result.errors));
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 test('C005 the unit id pattern accepts the five named prefixes and rejects a sixth', () => {
   // The subject is "the vocabulary is closed and named", not "the vocabulary has three members":
   // the two prefixes this ticket adds are named here, and an unnamed prefix is still refused.

@@ -10,7 +10,7 @@
  * to prevent — a reader told "missing" would look for a run that was never asked to
  * produce it.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';

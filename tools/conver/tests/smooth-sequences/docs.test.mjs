@@ -1,18 +1,18 @@
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 // @verifies C004
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('the command document names its entry point, reports and repair surface', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /run\.mjs/);
@@ -65,7 +65,7 @@ test('the command body is six flat numbered steps from Prepare to Complete, with
 });
 
 // @verifies C004
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('Step 4 carries every operational regeneration command', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const start = command.indexOf('### Step 4 — Regeneration');
@@ -98,9 +98,9 @@ test('Step 5 routes judgment-required to the owning AI command', () => {
 });
 
 // @verifies C006
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('the command makes a fresh exit 0 the loop sole exit and exit 1 not completion', () => {
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /exit 0 only when/i);
   assert.match(command, /exit 1 is an input|not completion/i);
@@ -126,7 +126,7 @@ test('the command makes a fresh exit 0 the loop sole exit and exit 1 not complet
   assert.match(command, /never hand-edit|never edit a generated file|not hand-edited/i);
 });
 
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 test('every step names the command, path and argument that performs it', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const section = (start, end) => {
@@ -159,7 +159,7 @@ test('every step names the command, path and argument that performs it', () => {
 });
 
 test('the command documents the regeneration transaction operating guide', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   assert.match(command, /### Step 4 — Regeneration/);
   assert.match(command, /--allocate-decisions/);
@@ -183,7 +183,7 @@ test('the command keeps judgment with the AI and names only direction questions 
 });
 
 // @verifies C004
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 test('Appendix A keeps the check-family detail out of the steps', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   const appendix = command.slice(command.indexOf('## Appendix A'));
@@ -212,7 +212,7 @@ test('the upstream command documents name the new gates', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('the command documents decision states, rejection codes, assurance and held-only closure', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   for (const state of ['held', 'broken', 'stuck', 'open', 'proven', 'not_applicable']) {
@@ -231,7 +231,7 @@ test('the command documents decision states, rejection codes, assurance and held
 // @verifies C004
 // @verifies C005
 // @verifies C006
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the command documents the judgment pass, inquest findings and the generic reader', () => {
   const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8').replace(/(\.(?:js|mjs|sh))"/g, '$1');
   for (const token of ['Judgment pass (J1–J4)', 'JUDGMENT-WORKLIST.json', 'readings-judgment.jsonl', 'readings-attack.jsonl', '--scope=', 'educe-sequences/generation-', 'recordId', 'FINDING_OPEN', 'readings-adversarial.jsonl', 'exemptions']) {

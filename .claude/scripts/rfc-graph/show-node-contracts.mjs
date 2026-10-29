@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 const ARTIFACT_NAMES = require('./lib/artifact-names.json');
 
 /** Extract the flags the minimal CLI accepts. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const options = { verify: false, id: null, registry: null, maxFacts: null };
   for (const argument of argv) {
@@ -36,7 +36,7 @@ function parseArguments(argv) {
 }
 
 /** A named failure with the code the CLI prints. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function cliError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -44,7 +44,7 @@ function cliError(code, message) {
 }
 
 /** The fixed artifact paths of one package directory. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function resolvePackagePaths(packageDir) {
   return {
     graph: join(packageDir, ARTIFACT_NAMES.graph),
@@ -54,7 +54,7 @@ function resolvePackagePaths(packageDir) {
 }
 
 /** The nearest ancestor directory that carries the named manifest, or null. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function findAncestorManifest(startDir, manifestName) {
   let current = resolve(startDir);
   for (;;) {
@@ -67,7 +67,7 @@ function findAncestorManifest(startDir, manifestName) {
 }
 
 /** Read and parse one JSON artifact. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function readJson(filePath, code, label) {
   try {
     return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -77,7 +77,7 @@ function readJson(filePath, code, label) {
 }
 
 /** Print one named failure and return the CLI exit code. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function printFailure(error, { markdown = false } = {}) {
   const code = error.code ?? 'BRIEF_FAILED';
   if (markdown) process.stdout.write(`## UNAVAILABLE\n- ${code}: ${error.message}\n`);
@@ -86,13 +86,13 @@ function printFailure(error, { markdown = false } = {}) {
 }
 
 /** The source line the PROOF section carries. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function sourceLine(paths) {
   return `graph=${paths.graph}, view=${paths.view}, stepContracts=${paths.stepContracts}, registry=${paths.registry ?? 'not found'}`;
 }
 
 /** The run mode that verifies the closure instead of printing a brief. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function runVerify() {
   let graph;
   let view;
@@ -113,7 +113,7 @@ function runVerify() {
 }
 
 /** The run mode that prints one brief per requested node. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function runBrief(options) {
   if (options.id === null || options.id.trim().length === 0) {
     throw cliError('MISSING_NODE_ID', '--id=Nxxxx is required');
@@ -142,7 +142,7 @@ function runBrief(options) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336, PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   let options;
   try {

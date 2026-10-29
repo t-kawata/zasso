@@ -28,7 +28,7 @@
 import { relative } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The facts document, which is the one whose bytes stdout carries. */
@@ -127,7 +127,7 @@ export function truncateExcerpt(text, { limit = MAX_EXCERPT_CHARS, notice = rend
 }
 
 /** Render a list, trimming it with an explicit remainder rather than silently. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderList(items, renderItem) {
   if (items.length === 0) return [`- ${ABSENT_SECTION_STATEMENT}`];
   const shown = items.slice(0, MAX_LISTED_ITEMS).map((item) => `- ${renderItem(item)}`);
@@ -137,13 +137,13 @@ function renderList(items, renderItem) {
 }
 
 /** The heading and body of one section, as lines. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderSection(title, bodyLines) {
   return [`## ${title}`, '', ...bodyLines, ''];
 }
 
 /** The block that lets the AI check the document against the artefacts it came from. */
-// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
 function renderVerification({ workspace, seedPath, verified }) {
   // The root line is what the four lines beneath it are read against, so it is the one
   // line that has to survive a change of machine: they are relative to it, and a root that
@@ -179,7 +179,7 @@ export const ALONE_NOTE = 'this level is alone, so this step is serial';
 export const ORDERING_DENIAL = 'a different level is not an ordering';
 
 /** A count with its noun, so the document reads as prose rather than as a template. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function formatCount(count, singular, pluralForm = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
@@ -192,7 +192,7 @@ function formatCount(count, singular, pluralForm = `${singular}s`) {
  * provider is exactly the defect this section was rewritten to remove. The list is bounded by the
  * workspace, and the whole document keeps its own bound.
  */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function renderOrderAxis({ ids, label, pathOf, note = '' }) {
   if (ids.length === 0) {
     return note === '' ? [`- ${label}: none`] : [`- ${label}: none`, `  (${note})`];
@@ -201,7 +201,7 @@ function renderOrderAxis({ ids, label, pathOf, note = '' }) {
 }
 
 /** The order facts of this package, or the failure that says which manifest could not supply them. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function requireOrderFacts(position) {
   if (position.order === undefined || position.order === null) {
     throw new ExplainSeedError(
@@ -213,7 +213,7 @@ function requireOrderFacts(position) {
 }
 
 /** The id-to-path map the order relations are printed from, or the failure that says so. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function requirePathOf(projection) {
   if (projection.pathOf === undefined || projection.pathOf === null) {
     throw new ExplainSeedError(
@@ -225,7 +225,7 @@ function requirePathOf(projection) {
 }
 
 /** Where the package sits in the whole, and the two axes that place it there. */
-// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 export function renderPosition(projection) {
   const { position, totals } = projection;
   const order = requireOrderFacts(position);
@@ -253,7 +253,7 @@ export function renderPosition(projection) {
 }
 
 /** What the directory is for, in the words the manifest settled on. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderResponsibilities(projection) {
   const { identity } = projection;
   return renderSection(INFO_SECTION_TITLES.I3, [
@@ -265,7 +265,7 @@ function renderResponsibilities(projection) {
 }
 
 /** Who depends on this package, and whom this package depends on. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderRelations(projection) {
   const describe = (boundary) =>
     `${boundary.id}: coupled with ${boundary.counterpart}` +
@@ -283,7 +283,7 @@ function renderRelations(projection) {
 }
 
 /** The coupling contracts, with the clauses stage two already fixed. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderContracts(projection) {
   const entries = [
     ...projection.contracts.map((contract) => ({
@@ -314,7 +314,7 @@ function renderContracts(projection) {
 }
 
 /** What the package owns, each record with the specification text it came from. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderOwnedSemantics(projection) {
   if (projection.owned.length === 0) {
     return renderSection(INFO_SECTION_TITLES.I6, [`- ${ABSENT_SECTION_STATEMENT}`]);
@@ -336,7 +336,7 @@ function renderOwnedSemantics(projection) {
 }
 
 /** The dependencies the workspace decided against, and what stands in their place. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderForbidden(projection) {
   const lines = projection.forbidden_edges.map(
     (edge) =>
@@ -351,7 +351,7 @@ function renderForbidden(projection) {
 }
 
 /** What the package must implement beyond its own semantics. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderObligations(projection) {
   const { ports, conformance, database_policy: databasePolicy } = projection.obligations;
   const lines = [
@@ -365,7 +365,7 @@ function renderObligations(projection) {
 }
 
 /** The questions the grill must settle, and the boundaries that carry the most risk. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function renderGrillPoints(projection) {
   const { questions, risky_boundaries: riskyBoundaries } = projection.grill;
   if (questions.length === 0 && riskyBoundaries.length === 0) {
@@ -394,7 +394,7 @@ function renderGrillPoints(projection) {
  * specification's own text is quoted: a translation of an answer would no longer be a record
  * of the answer, and this section is what the explanation and the digest both rest on.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function renderSettledElsewhere(projection) {
   const settled = projection.settledElsewhere ?? [];
   if (settled.length === 0) {

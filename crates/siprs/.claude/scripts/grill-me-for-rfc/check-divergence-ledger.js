@@ -44,7 +44,7 @@ const PRECEDENCE_MARKER = 'canonical';
  * @param {string} location
  * @returns {boolean}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function resolvesInsideArtifact(location) {
   const trimmed = location.trim();
   return trimmed.length > 0 && !trimmed.endsWith('.md');
@@ -59,7 +59,7 @@ const USAGE = 'usage: check-divergence-ledger.js <RFC_DIR>';
  * @param {string} id
  * @returns {object|null}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findNode(nodes, id) {
   for (const node of nodes ?? []) {
     if (node.id === id) return node;
@@ -73,7 +73,7 @@ function findNode(nodes, id) {
  * @param {string} rfcDir
  * @returns {string|null} the first failure, or null when the ledger passes
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findLedgerFailure(rfcDir) {
   const rfcPath = join(rfcDir, 'RFC.md');
 

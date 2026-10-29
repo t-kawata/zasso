@@ -17,7 +17,7 @@
  */
 
 /** Collect every ticket across all phases into a flat array. */
-// [::TICKET::] PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-172 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-172 --for-spec --no-implementation-order`.
 function collectTickets(tickets) {
   const acc = [];
   for (const phase of tickets.phases || []) {
@@ -34,7 +34,7 @@ function collectTickets(tickets) {
 }
 
 /** Build nodeId → list of ticket keys that own the node. */
-// [::TICKET::] PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-172 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-172 --for-spec --no-implementation-order`.
 function buildNodeToTicketKeys(ticketList) {
   const nodeToTicketKeys = {};
   for (const ticket of ticketList) {
@@ -46,7 +46,7 @@ function buildNodeToTicketKeys(ticketList) {
 }
 
 /** Whether a ticket's contracts already carry this edge contract (id + canonical sourceEdge). */
-// [::TICKET::] PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-172 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-172 --for-spec --no-implementation-order`.
 function contractCoveredBy(ticket, edge, contract) {
   const edgeLabel = `${edge.from}→${edge.to}`;
   return (ticket.contracts || []).some(

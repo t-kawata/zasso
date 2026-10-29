@@ -12,7 +12,7 @@
  * than none: the gate would report the answers it does contain as present and the run
  * would proceed on five.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';

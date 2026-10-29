@@ -4,7 +4,7 @@
 // @verifies C004
 // @verifies C005
 // @verifies C006
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * R0 to R2.5 — the analysis scope, the static skeleton, the dependency
  * hypothesis and the execution surface.
@@ -90,7 +90,7 @@ import {
   DYNAMIC_MECHANISM_STATUSES,
   renderDynamicCoupling,
 } from '../../../.claude/scripts/workspacify-reverse/lib/dynamic-coupling.mjs';
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 import {
   DANGER_SIGNALS,
   ELIGIBILITY_CONDITIONS,
@@ -102,7 +102,7 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/eligibility.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'archive', 'P22-ANALYSIS-TECH.md');
 
 /**
@@ -114,7 +114,7 @@ const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'archive', 'P22-ANALYSIS-TE
  * these tests from reading, and failing on, a file a fixture deliberately makes
  * unreadable part-way through.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 const THROUGH_R2_5 = 'r2.5';
 
 /**
@@ -126,7 +126,7 @@ const THROUGH_R2_5 = 'r2.5';
  * that it could not read it" are different reports, and only the second is
  * usable.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function syntheticCrate() {
   return {
     'Cargo.toml': ['[package]', 'name = "synthetic"', 'version = "0.1.0"', '', '[features]', 'ffi = []', ''].join('\n'),
@@ -198,8 +198,8 @@ function syntheticCrate() {
 }
 
 /** Materialise the synthetic crate with `src/gone.rs` as a dangling symlink. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function syntheticCrateTree() {
   const tree = createSyntheticTree(syntheticCrate(), { prefix: 'wsp-r0r2-' });
   symlinkSync(join(tree.root, 'src', 'does-not-exist.rs'), join(tree.root, 'src', 'gone.rs'));
@@ -207,7 +207,7 @@ function syntheticCrateTree() {
 }
 
 /** A fresh empty directory to publish sidecars into. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function outputDirectory() {
   return createSyntheticTree({ 'placeholder.txt': '' }, { prefix: 'wsp-out-' });
 }
@@ -1016,7 +1016,7 @@ test('UT — a capped list states the cap rather than truncating in silence', ()
 });
 
 test('UT — the construct a grammar rejected is named, not summarised as an error', () => {
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const tree = createSyntheticTree({
     // `&raw` is Rust 2024 raw-reference syntax the pinned grammar does not accept,
     // so this file exercises the recovery path with a construct the instrument
@@ -1055,7 +1055,7 @@ test('UT — the construct a grammar rejected is named, not summarised as an err
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 /**
  * Two packages and four file-level edges, with the exact counts they must
  * produce.
@@ -1129,7 +1129,7 @@ const PROPERTY_PACKAGES = ['src/a', 'src/b', 'src/c', 'src/d', 'src/e'];
  * that the property is asserted over partitions that include and exclude each
  * package rather than over one convenient shape.
  */
-// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-2 --for-spec --no-implementation-order`.
 function partitionMaterialPartitions() {
   const subsets = [];
   for (let mask = 1; mask < (1 << PROPERTY_PACKAGES.length); mask += 1) {
@@ -1511,7 +1511,7 @@ test('UT: [Normal] the report names a directory that reads as a boundary and say
   tree.dispose();
 });
 
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 /**
  * R0's eligibility assessment — ABOUT-REVERSE 3.6, mechanised and published
  * without a verdict.
@@ -1536,14 +1536,14 @@ const ELIGIBLE_SUBJECT_FILES = Object.freeze({
 });
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function eligibilityScratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-elig-ut-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
 /** The R0 measurement of a subject: the artefact walk and the boundary it is classified into. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function measuredPopulation(root) {
   return classifyArtefacts({ root, scope: resolveScope(root) });
 }
@@ -1643,7 +1643,7 @@ test('UT: [Invariant] Contract C001 invariant — a full-depth walk finds no eli
   const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
 
   const offending = [];
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
   (function walk(node, path) {
     if (node === null || typeof node !== 'object') return;
     for (const [key, value] of Object.entries(node)) {
@@ -1916,7 +1916,7 @@ test('UT: [Invariant] Contract C003 invariant — no count of raised signals is 
   // value, because a legitimate count (source files, directories) can coincide
   // with the number of signals and a coincidence is not a total.
   const summed = [];
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
   (function walk(node, path) {
     if (node === null || typeof node !== 'object') return;
     for (const [key, value] of Object.entries(node)) {
@@ -2057,7 +2057,7 @@ test('UT: [Normal] a subject sitting inside another repository\'s work tree is r
 // R2.5's dynamic half — the document, the ledger and the difference
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 test('UT — a full R2.5 run publishes DYNAMIC-COUPLING.json carrying the static list and the dynamic record', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
@@ -2198,7 +2198,7 @@ test('UT — a full R3.5 run leaves no observed claim resting on source evidence
   out.dispose();
 });
 
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 test('UT — a full R3.5 run over a subject where the rule fires demotes the claim and names the mechanism', async () => {
   // The predicate and the join are asserted directly in the ledger suite, and
   // the rule's firing is asserted over the real probe there. What only a run can
@@ -2239,7 +2239,7 @@ test('UT — a full R3.5 run over a subject where the rule fires demotes the cla
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 /**
  * The Rust edge set this suite froze before the population was widened.
  *
@@ -2265,7 +2265,7 @@ const RUST_EDGES_BEFORE_THE_WIDENING = [
 ];
 
 /** Every target language measured over its own representative. */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 async function measureEveryRepresentative() {
   const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
   const measured = new Map();

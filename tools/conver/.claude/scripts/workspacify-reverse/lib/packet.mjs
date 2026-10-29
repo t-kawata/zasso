@@ -1,6 +1,6 @@
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 /**
  * R7 — the decision packet: what a human is asked, and in what shape.
  *
@@ -37,7 +37,7 @@ import { formatClaimAnchor } from './claim-ledger.mjs';
  * vocabulary is shared with P22-5 and P22-20 and a closed list that grows
  * silently is not a vocabulary.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export const CARD_SUBJECT_KINDS = Object.freeze([
   'boundary_crossing',
   'state_transition',
@@ -54,7 +54,7 @@ export const CARD_SUBJECT_KINDS = Object.freeze([
  * that invents its own shape would be asking its reader to learn a second
  * vocabulary for the same decision.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export const CARD_FIELDS = Object.freeze([
   'claim_id',
   'proposition',
@@ -77,7 +77,7 @@ export const CARD_FIELDS = Object.freeze([
  * no note because a card without them is refused before it is rendered
  * (`assertCardIsAdjudicable`).
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 const CARD_SECTIONS = Object.freeze([
   Object.freeze({ key: 'options', label: 'Options', emptyNote: false }),
   Object.freeze({ key: 'consequences', label: 'Consequences', emptyNote: false }),
@@ -127,7 +127,7 @@ export const WITHHOLDING_RULES = Object.freeze({
  * Exported because the adjudication cards of P22-20 offer the same answer: when
  * nobody decides, the question belongs to the human grill, not to the default.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export const HAND_TO_GRILL = 'hand it to the human grill as unresolved';
 
 /** How many cards a claim kind's material supports before the grill. */
@@ -181,7 +181,7 @@ const CONSEQUENCES_BY_SUBJECT_KIND = Object.freeze({
 });
 
 /** The question a card asks, phrased so that either answer is refutable. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildQuestion(claim) {
   const anchor = formatClaimAnchor(claim);
   switch (claim.subjectKind) {
@@ -207,7 +207,7 @@ function buildEvidenceLines(claim) {
 }
 
 /** One decision card, built from one claim. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildCard(claim) {
   const options = [...(OPTIONS_BY_SUBJECT_KIND[claim.subjectKind] ?? OPTIONS_BY_SUBJECT_KIND.boundary_crossing), HAND_TO_GRILL];
   const consequences = [
@@ -262,7 +262,7 @@ function buildCard(claim) {
  *   `childLevel` are `PACKET_LEVELS` values, and are `null` when the packet is
  *   flat — a flat packet has no levels to be at.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function selectServingCards(ledger, { threshold = CARD_LAYERING_THRESHOLD } = {}) {
   const claims = [...ledger.claims].sort((left, right) => compareText(left.claim_id, right.claim_id));
 
@@ -304,7 +304,7 @@ export function selectServingCards(ledger, { threshold = CARD_LAYERING_THRESHOLD
 }
 
 /** One claim leading a card, with the claims hung beneath it and the level they sit at. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function selectionEntry(claim, level, childLevel, children = [], suppressedChildren = 0) {
   return { claim, level, childLevel, children, suppressedChildren };
 }
@@ -315,7 +315,7 @@ function selectionEntry(claim, level, childLevel, children = [], suppressedChild
  * The selection is `selectServingCards`'s; this function builds the card a human
  * answers from each claim the selection carries, and nothing else.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function renderDecisionCards(ledger) {
   const selection = selectServingCards(ledger);
 
@@ -327,7 +327,7 @@ export function renderDecisionCards(ledger) {
 }
 
 /** One selected claim as the decision card the human answers. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function buildCardForEntry(entry) {
   const card = buildCard(entry.claim);
   if (entry.suppressedChildren > 0) return { ...card, suppressedChildren: entry.suppressedChildren };
@@ -336,7 +336,7 @@ function buildCardForEntry(entry) {
 }
 
 /** The cards as the Markdown the human reads before answering. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function renderCardsMarkdown(cards) {
   const lines = ['## Decision cards', ''];
 
@@ -397,7 +397,7 @@ export const SERVING_LIMIT = 100;
  * stage must never say. The identity is checked rather than assumed, so a later
  * change to the selection fails a run instead of dropping a claim.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function assertPacketReconciles({ unresolvedCount, servedCount, withheldFromServing }) {
   if (servedCount + withheldFromServing === unresolvedCount) return undefined;
   throw new Error(
@@ -409,7 +409,7 @@ export function assertPacketReconciles({ unresolvedCount, servedCount, withheldF
 }
 
 /** `file:line` and how the evidence was read, in the form a reader can act on. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function renderServedEvidence(item) {
   const span = item.source_span;
   return `\`${span.file}:${span.line}\` (${item.evidence_mode})`;
@@ -423,7 +423,7 @@ function renderServedEvidence(item) {
  * be a second proposition. The default is the hand-to-grill option, because a
  * decision the machine cannot make must still have somewhere to go.
  */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function buildServedClaim(claim) {
   if (typeof claim.grill_question !== 'string' || claim.grill_question.length === 0) {
     throw new Error(
@@ -458,7 +458,7 @@ function buildServedClaim(claim) {
  * undecidable while the boundary is open, so the ordering is a dependency and
  * the reader must not read the first layer as the answer.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function renderServing(ledger, { limit = SERVING_LIMIT, layered = false } = {}) {
   if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.claims)) {
     throw new Error('renderServing needs the claim ledger it is to serve; it was given no ledger with claims');
@@ -504,7 +504,7 @@ export function renderServing(ledger, { limit = SERVING_LIMIT, layered = false }
  * hangs beneath it. `lead` names the card a hung claim sits under, so the reader
  * can see which boundary a contract level belongs to.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function flattenSelection(entries) {
   return entries.flatMap((entry) => [
     { claim: entry.claim, level: entry.level, lead: null },
@@ -519,7 +519,7 @@ function flattenSelection(entries) {
  * who cannot see the contract level is missing has no way to tell an empty level
  * from one the packet failed to mention.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function summarizeLayers(served) {
   return PACKET_LEVELS.map((level) => {
     const atLevel = served.filter((card) => card.level === level);
@@ -528,7 +528,7 @@ function summarizeLayers(served) {
 }
 
 /** Why the claims the packet does not print were left out, rule by rule. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function summarizeWithholdings({ selection, reading, servedCount, withheldFromServing }) {
   const withheld = [];
 
@@ -553,7 +553,7 @@ function summarizeWithholdings({ selection, reading, servedCount, withheldFromSe
 }
 
 /** The scopes a set of claims covers, each named once, in code-unit order. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function scopeNamesOf(claims) {
   return [...new Set(claims.map((claim) => claim.scope))].sort(compareText);
 }
@@ -569,7 +569,7 @@ const SERVING_HEADING = '## Serving — the claims a human has to decide';
  * and why. The withholding note comes last because it is what a reader turns to
  * after deciding, to see whether anything was held back.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function renderServingMarkdown(serving) {
   if (serving.empty) {
     return [
@@ -602,7 +602,7 @@ export function renderServingMarkdown(serving) {
 }
 
 /** The counts a reader needs before the cards: served, settled and withheld. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function renderPacketHeader(serving) {
   return [
     `${serving.servedCount} unresolved claim(s) are set out below, each with the question it raises, the`,
@@ -619,7 +619,7 @@ function renderPacketHeader(serving) {
  * the boundary layer for the important half has read a dependency as a ranking,
  * and would answer the coarse card and treat the rest as detail.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function renderLayerSummary(layers) {
   return [
     'The packet is layered. A boundary card leads because the contract level beneath it cannot be',
@@ -630,13 +630,13 @@ function renderLayerSummary(layers) {
 }
 
 /** One level of the packet, with how many cards it holds and the scopes they cover. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function renderLayer(layer) {
   return [`- **${layer.level}** — ${layer.cardCount} card(s)${renderScopes(layer.scopes)}`, ''];
 }
 
 /** One served claim, stating the level it sits at and the card it hangs from. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function renderServedCard(claim) {
   const lines = [`### \`${claim.claim_id}\``, ''];
 
@@ -669,7 +669,7 @@ function renderServedCard(claim) {
  * @param {{withheldCount: number, subject: string, entries: Array<{count: number, reason: string}>}} withholding
  * @returns {string[]} Markdown lines, empty when nothing was withheld
  */
-// [::TICKET::] P23-3, P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-3|P23-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3, P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P23-3|P23-8) --for-spec --no-implementation-order`.
 export function renderWithholdingNote({ withheldCount, subject, entries }) {
   if (withheldCount === 0) return [];
 
@@ -693,13 +693,13 @@ export function renderWithholdingNote({ withheldCount, subject, entries }) {
  * @param {{served: number, withheld: number}} counts
  * @returns {string[]} Markdown lines
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 export function renderWithholdingCounts({ served, withheld }) {
   return [`- served: ${served}`, `- withheld: ${withheld}`, ''];
 }
 
 /** `, covering \`a\`, \`b\`` when any scope is named, and nothing when none is. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function renderScopes(scopes) {
   return scopes.length === 0 ? '' : `, covering ${scopes.map((scope) => `\`${scope}\``).join(', ')}`;
 }

@@ -109,7 +109,7 @@ describe('checkEdgesIntegrity', () => {
 // ============================================================
 
 describe('checkDistributionIntegrity', () => {
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   const base = {
     distributionDigest: 'a'.repeat(64),
     nodes: [{ id: 'N0001', unitIds: ['op-A', 'seq-A'] }],

@@ -13,7 +13,7 @@
  *   5. A `src` segment that is not a real directory (a file, or a path that
  *      does not exist on disk) does not trigger rule 1.
  *
- * Run: node .claude/scripts/tickets/tests/show-ticket-context-make-relative.test.js
+ * Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/tests/show-ticket-context-make-relative.test.js"
  */
 
 const path = require('path');

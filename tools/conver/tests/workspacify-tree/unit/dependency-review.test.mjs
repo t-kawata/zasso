@@ -1,4 +1,4 @@
-// [::TICKET::] PX-200, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-200|PX-202) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-200, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-200|PX-202) --for-spec --no-implementation-order`.
 // PX-200 @verifies C001
 // The review reports observations about the dependency graph and the boundaries. It
 // never edits the graph, never grades and never decides: the AI records a decision.

@@ -1,12 +1,12 @@
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 /**
  * The procedure `/workspacify-reverse` states, held to the design that states it.
  *
@@ -85,7 +85,7 @@ const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
 /** The section that names what the entrance cannot reach, held to the measured closure. */
 const ABSENCE_HEADING = '## What this command cannot yet reach';
 
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 const TEXT = readFileSync(COMMAND_PATH, 'utf8');
 const SECTIONS = extractCommandFileSections(TEXT);
 
@@ -107,7 +107,7 @@ const SECTIONS = extractCommandFileSections(TEXT);
 const KNOWN_SUBCOMMANDS = declaredSubcommands(readFileSync(RUNNER, 'utf8'));
 
 /** The subcommands invoked inside the procedure's own step sections. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 function subcommandsRunBySteps(text) {
   const regions = regionsOf(text);
   const stepRegions = [...new Set(regions.filter((region) => /^## Step \d/.test(region)))];
@@ -118,7 +118,7 @@ function subcommandsRunBySteps(text) {
 }
 
 /** Run the entrance as an operator would, and capture what they would see. */
-// [::TICKET::] P23-1, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-1|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1, PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P23-1|PX-213|PX-214) --for-spec --no-implementation-order`.
 function runEntrance(args, cwd) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
@@ -165,13 +165,13 @@ const FORBIDDEN_FIXTURES = Object.freeze([
 const FIXTURE_SENTENCE_LINE = 9;
 
 /** A minimal command file carrying one offending sentence inside a step section. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 function fixtureDocument({ section, sentence }) {
   return ['# /workspacify-reverse', '', '## Arguments', '', 'plain prose', '', section, '', sentence, ''].join('\n');
 }
 
 /** The same sentence, written as a table row: the shape an exempt region may carry. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 function tabulated(sentence) {
   return `| ${sentence} | note |`;
 }
@@ -546,7 +546,7 @@ test('C002 boundary: no Step names a document a later Step publishes', () => {
 
 // --- Boundary: the guards discriminate --------------------------------------
 
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C002/UT: a mutated Language Protocol table fails the shared digest rather than passing as close enough', () => {
   const mutated = TEXT.replace('| Context | Language |', '| Context |  Language |');
   assert.notEqual(mutated, TEXT, 'the fixture is actually different');
@@ -723,7 +723,7 @@ const STAGE_VOCABULARY = Object.freeze([...ANALYSIS_EVALUATION_ORDER]);
  * list here. Nothing but these assertions holds a command file's copies together,
  * because `installed-copy-drift.test.mjs` measures `lib/` modules only.
  */
-// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-216 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-216 --for-spec --no-implementation-order`.
 function commandFileCopies() {
   return [
     { label: 'the source of record', path: COMMAND_PATH },
@@ -745,8 +745,8 @@ function commandFileCopies() {
  * equality against the code's own declaration rather than by pattern: a pattern
  * would have to be told which line is the quotation, which is the question.
  */
-// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-216 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function declaredOrderLines(text) {
   const declared = ANALYSIS_EVALUATION_ORDER.join(', ');
   return text
@@ -792,7 +792,7 @@ test('C001/UT: every installed copy states the rule and quotes the order unchang
   }
 });
 
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C001 invariant: the quotation sits on the line this file records for it', () => {
   // An anchor rather than a decoration: the line number is the whole assertion, so a
   // line inserted or removed above the quotation is reported here by name instead of

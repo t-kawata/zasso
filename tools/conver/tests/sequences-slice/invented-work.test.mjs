@@ -9,7 +9,7 @@ import { verifyChain } from '../../.claude/scripts/sequences-slice/verify-chain.
 import { mapDigest, viewDigest } from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
 import { buildConsumerChainFixture } from './helpers/consumer-chain-fixture.mjs';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function rebuildChain(chain, view) {
   const map = { ...chain.map, sourceViewDigest: viewDigest(view) };
   const existing = new Set((map.units ?? []).map((unit) => unit.unitId));

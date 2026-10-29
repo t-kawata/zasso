@@ -1,4 +1,4 @@
-// [::TICKET::] PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-202 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-202 --for-spec --no-implementation-order`.
 // PX-202 @verifies C003
 // Canonicalisation dropped any clause group outside the frozen vocabulary, so an
 // authored clause could vanish between the payload and the seed without a word.

@@ -1,5 +1,5 @@
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 /**
  * design-citations — the design document's load-bearing evidence pointers resolve.
  *
@@ -25,13 +25,13 @@
  * a renumbered document fails on the citation. Adding an entry is how a new
  * load-bearing pointer joins the set.
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
@@ -56,7 +56,7 @@ const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERN
  * the same defect one reader further on.
  */
 const ANCHORED_CITATIONS = Object.freeze([
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
   { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
@@ -73,7 +73,7 @@ const ANCHORED_CITATIONS = Object.freeze([
   // citation moved with the file rather than the file being kept still for the citation.
   // Re-measured again when the canonical RFC name was fixed at `RFC.md` (PX-235): the same
   // edit added the prior-partition name resolver above these two, and both moved with it.
-  // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   { asWritten: 'scope.mjs:1994', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1995, token: 'replacePublishedDocuments(out, documents)' },
   { asWritten: 'scope.mjs:1833-1838', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1834, token: 'the analysis modified its target' },
   { asWritten: 'seed-local-checks.mjs:36', path: '.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs', line: 36, token: 'SEED_REQUIRED_SECTIONS.length' },
@@ -89,7 +89,7 @@ const ANCHORED_CITATIONS = Object.freeze([
  */
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 /** The line at 1-indexed `line`, or null when the file is shorter than that. */
 function lineOf(relativePath, line) {
   const lines = readFileSync(join(PROJECT_ROOT, relativePath), 'utf8').split('\n');
@@ -198,20 +198,20 @@ test('every cited line is inside its file', () => {
 const EDUCE_DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'EDUCE-SEQUENCES-DESIGN.md');
 const EDUCE_DESIGN_TEXT = readFileSync(EDUCE_DESIGN_PATH, 'utf8').replace(/[–—]/g, '-');
 
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-265 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-265 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-265 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 const EDUCE_ANCHORED_CITATIONS = Object.freeze([
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   // Re-measured after the provenance annotation of PX-240 inserted one comment line per
   // file: the citation moved with the file rather than the file being kept still for it.
   // Re-measured again for PX-265, which established the two kinds of borrowed-census entry

@@ -20,7 +20,7 @@ const path = require('path');
  * @param {object} graph — Parsed graph JSON
  * @returns {string} Markdown string
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
 function generateMarkdown(graph) {
   const nodeMap = {};
   for (const node of graph.nodes) {
@@ -50,7 +50,7 @@ function generateMarkdown(graph) {
   return md;
 }
 
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332) --for-spec --no-implementation-order`.
 function main() {
   const graphPath = process.argv[2];
   if (!graphPath) {

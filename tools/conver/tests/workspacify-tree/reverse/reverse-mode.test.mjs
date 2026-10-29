@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 // P22-11 @verifies C003
 // T6 and the six-gate runner. The mode is decided by the input; reverse
 // provenance is added in reverse mode and is deliberately absent in forward
@@ -25,7 +25,7 @@ import { GATE_STATUS } from '../../../.claude/scripts/workspacify-tree/lib/error
 import { assembleManifest, computeSelfHash, renderManifestText } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
 import { agreeingReverseInput, withSidecars } from './helpers/reverse-fixture.mjs';
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 test('the mode is decided by the input, and an absent mode field means forward', () => {
   assert.equal(resolveTreeMode({ mode: 'reverse' }), TREE_MODES.REVERSE);
   assert.equal(resolveTreeMode({}), TREE_MODES.FORWARD);

@@ -1,5 +1,5 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -16,7 +16,7 @@ const CLEAN_ASSURANCE = {
 };
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a certificate with held, proven and reading decisions is complete', () => {
   const certificate = buildCertificate({
     obligations: [
@@ -42,7 +42,7 @@ test('a certificate with held, proven and reading decisions is complete', () => 
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a broken decision keeps the certificate incomplete', () => {
   const certificate = buildCertificate({
     obligations: [{ id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', required: true }],
@@ -56,7 +56,7 @@ test('a broken decision keeps the certificate incomplete', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a stuck decision keeps the certificate incomplete', () => {
   const certificate = buildCertificate({
     obligations: [{ id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', required: true }],
@@ -70,7 +70,7 @@ test('a stuck decision keeps the certificate incomplete', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an obligation without a decision is open, never assumed held', () => {
   const certificate = buildCertificate({
     obligations: [{ id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'closed', required: true }],
@@ -83,7 +83,7 @@ test('an obligation without a decision is open, never assumed held', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a vacuous check keeps the certificate incomplete', () => {
   const certificate = buildCertificate({
     obligations: [{ id: 'CHECK:X', class: 'mechanical', state: 'closed', required: true }],
@@ -97,7 +97,7 @@ test('a vacuous check keeps the certificate incomplete', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a non-zero assurance counter keeps the certificate incomplete', () => {
   const certificate = buildCertificate({
     obligations: [{ id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', required: true }],
@@ -114,7 +114,7 @@ test('a non-zero assurance counter keeps the certificate incomplete', () => {
 // obligations.open made a strict gaia run report 1,585 while only 1,570 obligations
 // were open. The two counts are separated and the arithmetic must still balance.
 test('C003 receipt debt is reported apart from obligations.open', () => {
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
   const certificate = buildCertificate({
     obligations: [{ id: 'JUDGE:A', class: 'semantic', state: 'open' }],
     decisions: [{ obligationId: 'JUDGE:A', state: 'open', source: 'judgment' }],

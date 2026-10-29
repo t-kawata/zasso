@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { assertInstallParity } from '../../.claude/scripts/regeneration/lib/install-parity.mjs';
 
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function populate(root, content) {
   mkdirSync(join(root, '.claude/scripts/regeneration/lib'), { recursive: true });
   writeFileSync(join(root, '.claude/scripts/regeneration/lib/transaction.mjs'), content);

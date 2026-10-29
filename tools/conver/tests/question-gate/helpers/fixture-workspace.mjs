@@ -1,5 +1,5 @@
-// [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-233 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * Fixtures for the question-gate core and the two commands that consume it.
  *
@@ -37,7 +37,7 @@ export const GRILL_CANON_STATE = join(GRILL_DIR, 'canon-state.js');
  * one decides which paths may be written, three read the RFC's appendices, and one
  * opens a cited section so a defect can be confirmed before it is carried.
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 export const GRILL_GUARD_EDIT_SURFACE = join(GRILL_DIR, 'guard-edit-surface.js');
 export const GRILL_DEFECT_REPORT = join(GRILL_DIR, 'defect-report.js');
 export const GRILL_CHECK_DIVERGENCE_LEDGER = join(GRILL_DIR, 'check-divergence-ledger.js');
@@ -70,7 +70,7 @@ const PACKAGE_DIR_NAME = 'pkg';
 const DESIGN_TREE_FILENAME = 'DesignTree.json';
 
 /** The three artifacts a package directory may already hold, and what each says. */
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 const PRIOR_ARTIFACT_CONTENT = {
   'RFC-SEED.md': '## §1 Identity/Position\n\nThe soul side owns the key.\n',
   'INFO-RFC-SEED.md': 'session_store: declared at src/api/session_storage.rs\n',
@@ -97,7 +97,7 @@ export const FIXTURE_SETTLEMENT_GROUND = 'RFC-SEED.md#§1';
  * @param {object} [overrides]
  * @returns {object}
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 export function questionBlock(overrides = {}) {
   return {
     boundNodeIds: ['Q1', 'Q2'],
@@ -129,12 +129,12 @@ export function questionBlock(overrides = {}) {
   };
 }
 
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
 function makeRoot(prefix) {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
-// [::TICKET::] PX-234, PX-235, PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235|PX-238) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235, PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235|PX-238) --for-spec --no-implementation-order`.
 function runNode(script, args, options = {}) {
   return execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...options });
 }
@@ -146,7 +146,7 @@ function runNode(script, args, options = {}) {
  * artifacts supply, which is the shape a run reaches when the records decide
  * everything and no question is opened.
  */
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
 function designTree({ nodeCount = 0, grounded = false }) {
   const nodes = Array.from({ length: nodeCount }, (_, index) => {
     const node = {
@@ -173,12 +173,12 @@ function designTree({ nodeCount = 0, grounded = false }) {
   return { version: 1, updatedAt: new Date().toISOString(), nodes };
 }
 
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
 function writeTree(directory, tree) {
   writeFileSync(join(directory, DESIGN_TREE_FILENAME), JSON.stringify(tree, null, 2), 'utf8');
 }
 
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
 function writePriorArtifacts(directory) {
   for (const [name, content] of Object.entries(PRIOR_ARTIFACT_CONTENT)) {
     writeFileSync(join(directory, name), content, 'utf8');

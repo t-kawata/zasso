@@ -11,7 +11,7 @@ import { materializeOrderWorkspace } from './helpers/order-workspace.mjs';
 import { buildModel } from '../../.claude/scripts/workspacify-order/lib/levels.mjs';
 import { renderPlan } from '../../.claude/scripts/workspacify-order/lib/render.mjs';
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function fixture() {
   return materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -23,7 +23,7 @@ function fixture() {
   });
 }
 
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function modelOf(workspace) {
   return buildModel({
     root: workspace.root,
@@ -98,7 +98,7 @@ test('C003 an implementation sidecar that omits a package is refused', (t) => {
 });
 
 // PX-328 @verifies C002 — a framework operation does not block the derived display.
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 test('C002 an artifact with only a framework claim still derives an order', () => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],

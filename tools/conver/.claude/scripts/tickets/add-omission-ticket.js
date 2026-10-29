@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-100: Create add-omission-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-100 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100: Create add-omission-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-100 --for-spec --no-implementation-order`.
 
 /**
  * add-omission-ticket.js — Append an omission ticket to _tmp-omissions-*.json
@@ -31,15 +31,15 @@ const INSPECTION_SENTINEL = '[::INSPECTION_FLAGGED::]';
 const PX_PHASE_ID = -1;
 
 /** Count occurrences of INSPECTION_SENTINEL in a string */
-// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-106, PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 function countInspectionSentinels(background) {
   if (!background || typeof background !== 'string') return 0;
   return (background.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;
 }
 
 /** Strip all but the last occurrence of INSPECTION_SENTINEL */
-// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-106, PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 function repairDuplicateSentinels(background) {
   const bg = background || '';
   const count = countInspectionSentinels(bg);
@@ -70,7 +70,7 @@ const ABC_INSPECTION_PREFIX = INSPECTION_SENTINEL + '\n' +
  * @param {object|null} ticket — Parsed ticket JSON object
  * @returns {string|null} — Error message string, or null if valid
  */
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 function validateTicket(ticket) {
   if (!ticket || typeof ticket !== 'object') {
     return 'Cannot parse ticket JSON from stdin: expected an object';
@@ -102,8 +102,8 @@ function validateTicket(ticket) {
  * @param {object} ticket — Ticket object to append
  * @returns {object} — New data object with appended ticket (immutable)
  */
-// [::TICKET::] PX-100, PX-101, PX-106, PX-107, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-106, PX-107, PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-143, PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-119|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function appendTicket(data, ticket) {
   const result = JSON.parse(JSON.stringify(data));
 
@@ -151,7 +151,7 @@ function appendTicket(data, ticket) {
  * @param {Array|null} omissions — foundOmissions array
  * @returns {string|null} — Error message string, or null if valid
  */
-// [::TICKET::] PX-102, PX-103, PX-104, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102, PX-103, PX-104, PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
 function validateFoundOmissions(omissions) {
   if (!Array.isArray(omissions) || omissions.length === 0) {
     return 'foundOmissions must be a non-empty array';
@@ -200,7 +200,7 @@ function validateFoundOmissions(omissions) {
  * @param {number} line — 1-indexed starting line number
  * @returns {string} — Up to 3 lines of source code, or empty string
  */
-// [::TICKET::] PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-105 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-105 --for-spec --no-implementation-order`.
 function extractCodes(filePath, line) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
@@ -226,8 +226,8 @@ function extractCodes(filePath, line) {
  * @param {string} originalKey — Original ticket key, e.g. "P0-4"
  * @returns {object|null} — Clone ticket object, or null
  */
-// [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142: findCloneByOriginalKey searches all phases. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-103 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: findCloneByOriginalKey searches all phases. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function findCloneByOriginalKey(data, originalKey) {
   if (!data || !Array.isArray(data.phases)) return null;
   for (const phase of data.phases) {
@@ -250,7 +250,7 @@ function findCloneByOriginalKey(data, originalKey) {
  * @param {Array} newOmissions — Array of foundOmission objects (already validated)
  * @returns {object} — Updated data object
  */
-// [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-103 --for-spec --no-implementation-order`.
 function appendFoundOmissions(data, originalKey, newOmissions) {
   const existingClone = findCloneByOriginalKey(data, originalKey);
   if (existingClone) {
@@ -294,7 +294,7 @@ function appendFoundOmissions(data, originalKey, newOmissions) {
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {object|null} — Deep-cloned ticket object, or null
  */
-// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-102 --for-spec --no-implementation-order`.
 function lookupTicket(ticketsData, ticketKey) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) return null;
   const match = ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
@@ -314,7 +314,7 @@ function lookupTicket(ticketsData, ticketKey) {
  * Find the latest _tmp-omissions-*.json in CWD by scanning for files matching the pattern.
  * @returns {string|null} — Absolute path, or null if none found
  */
-// [::TICKET::] PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-104 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-104 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-104 --for-spec --no-implementation-order`.
 function findLatestTmpOmissions() {
   const files = fs.readdirSync('.').filter(f => /^_tmp-omissions-\d{14}\.json$/.test(f));
   if (files.length === 0) return null;
@@ -331,7 +331,7 @@ function findLatestTmpOmissions() {
  * @param {string} ticketsJsonPath — Absolute path to Tickets.json
  * @returns {object} — Parsed JSON data object
  */
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 function findOrCreateTmpOmissions(tmpOmissionsPath, ticketsJsonPath) {
   if (fs.existsSync(tmpOmissionsPath)) {
     return JSON.parse(fs.readFileSync(tmpOmissionsPath, 'utf8'));
@@ -366,7 +366,7 @@ function findOrCreateTmpOmissions(tmpOmissionsPath, ticketsJsonPath) {
  * Format current timestamp as YYYYMMDDhhmmss.
  * @returns {string} — 14-digit timestamp
  */
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 function formatTimestamp() {
   const now = new Date();
   const y = now.getFullYear();
@@ -382,7 +382,7 @@ function formatTimestamp() {
  * Read all stdin data as a string. Returns Promise<string>.
  * @returns {Promise<string>}
  */
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 function readStdin() {
   return new Promise((resolve) => {
     const chunks = [];
@@ -394,7 +394,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;

@@ -22,7 +22,7 @@ import { COMPLETION_TEMPLATE, completionPolicy } from "./completion-policy.js";
 // テスト間で挙動を切り替えるために共有オブジェクトを使用する。
 
 /** sendFindOutcomeNotification が受け取るペイロードの型（テスト用） */
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 interface FindOutcomeMock {
   progress: string;
   integrationSucceeded: boolean;
@@ -31,7 +31,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117, PX-146, PX-150, PX-151, PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151|PX-174|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146, PX-150, PX-151, PX-174, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-117|PX-146|PX-150|PX-151|PX-174|PX-211) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -79,7 +79,7 @@ const mockState: MockState = {
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function resetFindState(): void {
   mockState.findOutcome = undefined;
   mockState.countSnapshots = [];
@@ -98,7 +98,7 @@ const mockStepTimerState = {
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト LoopOptions */
-// [::TICKET::] PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
 function baseOptions(overrides?: Partial<LoopOptions>): LoopOptions {
   return {
     apiKey: "test-api-key",
@@ -255,7 +255,7 @@ describe("runLoop", () => {
   });
 
   /** Tickets.json を作成する */
-// [::TICKET::] PX-116, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-116|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-116|PX-146) --for-spec --no-implementation-order`.
   function writeTickets(phases: Array<{
     id: number;
     name: string;
@@ -265,14 +265,14 @@ describe("runLoop", () => {
   }
 
   /** コマンド文字列からチケットキー（末尾トークン）を抽出する */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-146 --for-spec --no-implementation-order`.
   function extractTicketKey(cmd: string): string {
     const parts = cmd.trim().split(/\s+/);
     return parts[parts.length - 1] ?? "";
   }
 
   /** fixture 内のチケットを reviewed に遷移させる（PX-146 C002 事後検証用モック） */
-// [::TICKET::] PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-146|PX-150) --for-spec --no-implementation-order`.
   function markReviewed(path: string, key: string): void {
     const data = JSON.parse(readFileSync(path, "utf-8"));
     const separator = key.indexOf("-");
@@ -289,7 +289,7 @@ describe("runLoop", () => {
   }
 
   /** fixture 内のチケットを指定 status に遷移させる（PX-174 C003 status 再読込検証用） */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
   function setTicketStatus(path: string, key: string, status: string): void {
     const data = JSON.parse(readFileSync(path, "utf-8"));
     const separator = key.indexOf("-");
@@ -702,7 +702,7 @@ describe("runLoop", () => {
   /** ヘルパー: エラーテスト共通処理（1チケットの一時ファイル＋runLoop実行）。
    *  PX-150 以降、フェーズ失敗は process.exit せず give-up（Slack 通知）して
    *  次へ継続する。maxRetries: 0 で即 give-up させ、exit しないことを検証する。 */
-// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-150 --for-spec --no-implementation-order`.
   async function runErrorTest(
     cmdImpl: (cmd: string) => Promise<string>,
     opts: Partial<LoopOptions>,
@@ -1016,7 +1016,7 @@ describe("runLoop", () => {
     };
 
     /** fixture の status を書き換える — スクリプト化されたタイムラインの駆動源 */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
     function setStatus(path: string, ticketId: string, status: string): void {
       const data = JSON.parse(readFileSync(path, "utf-8"));
       for (const phase of data.phases) {
@@ -1028,7 +1028,7 @@ describe("runLoop", () => {
     }
 
     /** runPhaseToCompletion の実行中に stdout へ書かれた断片を捕まえる */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
     async function captureStdout(run: () => Promise<void>): Promise<string[]> {
       const written: string[] = [];
       const originalWrite = process.stdout.write.bind(process.stdout);
@@ -1044,7 +1044,7 @@ describe("runLoop", () => {
       return written;
     }
 
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
     function phaseSpec(command: string): PhaseSpec {
       const found = runner.PHASE_SPECS.find((spec) => spec.command === command);
       assert.ok(found, `phase spec not found: ${command}`);
@@ -1052,7 +1052,7 @@ describe("runLoop", () => {
     }
 
     /** status が planned のチケット1件だけを持つ fixture */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
     function writeSinglePlannedTicket(): void {
       writeTickets([
         { id: 22, name: "P22", tickets: [{ id: 2, phaseId: 22, status: "planned", title: "t" }] },

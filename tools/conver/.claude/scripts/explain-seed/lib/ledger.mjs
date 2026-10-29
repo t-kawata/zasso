@@ -37,7 +37,7 @@ import {
  * @param {{ questionBody: string }} input
  * @returns {Array<string>}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function readBoundPointIds({ questionBody }) {
   return boundPointIds(questionBody);
 }
@@ -51,7 +51,7 @@ export function readBoundPointIds({ questionBody }) {
  * @param {{ documentText: string }} input
  * @returns {Array<{ number: number|null, heading: string, body: string, boundIds: Array<string> }>}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function readQuestions({ documentText }) {
   const located = locateSections(documentText);
   const body = located.bodies[HUMAN_SECTION_ID] ?? '';
@@ -63,7 +63,7 @@ export function readQuestions({ documentText }) {
 }
 
 /** The rounds a document opens, in order. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function readRounds({ documentText }) {
   return readRoundNumbers(documentText);
 }
@@ -75,7 +75,7 @@ export function readRounds({ documentText }) {
  * decision and no ground rests on nothing, and reading it as settled would report a point as
  * decided while the gate is still refusing the item that claims it.
  */
-// [::TICKET::] PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229, PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-229|PX-230) --for-spec --no-implementation-order`.
 function readSettledPointIds({ documentText, universe }) {
   const located = locateSections(documentText);
   const body = located.bodies[PREDECIDED_SECTION_ID] ?? '';
@@ -100,7 +100,7 @@ function readSettledPointIds({ documentText, universe }) {
  * @param {{ projection: object, documentText: string }} input
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function universeOf({ projection, documentText }) {
   return new Set([
     ...collectOpenItems(projection).map((item) => item.id),
@@ -121,7 +121,7 @@ export function universeOf({ projection, documentText }) {
  * @param {{ documentText: string, projection: object }} input
  * @returns {{ open: Set<string>, bound: Set<string>, settled: Set<string>, unsettled: Set<string>, added: Set<string>, questions: Array<object> }}
  */
-// [::TICKET::] PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229, PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-229|PX-230) --for-spec --no-implementation-order`.
 export function deriveLedger({ documentText, projection }) {
   const recordedIds = new Set(collectOpenItems(projection).map((item) => item.id));
   const universe = universeOf({ projection, documentText });

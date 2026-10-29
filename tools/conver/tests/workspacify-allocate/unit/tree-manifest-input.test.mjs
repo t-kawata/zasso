@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C001 C002
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

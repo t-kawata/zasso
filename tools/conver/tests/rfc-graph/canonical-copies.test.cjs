@@ -1,4 +1,4 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -65,8 +65,8 @@ const DRILL_ROOTS = [
 /** The drill script this ticket edits. */
 const DRILL_FILES = ['refresh-file-headers.js'];
 
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function digest(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
@@ -98,7 +98,7 @@ describe('canonical copies — three zasso trees', () => {
 
   // PX-339: the boundify scripts and commands are synchronized by the same rule.
   it('normal: the boundify scripts and commands are byte-identical across the three trees', () => {
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
     for (const file of ['boundify-tree.js', 'boundify-graph-to-dirs.js']) {
       const hashes = SCRIPT_ROOTS.map((root) => digest(path.join(root, file)));
       assert.equal(new Set(hashes).size, 1, file);
@@ -111,7 +111,7 @@ describe('canonical copies — three zasso trees', () => {
 
   // PX-340: the unit-placement gate is synchronized by the same rule.
   it('normal: verify-unit-file-coverage is byte-identical across the three trees', () => {
-// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-340 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-340 --for-spec --no-implementation-order`.
     const hashes = SCRIPT_ROOTS.map((root) => digest(path.join(root, 'verify-unit-file-coverage.js')));
     assert.equal(new Set(hashes).size, 1, 'verify-unit-file-coverage.js');
   });

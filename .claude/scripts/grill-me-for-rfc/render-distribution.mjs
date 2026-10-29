@@ -32,13 +32,13 @@ const ANCHOR_LINE = /^\s*<!--\s*unit:\s*([A-Za-z0-9._:-]+)\s*-->\s*$/;
 const DOTTED_NUMBER = /^\d+(?:\.\d+)*$/;
 
 /** A refusal in the shape the caller reports. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function refuse(code, extra = {}) {
   return { ok: false, code, rfc: null, map: null, wrote: false, ...extra };
 }
 
 /** The ledger appendix range, or null when the RFC carries none. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function findLedgerRange(lines) {
   const start = lines.findIndex((line) => {
     const match = HEADING.exec(line);
@@ -58,13 +58,13 @@ function findLedgerRange(lines) {
 }
 
 /** Strip backticks and surrounding whitespace from a ledger cell. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function cleanCell(value) {
   return String(value ?? '').replace(/`/g, '').trim();
 }
 
 /** A cell read as prose: whitespace collapsed, but the author's inline code kept. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function groundCell(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
@@ -77,7 +77,7 @@ function groundCell(value) {
  * co-owner's name in another package's row is informational because that package's own row
  * carries its declaration. Anything else in parentheses is prose and is ignored.
  */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function parseOwnerCell(cell) {
   const owners = [];
   const roles = new Map();
@@ -94,13 +94,13 @@ function parseOwnerCell(cell) {
 }
 
 /** The package ids an Owner cell names, with the role annotations stripped. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function ownerPackages(cell) {
   return parseOwnerCell(cell).owners;
 }
 
 /** The section tokens a ledger location names. */
-// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
 function locationTokens(location) {
   const cleaned = cleanCell(location);
   // An authored cell may join two references with prose ("§3.6 and §1.4"). Each reference
@@ -114,7 +114,7 @@ function locationTokens(location) {
 }
 
 /** Resolve a location to section texts, or report the token that did not resolve. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function resolveLocation(rfcText, location) {
   const sections = [];
   const missing = [];
@@ -135,7 +135,7 @@ function resolveLocation(rfcText, location) {
 }
 
 /** Index ledger rows by the unit their first cell names. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function indexByUnit(rows) {
   const byUnit = new Map();
   for (const row of rows) {
@@ -148,7 +148,7 @@ function indexByUnit(rows) {
 }
 
 /** Build a map from the existing Distribution ledger rows. */
-// [::TICKET::] PX-307, PX-309, PX-317, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309|PX-317|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309, PX-317, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-309|PX-317|PX-328) --for-spec --no-implementation-order`.
 function bootstrapFromLedger(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   const rows = readLedgerRows(rfcText) ?? [];
@@ -241,7 +241,7 @@ function bootstrapFromLedger(rfcText, view) {
 }
 
 /** The ledger appendix, rendered from the map. */
-// [::TICKET::] PX-307, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-309) --for-spec --no-implementation-order`.
 function renderLedgerAppendix(map) {
   const escape = (value) => String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
   const rows = [
@@ -265,7 +265,7 @@ function renderLedgerAppendix(map) {
 }
 
 /** Remove the managed anchors; anchors for units outside the view are untouched. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function removeManagedAnchors(lines, managedUnitIds) {
   return lines.filter((line) => {
     const match = ANCHOR_LINE.exec(line);
@@ -281,7 +281,7 @@ function removeManagedAnchors(lines, managedUnitIds) {
  * the end of a section body would be read as belonging to that section's last subsection,
  * so the unit would read as undistributed under the heading the map cites.
  */
-// [::TICKET::] PX-307, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-310) --for-spec --no-implementation-order`.
 function insertManagedAnchors(lines, map) {
   const headings = [];
   lines.forEach((line, index) => {
@@ -311,7 +311,7 @@ function insertManagedAnchors(lines, map) {
 }
 
 /** Validate the existing map against the view and the RFC headings. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function validateExistingMap(rfcText, map, view) {
   const againstView = validateMapAgainstView(map, view);
   if (!againstView.ok) return againstView;
@@ -329,7 +329,7 @@ function validateExistingMap(rfcText, map, view) {
  * against the view. The ledger is canonical for the role, so its annotations are read
  * before the map digest is recomputed and before the ledger is rendered back.
  */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function applyLedgerRoles(rfcText, map, packageId, view) {
   const rows = readLedgerRows(rfcText) ?? [];
   const roles = new Map();
@@ -382,7 +382,7 @@ function applyLedgerRoles(rfcText, map, packageId, view) {
  * @param {object} view
  * @returns {{ ok: boolean, code?: string, rfc: string, map: object|null, wrote: boolean }}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 export function renderDistribution(rfcText, view) {
   const viewUnits = collectViewUnits(view);
   if (viewUnits.size === 0) return { ok: true, rfc: rfcText, map: null, wrote: false };
@@ -449,7 +449,7 @@ export function renderDistribution(rfcText, view) {
 }
 
 /** Read a CLI flag in either `--name=value` or `--name value` form. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -510,7 +510,7 @@ function carriesDistributionMap(rfcPath) {
  *   package has no view and the run distributed nothing
  * @returns {boolean} whether a generation was recorded
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function recordDistributionGeneration(rfcPath, map) {
   const statusPath = path.join(path.dirname(rfcPath), STATUS_FILE_NAME);
   if (!fs.existsSync(statusPath)) return false;

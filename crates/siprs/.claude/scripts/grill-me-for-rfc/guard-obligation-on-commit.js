@@ -40,7 +40,7 @@ const EXIT_ADVISORY = 0;
 const LEAVING_THE_WORKSPACE = /(?:^|[;&|]\s*)git\s+(?:commit|push)\b/;
 
 /** The command a hook invocation is about, or null when the input does not carry one. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function commandOf(rawInput) {
   const parsed = JSON.parse(String(rawInput ?? ''));
   const command = parsed?.tool_input?.command;
@@ -48,7 +48,7 @@ export function commandOf(rawInput) {
 }
 
 /** One command's output and everything it printed, so a quiet verdict can be summarised. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function captureOutput(run) {
   const written = [];
   const originalWrite = process.stdout.write.bind(process.stdout);
@@ -70,7 +70,7 @@ function captureOutput(run) {
  * @param {string} [directory] — the workspace to measure, which is the session's own directory
  * @returns {number}
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function main(rawInput, directory = process.cwd()) {
   let command;
   try {

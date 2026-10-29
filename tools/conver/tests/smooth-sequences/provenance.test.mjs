@@ -1,4 +1,4 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -9,7 +9,7 @@ import {
 } from '../../.claude/scripts/smooth-sequences/lib/provenance.mjs';
 
 // @verifies C002
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('re-anchoring creates a superseding record and leaves the original reader intact', () => {
   const original = {
     subject: '@object:AssetScore',
@@ -31,7 +31,7 @@ test('re-anchoring creates a superseding record and leaves the original reader i
 });
 
 // @verifies C002
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a stale anchor is reported without changing the record', () => {
   const record = {
     subject: '@object:AssetScore',
@@ -48,7 +48,7 @@ test('a stale anchor is reported without changing the record', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the record id is a pure function of the record body', () => {
   const record = { subject: 's1', line: 1, quote: 'q', reader: 'educe-sequences/generation-1' };
   assert.equal(recordIdOf(record), recordIdOf({ ...record }));

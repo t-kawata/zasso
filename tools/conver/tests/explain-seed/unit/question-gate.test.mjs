@@ -1,4 +1,4 @@
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-232 @verifies C001
 // PX-232 @verifies C002
 // PX-232 @verifies C003
@@ -40,25 +40,25 @@ const COMMAND_PATH = path.join(REPO_ROOT, '.claude', 'commands', 'explain-seed.m
 const GAIA_ROOT = path.join(os.homedir(), 'shyme', 'gaia');
 
 /** The recorded points a single-question document binds, as the gate's own fixtures do. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function boundIdsOf(facts) {
   return syntheticOpenIds(facts.projection);
 }
 
 /** An authored explanation: the frame, a round of questions, and the prose that fills them. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function authored(facts = syntheticFacts()) {
   return authorExplanation({ facts, boundIds: boundIdsOf(facts) });
 }
 
 /** Every fault of a document, each rendered as kind:id so an assertion can name one. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function faultKinds(explainText, facts = syntheticFacts()) {
   return verifyExplanation({ facts, explainText }).faults.map((fault) => `${fault.kind}:${fault.id ?? ''}`);
 }
 
 /** The value written under a label, or nothing when the label is absent. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function valueUnder(documentText, label) {
   const lines = documentText.split('\n');
   const index = lines.findIndex((line) => line.trimStart().startsWith(`- ${label}:`));
@@ -66,7 +66,7 @@ function valueUnder(documentText, label) {
 }
 
 /** Replace the value written under a label, keeping the label line itself. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function withValueUnder(documentText, label, value) {
   const lines = documentText.split('\n');
   const index = lines.findIndex((line) => line.trimStart().startsWith(`- ${label}:`));
@@ -97,7 +97,7 @@ function withEarlierParagraph(documentText, paragraph) {
 }
 
 /** The document with one label and its value removed, as a question that never recorded it. */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function withoutLabel(documentText, label) {
   const lines = documentText.split('\n');
   const index = lines.findIndex((line) => line.trimStart().startsWith(`- ${label}:`));

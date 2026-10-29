@@ -58,7 +58,7 @@ const MAX_SIBLING_PACKAGES = 64;
 const USAGE = 'usage: scan-defects.js <RFC_DIR> [--json]';
 
 /** @param {string} path @returns {string|null} null when the artifact is simply absent */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function readText(path) {
   try {
     return readFileSync(path, 'utf8');
@@ -75,7 +75,7 @@ function readText(path) {
  * @param {number} number
  * @returns {{ title: string, body: string }|null}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findNumberedSection(text, number) {
   const lines = text.split('\n');
   const pattern = new RegExp(`^${number}[.\\s]`);
@@ -98,19 +98,19 @@ function findNumberedSection(text, number) {
 }
 
 /** @param {string} text @returns {string[]} */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function linesMatching(text, pattern) {
   return text.split('\n').filter((line) => pattern.test(line));
 }
 
 /** The type names a document uses. @param {string} text @returns {string[]} */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function usedTypeNames(text) {
   return [...text.matchAll(TYPE_NAME_PATTERN)].map((match) => match[1]);
 }
 
 /** Whether any of `texts` declares `name`. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function isDeclared(name, texts) {
   const declaration = DECLARATION_PATTERN(name);
   return texts.some(
@@ -124,7 +124,7 @@ function isDeclared(name, texts) {
 }
 
 /** The sibling directories of `rfcDir` that are packages too. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function siblingPackages(rfcDir) {
   const parent = dirname(rfcDir);
   let entries;
@@ -153,7 +153,7 @@ function siblingPackages(rfcDir) {
  * @param {string} rfcDir
  * @returns {object[]}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findCandidates(rfcDir) {
   const texts = Object.fromEntries(
     ['RFC.md', ...STAGE_ONE_FILES].map((name) => [name, readText(join(rfcDir, name))]),
@@ -261,7 +261,7 @@ function findCandidates(rfcDir) {
  * @param {string[]} siblings
  * @returns {string[][]}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findSpellingVariants(siblings) {
   const byFold = new Map();
   for (const sibling of siblings) {

@@ -25,7 +25,7 @@ function run(args, cwd) {
   return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd, encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners appear and parity passes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-fix-'));
   const specPath = join(dir, 'spec.md');
@@ -65,7 +65,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
   assert.equal(gate.ok, true, JSON.stringify(gate.errors));
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and complete coverage completes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-fix-'));
   const specPath = join(dir, 'multi.md');

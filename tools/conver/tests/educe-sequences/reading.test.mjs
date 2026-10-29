@@ -1,4 +1,4 @@
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The reader-facing half (PX-240, contracts C002, C003, C004, C007).
 //
 // Two rules are under test. A brief is checked by counting its four clauses, so no
@@ -39,7 +39,7 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 const PREDICATE = predicateFor(golden.pins.predicate.limbs, spec.lines);
 
 /** A throwaway artifact path holding the golden artifact, so a write cannot touch the fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function scratchArtifact() {
   const directory = mkdtempSync(join(tmpdir(), 'educe-reading-'));
   const path = join(directory, 'ledger-sequences.json');
@@ -260,7 +260,7 @@ test('C004 a row that keeps a defining_section the supplied rule supersedes is r
 // The fifth brief (PX-241, contract C008)
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
 test('C008 the ad-hoc brief is a declared role, so a check author is dispatched with a checked brief', () => {
   assert.deepEqual([...BRIEF_NAMES], ['span', 'adjudicate', 'adversarial', 'reroute', 'adhoc', 'inquest', 'uncovered']);
 });

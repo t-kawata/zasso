@@ -1,4 +1,4 @@
-// [::TICKET::] PX-191 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-191 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-191 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-191 --for-spec --no-implementation-order`.
 // PX-191 @verifies C001 C002 C003
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +16,7 @@ function runCli(args, options = {}) {
   return spawnSync(process.execPath, [RUN, ...args], { encoding: 'utf8', ...options });
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 unknown subcommand and missing arguments exit non-zero with a guide', () => {
   assert.notEqual(runCli(['bogus']).status, 0);
   assert.ok(runCli(['bogus']).stderr.includes('guide'));

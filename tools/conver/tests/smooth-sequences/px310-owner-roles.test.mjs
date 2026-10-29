@@ -1,4 +1,4 @@
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 // PX-310 @verifies C007
 // Only an explicit undecided candidate is not a claim. An absent candidate is a
 // stale view and must be judged, not silently skipped.
@@ -17,7 +17,7 @@ test('C007 a sole owner with an absent roleCandidate is a finding', () => {
   assert.equal(result.code, 'OWNER_ROLE_UNDECLARED');
 });
 
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 test('C007 an explicit undecided candidate with no implementer is a finding', () => {
   const maps = [
     { packageId: 'pkg-1', units: [{ unitId: 'op-1', kind: 'operation', role: 'consumer' }] },

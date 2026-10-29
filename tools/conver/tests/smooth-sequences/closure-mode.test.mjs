@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function capture() {
   const stdout = [];
   const stderr = [];
@@ -17,7 +17,7 @@ function capture() {
   };
 }
 
-// [::TICKET::] PX-292, PX-293, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293|PX-311) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293, PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293|PX-311) --for-spec --no-implementation-order`.
 function worklistOf(workspace) {
   const body = JSON.parse(readFileSync(join(workspace.root, 'smooth-sequences', 'JUDGMENT-WORKLIST.json'), 'utf8'));
   // A strict run writes the versioned object; --legacy writes the bare array it always
@@ -26,7 +26,7 @@ function worklistOf(workspace) {
 }
 
 // @verifies C003
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a v3 workspace enters closure mode without a manifest, and --legacy keeps the old path', () => {
   const workspace = materializeSmoothWorkspace();
   try {
@@ -45,7 +45,7 @@ test('a v3 workspace enters closure mode without a manifest, and --legacy keeps 
 });
 
 // @verifies C003
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('--scope writes only the matching obligations and a later run reports the remainder', () => {
   const workspace = materializeSmoothWorkspace();
   try {
@@ -65,7 +65,7 @@ test('--scope writes only the matching obligations and a later run reports the r
 });
 
 // @verifies C005
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a supplemental obligation file cannot change the certificate', () => {
   const baseline = materializeSmoothWorkspace();
   const injected = materializeSmoothWorkspace();
@@ -90,7 +90,7 @@ test('a supplemental obligation file cannot change the certificate', () => {
 });
 
 // @verifies C005
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a provisional record is rejected and never counted as held', () => {
   const workspace = materializeSmoothWorkspace();
   try {
@@ -124,14 +124,14 @@ test('a provisional record is rejected and never counted as held', () => {
 });
 
 // @verifies C005
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the production tree carries no remediation generator', () => {
   assert.equal(existsSync('.claude/scripts/smooth-sequences/remediation.mjs'), false);
   const runner = readFileSync('.claude/scripts/smooth-sequences/run.mjs', 'utf8');
   assert.doesNotMatch(runner, /REMEDIATION-OBLIGATIONS/);
 });
 
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-297 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-297 --for-spec --no-implementation-order`.
 test('--strict-freshness is a flag and the certificate carries generation counters', () => {
   const workspace = materializeSmoothWorkspace();
   try {
@@ -146,7 +146,7 @@ test('--strict-freshness is a flag and the certificate carries generation counte
   }
 });
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('a failing design-authoring gate makes a closure-mode run unproven and names the gate', () => {
   // The acceptance gate used to pass while the grill's obligation-coverage gate was red.
   // That allowed smooth passing to stand in for a closed pipeline. One failing closure

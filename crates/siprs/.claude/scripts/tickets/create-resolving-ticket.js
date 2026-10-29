@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-123: Create create-resolving-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123: Create create-resolving-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-123 --for-spec --no-implementation-order`.
 
 /**
  * create-resolving-ticket.js — find-omissions Step 1: auto-create a resolving ticket.
@@ -29,6 +29,9 @@ const SUGGESTED_REWRITE_ORDER = '`title` → `background` → `scope` → `accep
 /** Relational fields inherited from the clone that must never be overwritten. */
 const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `referenceUrls`, `sourcePaths`, `rfcDiscrepancies`';
 
+/** The runnable commands in the guidance resolve this directory from any working directory. */
+const TICKETS_SCRIPT_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/tickets';
+
 // -- Pure helpers (exported for testing) --
 
 /**
@@ -41,8 +44,8 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
  * @returns {{ success: true, key: string, ticket: object, data: object }
  *          |{ success: false, error: string, errors?: string[] }}
  */
-// [::TICKET::] PX-123: createResolvingTicket. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123: createResolvingTicket. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-123 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function createResolvingTicket({ ticketsData, sourceKey, seed, stubs = [] }) {
   const res = createTicketFromSource({ ticketsData, sourceKey, seed });
   if (!res.success) return res;
@@ -61,8 +64,8 @@ function createResolvingTicket({ ticketsData, sourceKey, seed, stubs = [] }) {
  * @param {{ key: string, sourceKey: string }} params — New key and source key
  * @returns {string} — Markdown guidance
  */
-// [::TICKET::] PX-123: buildMarkdownGuidance. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123: buildMarkdownGuidance. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-123 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function buildMarkdownGuidance({ key, sourceKey }) {
   return [
     '## Created: ' + key,
@@ -74,7 +77,7 @@ function buildMarkdownGuidance({ key, sourceKey }) {
     'The new ticket carries ' + sourceKey + '\'s previous spec. Verify before editing:',
     '',
     '```bash',
-    'node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="' + key + '" --for-spec',
+    'node "' + TICKETS_SCRIPT_DIR + '/show-ticket-context.js" --ticket-key="' + key + '" --for-spec',
     '```',
     '',
     '### 2. Rewrite OLD → NEW (one field at a time)',
@@ -86,7 +89,7 @@ function buildMarkdownGuidance({ key, sourceKey }) {
     'Example (single field):',
     '',
     '```bash',
-    'echo \'{"title":"..."}\' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "' + key + '"',
+    'echo \'{"title":"..."}\' | node "' + TICKETS_SCRIPT_DIR + '/update-ticket.js" "Tickets.json" "' + key + '"',
     '```',
     '',
     '### 3. PRESERVE — do not touch',
@@ -100,8 +103,8 @@ function buildMarkdownGuidance({ key, sourceKey }) {
  * @param {string[]} [argv] — Arguments (defaults to process.argv.slice(2))
  * @returns {{ sourceKey: string|null, stubs: Array, tickets: string }}
  */
-// [::TICKET::] PX-123: parseArgs. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123: parseArgs. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-123 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv || process.argv.slice(2);
   const parsed = { sourceKey: null, stubs: [], tickets: 'Tickets.json' };
@@ -120,7 +123,7 @@ function parseArgs(argv) {
 // -- CLI entry point --
 
 /** Read all of stdin as a string. */
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function readStdin() {
   return new Promise((resolve) => {
     let chunks = '';
@@ -129,7 +132,7 @@ function readStdin() {
   });
 }
 
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 async function main() {
   const { sourceKey, stubs, tickets } = parseArgs();
   if (!sourceKey) {

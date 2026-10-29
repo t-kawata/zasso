@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 
 /**
  * Unit tests for scope-detection-constants.js.
@@ -23,7 +23,7 @@ before(() => {
 });
 
 describe("scope-detection-constants", () => {
-  // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  // [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   // `.mjs` joined the set in P22-4: the reverse-rotation toolchain is ESM, so
   // without it no file under workspacify-reverse/ could carry its annotation.
   // `.cjs` joined in PX-209 for the same reason, one generation later: 134

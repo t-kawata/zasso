@@ -29,7 +29,7 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/obligation.mjs';
 
 /** One boundary between two packages, in the shape the allocate manifest carries. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function contractBetween(provider, consumer, boundaryId) {
   return {
     contract_id: `contract-${boundaryId}`,
@@ -42,7 +42,7 @@ function contractBetween(provider, consumer, boundaryId) {
   };
 }
 
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function artifactWith(operations, enumerations) {
   return {
     pins: { enumerations: enumerations.map((entry) => ({ ...entry, closedness: `closed: ${entry.name}` })) },
@@ -195,7 +195,7 @@ test('C002 the obligation source is one of three named states', () => {
 // ---------------------------------------------------------------------------
 
 /** A package root on disk holding one package directory or more. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function packageRootWith(entries) {
   const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px260-obligation-'));
   for (const [relativeDirectory, files] of Object.entries(entries)) {
@@ -207,13 +207,13 @@ function packageRootWith(entries) {
 }
 
 /** A record as a run writes it, with the ground every judgment carries. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function recordFor({ serves = [], assignments = [], version = 1 } = {}) {
   return JSON.stringify({ version, serves, assignments });
 }
 
 /** The artifact two operations and one sequence, with a verb vocabulary. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
 function artifactWithSequence() {
   return {
     ...artifactWith([{ id: 'R-0001', verb: 'object.get' }, { id: 'R-0002', verb: 'object.get' }], [{ name: 'VerbMethod', members: ['object.get'] }]),

@@ -207,7 +207,7 @@ function samePackageReference() {
 // PX-326: the presented division of labour and operation obligations must reach the test
 // plan. These fixtures keep the existing local-step and ctr checks green so each new
 // finding is isolated.
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function foreignView({ crosses = ['boundary:boundary-001'] } = {}) {
   return {
     packageId: 'pkg-1',
@@ -224,7 +224,7 @@ function foreignView({ crosses = ['boundary:boundary-001'] } = {}) {
   };
 }
 
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function foreignTicketsDocument() {
   return {
     phases: [{
@@ -237,7 +237,7 @@ function foreignTicketsDocument() {
   };
 }
 
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function foreignTicket(overrides = {}) {
   return ticket({
     id: 2,

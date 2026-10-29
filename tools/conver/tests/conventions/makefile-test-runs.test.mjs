@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
  * answers a question about a different project, and it answers it plausibly — the
  * assertions below ran green against the wrong file before this walk replaced it.
  */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function nearestMakefileFrom(startDirectory) {
   let directory = startDirectory;
   for (;;) {
@@ -79,7 +79,7 @@ const HEAVY_TARGETS_VARIABLE = 'HEAVY_TEST_TARGETS';
  * would miss an exclusion carried on a continuation, and reading only the first
  * line would miss a tree named on a later one.
  */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function recipesByTarget(makefileText) {
   const recipes = new Map();
   const lines = makefileText.split('\n');
@@ -103,14 +103,14 @@ function recipesByTarget(makefileText) {
 }
 
 /** The value of a `NAME := value` or `NAME = value` assignment, or null. */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function variableValue(makefileText, name) {
   const assignment = new RegExp(`^${name}\\s*[:?]?=\\s*(.*)$`, 'm').exec(makefileText);
   return assignment ? assignment[1].trim() : null;
 }
 
 /** The targets named by `HEAVY_TEST_TARGETS`, as a list. */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function declaredHeavyTargets(makefileText) {
   const value = variableValue(makefileText, HEAVY_TARGETS_VARIABLE);
   return value === null ? null : value.split(/\s+/).filter((entry) => entry !== '');
@@ -120,7 +120,7 @@ const MAKEFILE_TEXT = readFileSync(MAKEFILE_PATH, 'utf8');
 const RECIPES = recipesByTarget(MAKEFILE_TEXT);
 
 /** The targets whose recipe reaches the deferred tree at all. */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function targetsReachingDeferredTree() {
   return [...RECIPES]
     .filter(([, recipe]) => recipe.includes(DEFERRED_TREE))

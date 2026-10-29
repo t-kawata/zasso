@@ -1,5 +1,5 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 // The inquest (PX-243, contracts C001-C006).
 //
 // The loop-back edges push a declaration and its readings until the checks are quiet, and
@@ -65,7 +65,7 @@ const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences
 const PREDICATE = predicateFor(golden.pins.predicate.limbs, readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname).lines);
 
 /** Whitespace collapsed, which is how a quote broken across a line break is compared. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function normalised(text) {
   return String(text).replace(/\s+/g, ' ').trim();
 }
@@ -79,7 +79,7 @@ const PHASE_IDENTITY = Object.freeze([
 ]);
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-inquest-'));
   const specPath = join(root, 'ledger.md');
@@ -88,13 +88,13 @@ function scratchRun() {
 }
 
 /** The subjects a declaration puts to the audit: its sections and its entries. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 // The escapes are subjects too: an operation no step performs is the reading a run could
 // excuse and then forget, so it is asked under every lens. The set is read from the
 // fixture's own operation records rather than written here.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const ESCAPE_POSITIONS = ['suppliedRule', 'excluded'];
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function subjectsOf(declaration) {
   const escaped = RUN_INPUT.readings.operations
     .filter((operation) => ESCAPE_POSITIONS.includes(operation.position))
@@ -103,7 +103,7 @@ function subjectsOf(declaration) {
 }
 
 /** The line an answer for a subject rests on, and the quote it carries. */
-// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function groundingFor(specLines, declaration, subject) {
   // An escape is asked about as an operation, so its span is the line its own grounding
   // names rather than a section: the declaration holds no record for an operation, and the
@@ -119,7 +119,7 @@ function groundingFor(specLines, declaration, subject) {
 }
 
 /** One answer, in the shape the file carries. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function answerFor(specLines, declaration, subject, lens, overrides = {}) {
   return {
     subject,
@@ -133,7 +133,7 @@ function answerFor(specLines, declaration, subject, lens, overrides = {}) {
 }
 
 /** Every pair the declaration puts, answered. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function coveringAnswers(specLines, declaration, { omit = null, overrides = {} } = {}) {
   return subjectsOf(declaration).flatMap((subject) => INQUEST_LENSES
     .filter((lens) => !(omit !== null && omit.subject === subject && omit.lens === lens))
@@ -141,14 +141,14 @@ function coveringAnswers(specLines, declaration, { omit = null, overrides = {} }
 }
 
 /** Write an inquest readings file into a run directory. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function writeInquest(directory, records) {
   mkdirSync(directory, { recursive: true });
   writeReadingsFile(join(directory, INQUEST_FILE), records);
 }
 
 /** Seed a run directory with the fixture's declaration, readings and audit. */
-// [::TICKET::] PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seed(directory, specLines, declaration, { omit = null } = {}) {
   writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -162,7 +162,7 @@ function seed(directory, specLines, declaration, { omit = null } = {}) {
 }
 
 /** A context whose earlier phases are recorded done, so one phase can be entered. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function contextThrough(id, declaration = RUN_INPUT.declaration) {
   const scratch = scratchRun();
   const run = startRun({ specPath: scratch.specPath, spec: scratch.spec });
@@ -177,13 +177,13 @@ function contextThrough(id, declaration = RUN_INPUT.declaration) {
 }
 
 /** Run the phase driver as the command file runs it. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function phase(argv) {
   return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd: PROJECT_ROOT, encoding: 'utf8' });
 }
 
 /** The verdicts one check returned, out of a whole block. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function verdictsOf(id, inquest, specLines) {
   return checkAll({ specLines, artifact: golden, recorded: { inquest } }).verdicts.filter((verdict) => verdict.check === id);
 }
@@ -307,7 +307,7 @@ test('C003 an answer outside the declared set is refused by the placement check,
   assert.equal(new RegExp(INQUEST_ANSWERS.join(', ')).test(verdicts[0].reason), true);
 });
 
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 test('C003 the two vocabularies have one source, and neither the command file nor the brief restates them', () => {
   assert.deepEqual([...INQUEST_LENSES], ['omission', 'contradiction', 'deficiency', 'risk']);
   assert.deepEqual([...INQUEST_ANSWERS], ['Yes', 'No', 'A', 'B', 'C']);
@@ -399,7 +399,7 @@ test('C005 the questions cross the declared subjects with the lenses and carry t
   assert.equal(typeof matched.question, 'string');
 });
 
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 test('C005 the rendered brief names each subject, each lens and the previous answer', () => {
   const { spec } = scratchRun();
   const declaration = RUN_INPUT.declaration;
@@ -414,7 +414,7 @@ test('C005 the rendered brief names each subject, each lens and the previous ans
   assert.equal(rendered.includes(INQUEST_ANSWERS.join(' / ')), true);
 });
 
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 test('C005 every declared pair renders once, and a pair the previous generation never answered is not dropped', () => {
   const { spec } = scratchRun();
   const declaration = RUN_INPUT.declaration;
@@ -497,7 +497,7 @@ test('C006 a vacuous audit and an unanswered audit do not print alike', () => {
 // The checks and the block
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('the four inquest checks run inside the block, and a missing audit is not a finding', () => {
   const { spec } = scratchRun();
   const without = checkAll({ specLines: spec.lines, artifact: golden });

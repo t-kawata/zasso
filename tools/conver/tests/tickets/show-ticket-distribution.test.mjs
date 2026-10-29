@@ -17,7 +17,7 @@ import {
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const VIEWER = path.join(PROJECT_ROOT, '.claude/scripts/tickets/show-ticket-distribution.js');
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function fixtureTickets() {
   return {
     phases: [{
@@ -48,7 +48,7 @@ function fixtureTickets() {
   };
 }
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function withPackage(body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px308-viewer-'));
   try {

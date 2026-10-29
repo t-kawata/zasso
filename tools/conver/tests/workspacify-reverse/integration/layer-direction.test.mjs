@@ -1,4 +1,4 @@
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -45,9 +45,9 @@ import {
 } from '../../../tests/lib/layer-direction.mjs';
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-206 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-206 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 const require$cjs = createRequire(import.meta.url);
 
 // ---------------------------------------------------------------------------
@@ -304,7 +304,7 @@ const IMPORT_SPECIFIER_PATTERNS = Object.freeze([
 ]);
 
 /** Every specifier in a file's text that resolves into the conver layer. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function converSpecifiersIn(sourceText, filePath) {
   const found = [];
   for (const pattern of IMPORT_SPECIFIER_PATTERNS) {
@@ -318,7 +318,7 @@ function converSpecifiersIn(sourceText, filePath) {
 }
 
 /** Every file beneath a directory, as absolute paths, following the scan's exclusions. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function sourceFilesUnder(directory) {
   const found = [];
   for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {

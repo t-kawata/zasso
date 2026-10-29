@@ -159,7 +159,7 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
  *   3. If the path lives under the user's home directory, prefix it with `~`.
  *   4. Otherwise keep the absolute path unchanged.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function makeRelative(absPath, base) {
   try {
     const fromSrc = keepFromSrcDir(absPath);
@@ -206,7 +206,7 @@ function keepFromSrcDir(absPath) {
  * the result with the input is what tells the two cases apart — and having one converter
  * rather than a second copy of the rule beside it is what stops the two from drifting.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function homeRelativeOrNull(absPath) {
   const converted = toHomeRelative(absPath);
   return converted === absPath ? null : converted;
@@ -548,9 +548,9 @@ function renderObligationElement(element) {
  * {boundary, direction} records. Joining the raw array would print "[object Object]"
  * and erase the only contract the implementer can plan against.
  */
-// [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-72, PX-75, PX-87, PX-231, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-72|PX-75|PX-87|PX-231|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderObligationValue(value) {
   if (Array.isArray(value)) {
     const rendered = value.map(renderObligationElement).filter((text) => text.length > 0);
@@ -565,7 +565,7 @@ function renderObligationValue(value) {
 }
 
 /** The prose of one typed fact array, or an empty string. */
-// [::TICKET::] PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderFactText(facts) {
   return (Array.isArray(facts) ? facts : [])
     .map((fact) => (typeof fact === 'string' ? fact : (fact?.text ?? fact?.factId ?? '')))
@@ -574,19 +574,19 @@ function renderFactText(facts) {
 }
 
 /** The four axes the prose pre/post/invariant labels do not cover. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 const EXTRA_CONTRACT_AXES = CONTRACT_AXES;
 
 /** One contract axis as a Markdown line, or null when the axis is empty. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function renderContractAxis(contract, axis) {
   const text = renderFactText(contract?.[axis]);
   return text.length > 0 ? `${axis}: ${text}` : null;
 }
 
 /** The typed axes of one Work Share step, in the vocabulary the delivery gate reads. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function renderStepAxes(step) {
   const parts = EXTRA_CONTRACT_AXES
     .map((axis) => {
@@ -598,7 +598,7 @@ function renderStepAxes(step) {
 }
 
 /** The contract a ticket carries for one boundary, or undefined. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function ticketBoundaryContract(ticket, boundaryId) {
   return (Array.isArray(ticket?.contracts) ? ticket.contracts : []).find((candidate) => candidate?.boundaryId === boundaryId
     || candidate?.registryContractId === `contract-${boundaryId}`
@@ -606,10 +606,10 @@ function ticketBoundaryContract(ticket, boundaryId) {
 }
 
 /** The Work Share block: own work, shared work, carried boundaries and crossed boundaries. */
-// [::TICKET::] PX-324, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-324|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function renderWorkShare(ticket, { ticketsDocument = null, view = null, registry = [] } = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   const sequenceUnits = units.filter((unit) => unit?.kind === 'sequence'
@@ -739,7 +739,7 @@ function renderImplementationPrerequisites(ticket, tickets) {
 }
 
 /** The distribution units of a ticket as a spec section, or null when the ticket has none. */
-// [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
 function renderDistributionObligations(ticket, options = {}) {
   const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return null;
@@ -1199,7 +1199,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   }
 
   // Reference URLs
-  // [::TICKET::] PX-72, PX-75, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87) --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-72, PX-75, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-72|PX-75|PX-87) --for-spec --no-implementation-order`.
   if (ticket.referenceUrls && ticket.referenceUrls.length > 0) {
     lines.push('## Reference URLs');
     lines.push('');
@@ -1252,8 +1252,8 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-324 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-324 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-324 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey, forSpec, noImplementationOrder, plan, review } = parseArgs();
 

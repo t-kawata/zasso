@@ -16,7 +16,7 @@ import {
 import { runChecks } from '../../.claude/scripts/sequences-slice/verify.mjs';
 
 /** A projection reproducing the shapes measured on the live workspace. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function liveShapedProjection(overrides = {}) {
   const operations = [
     {
@@ -90,7 +90,7 @@ function liveShapedProjection(overrides = {}) {
 }
 
 /** A projection with one thing broken, named so a failure says which check moved. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function broken(name) {
   const projection = liveShapedProjection();
   if (name === 'C1') projection.artifact.operations[0].initial_status = 'soulbound';
@@ -105,7 +105,7 @@ function broken(name) {
   return projection;
 }
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C005 the five pinned vocabularies are read by name from pins.enumerations', () => {
   const vocabularies = readPinnedVocabularies(liveShapedProjection().artifact);
   assert.deepEqual([...vocabularies.keys()].sort(), [...PINNED_VOCABULARY_NAMES].sort());
@@ -114,7 +114,7 @@ test('C005 the five pinned vocabularies are read by name from pins.enumerations'
   assert.throws(() => readPinnedVocabularies({ pins: { enumerations: [] } }), /OperationStatus/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C005 a name the artifact uses that its vocabulary does not carry is reported with the token', () => {
   const findings = runChecks({ projection: broken('C1') }).checks.C1;
   assert.equal(findings.length, 1);
@@ -123,7 +123,7 @@ test('C005 a name the artifact uses that its vocabulary does not carry is report
   assert.match(findings[0].message, /OperationStatus/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C002 ownership closure is bidirectional: an owned claim absent from the inventory is an omission', () => {
   const findings = runChecks({ projection: broken('C2') }).checks.C2;
   assert.equal(findings.length, 1);
@@ -131,7 +131,7 @@ test('C002 ownership closure is bidirectional: an owned claim absent from the in
   assert.match(findings[0].message, /claim-000001/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C003 a declared clause key the registry does not carry is reported naming the boundary and the key', () => {
   const findings = runChecks({ projection: broken('C3') }).checks.C3;
   assert.equal(findings.length, 1);
@@ -140,7 +140,7 @@ test('C003 a declared clause key the registry does not carry is reported naming 
   assert.match(findings[0].message, /ordering/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C004 sections and the named preamble together account for every specification line', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }).checks.C4, []);
@@ -150,7 +150,7 @@ test('C004 sections and the named preamble together account for every specificat
   assert.match(findings[0].message, /91/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C005 a fact table missing a required field is reported', () => {
   const findings = runChecks({ projection: broken('C5') }).checks.C5;
   assert.equal(findings.length, 1);
@@ -158,7 +158,7 @@ test('C005 a fact table missing a required field is reported', () => {
   assert.match(findings[0].message, /required_authority/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C006 a transition to a status outside OperationStatus is reported, while a terminal status with no key is not', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }).checks.C6, [], 'a successor that is a member but never a key is terminal, not a fault');
@@ -167,7 +167,7 @@ test('C006 a transition to a status outside OperationStatus is reported, while a
   assert.match(findings[0].message, /soulbound/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C007 the reject-code families are checked for their own consistency, not against clause prose', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }).checks.C7, []);
@@ -180,7 +180,7 @@ test('C007 the reject-code families are checked for their own consistency, not a
   assert.match(findings[0].message, /IssueCertificate/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C008 a spec line outside every section is reported', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }).checks.C8, []);
@@ -189,7 +189,7 @@ test('C008 a spec line outside every section is reported', () => {
   assert.match(findings[0].message, /999/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C009 a state machine owned by two packages is reported as a contradiction', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }).checks.C9, []);
@@ -198,7 +198,7 @@ test('C009 a state machine owned by two packages is reported as a contradiction'
   assert.match(findings[0].message, /req-000029/);
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C001 no check fires on the measured shape, so the whole set is silent on a sound workspace', () => {
   const result = runChecks({ projection: liveShapedProjection() });
   assert.deepEqual(Object.keys(result.checks).sort(), ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']);
@@ -208,7 +208,7 @@ test('C001 no check fires on the measured shape, so the whole set is silent on a
   assert.deepEqual(result.summary, { high: 0, low: 0, total: 0 });
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C001 each check reports its own findings, so one broken axis does not mask another', () => {
   const result = runChecks({ projection: broken('C3') });
   assert.equal(result.checks.C3.length, 1);
@@ -220,7 +220,7 @@ test('C001 each check reports its own findings, so one broken axis does not mask
   }
 });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 test('C001 the check set reads only the projection, so it is a function of what it was given', () => {
   const projection = liveShapedProjection();
   assert.deepEqual(runChecks({ projection }), runChecks({ projection }));

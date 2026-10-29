@@ -1,4 +1,4 @@
-// [::TICKET::] PX-196 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-196 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-196 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-196 --for-spec --no-implementation-order`.
 // PX-196 @verifies C001
 // Stage 1 must say which specification segments carry material: a segment with no
 // harvested item is prose that no seed owes, while a segment with items must be
@@ -14,7 +14,7 @@ import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run.mjs', import.meta.url));
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 every published segment declares the inventory it carries', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-own-'));
   try {

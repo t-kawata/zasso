@@ -38,19 +38,19 @@ export const SMOOTH_VERDICT_CODES = Object.freeze({
 });
 
 /** One named finding. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
   return { code, subject: subject ?? null, message };
 }
 
 /** The sha256 of a file the gate reads. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function sha256File(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 /** A JSON document, or null when it is absent or malformed. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function readJsonOrNull(filePath) {
   if (!existsSync(filePath)) return null;
   try {
@@ -61,7 +61,7 @@ function readJsonOrNull(filePath) {
 }
 
 /** Whether a smooth status is a pass. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function verdictIsPass(status) {
   const verdict = status?.verdict ?? {};
   return verdict.exitCode === 0
@@ -72,7 +72,7 @@ export function verdictIsPass(status) {
 }
 
 /** The digest smooth-sequences/run.mjs computes over the frozen design snapshot. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function computeInputDigest(root) {
   const snapshot = snapshotDesignFiles(root);
   const lines = Object.keys(snapshot).sort().map((path) => `${path}\u0000${snapshot[path]}`);
@@ -91,7 +91,7 @@ export function computeInputDigest(root) {
  * @param {string} root
  * @returns {Record<string, string|null>}
  */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function collectViewDigests(root) {
   const tree = readJsonOrNull(join(root, TREE_MANIFEST_FILE_NAME));
   const digests = {};
@@ -117,7 +117,7 @@ const DISTRIBUTION_MAP_BLOCK = /```json\s+distribution-map\s*\n([\s\S]*?)\n```/;
  * @param {string} root
  * @returns {Record<string, string|null>}
  */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 export function collectMapDigests(root) {
   const tree = readJsonOrNull(join(root, TREE_MANIFEST_FILE_NAME));
   const digests = {};
@@ -137,26 +137,26 @@ export function collectMapDigests(root) {
 }
 
 /** The workspace root that owns the package, or null outside a workspacify workspace. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function findWorkspaceRoot(packageDir) {
   const manifest = findAllocateManifest(packageDir);
   return manifest === null ? null : dirname(manifest);
 }
 
 /** The single root artifact, or null when it is absent or ambiguous. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function rootArtifactPath(root) {
   return findSingleSiblingPath(root, '-sequences.json');
 }
 
 /** The receipt, or null. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function readSmoothReceipt(root) {
   return readJsonOrNull(join(root, SMOOTH_VERDICT_RECEIPT_NAME));
 }
 
 /** Write the receipt by staging it beside its target and renaming it into place. */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function writeSmoothReceipt(root, receipt) {
   const target = join(root, SMOOTH_VERDICT_RECEIPT_NAME);
   const staged = `${target}.partial.${process.pid}`;
@@ -170,7 +170,7 @@ function writeSmoothReceipt(root, receipt) {
  * @param {{ packageDir: string, writeReceipt?: boolean }} input
  * @returns {{ ok: boolean, skipped?: string, findings: Array<object>, receipt: object|null }}
  */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
   const workspaceRoot = findWorkspaceRoot(packageDir);
   if (workspaceRoot === null) {
@@ -269,7 +269,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
  * @param {string} packageDir
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function verifySmoothReceipt(packageDir) {
   const workspaceRoot = findWorkspaceRoot(packageDir);
   if (workspaceRoot === null) return [];

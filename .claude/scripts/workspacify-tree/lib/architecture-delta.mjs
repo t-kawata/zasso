@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 /**
  * T5 — the separation of the logical architecture from the physical layout (§6.3).
  *
@@ -42,7 +42,7 @@ import { sha256Hex } from './hash.mjs';
 import { GATE_STATUS, WorkSpacifyTreeError } from './errors.mjs';
 
 /** The artefact this gate judges and the operator authors. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 export const ARCHITECTURE_DELTA_FILE_NAME = 'ARCHITECTURE-DELTA.json';
 
 /** The gate identifier, named once so report, tests and design cannot disagree. */
@@ -136,7 +136,7 @@ export function assertSingleMeasurement({ measurement, partitions }) {
 }
 
 /** True when `candidate` lies strictly beneath `packagePath`, the root excluded. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function isStrictlyBeneath(candidate, packagePath) {
   if (packagePath === ROOT_PACKAGE_PATH) return false;
   const normalized = String(packagePath).replace(/\/+$/, '');
@@ -255,7 +255,7 @@ export function readPriorPartition(dirsTreePath) {
 }
 
 /** Every directory node of a Dirs-Tree, as a root-relative path. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function collectDirectoryPaths(node, prefix, found) {
   if (!node || typeof node !== 'object') return;
 

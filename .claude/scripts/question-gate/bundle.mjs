@@ -21,7 +21,7 @@ export const MAX_AXES_PER_ROUND = 3;
  * @param {number} openCount
  * @returns {number}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function floorFor(openCount) {
   return openCount < MAX_POINTS_PER_AXIS_FLOOR ? 1 : MAX_POINTS_PER_AXIS_FLOOR;
 }

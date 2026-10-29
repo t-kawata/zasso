@@ -63,7 +63,7 @@ const EXIT_FAILURE = 1;
  * @returns {{ graphPath: string, sourcePath: string, nodeIds: string[], hops: number }}
  * @throws {Error} When arguments are invalid
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArguments(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
   const cwd = options.cwd || process.cwd();
@@ -402,7 +402,7 @@ function renderChildTree(parentId, depth, childMap, graph, lines) {
  * @param {number} headingLineIndex — 0-based index of the heading line
  * @returns {string|null} Extracted body text, or null on failure
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractSectionContent(sourceLines, headingLineIndex) {
   if (!Array.isArray(sourceLines) || sourceLines.length === 0) return null;
   if (headingLineIndex < 0 || headingLineIndex >= sourceLines.length)
@@ -446,7 +446,7 @@ function extractSectionContent(sourceLines, headingLineIndex) {
  *   backward compatibility and is read as depthMap.
  * @returns {string} Markdown formatted string
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function formatNodeMarkdown(node, edges, graph, sourceText, options = {}) {
   const resolvedOptions = options ?? {};
   const depthMap = resolvedOptions instanceof Map
@@ -595,7 +595,7 @@ function printError(message, cause, action) {
  *
  * @param {string} [text] — Line body
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function writeLine(text = '') {
   process.stdout.write(text + '\n');
 }
@@ -607,7 +607,7 @@ function writeLine(text = '') {
 /**
  * Display usage instructions
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function printUsage() {
   writeLine(
     "query.js — Multi-hop graph exploration\n" +

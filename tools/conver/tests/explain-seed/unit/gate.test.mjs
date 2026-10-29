@@ -49,25 +49,25 @@ const E5_TITLE = FRAME_SECTIONS[4].title;
 const E6_TITLE = FRAME_SECTIONS[5].title;
 
 /** The recorded points the fixture records, which one question can bind in a single answer. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function boundIdsOf(facts = syntheticFacts()) {
   return syntheticOpenIds(facts.projection);
 }
 
 /** An authored EXPLAIN built from the given facts: one question binding every recorded point. */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function authored(facts = syntheticFacts()) {
   return authorExplanation({ facts, boundIds: boundIdsOf(facts) });
 }
 
 /** The fault kinds a verdict reports, for assertions that care about which rule fired. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function faultKinds(verdict) {
   return verdict.faults.map((fault) => fault.kind);
 }
 
 /** The question label the gate names a question by, read from its heading. */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function firstAskedQuestion(documentText) {
   const located = locateSections(documentText);
   const [item] = splitItems(located.bodies[HUMAN_SECTION_ID] ?? '', HUMAN_ITEM_HEADING);
@@ -83,7 +83,7 @@ function firstAskedQuestion(documentText) {
  * the caller would allow a replacement that prepends a line to land on the heading itself,
  * which is how a test stops testing what it meant to.
  */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function rewriteSection(documentText, title, replace) {
   const heading = `## ${title}`;
   const start = documentText.indexOf(heading);
@@ -146,7 +146,7 @@ test('C006 invariant: a recorded open item that disappeared is refused, and the 
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C006 invariant: a point a question binds and an answer then settles is the end state, not a fault', () => {
   const facts = syntheticFacts();
   const settled = authorDocument({
@@ -192,7 +192,7 @@ test('C005 invariant: an item that names no affected party is refused by section
   assert.ok(verdict.faults.some((fault) => fault.kind === 'unnamed-party' && fault.section === 'E5'));
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C002 invariant: a question carrying no context of its own is refused, naming the section and the question', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -207,7 +207,7 @@ test('C002 invariant: a question carrying no context of its own is refused, nami
   );
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C002 boundary: an empty context and one still carrying its instruction are both no context', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -227,7 +227,7 @@ test('C002 boundary: an empty context and one still carrying its instruction are
   }
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C002 invariant: the context omission is reported alongside the four direction omissions', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -249,7 +249,7 @@ test('C002 invariant: the context omission is reported alongside the four direct
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C004 postcondition: a question binding one point while two or more are open is refused, naming the section and the question', () => {
   const facts = syntheticFacts();
   const thin = authorDocument({ facts, questions: [{ number: 1, bound: ['residual-000001'] }] });
@@ -261,7 +261,7 @@ test('C004 postcondition: a question binding one point while two or more are ope
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C004 boundary: a question binding exactly two points is accepted by that rule', () => {
   const facts = syntheticFacts();
   const pair = authorDocument({ facts, questions: [{ number: 1, bound: ['residual-000001', 'boundary-001'] }] });
@@ -273,7 +273,7 @@ test('C004 boundary: a question binding exactly two points is accepted by that r
   assert.equal(MIN_BOUND_POINTS, 2, 'the declared minimum is what the rule enforces');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C004 boundary: the two-point rule is exempt when fewer than two points are open, decided by the open count alone', () => {
   const onePoint = syntheticProjection({
     grill: {
@@ -290,7 +290,7 @@ test('C004 boundary: the two-point rule is exempt when fewer than two points are
   assert.equal(verdict.faults.some((fault) => fault.kind === 'too-few-bound-points'), false, 'the exemption is decided by the open count alone');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C006 boundary: a question binding one point is accepted when one point is unsettled, however many are recorded', () => {
   const facts = syntheticFacts();
   const explainText = authorDocument({
@@ -308,7 +308,7 @@ test('C006 boundary: a question binding one point is accepted when one point is 
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C004 postcondition: a bound id the manifests never recorded is refused as an unrecorded decision', () => {
   const facts = syntheticFacts();
   const stray = authorDocument({ facts, questions: [{ number: 1, bound: ['residual-000001', 'obj-000001'] }] });
@@ -317,7 +317,7 @@ test('C004 postcondition: a bound id the manifests never recorded is refused as 
   assert.ok(verdict.faults.some((fault) => fault.kind === 'unrecorded-decision' && fault.id === 'obj-000001'));
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C004 postcondition: a question carrying no scope line is refused, naming the section and the question', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -330,7 +330,7 @@ test('C004 postcondition: a question carrying no scope line is refused, naming t
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C006 postcondition: a pre-decision grounded on an answered question is accepted by the gate', () => {
   const facts = syntheticFacts();
   const accepted = verifyExplanation({
@@ -345,7 +345,7 @@ test('C006 postcondition: a pre-decision grounded on an answered question is acc
   assert.equal(accepted.faults.some((fault) => fault.kind === 'unresolvable-ground'), false, 'an answered question is a ground');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C006 error case: a pre-decision grounded on a question this document does not ask is refused', () => {
   const facts = syntheticFacts();
   const verdict = verifyExplanation({
@@ -360,7 +360,7 @@ test('C006 error case: a pre-decision grounded on a question this document does 
   assert.ok(verdict.faults.some((fault) => fault.kind === 'unknown-question-as-ground' && fault.section === 'E6'));
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C006 error case: a pre-decision grounded on a question that carries no answer is refused', () => {
   const facts = syntheticFacts();
   const verdict = verifyExplanation({
@@ -375,7 +375,7 @@ test('C006 error case: a pre-decision grounded on a question that carries no ans
   assert.ok(verdict.faults.some((fault) => fault.kind === 'unanswered-question-as-ground' && fault.section === 'E6'));
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C006 invariant: a recorded open point is refused as a ground whether it is unattached or bound to a question', () => {
   const facts = syntheticFacts();
   const verdict = verifyExplanation({ facts, explainText: authored(facts) });
@@ -464,7 +464,7 @@ test('C007 invariant: the gate accepts exactly the documents the counter calls c
   assert.equal(verifyExplanation({ facts, explainText: withMarker }).ok, false);
 });
 
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 test('C003 postcondition: a neighbour\'s decision satisfies the gate, and the human is asked one question fewer', () => {
   const facts = syntheticFacts({ projection: syntheticProjection({ settledElsewhere: SETTLED_ELSEWHERE }) });
   const verdict = verifyExplanation({ facts, explainText: authored(facts) });
@@ -491,7 +491,7 @@ test('C003 invariant: an item the manifests no longer record as open is refused 
 });
 
 /** One thing taken out of an authored document, and the fault taking it out must produce. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 const OMISSIONS = [
   ['too-few-options', (text) => text.replace(/^ {2}B: .*$/m, '')],
   ['missing-recommendation', (text) => text.replace(new RegExp(`- ${RECOMMENDATION_LABEL}:\\n[^\\n]*`), `- ${RECOMMENDATION_LABEL}:`)],
@@ -505,7 +505,7 @@ const OMISSIONS = [
   ],
 ];
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 postcondition: each omission from a question is refused, naming the section and the question', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -522,7 +522,7 @@ test('C002 postcondition: each omission from a question is refused, naming the s
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 invariant: the directions a document offers are its own, so a third is judged against itself', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -544,7 +544,7 @@ test('C002 invariant: the directions a document offers are its own, so a third i
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 boundary: either colon opens a direction, so a full-width one is not a silent omission', () => {
   const facts = syntheticFacts();
   const withFullWidthColon = authored(facts).replace(/^ {2}A: /m, '  A： ');
@@ -552,7 +552,7 @@ test('C002 boundary: either colon opens a direction, so a full-width one is not 
   assert.equal(verifyExplanation({ facts, explainText: withFullWidthColon }).ok, true);
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 invariant: the four omissions are reported independently', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -570,7 +570,7 @@ test('C002 invariant: the four omissions are reported independently', () => {
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C002 invariant: a package that asks the human nothing carries none of the per-question omissions', () => {
   const facts = syntheticFacts({ projection: syntheticProjection({ grill: { questions: [], risky_boundaries: [] } }) });
   const verdict = verifyExplanation({ facts, explainText: authorDocument({ facts, questions: [] }) });
@@ -583,7 +583,7 @@ test('C002 invariant: a package that asks the human nothing carries none of the 
 const COMMAND_FILE = fileURLToPath(new URL('../../../.claude/commands/explain-seed.md', import.meta.url));
 
 /** One numbered item of the command file's flow, up to the next item. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function flowItem(commandFile, number) {
   const flowStart = commandFile.indexOf('\n## Flow');
   assert.notEqual(flowStart, -1, 'the command file has a flow to read');
@@ -596,7 +596,7 @@ function flowItem(commandFile, number) {
 }
 
 /** The `## ` section carrying a given block — found by the block, not by the section's own name. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function sectionAround(commandFile, token) {
   const at = commandFile.indexOf(token);
   assert.notEqual(at, -1, `the command file carries ${token}`);
@@ -605,7 +605,7 @@ function sectionAround(commandFile, token) {
   return end < 0 ? section : section.slice(0, end);
 }
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C005 postcondition: the command document carries the asking step and the gate that ends it', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const askingStep = flowItem(commandFile, 4);
@@ -618,7 +618,7 @@ test('C005 postcondition: the command document carries the asking step and the g
   assert.match(sectionAround(commandFile, '### Unfit'), /U9/, 'and so does the Unfit table');
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C005 invariant: the questions are put before anything is reported, not after', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const askingStep = flowItem(commandFile, 4);
@@ -633,7 +633,7 @@ test('C005 invariant: the questions are put before anything is reported, not aft
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C005 postcondition: the rules a question must satisfy are stated, and reach the instruction that builds it', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const rules = sectionAround(commandFile, '### The question');
@@ -645,7 +645,7 @@ test('C005 postcondition: the rules a question must satisfy are stated, and reac
   assert.match(rules, /script/i, 'and names the parts that are the script\'s job rather than the AI\'s');
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C005 invariant: adding the asking step leaves the criterion where the AI meets it', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 
@@ -660,14 +660,14 @@ test('C005 invariant: adding the asking step leaves the criterion where the AI m
 });
 
 /** An authored document whose first question offers exactly `count` directions, lettered from A. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function withDirections(documentText, count) {
   const letters = 'ABCDEFGH'.slice(0, count).split('');
   const block = letters.map((letter) => `  ${letter}: 却下は${letter}の形で返す。`).join('\n');
   return documentText.replace(new RegExp(`(- ${OPTIONS_LABEL}:\\n)(?: {2}[A-Z]: [^\\n]*\\n?)+`), `$1${block}\n`);
 }
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 invariant: two directions written under one letter are one choice, not two', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -682,7 +682,7 @@ test('C002 invariant: two directions written under one letter are one choice, no
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C002 boundary: the declared minimum is the number of directions a question must offer', () => {
   const facts = syntheticFacts();
   const complete = authored(facts);
@@ -699,7 +699,7 @@ test('C002 boundary: the declared minimum is the number of directions a question
   );
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C005 invariant: every table in the criteria section has as many cells per row as its header', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const lines = sectionAround(commandFile, '### The question').split('\n');
@@ -728,7 +728,7 @@ test('C005 invariant: every table in the criteria section has as many cells per 
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C005 postcondition: the asking step states what may be asked and how it is answered', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const askingStep = flowItem(commandFile, 4);
@@ -747,18 +747,18 @@ test('C005 postcondition: the asking step states what may be asked and how it is
 const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
 
 /** An authored EXPLAIN carrying one added-point block, ready for a surgery. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function withAddedPoint(facts = syntheticFacts()) {
   return appendAddedPoint(authored(facts), ADDED_POINT);
 }
 
 /** The fault kinds a verdict reports for one document. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function faultKindsOf(facts, explainText) {
   return verifyExplanation({ facts, explainText }).faults.map((fault) => fault.kind);
 }
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 error: an added-point id without the reserved prefix is refused as unreserved-added-point', () => {
   const facts = syntheticFacts();
   const unreserved = withAddedPoint(facts).replace('added-001', 'extra-001');
@@ -766,7 +766,7 @@ test('C002 error: an added-point id without the reserved prefix is refused as un
   assert.ok(faultKindsOf(facts, unreserved).includes('unreserved-added-point'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 error: an added-point id used twice is refused as duplicate-added-point', () => {
   const facts = syntheticFacts();
   const withBlock = withAddedPoint(facts);
@@ -774,7 +774,7 @@ test('C002 error: an added-point id used twice is refused as duplicate-added-poi
   assert.ok(faultKindsOf(facts, `${withBlock}${withBlock}`).includes('duplicate-added-point'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 error: an added-point id a recorded point already uses is refused as duplicate-added-point', () => {
   const facts = syntheticFacts();
   const collision = appendAddedPoint(authored(facts), {
@@ -786,7 +786,7 @@ test('C002 error: an added-point id a recorded point already uses is refused as 
   assert.ok(faultKindsOf(facts, collision).includes('duplicate-added-point'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 error: an added-point block carrying no origin is refused as uncited-added-point', () => {
   const facts = syntheticFacts();
   const uncited = withAddedPoint(facts).replace(/^- 出どころ:.*$/mu, '- 出どころ:');
@@ -794,7 +794,7 @@ test('C002 error: an added-point block carrying no origin is refused as uncited-
   assert.ok(faultKindsOf(facts, uncited).includes('uncited-added-point'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 error: an added-point block carrying no statement is refused as unstated-added-point', () => {
   const facts = syntheticFacts();
   const unstated = withAddedPoint(facts).replace(/^- 論点:.*$/mu, '- 論点:');
@@ -802,7 +802,7 @@ test('C002 error: an added-point block carrying no statement is refused as unsta
   assert.ok(faultKindsOf(facts, unstated).includes('unstated-added-point'));
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C003 normal: a question binding one recorded point and one added point is accepted', () => {
   const facts = syntheticFacts();
   const bound = bindPoints(withAddedPoint(facts), 'residual-000001, added-001');
@@ -812,7 +812,7 @@ test('C003 normal: a question binding one recorded point and one added point is 
   assert.equal(kinds.includes('too-few-bound-points'), false, 'two points are bound');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C003 error: an id that is neither recorded nor added still trips unrecorded-decision', () => {
   const facts = syntheticFacts();
   const stray = bindPoints(withAddedPoint(facts), 'residual-000001, ghost-001');
@@ -824,7 +824,7 @@ test('C003 error: an id that is neither recorded nor added still trips unrecorde
   );
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C006 error: a question binding one added point alone is refused as too-few-bound-points', () => {
   const facts = syntheticFacts();
   const alone = bindPoints(withAddedPoint(facts), 'added-001');
@@ -835,7 +835,7 @@ test('C006 error: a question binding one added point alone is refused as too-few
   );
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C006 boundary: the two-point exemption applies when fewer than two points are unsettled', () => {
   const onlyAdded = syntheticProjection({
     grill: { questions: [], risky_boundaries: [{ id: 'boundary-001', topic: null }] },
@@ -859,7 +859,7 @@ test('C006 boundary: the two-point exemption applies when fewer than two points 
   );
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C006 invariant: no added point reaches the human as a question binding fewer than two points while two are open', () => {
   const facts = syntheticFacts();
   const verdict = verifyExplanation({ facts, explainText: bindPoints(withAddedPoint(facts), 'added-001') });
@@ -870,7 +870,7 @@ test('C006 invariant: no added point reaches the human as a question binding few
   );
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C005 normal: an added point recorded but not yet bound is not a coverage fault, because its own block carries it', () => {
   const facts = syntheticFacts();
   const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');
@@ -878,7 +878,7 @@ test('C005 normal: an added point recorded but not yet bound is not a coverage f
   assert.equal(faultKindsOf(facts, openAdded).includes('missing-open-item'), false, 'the added block carries itself');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C005 error: a recorded point the document carries nowhere is still reported as missing-open-item', () => {
   const facts = syntheticFacts();
   const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');
@@ -892,7 +892,7 @@ test('C005 error: a recorded point the document carries nowhere is still reporte
   );
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C005 invariant: coverage is read over the recorded points only, so widening the universe cannot hide a recorded point', () => {
   const facts = syntheticFacts();
   const openAdded = bindPoints(withAddedPoint(facts), 'residual-000001, boundary-001');

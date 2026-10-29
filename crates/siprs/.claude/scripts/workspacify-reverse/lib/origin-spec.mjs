@@ -1,4 +1,4 @@
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * R7's validator and R8's emitter: the origin spec, and what it refuses to say.
  *
@@ -180,7 +180,7 @@ const EMPTY_SENTENCE =
  * recover something the renderer never wrote — so the round trip would hold
  * only by luck. Refusing is the honest answer: the caller splits the text.
  */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function assertSingleLine(value, field) {
   if (typeof value !== 'string') {
     throw new Error(`the origin spec's ${field} must be a string; it is a ${typeof value}`);
@@ -194,13 +194,13 @@ function assertSingleLine(value, field) {
 }
 
 /** `file:line` wrapped so a reader can act on it, with the mode it was read in. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function renderEvidenceItem(item) {
   return `\`${item.source_span.file}:${item.source_span.line}\` (${item.evidence_mode})`;
 }
 
 /** The evidence line read back into the span and mode it was rendered from. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function parseEvidenceItem(text) {
   const matched = EVIDENCE_PATTERN.exec(text);
   if (matched === null) {
@@ -220,13 +220,13 @@ function parseEvidenceItem(text) {
  * and a claim that has none is served without one rather than with a blank line
  * a reader has to interpret.
  */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function orNull(value) {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 /** An evidence item reduced to the span and mode the document carries. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function toEvidenceItem(item) {
   return {
     source_span: { file: item.source_span.file, line: item.source_span.line },
@@ -235,7 +235,7 @@ function toEvidenceItem(item) {
 }
 
 /** One claim as the spec carries it, keeping the ledger's evidence shape. */
-// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function normaliseClaim(claim) {
   if (claim === null || typeof claim !== 'object') {
     throw new Error('every origin-spec claim must be an object');
@@ -311,7 +311,7 @@ export function buildOriginSpec({ root, ledger, treeHash = '', sections = {}, sc
  * serialised values: an object the parser rebuilt with its keys in a different order
  * would compare unequal while saying exactly the same thing.
  */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function buildSections({ sections, scopes, claims }) {
   return Object.fromEntries(
     SPEC_SECTIONS.map((entry) => {
@@ -345,7 +345,7 @@ function buildSections({ sections, scopes, claims }) {
  * be printed under no heading at all, which is content lost from a document that still
  * looks whole.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function packageScopes(entry, supplied, scopes, claims) {
   if (entry.key !== PACKAGES_SECTION_KEY) return [];
   const declared = supplied?.scopes ?? scopes;
@@ -353,7 +353,7 @@ function packageScopes(entry, supplied, scopes, claims) {
 }
 
 /** Whether the evidence a claim rests on is on disk at the line it names. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function evidenceIsLocatable(item, root) {
   const span = item?.source_span;
   if (span === undefined || typeof span.file !== 'string' || !Number.isInteger(span.line)) return false;
@@ -363,7 +363,7 @@ function evidenceIsLocatable(item, root) {
 }
 
 /** The links a normative clause is missing, in the chain's own order. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function missingChainLinks(claim) {
   return PROVENANCE_CHAIN_LINKS.filter((link) => {
     const value = claim[link];
@@ -373,7 +373,7 @@ function missingChainLinks(claim) {
 }
 
 /** The question a demoted claim hands to the grill, phrased so either answer is refutable. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function demotionQuestion(claim, reason, missing) {
   if (reason === DEMOTION_REASONS.brokenProvenanceChain) {
     return `"${claim.statement}" was proposed as a norm, but its provenance chain is broken (${missing.join(', ')} `
@@ -468,7 +468,7 @@ export function validateOriginSpec(spec, { root } = {}) {
 }
 
 /** How many claims carry each provenance value. Derived, never stored. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function provenanceSummary(claims) {
   const summary = Object.fromEntries(PROVENANCE_CLASSES.map((name) => [name, 0]));
   for (const claim of claims) summary[claim.claim_type] += 1;
@@ -476,7 +476,7 @@ function provenanceSummary(claims) {
 }
 
 /** The `- evidence:` / `  - item` block for one list field, or nothing when it is empty. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function renderListField(lines, field, items) {
   if (items.length === 0) return;
   lines.push(`- ${field}:`);
@@ -542,7 +542,7 @@ export function renderOriginSpec(spec) {
  * reached R8 printed a sentence saying R8 had not run — a document lying about itself,
  * which is worse than an absence.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderAbsence(entry, status) {
   if (status === NOT_AUTHORED_STATUS) {
     return [
@@ -574,7 +574,7 @@ function renderAbsence(entry, status) {
  * declined, and where to find the rest. A fenced dump of the answers file would be the
  * same content twice, in the one form a reader cannot use.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderContent(entry, content) {
   if (entry.key === DESIGN_SEMANTICS_SECTION_KEY) return [...renderSemanticsRecord(content), ...machineCopy(content)];
   if (entry.key === DECISIONS_SECTION_KEY) return [...renderDecisionsRecord(content), ...machineCopy(content)];
@@ -590,13 +590,13 @@ function renderContent(entry, content) {
  * make the readable form unverifiable, and dropping the record is what made the section
  * a dump nobody could read.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function machineCopy(content) {
   return ['- content:', ...fencedJson(content), ''];
 }
 
 /** A value as one line, so a record reads without a fenced block the parser would claim. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function inlineValue(value) {
   if (Array.isArray(value)) return value.map((entry) => inlineValue(entry)).join('; ');
   if (value !== null && typeof value === 'object') {
@@ -606,7 +606,7 @@ function inlineValue(value) {
 }
 
 /** The Design semantics section: where the readings came from, and how the matrix closed. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderSemanticsRecord(content) {
   const coverage = content?.coverage ?? {};
   const lines = [
@@ -644,7 +644,7 @@ function renderSemanticsRecord(content) {
 }
 
 /** The Decisions section: the six answers as the record they are. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderDecisionsRecord(content) {
   const lines = [];
   for (const [key, value] of Object.entries(content ?? {})) {
@@ -655,7 +655,7 @@ function renderDecisionsRecord(content) {
 }
 
 /** One registered section: its heading, its stage, and what it carries. */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function renderSection(lines, entry, spec) {
   const value = spec.sections?.[entry.key] ?? null;
   lines.push(`${'#'.repeat(SECTION_LEVEL)} ${entry.heading}`, '');
@@ -688,7 +688,7 @@ function renderSection(lines, entry, spec) {
 }
 
 /** The scalar half of the scope, which the section heading opens. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function renderScopeScalars(lines, spec) {
   for (const [key, value] of [
     ['schema_version', String(spec.schema_version)],
@@ -706,7 +706,7 @@ function renderScopeScalars(lines, spec) {
 }
 
 /** The counts, which are derived from the claims and stored nowhere. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function renderProvenanceCounts(lines, claims) {
   const summary = provenanceSummary(claims);
   for (const name of PROVENANCE_CLASSES) {
@@ -723,7 +723,7 @@ function renderProvenanceCounts(lines, claims) {
  * themselves, and a grouping that dropped one would change what the spec says rather
  * than only how it reads.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function renderPackages(lines, spec, value) {
   if (spec.claims.length === 0) {
     lines.push(EMPTY_SENTENCE, '');
@@ -740,7 +740,7 @@ function renderPackages(lines, spec, value) {
 }
 
 /** One claim, as the fields its reader sees. */
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function renderClaimEntry(lines, claim) {
   lines.push(`${'#'.repeat(CLAIM_LEVEL)} Claim \`${claim.claim_id}\``, '');
   for (const field of CLAIM_SCALAR_FIELDS) {
@@ -762,7 +762,7 @@ function renderClaimEntry(lines, claim) {
 }
 
 /** The demotions, as the record of what could not be settled. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function renderDemotions(lines, demotions) {
   if (demotions.length === 0) {
     lines.push('No claim was demoted: every classification the spec carries was supported by the material.', '');
@@ -785,7 +785,7 @@ function renderDemotions(lines, demotions) {
  * the stack — which is how the first full run of the absorption died, with a RangeError
  * rather than a message about the document that caused it.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function appendLines(lines, added) {
   for (const line of added) lines.push(line);
 }
@@ -805,7 +805,7 @@ function appendLines(lines, added) {
  * every newline inside a string, so no line of a payload can begin with a fence
  * delimiter and none can close the fence it sits in.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function fencedJson(value, { indent = '' } = {}) {
   const payload = JSON.stringify(value, null, 2);
   return [
@@ -817,7 +817,7 @@ function fencedJson(value, { indent = '' } = {}) {
 
 
 /** One claim rebuilt from the fields its entry rendered. */
-// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function parseClaimEntry(entry) {
   const fields = entry.fields;
   return {
@@ -986,7 +986,7 @@ export function parseOriginSpec(markdown) {
  * is an array, and it is always the last key written before its items — so the
  * last array-valued key on the target is the open one.
  */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function openListKey(target) {
   const keys = Object.keys(target);
   for (let index = keys.length - 1; index >= 0; index -= 1) {

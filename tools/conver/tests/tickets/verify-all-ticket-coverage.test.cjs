@@ -20,7 +20,7 @@ const MAP_DIGEST = 'a'.repeat(64);
 const VIEW_DIGEST = 'b'.repeat(64);
 const stats = { passed: 0, failed: 0, total: 0 };
 
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
 function test(name, fn) {
   stats.total += 1;
   try {
@@ -34,7 +34,7 @@ function test(name, fn) {
   }
 }
 
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
 function fixtureDistribution() {
   const unit = {
     unitId: 'op-A',
@@ -53,7 +53,7 @@ function fixtureDistribution() {
   return distribution;
 }
 
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
 function fixtureTickets(distribution) {
   return {
     phases: [{

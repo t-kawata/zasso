@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-101: Create get-next-check-target-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101: Create get-next-check-target-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 
 /**
  * get-next-check-target-ticket.js — Unified orchestrator for find-omissions pipeline
@@ -33,7 +33,7 @@ const TMP_CMDS_PATTERN = /^_tmp-check-target-tickets-cmds-\d{14}\.json$/;
  * @param {Array<{done: boolean, cmd: string}>} entries — Command entries array
  * @returns {{entry: object, idx: number}|null} — The popped entry + index, or null
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function popNextEntry(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
     return null;
@@ -55,7 +55,7 @@ function popNextEntry(entries) {
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {{ticket: object, data: object, phase: object}|null}
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function setTicketRemanded(ticketsData, ticketKey) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return null;
@@ -84,7 +84,7 @@ function setTicketRemanded(ticketsData, ticketKey) {
  * @param {number} current — 1-indexed current position
  * @returns {string} — e.g. "Total 5 tickets to inspect. Inspecting ticket 3/5."
  */
-// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function buildPrefixMessage(total, current) {
   return 'Total ' + total + ' tickets to inspect. Inspecting ticket ' + current + '/' + total + '.\n';
 }
@@ -93,7 +93,7 @@ function buildPrefixMessage(total, current) {
  * Find the latest _tmp-omissions-*.json in CWD.
  * @returns {string|null} — Absolute path or null
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function findLatestTmpOmissions() {
   const files = fs.readdirSync('.').filter(f => TMP_OMISSIONS_PATTERN.test(f));
   if (files.length === 0) return null;
@@ -105,7 +105,7 @@ function findLatestTmpOmissions() {
  * Find the latest _tmp-check-target-tickets-cmds-*.json in CWD.
  * @returns {string|null} — Absolute path or null
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function findLatestTmpCmds() {
   const files = fs.readdirSync('.').filter(f => TMP_CMDS_PATTERN.test(f));
   if (files.length === 0) return null;
@@ -119,7 +119,7 @@ function findLatestTmpCmds() {
  * @param {string} ticketsPath — Absolute path to Tickets.json
  * @returns {string} — Absolute path to the tmp-omissions file
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function ensureOmitsFileExists(ticketsPath) {
   const existing = findLatestTmpOmissions();
   if (existing) {
@@ -153,7 +153,7 @@ function ensureOmitsFileExists(ticketsPath) {
  * @param {string} ticketsPath — Absolute path to Tickets.json
  * @returns {string} — Absolute path to the cmds file
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function ensureCmdsFileExists(ticketsPath) {
   const existing = findLatestTmpCmds();
   if (existing) {
@@ -184,7 +184,7 @@ function ensureCmdsFileExists(ticketsPath) {
  * @param {string} ticketKey — e.g. "P3-2"
  * @returns {string} — stdout from show-ticket-context.js
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-101 --for-spec --no-implementation-order`.
 function runShowTicketContext(ticketKey) {
   const showScript = path.resolve(__dirname, 'show-ticket-context.js');
   try {
@@ -203,7 +203,7 @@ function runShowTicketContext(ticketKey) {
 /**
  * Remove the _tmp-check-target-tickets-cmds-*.json file.
  */
-// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function removeCmdsFile() {
   const cmds = findLatestTmpCmds();
   if (cmds) { try { fs.unlinkSync(cmds); } catch (e) { /* ignore */ } }
@@ -213,7 +213,7 @@ function removeCmdsFile() {
  * Copy _tmp-omissions-*.json to OMISSIONS-<timestamp>.json, then remove the tmp file.
  * The OMISSIONS file is the deliverable of /find-omissions.
  */
-// [::TICKET::] PX-101, PX-102, PX-103, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103|PX-105) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103, PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103|PX-105) --for-spec --no-implementation-order`.
 function removeOmitsFile() {
   const omissions = findLatestTmpOmissions();
   if (!omissions) return;
@@ -231,7 +231,7 @@ function removeOmitsFile() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = 'Tickets.json';

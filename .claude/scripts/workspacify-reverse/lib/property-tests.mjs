@@ -1,4 +1,4 @@
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 /**
  * R6.5 — property-based tests generated from R3's invariants.
  *
@@ -28,7 +28,7 @@
  * verified (ABOUT-REVERSE 11.5 R-3: an invariant that cannot be classified into a
  * known category cannot be made into a property-based test).
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 import { withIsolatedWorktree, WorktreeIsolationError, WORKTREE_REASONS } from './worktree-isolation.mjs';
 import {
   PASS_EXECUTED,
@@ -204,19 +204,19 @@ export const GENERATOR_CAVEAT =
 const SOURCE_FACT = /^[^:]+:\d+$/;
 
 /** The file part of a `file:line` fact, as a slug an identifier can carry. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function slugOf(sourceFact) {
   return sourceFact.slice(0, sourceFact.lastIndexOf(':')).split('/').join('_').replace(/[^A-Za-z0-9_]/g, '_');
 }
 
 /** The line part of a `file:line` fact. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function lineOf(sourceFact) {
   return sourceFact.slice(sourceFact.lastIndexOf(':') + 1);
 }
 
 /** The category record for an id, or null when the id is not in the vocabulary. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function categoryFor(id) {
   return KNOWN_PROPERTY_CATEGORIES.find((category) => category.id === id) ?? null;
 }
@@ -367,7 +367,7 @@ export function generatePropertyTests(invariants) {
  * `strong` is what could falsify the implementation. `weak` is what describes it.
  * Summing them would produce the single number the design forbids.
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function countOracleIndependence(generated) {
   const counts = {};
   for (const independence of ORACLE_INDEPENDENCE) counts[independence] = 0;
@@ -711,7 +711,7 @@ function rendererKeyFor(language, engine) {
  * @param {string} params.engine - the engine `PROPERTY_ENGINES` declares for that language
  * @returns {{language: string, engine: string, file: string, source: string, category: string, source_fact: string}}
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function renderPropertyForEngine({ language, property, engine } = {}) {
   const key = rendererKeyFor(language, engine);
   const renderer = PROPERTY_RENDERERS_BY_ENGINE[key];
@@ -734,7 +734,7 @@ export function renderPropertyForEngine({ language, property, engine } = {}) {
 }
 
 /** The record a property that never reached the isolation leaves behind. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function refusedProperty(options) {
   const { property, language, engine, reason, detail, worktreeRecord = null } = options;
   return {
@@ -752,7 +752,7 @@ function refusedProperty(options) {
 }
 
 /** The worktree an execution left behind, or null when none was made. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function worktreeRecordOf(outcome) {
   if (outcome === null || typeof outcome !== 'object') return null;
   return {
@@ -766,7 +766,7 @@ function worktreeRecordOf(outcome) {
 }
 
 /** What an execution said, or a refusal naming why the answer cannot be a verdict. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function readPropertyObservation(execution) {
   if (execution === null || typeof execution !== 'object' || typeof execution.counterexampleFound !== 'boolean') {
     throw new Error(
@@ -782,7 +782,7 @@ function readPropertyObservation(execution) {
 }
 
 /** The record an executed property leaves behind. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function executedProperty(property, language, engine, observation, outcome) {
   return {
     property_id: property?.property_id ?? null,
@@ -822,7 +822,7 @@ function executedProperty(property, language, engine, observation, outcome) {
  * @param {object} [params.isolationOptions] - the isolation's own options
  * @returns {Promise<object>} the pass, with the generated and executed counts apart
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export async function runGeneratedProperties(options = {}) {
   const {
     root = null,

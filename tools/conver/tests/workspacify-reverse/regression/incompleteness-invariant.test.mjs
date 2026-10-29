@@ -73,7 +73,7 @@ const SYNTHETIC_REPRESENTATIVE_FILES = Object.freeze({
 
 const syntheticRepresentatives = new Map();
 
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function representativeRoot(patternId) {
   if (!syntheticRepresentatives.has(patternId)) {
     syntheticRepresentatives.set(patternId, createSyntheticTree(SYNTHETIC_REPRESENTATIVE_FILES[patternId]));
@@ -118,7 +118,7 @@ const DRIVEABLE_FAMILIES = Object.freeze(['reverse-tree', 'reverse-allocate']);
  * derived here instead of restated, and the root is excluded because the walk's empty
  * prefix is not a directory any package names.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function directoriesOf(filePaths) {
   const directories = new Set();
   for (const filePath of filePaths) {
@@ -134,7 +134,7 @@ function directoriesOf(filePaths) {
  * Read from the walk the analysis path already performs rather than from a second
  * enumeration, so the gate inputs and the audit cannot disagree about what is on disk.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function measureRepresentative(root) {
   const readable = listArtefacts(root).filter((artefact) => artefact.readStatus === 'readable');
   const sourceFiles = readable.map((artefact) => artefact.path);
@@ -148,7 +148,7 @@ function measureRepresentative(root) {
  * that refuses here refuses because of what the representative genuinely lacks, which is
  * the only way the audit can tell an incompleteness refusal from a substantive one.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function driveReverseChain(representative) {
   const measured = measureRepresentative(representative.root);
   return [
@@ -158,7 +158,7 @@ function driveReverseChain(representative) {
 }
 
 /** The gate-shaped rows the audit classifies, one per gate the enumeration found. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function gatesFor(enumeration, recordsByGateAndRepresentative) {
   return enumeration.gates.map((gate) => ({
     ...gate,
@@ -167,7 +167,7 @@ function gatesFor(enumeration, recordsByGateAndRepresentative) {
 }
 
 /** Collect every record the four representatives produce, keyed by gate and representative. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function collectRepresentativeRecords() {
   const byGate = new Map();
   for (const representative of REPRESENTATIVES) {
@@ -181,7 +181,7 @@ function collectRepresentativeRecords() {
 }
 
 /** The refusal reasons carried by a gate's records, flattened with their provenance. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function reasonsOf(gates) {
   return gates.flatMap((gate) =>
     collectRefusalReasons(gate).map((message) => ({
@@ -195,7 +195,7 @@ function reasonsOf(gates) {
 }
 
 /** One module source: the constants it declares, and the gate records it builds. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function gateModuleSource({ declarations = {}, uses = [] }) {
   const declared = Object.entries(declarations)
     .map(([name, gateIds]) => `export const ${name} = Object.freeze({ ${gateIds.map((id) => `${id}: '${id}'`).join(', ')} });`)
@@ -212,7 +212,7 @@ function gateModuleSource({ declarations = {}, uses = [] }) {
  * Every family is materialised rather than only the mutated one, so the fixture differs
  * from the real project in exactly the one place the test is about.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function familyModuleFixture({ widenedFamily = null, extraGateId = null, withheld = [] } = {}) {
   const files = {};
   for (const family of GATE_FAMILIES) {

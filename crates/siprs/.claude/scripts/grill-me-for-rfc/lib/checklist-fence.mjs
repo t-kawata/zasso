@@ -1,4 +1,4 @@
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * checklist-fence — a generator owns a region, not a file.
  *
@@ -37,12 +37,12 @@ export const AI_SUPPLEMENT_COMMENT =
   '<!-- AI補足欄: 上記チェック項目に加え、プロジェクト固有の制約・注意事項をここに追記すること -->';
 
 /** Remove at most one leading and one trailing newline. */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function trimOneNewlineEachSide(text) {
   return text.replace(/^\n/, '').replace(/\n$/, '');
 }
 
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function countOccurrences(text, needle) {
   return text.split(needle).length - 1;
 }
@@ -95,7 +95,7 @@ export function readFencedRegions(text) {
  * Everything after the last trailing AI-supplement comment, or null when the
  * file carries no such comment and so cannot be claimed by the generator.
  */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function readPreservedTextOfLegacyFile(lines) {
   const commentIndex = lines.map((line) => line.trim()).lastIndexOf(AI_SUPPLEMENT_COMMENT);
   if (commentIndex === -1) return null;

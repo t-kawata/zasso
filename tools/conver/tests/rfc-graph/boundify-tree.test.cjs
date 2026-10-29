@@ -1039,13 +1039,13 @@ describe('computeCrossReferences', () => {
 // ============================================================
 
 /** Build the directory tree with the helpers buildDirectoryTree actually consumes. */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function buildPlacementTree(graph, lang) {
   return buildDirectoryTree(graph, lang, { getDeclarationStub });
 }
 
 /** Files the tree maps to one node id. */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function collectFilesForNode(built, nodeId) {
   return built.files.filter((file) =>
     (file.mappedNodeIds || []).some((mapped) => (mapped.nodeId || mapped) === nodeId));

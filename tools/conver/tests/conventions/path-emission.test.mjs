@@ -24,7 +24,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCRIPTS_ROOT = join(PROJECT_ROOT, '.claude', 'scripts');
 
 /** A throwaway tree holding exactly the modules the caller writes into it. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function withPlantedTree(modules, subject) {
   const root = mkdtempSync(join(tmpdir(), 'px231-emission-'));
   try {
@@ -132,7 +132,7 @@ test('C004 invariant: the scan reads the tree it is pointed at and not a cached 
  * question is whether an artefact the repository carries names this machine, and a file
  * nobody has committed yet is not yet an artefact anyone else will read.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function withPlantedRepository(files, subject) {
   const root = mkdtempSync(join(tmpdir(), 'px231-artefacts-'));
   try {

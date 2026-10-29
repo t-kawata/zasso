@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-175 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-175 --for-spec --no-implementation-order`.
 /**
  * Shared error types, gate statuses, and exit codes for the workspacify-tree
  * toolchain. Library modules never print: they raise WorkSpacifyTreeError so

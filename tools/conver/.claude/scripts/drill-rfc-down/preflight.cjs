@@ -23,7 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
@@ -33,7 +33,7 @@ const TICKETS_ARG_PREFIX = '--tickets=';
 const TICKETS_FILENAME = 'Tickets.json';
 const README_FILENAME = 'README.md';
 const SESSION_DIR_NAME = 'drills';
-const DRILL_DIR = '.claude/scripts/drill-rfc-down';
+const DRILL_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/drill-rfc-down';
 const VARIABLES_HEADER = '[VARIABLES]';
 const VARIABLES_FOOTER = '[END VARIABLES]';
 
@@ -61,7 +61,7 @@ const ARTIFACT_PRODUCERS = {
 };
 
 /** The upstream loop, in the order that produces what a drill run needs. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 const UPSTREAM_LOOP = '/explain-seed → /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets';
 
 /**
@@ -130,7 +130,7 @@ function collectFilesRecursive(dir) {
  * @returns {{ materialPaths: string[], materialSummary: Array<{ path: string, type: string, fileCount: number }> }}
  * @throws {Error} If a path is missing or a directory contains no files
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function collectMaterialPaths(materialArgs, cwd) {
   const materialPaths = [];
   const materialSummary = [];
@@ -388,7 +388,7 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
  * @param {Object} missing — Labeled paths that do not exist
  * @returns {string} Error message with the next action
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function formatAbortMessage(missing) {
   const lines = Object.entries(missing).map(([key, filePath]) => {
     const label = ARTIFACT_LABELS[key] || key;

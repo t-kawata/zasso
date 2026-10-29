@@ -20,7 +20,7 @@
  * @param {Array<{ canonical_name?: string, owner_package?: string }>} objects
  * @returns {{ ownershipByCanonicalName: Map<string, string>, defects: string[] }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function inspectObjectRecords(objects) {
   const ownershipByCanonicalName = new Map();
   const defects = [];
@@ -59,7 +59,7 @@ export function inspectObjectRecords(objects) {
  * @param {Array<{ canonical_name?: string, owner_package?: string }>} objects
  * @returns {Map<string, string>}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function resolveOwningPackages(objects) {
   return inspectObjectRecords(objects).ownershipByCanonicalName;
 }
@@ -75,7 +75,7 @@ export function resolveOwningPackages(objects) {
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {{ ownerPackageIds: string[], unmatchedClassNames: string[] }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function classifyOperationOwnership(operation, ownershipByCanonicalName) {
   const resultObjectClasses = Array.isArray(operation?.result_object_classes)
     ? operation.result_object_classes
@@ -102,7 +102,7 @@ export function classifyOperationOwnership(operation, ownershipByCanonicalName) 
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function resolveOperationOwners(operation, ownershipByCanonicalName) {
   return new Set(classifyOperationOwnership(operation, ownershipByCanonicalName).ownerPackageIds);
 }
@@ -118,7 +118,7 @@ export function resolveOperationOwners(operation, ownershipByCanonicalName) {
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {{ emptyResultClasses: number, exactlyOnePackage: number, severalPackages: number, noKnownPackage: number, total: number }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function countOperationOwnershipBuckets(operations, ownershipByCanonicalName) {
   const buckets = {
     emptyResultClasses: 0,
@@ -157,7 +157,7 @@ export function countOperationOwnershipBuckets(operations, ownershipByCanonicalN
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function collectReachedPackageIds(operations, ownershipByCanonicalName) {
   const reached = new Set();
   for (const operation of operations) {
@@ -173,7 +173,7 @@ export function collectReachedPackageIds(operations, ownershipByCanonicalName) {
  * @param {Map<string, string>} ownershipByCanonicalName
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function collectUnmatchedClassNames(operations, ownershipByCanonicalName) {
   const unmatched = new Set();
   for (const operation of operations) {
@@ -189,7 +189,7 @@ export function collectUnmatchedClassNames(operations, ownershipByCanonicalName)
  * @param {Array<{ result_object_classes?: unknown }>} operations
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function collectDistinctClassNames(operations) {
   const names = new Set();
   for (const operation of operations) {

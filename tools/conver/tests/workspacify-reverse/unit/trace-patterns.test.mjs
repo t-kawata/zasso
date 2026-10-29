@@ -1,7 +1,7 @@
 // @verifies C001
 // @verifies C002
 // @verifies C004
-// [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-203 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-203 --for-spec --no-implementation-order`.
 // Pattern definition must be the single source shared by detect and verify.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

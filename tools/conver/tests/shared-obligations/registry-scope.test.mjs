@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // C004: a boundary obligation is open only when stage 1 declared its clause.
 //
 // The registry used to open TRANSLATION, INVARIANT, ERRORS and TESTS for every
@@ -12,7 +12,7 @@ import { deriveObligations } from '../../.claude/scripts/shared-obligations/regi
 
 const CORE = ['input', 'output', 'preconditions', 'postconditions', 'invariants'];
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function boundaryInputs({ scope, notApplicable = [] }) {
   return {
     census: { operations: [], entries: [], sections: [] },
@@ -33,7 +33,7 @@ function boundaryInputs({ scope, notApplicable = [] }) {
   };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function obligationOf(input, id) {
   return deriveObligations(input).find((entry) => entry.id === id);
 }

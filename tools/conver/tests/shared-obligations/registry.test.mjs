@@ -17,7 +17,7 @@ const inputs = {
   readings: {},
 };
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('registry ids are deterministic and unique', () => {
   const first = deriveObligations(inputs);
   const second = deriveObligations(inputs);
@@ -26,7 +26,7 @@ test('registry ids are deterministic and unique', () => {
   assert.ok(first.some((o) => o.id === 'CENSUS:BIJECTION:operations'));
 });
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('every census member has an obligation and no id repeats', () => {
   const obligations = deriveObligations(inputs);
   const ids = new Set(obligations.map((o) => o.id));

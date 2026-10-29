@@ -10,7 +10,7 @@ import { checkActiveOperationResiduals } from '../../.claude/scripts/smooth-sequ
 const PROVIDER = 'pkg-0001';
 const CONSUMER = 'pkg-0002';
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function findingsOf(workspace) {
   return collectArtifactViewConsistency(indexArtifact(loadWorkspace(workspace.root))).findings;
 }

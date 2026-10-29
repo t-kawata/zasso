@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-118: remove-stub.js — deterministic STUB marker line removal.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 
 /**
  * remove-stub.js — Remove a resolved [::STUB::] marker line from a source file.
@@ -36,9 +36,9 @@ const COMMENT_PREFIX = '//';
  * Custom error type carrying the specific contract that failed.
  * The target source file is never written when this error is raised.
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 class RemoveStubError extends Error {
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
   constructor(message) {
     super(message);
     this.name = 'RemoveStubError';
@@ -49,7 +49,7 @@ class RemoveStubError extends Error {
  * Normalize --line / --lines into a unique, validated set of 1-indexed targets.
  * Returns a sorted array of unique positive integers, or null when neither is given.
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function normalizeTargetLines(line, lines) {
   const hasLine = Number.isInteger(line);
   const hasLines = Array.isArray(lines);
@@ -71,7 +71,7 @@ function normalizeTargetLines(line, lines) {
  * Resolve and load the source file, or fail with a RemoveStubError.
  * @returns {{ absFile: string, sourceLines: string[] }}
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function loadSourceFile(file) {
   if (typeof file !== 'string' || file.length === 0) {
     throw new RemoveStubError('--file is required and must be a non-empty string');
@@ -95,7 +95,7 @@ function loadSourceFile(file) {
 /**
  * Assert that the given line holds a [::STUB::] marker (contract C002).
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function assertMarkerAtLine(lineContent, lineNo) {
   if (!lineContent.includes(STUB_TAG)) {
     throw new RemoveStubError('No [::STUB::] marker at line ' + lineNo);
@@ -106,7 +106,7 @@ function assertMarkerAtLine(lineContent, lineNo) {
  * Assert that the given line is a comment-only line (contract C003).
  * Rejects executable code sharing the line and block-comment markers.
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function assertCommentOnlyLine(lineContent, lineNo) {
   const trimmed = lineContent.trim();
   if (!trimmed.startsWith(COMMENT_PREFIX)) {
@@ -120,7 +120,7 @@ function assertCommentOnlyLine(lineContent, lineNo) {
  * Validate every target against a single snapshot of the file.
  * All targets must pass before any removal happens (batch atomicity, C005).
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function validateTargets(sourceLines, targetLines) {
   for (const lineNo of targetLines) {
     if (lineNo > sourceLines.length) {
@@ -134,7 +134,7 @@ function validateTargets(sourceLines, targetLines) {
 /**
  * Remove the target lines in descending order so earlier line numbers stay valid.
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function removeLinesInDescendingOrder(sourceLines, targetLines) {
   const descending = [...targetLines].sort((a, b) => b - a);
   for (const lineNo of descending) {
@@ -152,7 +152,7 @@ function removeLinesInDescendingOrder(sourceLines, targetLines) {
  * @returns {{ removed: boolean, file: string, line?: number, lines?: number[] }}
  * @throws {RemoveStubError} when any validation fails — the file stays untouched.
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function removeStub({ file, line, lines }) {
   const targetLines = normalizeTargetLines(line, lines);
   if (targetLines === null) {
@@ -180,7 +180,7 @@ function removeStub({ file, line, lines }) {
  * @param {string[]} argv
  * @returns {{ file: string|null, line: number|null, lines: number[]|null }}
  */
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function parseCliArgs(argv) {
   const opts = { file: null, line: null, lines: null };
   for (const arg of argv) {
@@ -201,7 +201,7 @@ function parseCliArgs(argv) {
   return opts;
 }
 
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function main() {
   const opts = parseCliArgs(process.argv.slice(2));
   try {

@@ -43,7 +43,7 @@ const RFC_FILENAME = 'RFC.md';
 const USAGE = 'usage: check-ledger-discharge.js <WORKSPACE_ROOT>';
 
 /** Read and parse one JSON file, or null when it cannot be read. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function readJsonOrNull(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -53,7 +53,7 @@ function readJsonOrNull(filePath) {
 }
 
 /** Read a text file, or null when it cannot be read. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function readTextOrNull(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -63,7 +63,7 @@ function readTextOrNull(filePath) {
 }
 
 /** Every package directory beneath the workspace's package root, in path order. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function findPackageDirectories(root) {
   const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
   if (!fs.existsSync(packageRoot)) return [];
@@ -90,7 +90,7 @@ function findPackageDirectories(root) {
  * @param {string[]} directories
  * @returns {{ ledgers: Map<string, Set<string>>, malformed: Array<{ packageId: string, reason: string }>, views: object[] }}
  */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function readLedgers(directories) {
   const ledgers = new Map();
   const malformed = [];
@@ -132,17 +132,17 @@ function readLedgers(directories) {
 }
 
 /** The document a ledger lives in, as the resolver reads one: its own line count and nothing else. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function documentViewOf(rfcText) {
   return { spec: { lines: String(rfcText).split('\n').length }, sections: [], operations: [], sequences: [] };
 }
 
 /** The sentence stating what this gate does not guarantee, so a satisfied run is not read as more. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 const LIMIT_LINE = 'does not guarantee: that a row whose location resolves is a row whose ground is the right ground, which is a reading of the design';
 
 /** The lines naming what is undis-charged, each family apart. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function renderDischargeLines(discharge, malformed, locations) {
   return [
     ...discharge.withoutLedger.map((packageId) => `no distribution ledger: ${packageId}`),
@@ -153,7 +153,7 @@ function renderDischargeLines(discharge, malformed, locations) {
 }
 
 /** Measure one workspace's discharge and print it. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {

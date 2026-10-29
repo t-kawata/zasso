@@ -13,13 +13,13 @@ import path from 'node:path';
 const HOOK = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/guard-obligation-on-commit.js');
 
 /** The hook's stdin contract: the tool input Claude Code passes to a PreToolUse hook. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function runHook(rawInput, cwd = process.cwd()) {
   const result = spawnSync(process.execPath, [HOOK], { encoding: 'utf8', input: rawInput, cwd });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function bashInput(command) {
   return JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
 }

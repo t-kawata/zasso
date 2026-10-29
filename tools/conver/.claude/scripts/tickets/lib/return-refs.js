@@ -137,10 +137,10 @@ const NOTHING_KNOWN = new Set();
 const ROUTE_KIND = 'route';
 
 /** Refused because the caller asked for something the design does not allow. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 class ReturnReferenceRefused extends Error {
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
   constructor(message) {
     super(message);
     this.name = 'ReturnReferenceRefused';
@@ -148,19 +148,19 @@ class ReturnReferenceRefused extends Error {
 }
 
 /** A usable name is a non-empty string; anything else cannot be an identifier. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function isUsableName(value) {
   return typeof value === 'string' && value.trim() !== '';
 }
 
 /** How a value is shown in a finding: quoted and type-unambiguous, so `42` is not read as `"42"`. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function display(value) {
   return JSON.stringify(value);
 }
 
 /** The registry a reference of this kind is resolved against. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function knownFor(kind, known) {
   if (known === null || typeof known !== 'object') {
     return NOTHING_KNOWN;
@@ -178,7 +178,7 @@ function knownFor(kind, known) {
 }
 
 /** The reference field names a kind declares, or a refusal naming the declared kinds. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function declaredFields(kind) {
   const fields = Object.hasOwn(RETURN_REFERENCE_FIELDS, kind) ? RETURN_REFERENCE_FIELDS[kind] : null;
   if (fields === null) {
@@ -191,7 +191,7 @@ function declaredFields(kind) {
 }
 
 /** A field the kind does not declare has no meaning here, so supplying one is a caller defect. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function assertFieldsAreDeclared(references, fields, kind) {
   const undeclared = Object.keys(references).filter((field) => !fields.includes(field));
   if (undeclared.length > 0) {
@@ -214,7 +214,7 @@ function assertFieldsAreDeclared(references, fields, kind) {
  * @returns {{ identifier: string|null, finding: object|null }}
  * @throws {ReturnReferenceRefused} for a kind that resolves nothing
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function resolveReturnRef(value, { kind, known = null, reference = null } = {}) {
   const descriptor = Object.hasOwn(IDENTIFIER_KINDS, kind) ? IDENTIFIER_KINDS[kind] : null;
   if (descriptor === null) {
@@ -268,7 +268,7 @@ function resolveReturnRef(value, { kind, known = null, reference = null } = {}) 
 }
 
 /** The one reference a scalar field carries, or the empty list for a field left unset. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function suppliedValues(supplied) {
   if (supplied === undefined || supplied === null) {
     return { values: [], isList: false };
@@ -280,13 +280,13 @@ function suppliedValues(supplied) {
 }
 
 /** How a reference arrived, in the words a report uses. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function describeArity(isList) {
   return isList ? 'a list of identifiers' : 'a single identifier';
 }
 
 /** Whether what arrived is the shape the field declares. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function arityMatches(declared, isList) {
   return (declared === REFERENCE_ARITY.LIST) === isList;
 }
@@ -309,7 +309,7 @@ function arityMatches(declared, isList) {
  * @returns {{ artefact: object, attached: string[], findings: object[] }}
  * @throws {ReturnReferenceRefused} on an undeclared kind, an undeclared field, or a forward artefact carrying a return reference
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function attachReturnRefs(artefact, { kind, mode, references = {}, known = null } = {}) {
   const subject = artefact ?? {};
   const fields = declaredFields(kind);
@@ -396,7 +396,7 @@ function attachReturnRefs(artefact, { kind, mode, references = {}, known = null 
  * @param {string} kind
  * @returns {object} a new artefact carrying none of the kind's return references
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function withoutReturnRefs(artefact, kind) {
   const fields = RETURN_REFERENCE_FIELDS[kind] ?? [];
   return Object.fromEntries(
@@ -414,7 +414,7 @@ function withoutReturnRefs(artefact, kind) {
  * @param {{ subject?: string, considered?: number|null }} [options] - `subject` is a plural noun
  * @returns {string}
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function renderReturnRefFindings(findings, { subject = 'omissions', considered = null } = {}) {
   const unresolved = findings ?? [];
 
@@ -443,7 +443,7 @@ function renderReturnRefFindings(findings, { subject = 'omissions', considered =
 }
 
 /** How an artefact is named in a report, by whatever identifier it carries. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function describeArtefact(artefact) {
   for (const key of ['contract_id', 'candidate_id', 'id']) {
     if (isUsableName(artefact?.[key])) {
@@ -468,7 +468,7 @@ function describeArtefact(artefact) {
  * @returns {true}
  * @throws {ReturnReferenceRefused} naming the keys gained, lost, or changed
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function assertForwardShapeUnchanged(before, after, { label = 'forward artefact' } = {}) {
   if (before === after) {
     return true;
@@ -526,7 +526,7 @@ module.exports = {
 const { readFileSync } = require('node:fs');
 
 /** Read a JSON document, or refuse naming the file rather than the line it broke on. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function readJsonFile(filePath) {
   try {
     return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -536,7 +536,7 @@ function readJsonFile(filePath) {
 }
 
 /** The claim ids a `CLAIM-LEDGER.json` holds, at `claims[].claim_id`. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function readClaimIds(filePath) {
   const ledger = readJsonFile(filePath);
   const claims = Array.isArray(ledger?.claims) ? ledger.claims : [];
@@ -549,7 +549,7 @@ function readClaimIds(filePath) {
  * `loop-drive-readme.js` upserts exactly that path, so a section the grill confirmed
  * is a scenario a RESIDUE may name.
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function readScenarioIds(filePath) {
   const status = readJsonFile(filePath);
   const sections = Array.isArray(status?.grill?.sections) ? status.grill.sections : [];
@@ -564,7 +564,7 @@ function readScenarioIds(filePath) {
  * resolve nothing while appearing to work, so the caller names the path and an override is
  * one argument rather than one release.
  */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function readIdsAtPath(document, dotPath) {
   const segments = String(dotPath).split('.').filter((segment) => segment !== '');
   const idKey = segments.pop();
@@ -579,14 +579,14 @@ function readIdsAtPath(document, dotPath) {
 }
 
 /** The value of `--name=value`, or null when the argument is not that option. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function optionValue(argument, name) {
   const prefix = `--${name}=`;
   return argument.startsWith(prefix) ? argument.slice(prefix.length) : null;
 }
 
 /** Read one artefact from stdin, or refuse naming what is missing. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function readArtefactFromStdin() {
   const text = readFileSync(0, 'utf8');
   if (text.trim() === '') {
@@ -602,7 +602,7 @@ function readArtefactFromStdin() {
 }
 
 /** The refusal a command-line invocation earns when it is malformed. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function parseCliOptions(argv) {
   const options = {
     kind: null,
@@ -642,7 +642,7 @@ function parseCliOptions(argv) {
 }
 
 /** Build the registries the references are resolved against, from the files named. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function buildKnown(options) {
   return {
     claims: options.claimLedger === null
@@ -658,20 +658,20 @@ function buildKnown(options) {
 }
 
 /** The references an artefact already carries, which is where the analysis recorded them. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function referencesOf(artefact, kind) {
   const fields = RETURN_REFERENCE_FIELDS[kind] ?? [];
   return Object.fromEntries(fields.filter((field) => Object.hasOwn(artefact, field)).map((field) => [field, artefact[field]]));
 }
 
 /** The plural noun the report uses for one artefact of this kind. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function subjectFor(kind) {
   return kind === RETURN_REFERENCE_KINDS.RESIDUE ? 'RESIDUE' : 'omission';
 }
 
 /** Resolve one artefact's references and print the artefact, then the report. */
-// [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-17 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-17 --for-spec --no-implementation-order`.
 function runCli(argv) {
   const options = parseCliOptions(argv);
   const artefact = readArtefactFromStdin();

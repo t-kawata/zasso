@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // The PX-299 worklist over corrected producer data: a grounded column and an
 // out-of-scope clause must not reach the worklist as open questions.
 import test from 'node:test';
@@ -8,7 +8,7 @@ import { deriveObligations } from '../../.claude/scripts/shared-obligations/regi
 
 const CORE = ['input', 'output', 'preconditions', 'postconditions', 'invariants'];
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function inputs() {
   return {
     census: { operations: ['OpA'], entries: [], sections: [] },

@@ -1,13 +1,13 @@
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 
-// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-115 --for-spec --no-implementation-order`.
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 
 
-// [::TICKET::] PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-113 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-113 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-113 --for-spec --no-implementation-order`.
 
 'use strict';
 
@@ -364,7 +364,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
 // PX-114: Round-aware status (R<round>) in markPreMergeTicketsReviewed
 // ============================================================
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testMarkPreMergeTicketsReviewedRoundStatus() {
   const mergedData = {
     round: 1,
@@ -393,7 +393,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
   console.log('✅ testMarkPreMergeTicketsReviewedRoundStatus passed');
 })();
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testMarkPreMergeTicketsReviewedHonorsRound() {
   const mergedData = {
     round: 2,
@@ -413,7 +413,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
   console.log('✅ testMarkPreMergeTicketsReviewedHonorsRound passed');
 })();
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testMarkPreMergeTicketsReviewedPreservesExistingRoundMarker() {
   const mergedData = {
     round: 2,
@@ -449,7 +449,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
   console.log('✅ testMarkPreMergeTicketsReviewedPreservesExistingRoundMarker passed');
 })();
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testIncrementRound() {
   const ticketsData = { round: 1, phases: [] };
 
@@ -465,7 +465,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
   console.log('✅ testIncrementRound passed');
 })();
 
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testRoundStatusInvariant() {
   const mergedData = {
     round: 3,
@@ -497,7 +497,7 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
 // PX-141: PX phase (id=-1) is excluded from R<round> marking. The PX backlog
 // keeps its existing status (reviewed/remanded); only non-PX pre-offset
 // tickets become R<round>. @verifies C004
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testPxPhaseNotRoundMarked() {
   const mergedData = {
     round: 1,

@@ -11,7 +11,7 @@ import { readAuthoredContract } from '../../.claude/scripts/smooth-sequences/lib
 import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
 import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {

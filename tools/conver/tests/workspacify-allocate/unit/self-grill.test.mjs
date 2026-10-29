@@ -1,4 +1,4 @@
-// [::TICKET::] PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-201 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-201 --for-spec --no-implementation-order`.
 // PX-201 @verifies C001 C002
 // The loop is the AI's own work: the machine proves it ran (focus coverage), that it
 // converged (the final pass found nothing new), that every residual is shaped, and

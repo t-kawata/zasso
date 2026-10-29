@@ -1,5 +1,5 @@
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The engine, the rail-exit record, the rendering and the consumer direction
 // (PX-240, contracts C001, C009, C014, C015).
 // @verifies C001
@@ -28,7 +28,7 @@ import {
 import { readArtifactSchema, readSpecification, validateArtifactShape } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
 const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-// [::TICKET::] PX-240 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-240 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-240 --for-spec --no-implementation-order`.
 const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
 const RENDER_PATH = new URL('./fixtures/spec/ledger-sequences.md', import.meta.url).pathname;
 
@@ -36,12 +36,12 @@ const spec = readSpecification(SPEC_PATH);
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
 /** The recorded coverage block, so a change to it is a change to the record. */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-247|PX-249) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-247|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 const RECORDED_BLOCK = {
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   checksRun: 31,
   entries: 8,
   sequences: 2,
@@ -239,7 +239,7 @@ test('C012 the artifact carries the schema version a consumer must hold', () => 
 // ---------------------------------------------------------------------------
 
 /** A check's verdicts over an artifact, so a test names the check it is asking about. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function verdictsOf(artifact, id) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === id);
 }

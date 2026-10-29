@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194, PX-196 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-194|PX-196) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194, PX-196 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-194|PX-196) --for-spec --no-implementation-order`.
 // PX-194 @verifies C002
 /**
  * Workspace Integration Graph.
@@ -139,7 +139,7 @@ function hasClause(contract, clause) {
  * validator refuses as out of scope in the same run - a requirement no authored
  * payload can satisfy.
  */
-// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-218 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function declaresClause(contract, manifest, clause) {
   const boundary = (manifest?.dependencies?.boundaries ?? []).find((entry) => `contract-${entry.id}` === contract?.contract_id);
   const scope = boundary?.stage2_contract_scope ?? [];
@@ -199,7 +199,7 @@ const MAX_REPORTED_FLOWS = 1;
  * The mediated case is covered where it belongs: `layer_violation` still reports the
  * edge that breaks a layer rule, from the compiled table.
  */
-// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-218 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function findForbiddenFlows({ graph, manifest }) {
   const rules = manifest?.dependencies?.forbidden_layer_rules ?? [];
   if (rules.length === 0) {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // the command (PX-240, contracts C010, C011, C013).
 //
 // One argument, one derived location, one artifact. Four run shapes follow from that
@@ -56,12 +56,12 @@ const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
  * @param {{runInput?: {declaration: object, readings: object}, stdout?: (line: string) => void,
  *          stderr?: (line: string) => void, railExits?: unknown[]}} options
  */
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
@@ -185,7 +185,7 @@ export async function runCommand(argv, options = {}) {
  *   verdicts: object[], refusals: string[]}>} — `refusals` is empty when there is nothing
  *   to refuse, which includes a specification that has no artifact beside it yet.
  */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 async function loadRunGround(specPath) {
   const spec = readSpecification(specPath);
   const artifactPath = artifactPathFor(specPath);
@@ -248,7 +248,7 @@ async function loadRunGround(specPath) {
  *   — `artifact` and `summary` are set only when the verification passed; `refusals` holds
  *   one described line per failure in the order they were found.
  */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 export async function verifyArtifact(specPath, options = {}) {
   const ground = await loadRunGround(specPath);
   if (ground.refusals.length > 0 || ground.existing === null) {
@@ -283,7 +283,7 @@ export async function verifyArtifact(specPath, options = {}) {
  * against. The state machine still refuses a status it cannot read, so only the
  * comparison is given up and the run that was already verified still reports.
  */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function previousCoverageFor(specPath) {
   const recorded = readJsonOrNull(statusPath(runDirectoryFor(specPath)));
   return recorded?.history?.at(-1)?.coverage ?? null;
@@ -297,7 +297,7 @@ function previousCoverageFor(specPath) {
  * shows. The predecessor comes from the status rather than from a flag, because a number
  * that could be supplied by the caller is a number that could disagree with the run.
  */
-// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-245, PX-246, PX-251, PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-245|PX-246|PX-251|PX-268) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-245, PX-246, PX-251, PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-245|PX-246|PX-251|PX-268) --for-spec --no-implementation-order`.
 function report(stdout, summary, previousCoverage = null) {
   const measured = coverageLine(summary);
   // The predecessor is respelled through the mapping rather than handed to `coverageLine`:
@@ -336,7 +336,7 @@ export function artifactExists(specPath) {
  * the one-argument contract: a run with nothing piped in is a run that has read
  * nothing, and it is refused at the first [read] phase rather than guessed at.
  */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function readRunInputFromStdin() {
   if (process.stdin.isTTY) return null;
   try {

@@ -18,7 +18,7 @@ import { validateAll } from "./check-all-schema.js";
 import { MAX_POINTS_PER_AXIS_FLOOR, bundleAxes } from "../question-gate/bundle.mjs";
 import { refineLetterlessAnswer } from "../question-gate/answers.mjs";
 import { settlePoint } from "../question-gate/settle.mjs";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const [,, sessionDir, operation, ...args] = process.argv;
@@ -35,7 +35,7 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function findNode(nodes, id) {
   for (const candidate of nodes) {
     if (candidate.id === id) return candidate;
@@ -47,7 +47,7 @@ function findNode(nodes, id) {
   return null;
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function countOpen(nodes) {
   let count = 0;
   for (const node of nodes) {
@@ -57,13 +57,13 @@ function countOpen(nodes) {
   return count;
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function save() {
   tree.updatedAt = new Date().toISOString();
   fs.writeFileSync(treePath, JSON.stringify(tree, null, 2), "utf-8");
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function saveAndValidate() {
   // Capture the pre-mutation content so a failed write can be rolled back.
   // Strict validation must guard the file, not just report after corrupting it.
@@ -84,7 +84,7 @@ function saveAndValidate() {
  * A settlement may rest only on one of these. A ground the AI never read is not a
  * ground it has, which is why an empty scan settles nothing.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function recordsOf() {
   const scan = tree.priorScan;
   if (scan === undefined) return [];
@@ -94,7 +94,7 @@ function recordsOf() {
     ...(scan.grounds ?? []).map((entry) => entry.statement),
   ];
 }
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function refuseSettlement(settlement) {
   const required = ["decision", "ground", "override"];
   const missing = required.filter((field) => typeof settlement[field] !== "string" || settlement[field].trim() === "");
@@ -109,7 +109,7 @@ function refuseSettlement(settlement) {
  * afterwards, and whether its trace accounts for the records read is the gate's
  * judgement, not the writer's.
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function refuseBlock(block) {
   const boundIds = Array.isArray(block.boundNodeIds) ? block.boundNodeIds : [];
   // The floor is the core's, not a second copy of it: a question binds at least
@@ -135,7 +135,7 @@ function refuseBlock(block) {
  * @param {unknown} trace
  * @returns {Array<{ record: string, leavesOpen: string }>}
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function readTraceEntries(trace) {
   if (!Array.isArray(trace)) return [];
   return trace.map((entry) => ({
@@ -144,7 +144,7 @@ function readTraceEntries(trace) {
   }));
 }
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function ensureQuestions() {
   if (!Array.isArray(tree.questions)) tree.questions = [];
 }
@@ -216,7 +216,7 @@ switch (operation) {
   }
   case "delete": {
     const [nodeId] = args;
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
     function removeNode(nodes, id) {
       for (let i = 0; i < nodes.length; i++) {
         if (nodes[i].id === id) {

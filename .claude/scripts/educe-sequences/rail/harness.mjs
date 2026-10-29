@@ -30,7 +30,7 @@ export const RAIL_EXIT_FILE = 'rail-exits.jsonl';
  * is now a function of the run directory, so the location is stated where the run is
  * opened and a reader of the specification finds the records beside what they describe.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function railExitStoreFor(runDirectory) {
   requireStore(runDirectory, 'railExitStoreFor');
   return join(runDirectory, RAIL_EXIT_FILE);
@@ -43,7 +43,7 @@ export function railExitStoreFor(runDirectory) {
  * inside the tool tree. The refusal names the argument rather than the rule, because the
  * caller has to pass something and the useful thing to say is what.
  */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function requireStore(storePath, caller) {
   if (typeof storePath !== 'string' || storePath.trim() === '') {
     throw new Error(`${caller} needs the store path; the rail-exit store belongs to a run directory, and a default would write into the tool tree`);
@@ -74,7 +74,7 @@ export const RAIL_EXIT_FIELDS = Object.freeze([
  * needed an ad-hoc check has nothing to say here, and that is the same state as one whose
  * directory was opened a moment ago.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function readRailExits(storePath) {
   requireStore(storePath, 'readRailExits');
   if (!existsSync(storePath)) return [];
@@ -91,7 +91,7 @@ export function readRailExits(storePath) {
  * so that a claim about a check carries what was observed about it, and a record whose
  * executed field is an empty object would claim a verification that never happened.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function whyUnwritable(record) {
   const empty = RAIL_EXIT_FIELDS.filter((field) => record[field] === undefined || record[field] === '' || record[field] === null);
   if (empty.length > 0) return `the rail-exit record has empty field(s): ${empty.join(', ')}`;
@@ -105,7 +105,7 @@ function whyUnwritable(record) {
  * Appending is the shape a scaffold needs. A promotion rewrites a record that is already
  * there, which is `writeRailExits` below.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function writeRailExit(record, storePath) {
   requireStore(storePath, 'writeRailExit');
   const problem = whyUnwritable(record);
@@ -121,7 +121,7 @@ export function writeRailExit(record, storePath) {
  * appending writer cannot express that. The records are written in the order they are
  * given, so the store keeps its history.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function writeRailExits(records, storePath) {
   requireStore(storePath, 'writeRailExits');
   writeFileSync(storePath, records.map((record) => `${JSON.stringify(record)}\n`).join(''));
@@ -135,7 +135,7 @@ export function writeRailExits(records, storePath) {
  * defect class with no analogue stays visible, and an unrecorded check is exactly the
  * silent growth the record is for.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function spliceCheck({ contract, cases, executed, storePath }) {
   requireStore(storePath, 'spliceCheck');
   const { check, defect } = contract;
@@ -163,7 +163,7 @@ export function spliceCheck({ contract, cases, executed, storePath }) {
 }
 
 /** Move a pin's line to a line that does not carry its limbs. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function movePinLine(artifact, kind, line) {
   const next = structuredClone(artifact);
   if (kind === 'predicate') next.pins.predicate.line = line;
@@ -178,7 +178,7 @@ function movePinLine(artifact, kind, line) {
  * over any artifact that holds a ruling: a case naming a row the artifact does not have cannot
  * run at all, and a case that cannot run is a phase that cannot finish.
  */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function stripARulingLimb(artifact) {
   const next = structuredClone(artifact);
   for (const collection of ['sequences', 'adjudications']) {
@@ -197,7 +197,7 @@ function stripARulingLimb(artifact) {
  * Aimed at a row the artifact carries rather than at a named one, for the reason the limb
  * mutation is: a case that names a row the artifact does not have cannot run at all.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function withFirstAdjudication(artifact, patch) {
   const next = structuredClone(artifact);
   const [first] = next.adjudications ?? [];
@@ -212,7 +212,7 @@ function withFirstAdjudication(artifact, patch) {
  * section's only explanation away, and a case that reddens two checks reports the first and
  * hides the one it was written for.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function withANamelessAdjudication(artifact) {
   const next = structuredClone(artifact);
   const ruling = { subject: '', outcome: liveOutcomeOf(next), reader: 'adjudicate', [PREDICATE_LIMB_FIELD]: NO_LIMB_APPLIES };
@@ -221,7 +221,7 @@ function withANamelessAdjudication(artifact) {
 }
 
 /** An outcome the schema declares, taken from a row the artifact already holds. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function liveOutcomeOf(artifact) {
   const [row] = artifact.adjudications ?? [];
   return row?.outcome ?? 'notASequence';
@@ -229,7 +229,7 @@ function liveOutcomeOf(artifact) {
 
 /** The specification mutations: each must redden the check it names. */
 export const SPEC_MUTATION_CORPUS = Object.freeze([
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   {
     name: 'predicate-line-moved',
     check: 'predicate-pin-rederives',
@@ -340,7 +340,7 @@ export const SPEC_MUTATION_CORPUS = Object.freeze([
 
 /** The counter-mutations: edits that are correct but different, and must stay green. */
 export const COUNTER_MUTATION_CORPUS = Object.freeze([
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   {
     name: 'adjudications-reordered',
     mutate: ({ artifact, specLines }) => ({ artifact: { ...artifact, adjudications: [...artifact.adjudications].reverse() }, specLines }),
@@ -518,7 +518,7 @@ export function encodeForDiagram(text) {
 /**
  * Whether a step field names a participant. A participant is a name, and a name is not empty.
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function isParticipant(name) {
   return typeof name === 'string' && name !== '';
 }
@@ -530,7 +530,7 @@ function isParticipant(name) {
  * which writes the alias into the diagram, and the console surface, which prints the legend
  * under it. Two computations of that mapping would be two places for it to drift.
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 export function participantsOf(steps) {
   return [...new Set(steps.flatMap((step) => [step.subject, step.object]))].filter(isParticipant);
 }
@@ -552,7 +552,7 @@ export function participantsOf(steps) {
  * terminal, which cannot scroll a diagram sideways, shows the identifiers and prints the
  * names underneath.
  */
-// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
 export function sequenceDiagramSource(entry, steps, { fold = (message) => message, displayName = (name) => name } = {}) {
   const participants = participantsOf(steps);
   const identifierOf = new Map(participants.map((name, index) => [name, `P${index + 1}`]));
@@ -584,7 +584,7 @@ export function sequenceDiagramSource(entry, steps, { fold = (message) => messag
  * step naming no actor is refused there, and the product path writes a rendering only from
  * a verification that passed.
  */
-// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249, PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249|PX-250) --for-spec --no-implementation-order`.
 export function renderSequenceDiagram(entry, steps) {
   return ['```mermaid', sequenceDiagramSource(entry, steps), '```'].join('\n');
 }

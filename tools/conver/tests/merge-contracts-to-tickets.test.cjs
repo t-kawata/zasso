@@ -9,7 +9,7 @@ const stats = { passed: 0, failed: 0, total: 0 };
 function test(n, fn) { stats.total++; try { fn(); stats.passed++; console.log('  ✅', n); } catch (e) { stats.failed++; console.log('  ❌', n); console.error('     ' + e.message); } }
 function makeTicket(id, nodeIds, extra) { return Object.assign({ id, phaseId: -1, title: 'T' + id, status: 'todo', nodeIds }, extra || {}); }
 function makeEdge(f, t, type, contracts) { return { from: f, to: t, type, attributes: { strength: 'hard', bidirectional: false }, contracts }; }
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function makeContract(id, pre, post, inv) { return { id, precondition: pre, postcondition: post, invariant: inv }; }
 
 console.log('\n--- merge-contracts-to-tickets tests ---\n');

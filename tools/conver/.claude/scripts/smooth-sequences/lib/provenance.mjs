@@ -22,7 +22,7 @@ export { recordIdOf };
  * The original is never mutated: a re-anchor performed by a later reader is a new
  * record, so the earlier reader's signature and quote remain auditable.
  */
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 export function supersedeRecord(record, patch = {}, { reader } = {}) {
   const supersedes = record?.recordId ?? recordIdOf(record);
   const next = { ...record, ...patch, supersedes };
@@ -36,7 +36,7 @@ export function supersedeRecord(record, patch = {}, { reader } = {}) {
  * The report is the whole answer: this function never moves the line or the quote, so a
  * stale anchor stays visible instead of being rewritten into a passing one.
  */
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 export function detectStaleAnchor(record, lines = []) {
   if (typeof record?.subject !== 'string' || !record.subject.startsWith('@object:')) {
     return { stale: false, reason: null };
@@ -62,14 +62,14 @@ export function emptyProvenance() {
 }
 
 /** Whether a step carries a non-empty typed prose contract. */
-// [::TICKET::] PX-283, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-285) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function hasTypedProse(step) {
   return typeof step?.contract_prose === 'string' && step.contract_prose.trim() !== '';
 }
 
 /** Whether a step carries a non-empty legacy prose contract. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function hasLegacyProse(step) {
   return typeof step?.contract === 'string' && step.contract.trim() !== '';
 }
@@ -79,7 +79,7 @@ function hasLegacyProse(step) {
  *
  * @param {{ total: number, typed: number, legacy: number, absent: number }} proseContract
  */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function assertProsePartition(proseContract) {
   const { total, typed, legacy, absent } = proseContract;
   if (typed + legacy + absent !== total) {
@@ -94,7 +94,7 @@ export function assertProsePartition(proseContract) {
 }
 
 /** The schema history with the current schema appended. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function mergeSchemaHistory(previousSchemaVersions, schemaVersion) {
   const history = [...previousSchemaVersions];
   if (schemaVersion !== null && history.at(-1) !== schemaVersion) history.push(schemaVersion);
@@ -111,8 +111,8 @@ function mergeSchemaHistory(previousSchemaVersions, schemaVersion) {
  *   proseContract: {total: number, typed: number, legacy: number, absent: number},
  *   schemaHistory: number[], downgrade: object|null}}
  */
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function summarizeProvenance(artifact, { previousSchemaVersions = [] } = {}) {
   const steps = Array.isArray(artifact?.steps) ? artifact.steps : [];
   const migration = artifact?.migration;
@@ -168,7 +168,7 @@ export function summarizeProvenance(artifact, { previousSchemaVersions = [] } = 
 }
 
 /** One line for the console and the Markdown report. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function formatProvenanceLine(provenance) {
   const prose = provenance.proseContract ?? { total: 0, typed: 0, legacy: 0, absent: 0 };
   const partition = `prose total ${prose.total}: typed ${prose.typed}, legacy ${prose.legacy}, absent ${prose.absent}`;

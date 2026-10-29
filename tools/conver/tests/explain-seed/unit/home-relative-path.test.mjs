@@ -26,7 +26,7 @@ const INJECTED_HOME = '/tmp/px231-injected-home';
  * would leave every later test in the file measuring against it, and the failure would
  * surface in whichever test ran next rather than in the one that leaked.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function withInjectedHome(home, subject) {
   const previous = process.env.HOME;
   process.env.HOME = home;

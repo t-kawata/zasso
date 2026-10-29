@@ -8,8 +8,8 @@ import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspa
 
 const CLI = '.claude/scripts/smooth-sequences/migrate-v3.mjs';
 
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function runCli(args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
 }

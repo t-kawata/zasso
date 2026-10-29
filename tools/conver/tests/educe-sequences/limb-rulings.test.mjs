@@ -38,20 +38,20 @@ const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger-sequences.json
 const RUN_INPUT = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger.run.json'), 'utf8'));
 
 /** The verdicts this check reports over an artifact, and nothing else's. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function refusalsFor(artifact) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === CHECK_ID);
 }
 
 /** The rows a ruling may be read from: an entry's outcome and an adjudication's are one vocabulary. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function rulingsOf(artifact) {
   return [...(artifact.sequences ?? []), ...(artifact.adjudications ?? [])]
     .filter((row) => LIMB_RULING_OUTCOMES.includes(row.outcome));
 }
 
 /** The artifact with every limb taken off the rows that carry one. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function withoutLimbs(artifact) {
   const strip = (row) => {
     const { [PREDICATE_LIMB_FIELD]: limb, ...rest } = row;
@@ -61,20 +61,20 @@ function withoutLimbs(artifact) {
 }
 
 /** The artifact with one row's limb replaced by the name given. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function withLimb(artifact, subject, limb) {
   const replace = (row) => ((row.subject ?? row.id) === subject ? { ...row, [PREDICATE_LIMB_FIELD]: limb } : row);
   return { ...artifact, sequences: artifact.sequences.map(replace), adjudications: artifact.adjudications.map(replace) };
 }
 
 /** A ruling on a named entry, with the limb it cites. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function rulingOn(subject, limb) {
   return { subject, outcome: 'notASequence', reader: 'span', [PREDICATE_LIMB_FIELD]: limb };
 }
 
 /** Apply one reading to a scratch copy of the artifact, and report the reader's refusal. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function applyRuling(reading) {
   const artifactPath = join(mkdtempSync(join(tmpdir(), 'px267-limb-')), 'ledger-sequences.json');
   writeArtifact(artifactPath, golden);
@@ -82,7 +82,7 @@ function applyRuling(reading) {
 }
 
 /** The artifact the fixture's own readings compose, read fresh so no test mutates another's copy. */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function composed() {
   const { declaration, readings } = RUN_INPUT;
   return buildArtifact({

@@ -54,7 +54,7 @@ function collectActiveOperations(index) {
 }
 
 /** Whether a step carries typed authored facts, or an authored prose contract. */
-// [::TICKET::] PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288, PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-288|PX-306) --for-spec --no-implementation-order`.
 function hasAuthoredContract(step) {
   if (['synthesized', 'projected'].includes(step?.contract?.contract_origin)) return false;
   const authored = step?.contract?.authored;
@@ -83,21 +83,21 @@ function collectCrossingSteps(index) {
 }
 
 /** The authorship map a migration recorded, or null when it recorded none. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readAuthorship(index) {
   const authorship = index.artifact?.migration?.[AUTHORSHIP_KEY];
   return authorship !== null && typeof authorship === 'object' && !Array.isArray(authorship) ? authorship : null;
 }
 
 /** The surfaces a migration marked synthesized, or null when it marked none. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readSynthesizedSurfaces(index) {
   const listed = index.artifact?.migration?.[SYNTHESIZED_SURFACES_KEY];
   return Array.isArray(listed) ? new Set(listed) : null;
 }
 
 /** The authorship record for one surface, inheriting the typed contract for crossings. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readAuthorshipRecord(index, surface) {
   const authorship = readAuthorship(index);
   if (authorship === null) return null;
@@ -108,7 +108,7 @@ function readAuthorshipRecord(index, surface) {
 }
 
 /** The origin of one surface. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function surfaceOriginOf(index, surface) {
   const authorship = readAuthorship(index);
   if (authorship !== null) {
@@ -129,7 +129,7 @@ function surfaceOriginOf(index, surface) {
 }
 
 /** The authored and synthesized row counts a surface declares. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function countOrigins(index, surface, cardinality, origin) {
   if (origin === ORIGIN.ABSENT) return { authoredCardinality: 0, synthesizedCardinality: 0 };
   if (origin === ORIGIN.AUTHORED) return { authoredCardinality: cardinality, synthesizedCardinality: 0 };
@@ -142,21 +142,21 @@ function countOrigins(index, surface, cardinality, origin) {
 }
 
 /** A surface record with its row partition. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function surfaceRecord(index, surface, present, cardinality) {
   const origin = present ? surfaceOriginOf(index, surface) : ORIGIN.ABSENT;
   return { present, origin, cardinality, ...countOrigins(index, surface, cardinality, origin) };
 }
 
 /** A surface backed by a top-level array. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readArraySurface(index, surface, rows) {
   const present = Array.isArray(rows);
   return surfaceRecord(index, surface, present, present ? rows.length : 0);
 }
 
 /** A field that every active operation must carry for the surface to be complete. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readFieldOnEveryActiveOperation(index, surface, field) {
   const operations = collectActiveOperations(index);
   if (operations.length === 0) return surfaceRecord(index, surface, false, 0);
@@ -166,13 +166,13 @@ function readFieldOnEveryActiveOperation(index, surface, field) {
 }
 
 /** The record for a surface whose rows are computed by a collector. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readCollectedSurface(index, surface, rows) {
   return surfaceRecord(index, surface, rows.length > 0, rows.length);
 }
 
 /** A surface that is optional: absence means no rows, not missing evidence. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function readOptionalArraySurface(index, surface, rows) {
   return surfaceRecord(index, surface, true, Array.isArray(rows) ? rows.length : 0);
 }

@@ -14,7 +14,7 @@ import { buildModel } from '../../.claude/scripts/workspacify-order/lib/levels.m
 const PACKAGES = ['pkg-0001', 'pkg-0002'];
 
 /** The artifact whose data relation orders the two steps. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function artifact() {
   return {
     sequences: [{ id: 'S', outcome: 'realized' }],
@@ -27,7 +27,7 @@ function artifact() {
 }
 
 /** Both views carry both operations; the ticket roles decide the implementer. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function view(packageId) {
   const operation = (operationId) => ({
     unitId: `op-${operationId}`,
@@ -45,7 +45,7 @@ function view(packageId) {
 }
 
 /** One package's ticket document. The caller owns the role assignment. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function tickets(units) {
   return {
     title: 'fixture',
@@ -55,7 +55,7 @@ function tickets(units) {
 }
 
 /** The first role assignment: pkg-0001 implements A, pkg-0002 implements B. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function firstRoles() {
   return {
     'pkg-0001': tickets([
@@ -69,7 +69,7 @@ function firstRoles() {
 }
 
 /** The edited assignment: pkg-0002 implements A, pkg-0001 implements B. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function editedRoles() {
   return {
     'pkg-0001': tickets([
@@ -83,7 +83,7 @@ function editedRoles() {
 }
 
 /** Write the views, artifact, tickets and a digest-fresh sidecar. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function materialize(roleSet, sidecarLevels) {
   const workspace = materializeOrderWorkspace({ packages: PACKAGES, edges: [] });
   const design = artifact();

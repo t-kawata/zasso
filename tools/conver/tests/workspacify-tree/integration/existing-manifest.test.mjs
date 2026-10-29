@@ -14,7 +14,7 @@ const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs')
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('existing manifest with a different source hash is preserved (BLOCKED)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-exist-'));
   cpSync(join(FIXTURES, 'long-spec.md'), join(dir, 'long-spec.md'));

@@ -1,8 +1,8 @@
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The command-file digest: proof that an edit was an edit.
  *
@@ -76,8 +76,12 @@ test('C002 boundary: a command file that names no script is exempt, and the exem
   // both directions: a file that starts naming a script leaves this list, and one
   // that stops leaves it from the other side.
   const commandsDirectory = join(MODULE_ROOT, COMMANDS_RELATIVE_DIR);
-  const namesScriptless = (name) =>
-    !readFileSync(join(commandsDirectory, `${name}.md`), 'utf8').includes('.claude/scripts/');
+  // A command now names the script directory through the resolved CLAUDE_DIR, so
+  // both the literal path and the resolved form count as naming a script.
+  const namesScriptless = (name) => {
+    const text = readFileSync(join(commandsDirectory, `${name}.md`), 'utf8');
+    return !text.includes('.claude/scripts/') && !text.includes('$CLAUDE_DIR/scripts/');
+  };
 
   const measured = readdirSync(commandsDirectory)
     .filter((file) => file.endsWith('.md'))
@@ -131,7 +135,7 @@ test('C002 postcondition: an appended paragraph is not drift — edits are permi
 });
 
 test('C002 postcondition: a shortened heading set is reported with the file path and the missing heading', () => {
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
   const root = makeCommandsCopy();
   try {
     const baseline = digestCommandFiles(root);
@@ -225,7 +229,7 @@ test('C002 postcondition: the obligation sentence is frozen where it exists and 
   }
 });
 
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 test('C002 postcondition: a damaged Language Protocol table is reported by name', () => {
   const root = makeCommandsCopy();
   try {

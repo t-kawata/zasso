@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 
 import { deriveSet, readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { flattenPins, rederiveAll, rederivePin } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
 const ARTIFACT_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;

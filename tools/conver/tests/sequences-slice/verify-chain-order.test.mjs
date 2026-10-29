@@ -11,7 +11,7 @@ import { buildChainFixture } from './helpers/px315-chain-fixture.mjs';
 const STEP_1 = { stepId: 's1', operationId: 'A', order: 0, line: 1, quote: 'a' };
 const STEP_2 = { stepId: 's2', operationId: 'B', order: 1, line: 2, quote: 'b' };
 
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function ownedView() {
   return {
     packageId: 'pkg-1',
@@ -25,7 +25,7 @@ function ownedView() {
   };
 }
 
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function artifactSteps() {
   return [
     { id: 's1', sequence: 'S', operation: 'A', order: 0, line: 1, quote: 'a' },

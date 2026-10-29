@@ -1,4 +1,4 @@
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * Card-driven Reflexion Modelling — the logical architecture as a choice (§7.4 item 9).
  *
@@ -95,7 +95,7 @@ export function mapDirNodes(dirsTree) {
 }
 
 /** Walk one node and its descendants, carrying the path down from the root directory. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function indexNode(node, parentPath, index) {
   const path = parentPath === '' ? node.name : `${parentPath}/${node.name}`;
   const mapped = Array.isArray(node.mappedNodeIds) ? node.mappedNodeIds : [];
@@ -131,7 +131,7 @@ export function generateCandidates({ structure, dependencies, dirsTree } = {}) {
  * which is the one thing an empty answer must never be mistaken for, so the
  * absence is raised rather than absorbed.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function requireMeasurements({ structure, dependencies }) {
   const physical = physicalPartition(structure);
   if (physical.groups.length === 0) {
@@ -150,7 +150,7 @@ function requireMeasurements({ structure, dependencies }) {
 }
 
 /** The measured cycles, narrowed to the directories this measurement actually placed. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function measuredCycles(dependencies, directories) {
   const placed = new Set(directories);
   return (dependencies?.cycles ?? [])
@@ -159,7 +159,7 @@ function measuredCycles(dependencies, directories) {
 }
 
 /** Assemble one candidate: its groups, the evidence for it, and what would refute it. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function buildCandidate(rule, measured) {
   const groups = groupedByRule(rule, measured.directories, measured.cycles).map((members) => {
     const sorted = [...members].sort(compareText);
@@ -194,7 +194,7 @@ function buildCandidate(rule, measured) {
  * record — both are answers to a question nobody asked. The check is here rather
  * than in each rule so that a rule added later inherits it.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function assertIsPartition(groups, directories) {
   const members = groups.flatMap((group) => group.members);
   const unique = new Set(members);
@@ -213,7 +213,7 @@ function assertIsPartition(groups, directories) {
 }
 
 /** Partition the measured directories by the rule's own definition. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function groupedByRule(rule, directories, cycles) {
   if (rule === 'physical_faithful') return directories.map((directory) => [directory]);
 
@@ -239,7 +239,7 @@ function groupedByRule(rule, directories, cycles) {
 }
 
 /** The union of the nodes every member of a group was mapped to, in node-id order. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function mappedNodesFor(members, nodes) {
   const byId = new Map();
   for (const member of members) {
@@ -258,7 +258,7 @@ function mappedNodesFor(members, nodes) {
  * sentence would make the field's name a lie, and half of it could then be
  * answered without the other half being read.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function propositionsFor(groups) {
   const merged = groups.filter((group) => group.members.length > 1);
   if (merged.length === 0) return ['every measured directory is a logical unit of its own'];
@@ -266,7 +266,7 @@ function propositionsFor(groups) {
 }
 
 /** The measured facts that support the rule. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function evidenceFor(rule, { directories, cycles, dependencies }) {
   if (rule === 'physical_faithful') {
     return [
@@ -288,7 +288,7 @@ function evidenceFor(rule, { directories, cycles, dependencies }) {
 }
 
 /** The measured facts that would refute the rule. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function counterexamplesFor(rule, { cycles, dependencies }) {
   if (rule === 'physical_faithful') {
     return cycles.length === 0
@@ -307,7 +307,7 @@ function counterexamplesFor(rule, { cycles, dependencies }) {
 }
 
 /** The group of a candidate that holds a directory, or undefined when none does. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function groupHolding(candidate, directory) {
   return candidate.groups.find((group) => group.members.includes(directory));
 }
@@ -348,7 +348,7 @@ export function renderAdjudicationCards(candidates) {
 }
 
 /** Every candidate was derived against the same measured layout, or the options are not comparable. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function assertSamePhysical(candidates, physical) {
   const signature = (partition) => (partition?.groups ?? []).map((group) => group.name).join('|');
   const expected = signature(physical);
@@ -366,7 +366,7 @@ function assertSamePhysical(candidates, physical) {
 }
 
 /** The distinct groupings the candidates propose for one directory, incumbent first. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function collectOptions(candidates, directory) {
   const byShape = new Map();
   for (const candidate of candidates) {
@@ -401,7 +401,7 @@ function collectOptions(candidates, directory) {
 }
 
 /** One card, in the shape the packet already uses, so every surface reads the same card. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function buildAdjudicationCard({ directory, options }) {
   return {
     claim_id: `boundary:${directory}`,
@@ -419,7 +419,7 @@ function buildAdjudicationCard({ directory, options }) {
 }
 
 /** What one grouping would record, named by the rules that propose it. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function renderOption(option) {
   const unit = option.members.length === 1
     ? `\`${option.members[0]}\` stays a unit of its own`
@@ -428,7 +428,7 @@ function renderOption(option) {
 }
 
 /** What choosing one grouping costs. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function renderConsequence(option) {
   return option.members.length === 1
     ? `the boundary stays where the layout put it, and the RFC records \`${option.members[0]}\` as a logical unit `
@@ -571,7 +571,7 @@ export function deriveMismatches(candidate, physical) {
 }
 
 /** One mismatch, carrying the group it was placed in and the nodes that group is mapped to. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function mismatchOf(kind, path, group, candidate) {
   return {
     kind,

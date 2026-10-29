@@ -54,7 +54,7 @@ const RUNNER = join(PROJECT_ROOT, TESTS_ROOT, 'run-all-surfaces.mjs');
  * A temporary tree holding the two roots the aggregate walks. `files` maps a
  * relative path to the source the file should contain.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function makeFixtureTree(files) {
   const root = mkdtempSync(join(tmpdir(), 'px204-fixture-'));
   for (const [relative, source] of Object.entries(files)) {
@@ -74,7 +74,7 @@ function makeFixtureTree(files) {
  * aggregate that started it has already set the depth marker, so inheriting the
  * ambient environment would make every run here nested.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function runAggregate({ root = PROJECT_ROOT, arguments: argumentList = [], env = {} } = {}) {
   const childEnv = { ...process.env };
   for (const [name, value] of Object.entries(env)) {
@@ -97,7 +97,7 @@ function runAggregate({ root = PROJECT_ROOT, arguments: argumentList = [], env =
 }
 
 /** Digest a tree, so a test can prove a run wrote nothing into it. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function digestTree(root) {
   const digest = createHash('sha256');
   const walk = (directory) => {
@@ -392,7 +392,7 @@ let realRunCache = null;
  * read-only digest is taken around the first invocation, so the caller ordering
  * matters: UT-17 must run before the others read the cache.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function realRun() {
   if (realRunCache === null) {
     realRunCache = runAggregate({

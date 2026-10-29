@@ -94,7 +94,7 @@ describe('declarationIsEmpty', () => {
   });
 });
 
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 describe('classifyTool', () => {
   const reverseTool = { id: 'joern', probe: 'joern --version', minVersion: '2.0.0', requiredFor: 'reverse', providedBy: 'P22-4', optional: false };
 
@@ -170,7 +170,7 @@ describe('readConvergedTicketKeys', () => {
   });
 });
 
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 describe('the declaration this project ships', () => {
   /** The fields `resolveEnvironment` and the installer read from each entry. */
   const DECLARED_TOOL_FIELDS = Object.freeze([

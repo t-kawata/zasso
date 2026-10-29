@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 
 /**
  * grounding-check.js — GF1, the grounding gate of the reverse rotation (§6.6, §6.14.4).
@@ -34,7 +34,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { buildNodeIdToPathMap } = require('./dump-node-context-to-spec.js');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 /**
@@ -66,13 +66,13 @@ const ROOT_ARG_PREFIX = '--root=';
 const OUT_ARG_PREFIX = '--out=';
 
 /** The 3-element template every `rfc-graph/` CLI uses, so a failure reads the same way. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function formatError(problem, cause, remedy) {
   return `[ERROR] ${problem}\nCause: ${cause}\nAction: ${remedy}`;
 }
 
 /** A path is usable when it is a non-empty string; anything else declares nothing. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function asPath(value) {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
@@ -88,7 +88,7 @@ function asPath(value) {
  * @param {{nodes?: Array<object>, declaredFiles?: Record<string, string>}} input
  * @returns {Array<{id: string|null, file: string|null}>}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function extractGroundingTable({ nodes, declaredFiles = {} } = {}) {
   if (!Array.isArray(nodes)) {
     throw new Error(
@@ -115,7 +115,7 @@ function extractGroundingTable({ nodes, declaredFiles = {} } = {}) {
  * @param {{nodes?: Array<{id: string|null, file: string|null}>, resolveFilePath?: (file: string) => string}} input
  * @returns {{gateId: string, status: string, counts: object, reasons: string[], unresolvable: string[]}}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function assertGrounding({ nodes, resolveFilePath } = {}) {
   if (!Array.isArray(nodes)) {
     return gateRecord(GATE_STATUS.FAIL, { nodes: 0, unresolvable: 0 }, [
@@ -163,7 +163,7 @@ function assertGrounding({ nodes, resolveFilePath } = {}) {
 }
 
 /** One gate record, in the shape the reverse-rotation gates already report. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function gateRecord(status, counts, reasons, unresolvable) {
   return { gateId: GF1_GATE_ID, status, counts, reasons, unresolvable };
 }
@@ -178,7 +178,7 @@ function gateRecord(status, counts, reasons, unresolvable) {
  * @param {{nodes?: Array<object>, root: string, resolveFilePath?: (file: string) => string}} input
  * @returns {object} the GF1 gate record
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function resolveGroundingTable({ nodes, root, resolveFilePath } = {}) {
   const resolve = typeof resolveFilePath === 'function'
     ? resolveFilePath
@@ -197,7 +197,7 @@ function resolveGroundingTable({ nodes, root, resolveFilePath } = {}) {
  * @param {{graph?: object, table?: Array<object>, unobserved?: Array<object>}} input
  * @returns {{stage: string, corpus: object, entries: Array<object>, unobserved: Array<object>}}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function buildGroundingCandidate({ graph, table, unobserved = [] } = {}) {
   const groundedIds = new Set((table ?? []).filter((entry) => asPath(entry?.file) !== null).map((entry) => entry.id));
 
@@ -219,7 +219,7 @@ function buildGroundingCandidate({ graph, table, unobserved = [] } = {}) {
  * The count leads, then one line per unresolvable node, because a reader acts on
  * the node and not on the total.
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function renderGroundingReport(record, { root } = {}) {
   const lines = [
     '# GF1 — node grounding',
@@ -249,7 +249,7 @@ function renderGroundingReport(record, { root } = {}) {
 }
 
 /** The grounding table a run published, or an empty table when it published none. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function readGroundingTable(tablePath) {
   const parsed = JSON.parse(fs.readFileSync(tablePath, 'utf8'));
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -259,7 +259,7 @@ function readGroundingTable(tablePath) {
 }
 
 /** Parse the CLI arguments. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const read = (prefix) => argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length) ?? null;
 
@@ -273,14 +273,14 @@ function parseArguments(argv) {
   };
 }
 
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function printUsage() {
   process.stderr.write(
     'Usage: node grounding-check.js --graph=<path> --root=<path> [--grounding=<path>] [--dirs-tree=<path>] [--out=<path>] [--json]\n',
   );
 }
 
-// [::TICKET::] P22-14, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
   if (!options.graphPath || !options.root) {

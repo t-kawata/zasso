@@ -46,7 +46,7 @@ const EXIT_USAGE = 2;
  * @param {string[]} [argv] — Arguments (defaults to process.argv.slice(2))
  * @returns {{noWrite: boolean}|{error: string}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv || process.argv.slice(2);
   // Minimal CLI: --no-write is the only flag. Tickets.json is always ./Tickets.json,
@@ -65,7 +65,7 @@ function parseArgs(argv) {
  * @returns {Array} — Manifest entries [{file,line,content,sourceKey?,seed?}]
  * @throws {Error} when stdin carries no JSON.
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function loadManifest(stdinText) {
   if (stdinText && stdinText.trim()) {
     return JSON.parse(stdinText);
@@ -78,7 +78,7 @@ function loadManifest(stdinText) {
  * @param {string} content — Full marker line
  * @returns {string} — Non-empty title
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function autoDeriveTitle(content) {
   const plan = content.match(/--\s*(.+)$/);
   if (plan && plan[1].trim()) return plan[1].trim();
@@ -93,7 +93,7 @@ function autoDeriveTitle(content) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{key: string}|{error: string, key?: string}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function resolveSourceKey(entry, ticketsData) {
   const key = entry.sourceKey || extractTicketKey(entry.content) || null;
   if (!key) return { error: "no sourceKey resolvable from entry content" };
@@ -107,7 +107,7 @@ function resolveSourceKey(entry, ticketsData) {
  * @param {string|null} sourceRoot
  * @returns {string} — Absolute source root
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function resolveSourceRoot(sourceRoot) {
   return sourceRoot ? path.resolve(sourceRoot) : process.cwd();
 }
@@ -118,7 +118,7 @@ function resolveSourceRoot(sourceRoot) {
  * @param {string} file — Manifest file path (repo-relative)
  * @returns {{path: string}|{error: string}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function resolveEntryPath(sourceRoot, file) {
   const resolved = path.resolve(sourceRoot, file);
   const rel = path.relative(sourceRoot, resolved);
@@ -137,7 +137,7 @@ function resolveEntryPath(sourceRoot, file) {
  * @param {Array} manifest
  * @returns {Array} — errors [{error, file?, line?}]
  */
-// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateManifestShape(manifest) {
   const errors = [];
   if (!Array.isArray(manifest)) {
@@ -194,7 +194,7 @@ function validateManifestShape(manifest) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{status: 'ok'|'skip'|'refuse', reason?: string}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function checkOnDiskMarker(entry, sourceRoot, ticketsData) {
   const rp = resolveEntryPath(sourceRoot, entry.file);
   if (rp.error) return { status: "refuse", reason: rp.error };
@@ -232,7 +232,7 @@ function checkOnDiskMarker(entry, sourceRoot, ticketsData) {
  * @param {boolean} [params.noWrite] — Dry-run: create in memory, do not plan a commit
  * @returns {{success: true, data: object, created: Array, skipped: Array, rewriteMap: Array, dryRun?: boolean}|{success: false, errors: Array, created?: Array, skipped?: Array}}
  */
-// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function createResolvingTickets({ ticketsData, manifest, sourceRoot, noWrite = false }) {
   const errors = [];
   const shapeErrors = validateManifestShape(manifest);
@@ -318,7 +318,7 @@ function createResolvingTickets({ ticketsData, manifest, sourceRoot, noWrite = f
  * @param {Array} rewriteMap — [{file,line,oldKey,newKey,newContent}]
  * @returns {Array} — errors when a line changed between validation and commit
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function rewriteMarkerLines(rewriteMap) {
   const byFile = {};
   for (const m of rewriteMap) {
@@ -353,7 +353,7 @@ function rewriteMarkerLines(rewriteMap) {
  * @param {boolean} [params.noWrite]
  * @returns {{success: boolean, created?: Array, skipped?: Array, rewriteMap?: Array, errors?: Array, dryRun?: boolean}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function runBatchCreate({ ticketsPath, manifest, sourceRoot, noWrite = false }) {
   let ticketsData;
   try {
@@ -378,7 +378,7 @@ function runBatchCreate({ ticketsPath, manifest, sourceRoot, noWrite = false }) 
 // -- CLI entry point --
 
 /** Read all of stdin as a string (empty when no stdin is piped). */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function readStdin() {
   try {
     return fs.readFileSync(0, "utf8");
@@ -387,7 +387,7 @@ function readStdin() {
   }
 }
 
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
 function main() {
   const parsed = parseArgs();
   if (parsed.error) {

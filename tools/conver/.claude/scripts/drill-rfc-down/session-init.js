@@ -20,9 +20,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateAll } from './check-all-schema.js';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
-// [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-233 --for-spec --no-implementation-order`.
 import { AI_SUPPLEMENT_COMMENT } from '../grill-me-for-rfc/lib/checklist-fence.mjs';
 
 const EXIT_SUCCESS = 0;
@@ -35,14 +35,14 @@ const CHECKLIST_FILE = 'CheckList.md';
 const SESSION_FILES = [STATUS_FILE, DESIGN_TREE_FILE, CHECKLIST_FILE];
 
 /** Derive the session directory from the RFC path. */
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function resolveSessionDir(rfcPath) {
   const rfcDir = path.dirname(path.resolve(rfcPath));
   return { rfcDir, sessionDir: path.join(rfcDir, SESSION_DIR_NAME) };
 }
 
 /** Split session files into present and missing buckets. */
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function classifySessionFiles(sessionDir) {
   const existing = [];
   const missing = [];
@@ -60,7 +60,7 @@ function classifySessionFiles(sessionDir) {
  * Write the three session templates under $SESSION_DIR.
  * Mirrors init.js's template shapes so the session is grill-compatible.
  */
-// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234) --for-spec --no-implementation-order`.
 function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
   fs.mkdirSync(sessionDir, { recursive: true });
   const now = new Date().toISOString();
@@ -82,11 +82,11 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
   // requires, and the trailing comment that lets the first generation migrate the
   // file. A bare `<!-- GENERATED -->` comment matched neither a fence nor the
   // comment, so 1-7 refused on every fresh session.
-  // [::TICKET::] PX-233 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-233 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-233 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-233 --for-spec --no-implementation-order`.
   fs.writeFileSync(path.join(sessionDir, CHECKLIST_FILE), `# RFC 要件チェックリスト\n\n${AI_SUPPLEMENT_COMMENT}\n`, 'utf8');
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const rfcPath = process.argv[2];
   if (!rfcPath) {

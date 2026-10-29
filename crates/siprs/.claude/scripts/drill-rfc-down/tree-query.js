@@ -14,7 +14,7 @@
  */
 import fs from "fs";
 import path from "path";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const [,, sessionDir, operation, ...args] = process.argv;
@@ -33,7 +33,7 @@ const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
 // ─── Helpers ───
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function findNodeWithPath(nodes, id, trail = []) {
   for (let i = 0; i < nodes.length; i++) {
     const trailPath = [...trail, nodes[i]];
@@ -46,12 +46,12 @@ function findNodeWithPath(nodes, id, trail = []) {
   return null;
 }
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function countNodes(nodes) {
   return nodes.reduce((acc, n) => acc + 1 + countNodes(n.children || []), 0);
 }
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function countStatus(nodes, status) {
   return nodes.reduce(
     (acc, n) => acc + (n.status === status ? 1 : 0) + countStatus(n.children || [], status),
@@ -59,7 +59,7 @@ function countStatus(nodes, status) {
   );
 }
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function maxDepth(nodes, depth = 1) {
   return nodes.reduce(
     (acc, n) => Math.max(acc, n.children?.length ? maxDepth(n.children, depth + 1) : depth),
@@ -71,7 +71,7 @@ const BADGE = { open: "🔲", resolved: "✅" };
 
 // ─── Render operations ───
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function renderTree(nodes, prefix = "") {
   return nodes
     .map((node, i) => {
@@ -86,7 +86,7 @@ function renderTree(nodes, prefix = "") {
     .join("\n");
 }
 
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
 function renderPath(pathNodes) {
   return pathNodes
     .map((n, i) => {
@@ -118,7 +118,7 @@ switch (operation) {
     }
     const kw = keyword.toLowerCase();
     const results = [];
-// [::TICKET::] PX-159, PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159, PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-159|PX-158) --for-spec --no-implementation-order`.
     function searchNodes(nodes) {
       for (const node of nodes) {
         if (node.id.toLowerCase().includes(kw) || node.title.toLowerCase().includes(kw)) {

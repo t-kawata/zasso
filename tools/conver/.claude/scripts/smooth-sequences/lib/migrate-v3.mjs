@@ -153,7 +153,7 @@ function crossingsOf(step, owners, sequenceUnits, boundaries) {
 }
 
 /** The clause facts a boundary contributes to one side. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function boundaryFacts(contract, clauseName) {
   const value = contract.clauses?.[clauseName];
   const projected = (factId, entry) => ({
@@ -208,7 +208,7 @@ function typedContractFor(input) {
 }
 
 /** The contribution value an operation carries after the migration. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function contributionOf(operation, annotation) {
   if (annotation?.registry_contribution === 'required' || annotation?.registry_contribution === 'not_required') {
     const declared = { registry_contribution: annotation.registry_contribution };
@@ -272,7 +272,7 @@ function boundaryEffectsOf(operationId, owners, boundaries) {
 }
 
 /** One annotated boundary effect, or a named refusal. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function normalizeBoundaryEffect(effect) {
   if (effect === null || typeof effect !== 'object' || Array.isArray(effect)) {
     throw new SmoothSequencesError('a boundary effect annotation is not an object', {
@@ -347,7 +347,7 @@ export function digestOfAnnotations(annotations) {
 const normalizeQuote = normalizeFactText;
 
 /** Whether an annotations document carries any authored input. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function hasAnnotations(annotations) {
   return Object.keys(annotations?.contracts ?? {}).length > 0
     || Object.keys(annotations?.operations ?? {}).length > 0
@@ -403,7 +403,7 @@ export function assertCitedGround(entry, boundary) {
 }
 
 /** One fact id from a string or a fact object. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function factIdOf(entry) {
   return typeof entry === 'string' ? entry : entry?.factId;
 }
@@ -443,7 +443,7 @@ export function normalizeAuthoredContract(contract, step, options = {}) {
 }
 
 /** Every step id, or the subset that is authored. */
-// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306) --for-spec --no-implementation-order`.
 function authoredStepIdsOf(steps) {
   return steps
     .filter((step) => {
@@ -457,7 +457,7 @@ function authoredStepIdsOf(steps) {
 }
 
 /** Partition all ids into the authored subset and the synthesized rest. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function partitionIds(allIds, authoredIds) {
   const authoredSet = new Set(authoredIds);
   return {
@@ -467,7 +467,7 @@ function partitionIds(allIds, authoredIds) {
 }
 
 /** The authorship map a migration records. */
-// [::TICKET::] PX-286, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288) --for-spec --no-implementation-order`.
 function buildAuthorship(input) {
   const {
     steps, typedStepIds, activeOperationIds, typedOperations, originalOperations,
@@ -498,7 +498,7 @@ function buildAuthorship(input) {
 }
 
 /** The surfaces an authorship map marks with at least one synthesized row. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function synthesizedSurfacesOf(authorship) {
   return Object.entries(authorship)
     .filter(([, record]) => record.synthesized.length > 0)
@@ -506,7 +506,7 @@ function synthesizedSurfacesOf(authorship) {
 }
 
 /** Build the v3 artifact from a v2 artifact and an annotations document. */
-// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
 function migrateV2ToV3(input) {
   const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
   const boundaries = treeManifest.dependencies?.boundaries ?? [];
@@ -629,7 +629,7 @@ function migrateV2ToV3(input) {
 }
 
 /** The authored ids a previous authorship record declares, or the conservative fallback. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
   const record = authorship?.[surface];
   if (record !== undefined) return Array.isArray(record.authored) ? record.authored : [];
@@ -638,7 +638,7 @@ function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
 }
 
 /** Merge a new annotations document into an existing v3 artifact. */
-// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
 function mergeAnnotationsIntoV3(input) {
   const { artifact, treeManifest, allocateManifest = null, annotations = {} } = input;
   const next = JSON.parse(JSON.stringify(artifact));

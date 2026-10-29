@@ -1,4 +1,4 @@
-// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-338 --for-spec --no-implementation-order`.
 // PX-336 Red: the per-node semantic implementation brief.
 // @verifies C001
 // @verifies C002
@@ -14,7 +14,7 @@ import { buildNodeBrief, verifyNodeContracts } from '../../.claude/scripts/rfc-g
 const SECTION_LABELS = ['YOU ARE HERE', 'IMPLEMENT', 'MUST HOLD', 'DO NOT', 'ORDER', 'PROOF'];
 
 /** The text between two section labels, so a DO NOT fact cannot satisfy a MUST HOLD assertion. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function sectionText(brief, startLabel, endLabel) {
   const start = brief.indexOf(startLabel);
   const end = endLabel === null ? brief.length : brief.indexOf(endLabel);
@@ -24,7 +24,7 @@ function sectionText(brief, startLabel, endLabel) {
 }
 
 /** One operation unit in the package view, with the obligation fields the brief reads. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function operationUnit(operationId, overrides = {}) {
   return {
     unitId: `op-${operationId}`,
@@ -51,7 +51,7 @@ function operationUnit(operationId, overrides = {}) {
 }
 
 /** One sidecar step row. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function stepRow(stepId, operationId, contractProse, contract = {}) {
   return {
     stepId,
@@ -74,13 +74,13 @@ function stepRow(stepId, operationId, contractProse, contract = {}) {
 }
 
 /** A graph node carrying the units a brief must resolve. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function node(id, unitIds, title = `node ${id}`, summary = `summary ${id}`) {
   return { id, title, kind: 'api_contract', summary, language: 'rust', slug: id.toLowerCase(), headingRefs: [], unitIds };
 }
 
 /** A boundary contract edge with the registry note the resolver reads. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function boundaryEdge(from, to, boundaryId, contractText) {
   return {
     from,
@@ -95,7 +95,7 @@ function boundaryEdge(from, to, boundaryId, contractText) {
 }
 
 /** The complete fixture the normal and verify cases share. */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function completeFixture() {
   const graph = {
     nodes: [
@@ -293,19 +293,19 @@ describe('verifyNodeContracts', () => {
 // ---------------------------------------------------------------------------
 
 /** A contract carrying the three clauses the brief expands. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function contract(id, text) {
   return { id, precondition: `${text} pre`, postcondition: `${text} post`, invariant: `${text} inv` };
 }
 
 /** An edge that carries the registry note for boundary-023. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function registryEdge(from, to, contracts, type = 'references') {
   return { from, to, type, attributes: { note: 'registry:boundary-023;digest:abc' }, contracts };
 }
 
 /** The package view for the multi-edge boundary cases. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function boundaryView() {
   return {
     ownedOperationUnits: [operationUnit('CreateRootEntry')],
@@ -318,7 +318,7 @@ function boundaryView() {
 }
 
 /** Seven registry-note edges and eight contracts, measured on gaia-forum boundary-023. */
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 function multiEdgeBoundaryFixture() {
   const graph = {
     nodes: [

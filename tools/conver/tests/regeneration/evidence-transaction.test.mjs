@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { deriveGeneration, openTransaction } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
 import { materializeChainWorkspace } from './helpers/chain-fixture.mjs';
 
-// [::TICKET::] PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-290 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-290 --for-spec --no-implementation-order`.
 test('an evidence-only transaction stages the evidence and derives without the producers', () => {
   const workspace = materializeChainWorkspace();
   try {

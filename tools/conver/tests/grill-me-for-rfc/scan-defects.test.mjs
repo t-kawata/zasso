@@ -1,5 +1,5 @@
 // PX-239 @verifies C005
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 /**
  * Candidate discovery, never a verdict.
  *
@@ -22,7 +22,7 @@ import { GRILL_SCAN_DEFECTS, runCommand } from '../question-gate/helpers/fixture
  * @param {Record<string, string>} files — filename to content
  * @returns {string} the package directory
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function makePackage(files) {
   const dir = mkdtempSync(join(tmpdir(), 'px239-scan-'));
   for (const [name, content] of Object.entries(files)) {

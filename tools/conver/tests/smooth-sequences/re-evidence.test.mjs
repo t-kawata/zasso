@@ -11,7 +11,7 @@ import {
 } from '../../.claude/scripts/smooth-sequences/lib/re-evidence.mjs';
 import { sha256File } from '../../.claude/scripts/shared-obligations/evidence.mjs';
 
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function workspace() {
   const root = mkdtempSync(join(tmpdir(), 'px293-re-evidence-'));
   mkdirSync(join(root, 'educe-sequences'), { recursive: true });
@@ -42,7 +42,7 @@ function workspace() {
 }
 
 // @verifies C001
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 test('archiving copies generated evidence with digests and removes it from the live set', () => {
   const space = workspace();
   try {
@@ -62,7 +62,7 @@ test('archiving copies generated evidence with digests and removes it from the l
 });
 
 // @verifies C002
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 test('restoring the inquest keeps the original reader and drops remediation fields', () => {
   const space = workspace();
   try {
@@ -80,7 +80,7 @@ test('restoring the inquest keeps the original reader and drops remediation fiel
 });
 
 // @verifies C003
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 test('resetting the manifest receipts makes a later generation re-open its read phases', () => {
   const space = workspace();
   try {
@@ -94,7 +94,7 @@ test('resetting the manifest receipts makes a later generation re-open its read 
 });
 
 // @verifies C001
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('the archive covers every evidence file the re-authoring replaces', async () => {
   const { ARCHIVE_FILES } = await import('../../.claude/scripts/smooth-sequences/lib/re-evidence.mjs');
   for (const relative of [

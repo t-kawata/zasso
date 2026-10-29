@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-193 @verifies C005
 /**
  * Authoring packet (AI information supply, machine generated).
@@ -9,7 +9,7 @@
  * forbidden edges that must not become contracts, and segment-bounded excerpts of
  * the counterpart's own material. Everything here is derived from the manifest.
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { deriveExpectedAllocation, lookupInventoryItem } from './allocation-model.mjs';
 import { contractIdForBoundary } from './contract-model.mjs';
@@ -108,7 +108,7 @@ export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLi
 }
 
 /** The boundaries on which this package is the provider, so something consumes it. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function incomingBoundariesOf(manifest, packageId) {
   return (manifest.dependencies?.boundaries ?? []).filter((boundary) => boundary.provider_package === packageId);
 }
@@ -123,7 +123,7 @@ function incomingBoundariesOf(manifest, packageId) {
  * @param {{ packageId: string, manifest: object, incomingImplementations?: Map<string, Array<object>>, windowLines: number }} input
  * @returns {Array<object>} one excerpt per consumer file
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function resolveIncomingDependencyExcerpts({ packageId, manifest, incomingImplementations, windowLines }) {
   const packages = manifest.workspace?.packages ?? [];
   const packageById = new Map(packages.map((candidate) => [candidate.id, candidate]));
@@ -156,7 +156,7 @@ function resolveIncomingDependencyExcerpts({ packageId, manifest, incomingImplem
 }
 
 /** Accept a Map or a plain object, so a caller need not choose one. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function normaliseImplementations(incomingImplementations) {
   if (incomingImplementations instanceof Map) {
     return incomingImplementations;
@@ -168,7 +168,7 @@ function normaliseImplementations(incomingImplementations) {
 }
 
 /** The line the bounded window ends on, clamped to the file. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function boundedWindowEnd(text, windowLines) {
   return Math.min(String(text ?? '').split('\n').length, 1 + windowLines);
 }
@@ -227,7 +227,7 @@ function buildExcerpt(input) {
  *
  * @param {{ boundary: object, packageId: string, catalog: { packageById: Map<string, object>, manifest: object }, excerpt: { sourceText: string, windowLines: number } }} input
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function requireConnectionKind(boundary) {
   const connectionKind = boundary?.connection_kind;
   if (!isRegisteredConnectionKind(connectionKind)) {
@@ -239,7 +239,7 @@ function requireConnectionKind(boundary) {
   return connectionKind;
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function buildContractContext({ boundary, packageId, catalog, excerpt }) {
   const { packageById, manifest } = catalog;
   const { sourceText, windowLines } = excerpt;

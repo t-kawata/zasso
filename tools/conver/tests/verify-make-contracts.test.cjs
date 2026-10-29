@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 
 const { verifyMakeContracts } = require('../.claude/scripts/tickets/verify-make-contracts.js');
 
-// [::TICKET::] PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-71 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-71 --for-spec --no-implementation-order`.
 function makeTicket(id, contracts, testUnit, testExceptions) {
   return {
     id,
@@ -19,7 +19,7 @@ function makeTicket(id, contracts, testUnit, testExceptions) {
   };
 }
 
-// [::TICKET::] PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-71 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-71 --for-spec --no-implementation-order`.
 function contract(id, precondition, postcondition, invariant) {
   return {
     id,

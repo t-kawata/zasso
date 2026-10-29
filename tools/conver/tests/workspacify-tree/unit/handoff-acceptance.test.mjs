@@ -1,4 +1,4 @@
-// [::TICKET::] PX-197 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-197 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-197 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-197 --for-spec --no-implementation-order`.
 // PX-197 @verifies C001 C002
 // Stage 1 must not publish a manifest stage 2 would refuse. The two gates are
 // therefore one predicate: the stage-1 gate asks the stage-2 entry gate and adds

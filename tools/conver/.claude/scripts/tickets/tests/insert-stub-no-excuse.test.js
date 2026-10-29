@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-121: insert-stub no-excuse rejection — tests for the creation-time gate.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-121 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-121 --for-spec --no-implementation-order`.
 
 /**
  * insert-stub-no-excuse.test.js — RED tests for the insert-stub.js no-excuse gate.
@@ -15,7 +15,7 @@ const os = require('os');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-121 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-121 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }

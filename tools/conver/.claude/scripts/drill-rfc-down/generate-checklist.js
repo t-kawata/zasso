@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * generate-checklist.js <session-dir>
  *
@@ -23,7 +23,7 @@ import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 import { AI_SUPPLEMENT_COMMENT, carriesHandWrittenText, composeFencedFile } from "../grill-me-for-rfc/lib/checklist-fence.mjs";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const sessionDir = path.resolve(process.argv[2] ?? ".");
@@ -48,13 +48,13 @@ const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
  * scanner as a stray marker. `grill-me-for-rfc/generate-checklist.js` refuses the
  * same token and meets the problem the same way; this is that token, not a second one.
  */
-// [::TICKET::] PX-205 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-205 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-205 --for-spec --no-implementation-order`.
 const DEFERRED_WORK_TOKEN = ["TO", "DO"].join("");
 
 const FORBIDDEN = `TBD / ${DEFERRED_WORK_TOKEN} / 別バージョンで対応 という表現が含まれていないこと`;
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function nodeChecks(title) {
   return [
     `- [ ] **${title}** が設計として完全に記述されている`,
@@ -63,7 +63,7 @@ function nodeChecks(title) {
   ].join("\n");
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function sectionChecks() {
   return [
     `- [ ] セクション全体が完全に記述されている`,
@@ -72,7 +72,7 @@ function sectionChecks() {
   ].join("\n");
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function renderChildren(children, sectionPrefix, depth) {
   if (!children?.length) return "";
   return children.map((child, i) => {
@@ -165,7 +165,7 @@ const totalNodes = (function count(nodes) {
 
 // The result goes to stdout as data, not as a log line: the command reads this
 // object to decide whether to continue, so it is written rather than printed.
-// [::TICKET::] PX-205 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-205 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-205 --for-spec --no-implementation-order`.
 process.stdout.write(JSON.stringify({
   ok: true,
   checklistPath,

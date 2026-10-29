@@ -7,7 +7,7 @@ import { minimalV2Artifact, minimalV3Artifact } from './helpers/workspace-fixtur
 
 const schema = readArtifactSchema();
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 // @verifies C002
 test('a v3 artifact with every typed step fields validates', () => {
   assert.deepEqual(validateArtifactShape(minimalV3Artifact(), schema), []);

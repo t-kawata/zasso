@@ -64,8 +64,8 @@ const ENTRIES_FILE = 'ledger-entries.md';
 const CENSUS_SPANS = Object.freeze(['1-23', '24-26', '27-33', '34-35', '36-48', '51-58']);
 
 /** The entries census rewritten as spans, one row per span, in the same file. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanDocument(spans) {
   const rows = spans.map((span, index) => JSON.stringify({ region: `region-${index + 1}`, span }));
   return ['```json', ...rows, '```', ''].join('\n');
@@ -94,13 +94,13 @@ const IDENTIFIER_SUPPLIED = suppliedDocumentsOf(RUN_DIRECTORY);
 const SPAN_SUPPLIED = Object.freeze({ ...IDENTIFIER_SUPPLIED, [ENTRIES_FILE]: SPAN_CENSUS });
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** The golden artifact with its borrowed pins replaced, which is the coordinate under test. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function artifactWith(sourceEnumerations) {
   const artifact = golden();
   artifact.pins.sourceEnumerations = sourceEnumerations;
@@ -108,7 +108,7 @@ function artifactWith(sourceEnumerations) {
 }
 
 /** A borrowed pin for the span census, in the shape the artifact records one. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanPin(members = CENSUS_SPANS, overrides = {}) {
   return {
     name: SPAN_PIN.name,
@@ -122,19 +122,19 @@ function spanPin(members = CENSUS_SPANS, overrides = {}) {
 }
 
 /** Every verdict the rail reports over an artifact, with the material it was read beside. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function verdictsOf(artifact, supplied = SPAN_SUPPLIED) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied } }).verdicts;
 }
 
 /** The verdicts of the one check this file is about. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function entryVerdicts(artifact, supplied = SPAN_SUPPLIED) {
   return verdictsOf(artifact, supplied).filter((verdict) => verdict.check === 'every-censused-entry-adjudicated');
 }
 
 /** A run directory whose specification and material are the fixture's, with the census rewritten. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanRun() {
   const root = mkdtempSync(join(tmpdir(), 'px266-spans-'));
   copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
@@ -149,7 +149,7 @@ function spanRun() {
 }
 
 /** One phase gate, driven the way the driver drives it. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function evaluatePhase(phaseId, run) {
   return evaluateGate(phaseId, buildContext({ specPath: run.specPath, spec: run.spec, run: { directory: run.directory, status: run.status }, recorded: {} }));
 }

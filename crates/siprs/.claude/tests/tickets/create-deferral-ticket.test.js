@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-124: Create create-deferral-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124: Create create-deferral-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
 
 /**
  * create-deferral-ticket.test.js — Tests for create-deferral-ticket.js
@@ -20,14 +20,14 @@ const path = require('path');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-124 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -51,7 +51,7 @@ try {
 }
 
 // Valid Tickets.json fixture (schema-valid) with a max non-PX phase 2.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function makeData() {
   return {
     title: 'T',
@@ -65,7 +65,7 @@ function makeData() {
 }
 
 // Fixture with targetStubs on the source ticket (for deferredTo tests).
-// [::TICKET::] PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-127 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-127 --for-spec --no-implementation-order`.
 function makeDataWithStubs() {
   return {
     title: 'T',
@@ -181,7 +181,7 @@ function makeDataWithStubs() {
 // parseArgs
 
 (function testParseArgs() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const args = ['--source-key=P0-1', '--deferred-to=P0-1'];
   const parsed = parseArgs(args);
   assertStrictEqual(parsed.sourceKey, 'P0-1', 'parseArgs: sourceKey parsed');

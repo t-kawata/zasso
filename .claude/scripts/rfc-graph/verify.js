@@ -185,7 +185,7 @@ function readSourceFile(sourcePath) {
  * @returns {Array<{ line: number, level: number, text: string, tokens: string[] }>}
  *   List of level-2 headings (line number 1-indexed, heading level, heading text, token array)
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractHeadings(sourceLines) {
   return extractHeadingsOutsideFences(sourceLines)
     .filter((heading) => heading.level === 2)
@@ -328,7 +328,7 @@ function checkResolvability(sourceLines, nodes) {
  * @param {string[]} isolatedNodes — List of isolated node IDs
  * @param {Array} unresolvableRefs — List of unresolvable headingRefs
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) {
   const result = {
     ok,
@@ -383,7 +383,7 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 /**
  * Display usage information
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(
     'verify.js — Coverage and isolated node validation (headingRefs method)\n' +

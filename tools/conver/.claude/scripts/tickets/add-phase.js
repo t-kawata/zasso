@@ -40,7 +40,7 @@ function main() {
     if (p.id > maxId) maxId = p.id;
   }
   // PX-92: Added phaseId (=id) and status to ensure schema completeness.
-  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+  // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-92 --for-spec --no-implementation-order`
   const ph = {
     id: maxId + 1,
     phaseId: maxId + 1,

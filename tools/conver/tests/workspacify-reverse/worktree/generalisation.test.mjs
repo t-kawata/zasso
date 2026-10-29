@@ -1,4 +1,4 @@
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 // @verifies C001
 /**
  * Worktree isolation, with the guard taken from the caller's subject.

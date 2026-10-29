@@ -28,14 +28,14 @@ const ACTIVE_DISPOSITION = 'active';
 const V3 = 3;
 
 /** Whether a notASequence region records why it is not a sequence. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function hasNotASequenceGround(sequence) {
   return [sequence.ground, sequence.reason, sequence.grounding?.classification, sequence.ground_ref]
     .some((value) => typeof value === 'string' && value.trim() !== '');
 }
 
 /** One finding with its route already resolved. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function addFinding(findings, checkId, subject, entry) {
   findings.push(finding(checkId, entry.className, subject, {
     ...entry.route,
@@ -45,8 +45,8 @@ function addFinding(findings, checkId, subject, entry) {
 }
 
 /** The contiguous and referential integrity of the enumeration. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectEnumerationIntegrity(index) {
   const findings = [...index.duplicates];
 
@@ -101,9 +101,9 @@ export function checkEnumerationIntegrity(index) {
 }
 
 /** The operation envelope: status graph, finality, and the declared interface mappings. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectOperationEnvelope(index) {
   const findings = [];
   const terminalStatuses = index.vocabulary.terminalStatuses === null ? null : new Set(index.vocabulary.terminalStatuses);
@@ -130,7 +130,7 @@ export function checkOperationEnvelope(index) {
 }
 
 /** The status graph: every named status resolves, and no terminal status leaves. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkStatusGraph(index, operation, terminalStatuses, findings) {
   const transitions = operation.allowed_status_transitions ?? {};
   const statuses = new Set(Object.keys(transitions));
@@ -167,7 +167,7 @@ function checkStatusGraph(index, operation, terminalStatuses, findings) {
 }
 
 /** A step that waits on an external dependency must say when it is complete. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkFinality(index, operation, findings) {
   if (operation.external_dependency_class === 'none' || operation.finality_predicate) return;
   addFinding(findings, 'S3.finality-missing-for-external', operation.id, {
@@ -179,7 +179,7 @@ function checkFinality(index, operation, findings) {
 }
 
 /** Every declared interface must be mapped by the operation. */
-// [::TICKET::] PX-277, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-288) --for-spec --no-implementation-order`.
 function checkInterfaceMappings(index, operation, requiredInterfaces, findings) {
   if (requiredInterfaces === null) return;
   for (const interfaceName of requiredInterfaces) {
@@ -208,7 +208,7 @@ function checkInterfaceMappings(index, operation, requiredInterfaces, findings) 
 }
 
 /** Whether an operation carries a non-empty mapping for one declared interface. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function isInterfaceMappingPresent(value) {
   if (typeof value === 'string') return value.trim() !== '';
   if (Array.isArray(value)) return value.length > 0;
@@ -217,8 +217,8 @@ function isInterfaceMappingPresent(value) {
 }
 
 /** The boundary clauses and the two sides that carry them. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectBoundaryClauses(index) {
   const findings = [];
   const boundaries = index.treeManifest.dependencies?.boundaries ?? [];
@@ -257,7 +257,7 @@ export function checkBoundaryClauses(index) {
 }
 
 /** The contract row: source references and the clauses stage2 requires. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkContractClauses(boundary, contract, findings) {
   const allocateRoute = (checkId, locator) => repairRouteFor(checkId, { locator });
   const sourceRefs = Array.isArray(contract.source_refs) ? contract.source_refs : [];
@@ -296,7 +296,7 @@ function checkContractClauses(boundary, contract, findings) {
 }
 
 /** The two sides a boundary names, checked against the direction and counterpart it fixes. */
-// [::TICKET::] PX-277, PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-278) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-278) --for-spec --no-implementation-order`.
 function checkBoundarySides(index, boundary, findings) {
   const boundarySideRoute = (locator) => repairRouteFor('S4.boundary-side-mismatch', { locator });
   const sides = new Map();
@@ -340,21 +340,21 @@ function checkBoundarySides(index, boundary, findings) {
 }
 
 /** Whether a not_required declaration explains itself. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function hasContributionGround(operation) {
   return typeof operation.registry_contribution_ground === 'string'
     && operation.registry_contribution_ground.trim() !== '';
 }
 
 /** Whether the package distribution ledger records the operation as a unit. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function ledgerRecordsOperation(pkg, operationId) {
   return (readLedgerRows(pkg.rfc ?? '') ?? []).some((row) => row.unit === `op-${operationId}`);
 }
 
 /** Every owned active operation declares its contribution and is recorded by its owner. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectContributionCompleteness(index) {
   if (index.schemaVersion !== V3) {
     return {
@@ -438,7 +438,7 @@ export function collectContributionCompleteness(index) {
  * contribution gate and older callers on the same observable value without restoring a
  * second source of truth.
  */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function contributionWithheld(index) {
   if (index.schemaVersion !== V3) {
     return [{ layer: 'S4', check: 'S4.contribution', reason: 'v2 artifact carries no registry_contribution' }];
@@ -455,8 +455,8 @@ export function checkContributionCompleteness(index) {
 }
 
 /** The artifact, the per-package view and the package RFC agree on the unit set. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-288) --for-spec --no-implementation-order`.
 /**
  * Every drawn sequence step must reach a step-bearing view record.
  *
@@ -471,7 +471,7 @@ export function checkContributionCompleteness(index) {
  * prints in array order. A line sort here would invent a third order and report a view
  * that copies the artifact.
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function collectSequenceStepDistribution(index, findings) {
   for (const sequence of index.artifact.sequences ?? []) {
     if (!DRAWN_OUTCOMES.has(sequence.outcome)) continue;
@@ -533,7 +533,7 @@ function collectSequenceStepDistribution(index, findings) {
 }
 
 /** Every active operation and realized sequence must be owned by some package. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function checkDistributionCoverage(index, findings) {
   for (const operation of index.artifact.operations ?? []) {
     if (operation?.disposition !== 'active') continue;
@@ -596,7 +596,7 @@ export function checkArtifactViewConsistency(index) {
 }
 
 /** The view's own identity: the package it names is the package whose directory holds it. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkViewIdentity(index, pkg, findings) {
   if (pkg.view.packageId === pkg.id) return;
   addFinding(findings, 'S7.view-package-mismatch', pkg.id, {
@@ -608,7 +608,7 @@ function checkViewIdentity(index, pkg, findings) {
 }
 
 /** Every unit the view owns or crosses resolves to a declared operation or sequence. */
-// [::TICKET::] PX-277, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-284) --for-spec --no-implementation-order`.
 function checkViewUnits(index, pkg, findings) {
   const reportUnknown = (subject) => {
     addFinding(findings, 'S7.view-unit-mismatch', subject, {
@@ -648,7 +648,7 @@ function checkViewUnits(index, pkg, findings) {
 }
 
 /** A carried boundary the view names must also appear in the package RFC. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkRfcBoundaries(index, pkg, findings) {
   for (const unit of pkg.view.obligationUnits ?? []) {
     const carriesDeclaredBoundary = unit.relation === 'carries' && index.boundariesById.has(unit.subject);

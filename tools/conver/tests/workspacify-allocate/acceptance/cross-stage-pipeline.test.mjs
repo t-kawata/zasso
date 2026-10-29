@@ -1,4 +1,4 @@
-// [::TICKET::] PX-196, PX-201, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-196|PX-201) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-196, PX-201, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-196|PX-201) --for-spec --no-implementation-order`.
 // PX-196 @verifies C002 C003
 // The two stages are always run one after the other, so the coupling itself must
 // be proven: a real stage-1 CLI run produces the manifest that a real stage-2 CLI
@@ -54,7 +54,7 @@ function ownsOnly(objectIds) {
   return { objects: objectIds, claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function stageOneDecisions(objectIds) {
   const [firstId, secondId] = objectIds;
   return {
@@ -117,7 +117,7 @@ function stageTwoDecisions(manifest) {
   });
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose segment included', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-cross-'));
   try {

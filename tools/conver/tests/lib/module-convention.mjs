@@ -123,7 +123,7 @@ export function syntaxOf(sourceText) {
  * @param {string} directory
  * @returns {string[]}
  */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function listSourceFiles(directory) {
   const found = [];
   const walk = (current) => {

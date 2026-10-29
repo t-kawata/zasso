@@ -27,7 +27,7 @@
  * module reads no document at all, so a caller cannot disagree with the gates about one
  * workspace by judging from a second reading of it.
  *
- * Design context: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+ * Design context: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
  */
 import { OBLIGATION_SOURCES } from './obligation.mjs';
 import { obligationSourceOf } from './view.mjs';
@@ -81,7 +81,7 @@ export const PACKAGE_VERDICT_REASONS = Object.freeze([
 const UNCARRIED_SOURCE = OBLIGATION_SOURCES[2];
 
 /** A verdict of the named state, carrying the reason it was reached. */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 function verdictOf(state, reason) {
   return { state, reason };
 }
@@ -104,7 +104,7 @@ function verdictOf(state, reason) {
  * @param {boolean} [material.declarationDidNotBind] — a declaration that bound to no unit
  * @returns {{ state: string, reason: string|null }}
  */
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
 export function judgeSequenceOf(material) {
   const {
     view = null,

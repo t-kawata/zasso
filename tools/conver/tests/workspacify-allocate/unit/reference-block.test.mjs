@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
 // PX-193 @verifies C001
 // The three reference paths are machine-injected: the AI can neither omit nor
 // rewrite them, and any disagreement with the files on disk is a gate failure.

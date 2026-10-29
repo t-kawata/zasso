@@ -1,8 +1,8 @@
-// [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-203 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-reverse trace hygiene and experiment design.
  *
@@ -153,7 +153,7 @@ const WITHDRAWN_OPTIONS = Object.freeze({
  * the option would leave the value it was given unaccounted for, which is the
  * same dropped question the refusal exists to prevent.
  */
-// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function withdrawnOptionsUsed(optionArgs) {
   return optionArgs.flatMap((token) => {
     const name = Object.keys(WITHDRAWN_OPTIONS)
@@ -163,7 +163,7 @@ function withdrawnOptionsUsed(optionArgs) {
 }
 
 /** Refuse a withdrawn option, naming it and the reason it cannot be honoured. */
-// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function refuseWithdrawnOptions(withdrawn) {
   if (withdrawn.length === 0) return;
   const reasons = withdrawn.map(({ name, token }) => `${token}: ${WITHDRAWN_OPTIONS[name]}`).join(' ');
@@ -179,7 +179,7 @@ function refuseWithdrawnOptions(withdrawn) {
  * never theirs — the same dropped question the withdrawn options are refused
  * for, and the reason this names the argument rather than discarding it.
  */
-// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
 function refusePositionalArguments(positionals) {
   if (positionals.length === 0) return;
   throw new Error(
@@ -301,7 +301,7 @@ function positionalArgs(args) {
  * them runs: an option honoured once and ignored now would leave the caller believing
  * their question had been asked when nothing was listening.
  */
-// [::TICKET::] P25-7, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-214|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7, PX-214, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-7|PX-214|PX-213) --for-spec --no-implementation-order`.
 function commonOptions(subcommand, optionArgs) {
   // The switches are read from every token after the subcommand, not from the
   // tokens after the second slot: a subcommand that takes no positional puts its
@@ -346,7 +346,7 @@ function parseLedgerArguments(subcommand, second, rest) {
   };
 }
 
-// [::TICKET::] PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-214|PX-213) --for-spec --no-implementation-order`.
 function parseSpikeArguments(second, rest, argv) {
   const optionArgs = optionTokens(second, rest);
   const projectRoot = flagValue(optionArgs, '--project-root') ?? process.cwd();
@@ -374,7 +374,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3, P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3|P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3, P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3|P26-4|P26-5) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, optionTokens(second, rest));
@@ -450,7 +450,7 @@ function parseArgs(argv) {
  * The token the caller wrote travels into the message rather than being summarised,
  * because a refusal that named only the option would leave the value unaccounted for.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function refuseDecisionsArgument(argv) {
   const tokens = argv.filter((token) => token === '--decisions' || token.startsWith('--decisions='));
   if (tokens.length === 0) return;
@@ -470,7 +470,7 @@ function refuseDecisionsArgument(argv) {
  * stopped and a run that finished are indistinguishable from an exit code alone,
  * and a partial origin spec reads exactly like a complete one.
  */
-// [::TICKET::] P22-9, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-9|PX-214|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9, PX-214, PX-213 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-9|PX-214|PX-213) --for-spec --no-implementation-order`.
 function reportStage({ stage, input, error }) {
   const subject = stage === null ? 'The arguments' : `Stage ${stageLabel(stage)}`;
   process.stderr.write(
@@ -498,7 +498,7 @@ function reportStage({ stage, input, error }) {
  * publishes is what the stages produce and nothing beside it, so the set a reader
  * receives does not depend on what the host has installed.
  */
-// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2, P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2|P26-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2, P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2|P26-4) --for-spec --no-implementation-order`.
 /**
  * The locator, as the Step that inspects the semantics calls it.
  *
@@ -507,7 +507,7 @@ function reportStage({ stage, input, error }) {
  * is the material a judgement needs — the reading, its basis, and the source lines the
  * basis rests on — and never the judgement itself.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function runReadingsStep(options) {
   const destination = options.out ?? reservedReverseDirectory(process.cwd());
   // The reserved name is the Markdown the next rotation reads; the matrix is built from
@@ -538,14 +538,14 @@ function runReadingsStep(options) {
 }
 
 /** What to do when the locator has no spec to read. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderReadingsAdvice({ specPath, reason }) {
   return `${reason}: ${specPath}. `
     + 'The matrix is read from the spec the run published, so there is nothing to locate until a run\n'
     + 'has reached the exit. Nothing was written by this command.\n';
 }
 
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 async function runAnalysisPipeline({ root, through, out, semantics }) {
   let currentStage = null;
   let outcome;
@@ -585,7 +585,7 @@ async function runAnalysisPipeline({ root, through, out, semantics }) {
  * The last line names the Step to go to. An AI that has just watched a two-minute run
  * finish should not have to work out where it now stands.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function renderAnalysisVerdict({ outcome, out }) {
   const published = readdirSync(out).sort();
   const lines = [
@@ -608,7 +608,7 @@ function renderAnalysisVerdict({ outcome, out }) {
 }
 
 
-// [::TICKET::] P22-4, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P26-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P26-2) --for-spec --no-implementation-order`.
 function runDetect({ root, json }) {
   const report = detectForwardTraces(root);
   process.stdout.write(`${report.markdown}\n`);
@@ -618,7 +618,7 @@ function runDetect({ root, json }) {
   return 0;
 }
 
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runScrub({ root, apply, dryRun, renameTicketKeyedFiles, json }) {
   if (!apply) {
     const plan = planScrub(detectForwardTraces(root));
@@ -669,7 +669,7 @@ function runScrub({ root, apply, dryRun, renameTicketKeyedFiles, json }) {
  * both give: a caller who named the document would be naming one this command already
  * knows the place of, and a question dropped in silence reads like one answered.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runGate({ root }) {
   refuseDecisionsArgument(process.argv.slice(2));
   const path = reservedReverseDecisionsPath(root);
@@ -704,9 +704,9 @@ function runGate({ root }) {
 /**
  * Step 0 — the pattern, from the same function the run's R0 calls.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runPatternStep({ root }) {
   try {
     process.stdout.write(`${renderPatternDetection(detectPatternAt(root))}\n`);
@@ -720,9 +720,9 @@ function runPatternStep({ root }) {
 /**
  * Step 1 — what the subject already holds, recorded before anything is measured.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runInventoryStep({ root }) {
   process.stdout.write(`${renderInventory(readInventory({ root }))}\n`);
   return 0;
@@ -731,9 +731,9 @@ function runInventoryStep({ root }) {
 /**
  * Steps 3 and 4 — what the destination holds against what the exit owes it.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runStatusStep({ root }) {
   const destination = reservedReverseDirectory(root);
   const set = readPublishedSet({ destination });
@@ -755,9 +755,9 @@ function runStatusStep({ root }) {
  * document can be shaped wrong in ways the gate then reports as missing answers, which
  * is why the writing is here rather than in the reader's hands.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runDecideStep({ root, answers }) {
   const path = reservedReverseDecisionsPath(root);
   if (answers === undefined || answers === null) {
@@ -788,9 +788,9 @@ function runDecideStep({ root, answers }) {
 /**
  * Step 6 — where the partition already on disk differs from the one the analysis fixed.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runSeamStep({ root }) {
   const seam = computeSeam({ prior: readPriorPartitionPaths(root), fixed: readFixedPartitionPaths(root) });
 
@@ -806,9 +806,9 @@ function runSeamStep({ root }) {
 /**
  * Step 8 — the stages that ran, the destination, and the digest outcome.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runReportStep({ root }) {
   const destination = reservedReverseDirectory(root);
   const report = readStepReport({ root, destination });
@@ -829,14 +829,14 @@ function runReportStep({ root }) {
  * stack names neither what to correct nor where to look, and the reader here is an
  * operator forbidden from asking.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function renderStepFailure({ step, root, error }) {
   return `${step} could not run.\n  Where: ${root}\n  Why: ${error.message}\nWhat to do: correct what the message names and run the same command again.\n`;
 }
 
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runVerify({ root }) {
   const result = verifyScrub(root);
   process.stdout.write(`${renderVerification(result, root)}\n`);
@@ -849,7 +849,7 @@ function runVerify({ root }) {
  * A missing baseline is an operator error and is reported in one line rather
  * than as a stack trace: the gate's job is to name what is wrong.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runRegression({ action, root }) {
   if (action === 'capture') {
     process.stdout.write(`${renderCaptureReport(captureBaselines({ projectRoot: root }))}\n`);
@@ -957,7 +957,7 @@ function runOracle(options) {
 }
 
 /** Freeze an answer key into the bundle a later comparison reads. */
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
 function runOracleFreeze({ projectRoot, frozenAt, oracleRoot }) {
   if (!oracleRoot) {
     process.stderr.write(
@@ -979,7 +979,7 @@ function runOracleFreeze({ projectRoot, frozenAt, oracleRoot }) {
 }
 
 /** Measure the known-and-intentional difference between a key and the tree it is paired with. */
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
 function runOracleDelta({ projectRoot, oracleRoot, subjectRoot }) {
   if (!oracleRoot || !subjectRoot) {
     process.stderr.write(
@@ -1008,7 +1008,7 @@ function runOracleDelta({ projectRoot, oracleRoot, subjectRoot }) {
  * so the tree does not have to be named again here, and a comparison cannot be
  * pointed at a key the bundle does not describe.
  */
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
 function runOracleCompare({ projectRoot, stage, candidate }) {
   if (!stage || !candidate) {
     process.stderr.write(`${USAGE}\n`);
@@ -1146,7 +1146,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3|P26-5) --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -1203,7 +1203,7 @@ async function main() {
  * before any Step has run — an argument the command line cannot honour, or a fault
  * inside a handler. The line the operator needs is what to do about it.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function reportUnhandledFailure(error) {
   process.stderr.write(
     'The reverse rotation could not continue.\n'

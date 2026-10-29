@@ -1,4 +1,4 @@
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 // PX-222 @verifies C003
 // PX-222 @verifies C005
 // PX-222 @verifies C006
@@ -18,7 +18,7 @@ export const SYNTHETIC_SEED_PATH = '/tmp/explain-seed-fixture/crates/protocol/al
  * because several tests need the same record and a difference between two copies of it would
  * be a difference the code under test could not tell from a real one.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export const SETTLED_ELSEWHERE = Object.freeze([
   Object.freeze({
     boundary_id: 'boundary-001',
@@ -55,7 +55,7 @@ const UNRELATED_TERM = {
 
 /** The projection the frame is given. */
 export function syntheticProjection(overrides = {}) {
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
   return {
     identity: {
       id: 'pkg-0001',
@@ -185,7 +185,7 @@ export function syntheticFacts(overrides = {}) {
  * A boundary a neighbour has already decided is not open here, so it is not in this set: the
  * frame is required to carry what the manifests recorded *and nothing has answered yet*.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function syntheticOpenIds(projection = syntheticProjection()) {
   const settled = new Set((projection.settledElsewhere ?? []).map((record) => record.boundary_id));
   return [

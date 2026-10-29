@@ -25,7 +25,7 @@ const CONTRACT = {
   invariants: [{ factId: 'active', text: 'one active order_id' }],
 };
 
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function viewWithTwoSteps() {
   return {
     packageId: 'pkg-1',
@@ -46,7 +46,7 @@ function viewWithTwoSteps() {
   };
 }
 
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function graphWithOperationNodes(notes = true) {
   return {
     nodes: [
@@ -63,7 +63,7 @@ function graphWithOperationNodes(notes = true) {
   };
 }
 
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function ticketOwningBothNodes() {
   return {
     id: 1,

@@ -25,14 +25,14 @@ export function computeFindingKey(finding) {
 }
 
 /** The original check id encoded in a withdrawn finding's subject. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function readOriginalCheckId(buildWithdrawnFinding) {
   const separator = buildWithdrawnFinding.subject.indexOf(SUBJECT_SEPARATOR);
   return separator === -1 ? buildWithdrawnFinding.subject : buildWithdrawnFinding.subject.slice(0, separator);
 }
 
 /** The key of the finding a withdrawn entry stands for. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function computeOriginalKey(buildWithdrawnFinding) {
   const separator = buildWithdrawnFinding.subject.indexOf(SUBJECT_SEPARATOR);
   if (separator === -1) return `${buildWithdrawnFinding.subject}${KEY_SEPARATOR}`;
@@ -40,7 +40,7 @@ function computeOriginalKey(buildWithdrawnFinding) {
 }
 
 /** Refuse a waiver that does not carry a ground. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function assertWaiver(waiver) {
   if (typeof waiver?.findingKey !== 'string' || waiver.findingKey.trim() === '') {
     throw new SmoothSequencesError('waiver names no findingKey', {
@@ -109,7 +109,7 @@ function buildWithdrawnFinding(previousFinding, blockedCheck) {
  * is an evidence regression; the same pair is also stuck because another run with the same
  * evidence cannot change it. New evidence on the same input is not a regression.
  */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function compareObligationClosure({ baseline = {}, staging = {} } = {}) {
   const baselineClosed = new Set(Array.isArray(baseline.closed) ? baseline.closed : []);
   const stagingOpen = new Set(Array.isArray(staging.open) ? staging.open : []);

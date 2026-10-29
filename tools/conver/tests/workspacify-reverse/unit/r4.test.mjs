@@ -1,5 +1,5 @@
 // @verifies C001
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 // R4 reconstructs history and decision provenance from git, and refuses to read a
 // commit message as proof of intent while doing it.
 import { test } from 'node:test';
@@ -32,7 +32,7 @@ const FIXTURE_COMMITS = Object.freeze([
 ]);
 
 /** Materialise the fixture repository and hand it to `body`, disposing afterwards. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function withHistoryRepository(body) {
   const { root, dispose } = createGitBackedTree(FIXTURE_FILES, { commits: [] });
   try {

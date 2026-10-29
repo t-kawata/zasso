@@ -22,7 +22,7 @@ const HEADING_PATTERN = /^(#{1,6})\s+(.+)/;
 const FENCE_MARKERS = Object.freeze(['```', '~~~']);
 
 /** Return the fence marker family that opens this line, or null. */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function fenceMarkerOf(line) {
   const trimmed = line.trim();
   return FENCE_MARKERS.find((marker) => trimmed.startsWith(marker)) || null;
@@ -35,7 +35,7 @@ function fenceMarkerOf(line) {
  * @returns {{ blocks: Array<{start:number,end:number,marker:string,unclosed:boolean}>, unclosed: boolean }}
  *   Closed blocks plus, when present, one unclosed block to end-of-file.
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function findFencedBlocks(sourceLines) {
   if (!Array.isArray(sourceLines)) {
     throw new TypeError('sourceLines must be an array');
@@ -80,7 +80,7 @@ function findFencedBlocks(sourceLines) {
  * @param {number} index — 0-based line index
  * @returns {boolean}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function isFencedLine(blocks, index) {
   return blocks.some((block) => index >= block.start && index <= block.end);
 }
@@ -92,7 +92,7 @@ function isFencedLine(blocks, index) {
  * @param {Array<{start:number,end:number}>|null} [blocks] — Precomputed blocks
  * @returns {Array<{line:number,level:number,text:string}>} 1-based line numbers
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractHeadingsOutsideFences(sourceLines, blocks = null) {
   const fencedBlocks = blocks ?? findFencedBlocks(sourceLines).blocks;
   const headings = [];
@@ -117,7 +117,7 @@ function extractHeadingsOutsideFences(sourceLines, blocks = null) {
  * @param {string[]} sourceLines — Markdown lines
  * @returns {boolean}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function hasUnclosedFence(sourceLines) {
   return findFencedBlocks(sourceLines).unclosed;
 }

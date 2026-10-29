@@ -693,7 +693,7 @@ function phasesToTicketsFormat(phases) {
  * @param {object} oldToNewMap — { oldKey: newKey } mapping
  * @returns {object} — New clone with rewritten stub contents
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function rewriteStubKeys(clone, oldToNewMap) {
   const stubs = (clone.stubs || []).map(function (stub) {
     let content = stub.content;
@@ -716,7 +716,7 @@ function rewriteStubKeys(clone, oldToNewMap) {
  * @param {Array<{id:number, stubs:Array}>} clones — Phasified clones
  * @throws {Error} — EXCUSE_MERGE_REJECTED when an excuse stub is present
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function guardExcuseMerge(clones) {
   const { EXCUSE_PATTERNS, WORK_ITEM_VERB_RE } = require('../tickets/validate-no-external-excuses.js');
   for (const clone of clones) {
@@ -746,7 +746,7 @@ function guardExcuseMerge(clones) {
  * @returns {{failures: number, proceeded: boolean, rounds: number, stubs: Array}}
  * @throws {Error} — on zero-progress round or non-convergence
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function runSelfHealingLoop(stubs, fixStub, opts) {
   const { classifyVerdict } = require('../tickets/validate-no-external-excuses.js');
   const ticketsData = (opts && opts.ticketsData) || {};

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C005
 /**
  * Staged directory-tree materialization (corrected ALLOCATE §8.3-§8.4).
@@ -145,7 +145,7 @@ export function publishStagedTree(stagingRoot, root, plan) {
  * @param {string} root - directory to scan (absolute)
  * @returns {string[]} sorted root-relative directory paths
  */
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function snapshotDirectories(root) {
   return [...walkTree(root).dirs].sort();
 }
@@ -174,7 +174,7 @@ export function snapshotDirectories(root) {
  * @param {{ preExisting?: string[] }} [options] - directories present before the run published
  * @returns {{ ok: boolean, missing: string[], unexpected: string[] }}
  */
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function verifyDirectorySet(root, plan, { preExisting = [] } = {}) {
   const expectedDirs = expandWithAncestors(plan);
   const preExistingDirs = new Set(preExisting);
@@ -237,7 +237,7 @@ export function rollbackRenamedTopLevels(root, renamedTopLevels) {
  * @param {string} absRoot - absolute directory to walk
  * @returns {{ dirs: string[], entries: string[] }} root-relative POSIX paths
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function walkTree(absRoot) {
   const dirs = [];
   const entries = [];

@@ -5,13 +5,13 @@ import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { materializeSmoothWorkspace, minimalV3Artifact } from './helpers/workspace-fixture.mjs';
 
 /** The findings of one check id. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function findingsOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId);
 }
 
 /** A workspace whose boundary is crossed only by the provider side. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function oneSidedCrossing({ ground = null } = {}) {
   const artifact = minimalV3Artifact();
   artifact.steps = artifact.steps.filter((step) => step.operation !== 'ConsumeFact');
@@ -23,7 +23,7 @@ function oneSidedCrossing({ ground = null } = {}) {
 }
 
 /** A workspace whose boundary no step crosses. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function uncrossedBoundary({ ground = null } = {}) {
   const artifact = minimalV3Artifact();
   artifact.steps = artifact.steps.map((step) => ({

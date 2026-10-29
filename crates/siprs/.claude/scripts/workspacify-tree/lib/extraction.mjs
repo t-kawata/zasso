@@ -1,4 +1,4 @@
-// [::TICKET::] PX-176, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-176, PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-176|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
 /**
  * Candidate inventory extraction (§7.3, §8).
  *
@@ -204,7 +204,7 @@ export function harvestRequirementCandidates({ sourceText, headings, segments })
   return all.filter((candidate) => REQUIREMENT_CLASSIFICATIONS.has(candidate.classification));
 }
 
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
   const lines = sourceText.split('\n');
   const offsets = lineStartOffsets(sourceText);

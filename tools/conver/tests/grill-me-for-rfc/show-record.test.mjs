@@ -1,5 +1,5 @@
 // PX-239 @verifies C006
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 /**
  * Opening the cited section, so "verify before carrying" is one command.
  *
@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { GRILL_SHOW_RECORD, runCommand } from '../question-gate/helpers/fixture-workspace.mjs';
 
 /** A record holding two sections, one of them with a nested subsection. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function makeRecord() {
   const dir = mkdtempSync(join(tmpdir(), 'px239-show-'));
   const path = join(dir, 'RFC.md');

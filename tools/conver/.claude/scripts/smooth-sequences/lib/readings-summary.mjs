@@ -21,7 +21,7 @@ const ANSWER_NO = 'No';
 const UNCOVERED_OUTCOMES = Object.freeze(['performed', 'escaped']);
 
 /** The raw rows the registry and judgment protocol read. */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function readReadingsForRegistry(root) {
   const directory = join(root, READINGS_DIRECTORY);
   if (!existsSync(directory)) {
@@ -39,7 +39,7 @@ export function readReadingsForRegistry(root) {
 }
 
 /** The empty shape a workspace with no readings reports. */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function emptyReadings(registry = []) {
   const requiredInquest = registry.filter((entry) => typeof entry.id === 'string' && entry.id.startsWith('READ:INQUEST:'));
   const requiredUncovered = registry.filter((entry) => typeof entry.id === 'string' && entry.id.startsWith('READ:UNCOVERED:') && entry.class === 'semantic');
@@ -79,7 +79,7 @@ export function emptyReadings(registry = []) {
 }
 
 /** One withheld surface for an unreadable or malformed file. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function withheldEntry(fileName, detail) {
   return {
     layer: 'readings',
@@ -89,7 +89,7 @@ function withheldEntry(fileName, detail) {
 }
 
 /** Read one JSONL file, or state why it could not be read. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function readJsonLines(directory, fileName) {
   const path = join(directory, fileName);
   if (!existsSync(path)) return { status: 'absent', rows: [], withheld: [] };
@@ -114,7 +114,7 @@ function readJsonLines(directory, fileName) {
 }
 
 /** Count one answer under one lens without losing the other answers. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function countAnswer(target, lens, answer) {
   if (typeof lens !== 'string' || lens.length === 0) return;
   if (target[lens] === undefined) target[lens] = {};
@@ -123,7 +123,7 @@ function countAnswer(target, lens, answer) {
 }
 
 /** The subject and lens a registry inquest obligation names. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
 function inquestPairOf(entry) {
   const subject = String(entry?.subject ?? '');
   const separator = subject.lastIndexOf(':');
@@ -132,7 +132,7 @@ function inquestPairOf(entry) {
 }
 
 /** The inquest summary, including the capped unresolved Yes subjects. */
-// [::TICKET::] PX-283, PX-284, PX-286, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284|PX-286|PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284, PX-286, PX-289, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284|PX-286|PX-289|PX-290) --for-spec --no-implementation-order`.
 function summarizeInquest(rows, limit, registry = []) {
   const byLens = {};
   const byAnswer = {};
@@ -183,7 +183,7 @@ function summarizeInquest(rows, limit, registry = []) {
  * question, so it is counted as unresolved rather than as a clean measurement. The same
  * is true of a record with no subject: it cannot be matched to a worklist member.
  */
-// [::TICKET::] PX-288, PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288, PX-289, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-288|PX-289|PX-290) --for-spec --no-implementation-order`.
 function summarizeUncovered(rows, registry = []) {
   const byOutcome = {};
   const resolved = new Set();
@@ -216,7 +216,7 @@ function summarizeUncovered(rows, registry = []) {
 }
 
 /** The adversarial summary. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function summarizeAdversarial(rows) {
   const byOutcome = {};
   for (const row of rows) {
@@ -277,7 +277,7 @@ export function summarizeReadings(root, { limit = MAX_UNRESOLVED_SUBJECTS, regis
  * @param {string} root — workspace root
  * @returns {{ subjects: Set<string>, count: number, withheldCount: number, path: string|null }}
  */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function readUnresolvedReadingSubjects(root) {
   const directory = join(root, READINGS_DIRECTORY);
   const file = readJsonLines(directory, INQUEST_FILE);

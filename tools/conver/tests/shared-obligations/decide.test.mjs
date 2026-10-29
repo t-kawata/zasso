@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { decideAll } from '../../.claude/scripts/shared-obligations/decide.mjs';
 import { fixture, OBLIGATION_ID } from '../fixtures/closure-core/records.mjs';
 
-// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291, PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-291|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function decide({ item, obligation, record, attack }, extra = {}) {
   return decideAll({
     obligations: obligation === null ? [] : [obligation],
@@ -18,7 +18,7 @@ function decide({ item, obligation, record, attack }, extra = {}) {
 }
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a validated judgment with a held attack decides the obligation held', () => {
   const parts = fixture();
   const result = decide(parts);
@@ -31,7 +31,7 @@ test('a validated judgment with a held attack decides the obligation held', () =
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a conflicting verdict never closes a translation judgment', () => {
   const parts = fixture({ record: { verdict: 'conflicting' } });
   const result = decide(parts);
@@ -41,7 +41,7 @@ test('a conflicting verdict never closes a translation judgment', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('context, worklist and artifact digests bind the record to the current run', () => {
   const contextMismatch = decide(fixture({ record: { contextDigest: 'other' } }));
   assert.equal(contextMismatch.decisions[0].reason, 'CONTEXT_MISMATCH');
@@ -53,7 +53,7 @@ test('context, worklist and artifact digests bind the record to the current run'
 });
 
 // @verifies C005
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a legacy or provisional record is rejected and never closes the obligation', () => {
   const legacy = decide(fixture({ record: { schemaVersion: 1 } }));
   assert.equal(legacy.decisions[0].reason, 'LEGACY_RECORD');
@@ -64,7 +64,7 @@ test('a legacy or provisional record is rejected and never closes the obligation
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a Tier 1 judgment without an attack is open and counted unattacked', () => {
   const result = decide(fixture({ attack: null }));
   assert.equal(result.decisions[0].state, 'open');
@@ -73,7 +73,7 @@ test('a Tier 1 judgment without an attack is open and counted unattacked', () =>
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an attack written by the judgment reader is rejected', () => {
   const result = decide(fixture({ attack: { reader: 'judge/generation-1' } }));
   assert.equal(result.decisions[0].state, 'open');
@@ -81,7 +81,7 @@ test('an attack written by the judgment reader is rejected', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a broken attack decides broken and an unresolved attack decides stuck', () => {
   const broken = decide(fixture({
     attack: {
@@ -95,7 +95,7 @@ test('a broken attack decides broken and an unresolved attack decides stuck', ()
 });
 
 // @verifies C004
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a quote must occur on the cited line', () => {
   const parts = fixture({
     item: { anchorSet: { spec: [{ path: 'spec.md', line: 2 }] } },
@@ -109,7 +109,7 @@ test('a quote must occur on the cited line', () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a basis line outside the obligation anchors is rejected as generic', () => {
   const parts = fixture({
     item: { anchorSet: { spec: [{ path: 'spec.md', line: 2 }] } },
@@ -124,7 +124,7 @@ test('a basis line outside the obligation anchors is rejected as generic', () =>
 });
 
 // @verifies C004
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('the same basis used for two obligations is rejected on the second', () => {
   const first = fixture();
   const second = {
@@ -151,7 +151,7 @@ test('the same basis used for two obligations is rejected on the second', () => 
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a FALSIFY obligation is decided by its attack, not by a judgment record', () => {
   const item = {
     id: 'FALSIFY:OpA',
@@ -183,7 +183,7 @@ test('a FALSIFY obligation is decided by its attack, not by a judgment record', 
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('each risk class needs its own decision instead of a prefix close', () => {
   const items = ['idempotency', 'replay'].map((riskClass) => ({
     id: `RISK:OpA:${riskClass}`,
@@ -221,7 +221,7 @@ test('each risk class needs its own decision instead of a prefix close', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('reading and mechanical closures are decisions with their own source', () => {
   const result = decideAll({
     obligations: [
@@ -240,7 +240,7 @@ test('reading and mechanical closures are decisions with their own source', () =
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a semantic obligation closed without a worklist item is not trusted', () => {
   const result = decideAll({
     obligations: [{ id: OBLIGATION_ID, class: 'semantic', kind: 'judgment', state: 'closed', required: true }],
@@ -258,12 +258,12 @@ test('a semantic obligation closed without a worklist item is not trusted', () =
 // 148 replay judgments passed the anti-reuse check only because they cited
 // idempotency_scope with a 60-character quote while idempotency cited 120. The
 // field is the fact; the quote is how the reader worded it.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function riskObligation(id) {
   return { id, class: 'semantic', kind: 'risk', state: 'open', required: true };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function riskItem(id, anchorSet = {}) {
   return {
     id,
@@ -280,7 +280,7 @@ function riskItem(id, anchorSet = {}) {
   };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function artifactRecord(id, quote) {
   return {
     schemaVersion: 2,
@@ -345,7 +345,7 @@ test('C006 two quotes on one specification line remain two distinct claims', () 
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an open obligation with no judgment record stays open', () => {
   const result = decide(fixture({ record: null, attack: null, item: { attackTier: 'standard' } }));
   assert.equal(result.decisions[0].state, 'open');
@@ -353,7 +353,7 @@ test('an open obligation with no judgment record stays open', () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('two clause quotes under one boundary and field are distinct claims', () => {
   const boundaryAnchor = { contract: [{ boundaryId: 'bd-1', field: 'entailment' }] };
   const build = (stepId, quote) => {

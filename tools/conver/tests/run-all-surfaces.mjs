@@ -85,7 +85,7 @@ const SURFACE_TIMEOUT_MS = 15 * 60 * 1000;
  * The two call for different responses — a broken instrument and a moved subject
  * — so they are never reported as the same thing.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 class SurfaceUnavailableError extends Error {}
 
 /**
@@ -97,13 +97,13 @@ class SurfaceUnavailableError extends Error {}
  * marker is added so that an aggregate started *by* one of those tests knows it is
  * nested and sets its own tests aside rather than recursing.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function childEnvironment() {
   return childEnvironmentFrom(process.env);
 }
 
 /** Parse the command-line options. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const selected = new Set();
   const excluded = [];
@@ -139,7 +139,7 @@ function parseArguments(argv) {
  * @param {string} projectRoot
  * @returns {string[]} absolute exclusion roots
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function resolveExclusions(excluded, discovered, projectRoot) {
   const roots = excluded.map((relative) => resolve(projectRoot, relative));
   const unmatched = excluded.filter((relative, index) => !discovered.some((file) => isUnderAny(file, [roots[index]])));
@@ -154,7 +154,7 @@ function resolveExclusions(excluded, discovered, projectRoot) {
 }
 
 /** Whether a surface was asked for. An empty selection means every surface. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function isSelected(selected, surfaceName) {
   return selected.size === 0 || selected.has(surfaceName);
 }
@@ -174,7 +174,7 @@ function isSelected(selected, surfaceName) {
  * @param {string[]} files — the surface's discovered files
  * @returns {{ totals: {tests:number,pass:number,fail:number}, executedFiles: string[], output: string }}
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function runLegacySurface(projectRoot, files) {
   const totals = { tests: 0, pass: 0, fail: 0 };
   const outputs = [];
@@ -221,7 +221,7 @@ function runLegacySurface(projectRoot, files) {
 }
 
 /** A path as a reader of the report wants it: relative to the tree being analysed. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function relativeTo(projectRoot, file) {
   return file.startsWith(`${projectRoot}/`) ? file.slice(projectRoot.length + 1) : file;
 }
@@ -232,7 +232,7 @@ function relativeTo(projectRoot, file) {
  * @param {string[]} files
  * @returns {{ totals: {tests:number,pass:number,fail:number}, executedFiles: string[], output: string }}
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function runProjectSurface(projectRoot, files) {
   const args = buildNodeTestArgs(files);
   if (args.length === 0) return { totals: { tests: 0, pass: 0, fail: 0 }, executedFiles: [], output: '' };
@@ -259,14 +259,14 @@ const DEFERRED_LIST_LIMIT = 5;
  * Render a list for a person: the first few names, then how many were left out.
  * The JSON report carries every name, so nothing is lost by capping here.
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function cappedList(names, limit = DEFERRED_LIST_LIMIT) {
   if (names.length <= limit) return names.join(', ');
   return `${names.slice(0, limit).join(', ')}, …and ${names.length - limit} more`;
 }
 
 /** Render the report a person reads. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function renderReport(report) {
   const lines = ['## Verification surface', ''];
   for (const surface of Object.values(report.surfaces)) {
@@ -305,7 +305,7 @@ function renderReport(report) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function main() {
   assertNodeVersionSupported(process.versions.node);
 

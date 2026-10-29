@@ -13,7 +13,7 @@
  */
 import fs from "fs";
 import path from "path";
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const rfcDirArg = process.argv[2];
@@ -39,7 +39,7 @@ const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
  * Status.json written before that field existed carries, and is read only when the
  * list is absent, so an older session still lists its material instead of failing.
  */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function materialPathsOf(record) {
   if (Array.isArray(record.materialPaths)) return record.materialPaths;
   return record.researchPath ? [record.researchPath] : [];
@@ -55,7 +55,7 @@ for (const materialPath of materialPaths) {
 }
 
 /** Every file beneath a material: the file itself, or every file a directory holds. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function collectMaterialFiles(materialPath) {
   const stat = fs.statSync(materialPath);
   if (stat.isFile()) return [materialPath];

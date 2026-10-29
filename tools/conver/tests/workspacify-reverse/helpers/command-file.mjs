@@ -1,10 +1,10 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 /**
  * The guards that hold one command file to its declared shape.
  *
@@ -117,7 +117,7 @@ export function cataloguedSubcommands(text) {
  * beyond the entrance and its gate. A reader that takes the list from the machine cannot
  * disagree with it.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 export function declaredUsage(source) {
   const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
   assert.notEqual(usage, null, 'the entrance declares its surface in one block');
@@ -131,7 +131,7 @@ export function declaredUsage(source) {
  * usage line per subcommand that takes an action or a fixture — so both are read. A
  * reader that took only the synopsis would report `regression` as undeclared.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 export function declaredSubcommands(source) {
   const usage = declaredUsage(source);
   const names = new Set();
@@ -221,7 +221,7 @@ export const FORBIDDEN_FORMULATIONS = Object.freeze([
 const ABSENT_SECTION_DIGEST = createHash('sha256').update('').digest('hex');
 
 /** The SHA-256 of a text, as the digest module computes it. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -248,7 +248,7 @@ export function readCommandFile(filePath) {
  * It is read from the files rather than written down, so a file cannot satisfy
  * the assertion by retyping the table "closely enough".
  */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
 function sharedLanguageProtocolDigest(projectRoot) {
   const digests = digestCommandFiles(projectRoot);
   const carried = new Set(
@@ -404,7 +404,7 @@ export function extractMachineDecisions(text) {
  * @param {{ sectionText: string, unreachable: string[], reachable: string[] }} input
  * @returns {Array<{ kind: string, module: string }>} one finding per contradiction
  */
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 export function findAbsenceContradictions({ sectionText: section, unreachable, reachable }) {
   const findings = [];
 
@@ -453,7 +453,7 @@ export const CASE_CONVENTION = /lowercase[^.;]*identifier the command line match
  * @param {{ text: string, heading: string }} input
  * @returns {Array<{ kind: string, region: string }>} one finding when the rule is unstated
  */
-// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-216 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-216 --for-spec --no-implementation-order`.
 export function findUnstatedCaseConvention({ text, heading }) {
   return CASE_CONVENTION.test(sectionText(text, heading))
     ? []
@@ -472,7 +472,7 @@ export function findUnstatedCaseConvention({ text, heading }) {
  * @param {{ text: string, vocabulary: string[] }} input
  * @returns {Array<{ line: number, token: string, text: string }>} one finding per occurrence
  */
-// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-216 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-216 --for-spec --no-implementation-order`.
 export function findLowercaseStageLines({ text, vocabulary }) {
   if (vocabulary.length === 0) {
     return [];
@@ -533,7 +533,7 @@ export function stepHeadingsOf(text) {
  * @param {{ text: string }} input
  * @returns {Array<{ kind: string, heading: string, part: string }>} one finding per missing part
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function findStepsMissingParts({ text }) {
   return stepHeadingsOf(text).flatMap((heading) =>
     Object.entries(STEP_PARTS)
@@ -553,7 +553,7 @@ export function findStepsMissingParts({ text }) {
  * @param {{ text: string }} input
  * @returns {Array<{ kind: string, heading: string }>} one finding per ungrounded gate
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function findUngroundedGates({ text }) {
   return stepHeadingsOf(text).flatMap((heading) => {
     const gate = /^\*\*Gate\*\*: (.+)$/m.exec(sectionText(text, heading));

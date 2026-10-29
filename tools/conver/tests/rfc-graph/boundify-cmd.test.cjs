@@ -11,7 +11,7 @@ const { join } = require('node:path');
 
 const ROOT = join(__dirname, '..', '..', '.claude', 'commands');
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 test('C005 boundify Step 0 runs the preflight stage and Step 2 keeps the dirs check', () => {
   const content = readFileSync(join(ROOT, 'boundify-graph.md'), 'utf8');
   assert.match(content, /verify-chain\.mjs"? --stage=boundify --preflight/);
@@ -30,7 +30,7 @@ test('C002 graphify passes the package view to verify-graph-contracts', () => {
 const COMMAND_PATH = join(ROOT, 'boundify-graph.md');
 
 /** The Preflight bash block, extracted from the command document. */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function readPreflightBlock() {
   const command = readFileSync(COMMAND_PATH, 'utf8');
   const match = command.match(/Preflight[^\n]*\n\n\x60\x60\x60bash\n([\s\S]*?)\x60\x60\x60/);
@@ -39,7 +39,7 @@ function readPreflightBlock() {
 }
 
 /** Run the documented preflight with a controlled HOME and package directory. */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function runPreflight(home, packageDir) {
   return spawnSync('bash', ['-c', readPreflightBlock()], {
     cwd: packageDir,

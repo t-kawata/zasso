@@ -227,7 +227,7 @@ export async function sendSlackSuccess(
 }
 
 /** find 完了後通知の引数 */
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 export interface FindOutcomeContext {
   /** list-phases-and-tickets.js の出力（find 後・統合後の進捗一覧） */
   progress: string;

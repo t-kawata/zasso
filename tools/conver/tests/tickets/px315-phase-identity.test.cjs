@@ -8,7 +8,7 @@ const { renumberTicketIds } = require('../../.claude/scripts/tickets/consolidate
 const { verifyClosure } = require('../../.claude/scripts/tickets/verify-ticket-closure.js');
 const { digestValue } = require('../../.claude/scripts/sequences-slice/lib/digest.mjs');
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function distribution(digest) {
   return { digest, sourceMapDigest: 'm', sourceViewDigest: 'v', units: [] };
 }

@@ -51,7 +51,7 @@ const VIEW = {
   obligationUnits: [{ unitId: 'ctr-boundary-001', direction: 'provides', counterpart: 'pkg-0002' }],
 };
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function graphWithLocalBoundary() {
   return {
     nodes: [
@@ -199,7 +199,7 @@ test('C008 admission refuses an unreadable view with a named code', () => {
 });
 
 test('C009 the graphify command orders attach, annotate and project', () => {
-// [::TICKET::] PX-332 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-332 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-332 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-332 --for-spec --no-implementation-order`.
   const content = readFileSync(path.join(ROOT, '.claude/commands/graphify-rfc.md'), 'utf8');
   const attach = content.indexOf('attach-unit-ids.js" --graph=');
   const annotate = content.indexOf('annotate-contracts.js" "$graphPath"');
@@ -298,7 +298,7 @@ test('C002 verify-chain resolves an invocation-relative sourceFile beside the gr
   }
 });
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function graphWithLocalBoundaryWithoutUnits() {
   const graph = graphWithLocalBoundary();
   return {

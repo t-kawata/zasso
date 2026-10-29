@@ -154,7 +154,7 @@ const DYNAMIC_ATTEMPT_CONFIGURATION = 'sandboxed-session';
 const DYNAMIC_ATTEMPT_TOOL = 'bounded-offline-start-plan';
 
 /** A channel that did not run, in the shape every caller reads. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function notRun(reason, detail) {
   return Object.freeze({
     ran: false,
@@ -175,7 +175,7 @@ function notRun(reason, detail) {
  * greps for. The prose follows it because the code alone does not say which
  * file or which directory was refused.
  */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function describeError(error) {
   if (!(error instanceof Error)) return String(error);
   const code = error.reason ?? error.code ?? null;
@@ -209,7 +209,7 @@ export function disposeAndReport(handle) {
  * subject did not move — and so that a caller can see where the outcome stops
  * depending on the sandbox still existing.
  */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function sessionOutcomeIn(handle, sandboxOptions, startPlan) {
   const session = startSession(handle, { tier: sandboxOptions.tier ?? null });
   const record = collectDynamicEvidence(handle, session, {
@@ -298,7 +298,7 @@ export function observeDynamically({ root, sandboxOptions = {} } = {}) {
 }
 
 /** The runtime constructs a record holds, deduplicated, in the order they first appear. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function runtimeObservationsOf(dynamicRecord) {
   const seen = new Map();
   for (const observation of dynamicRecord.observations) {
@@ -317,7 +317,7 @@ function runtimeObservationsOf(dynamicRecord) {
  * about the instrument — the shape a second language's extractor arrives in —
  * and guessing a construct for it would hide that.
  */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function stateOfMechanism(mechanism, observedByConstruct, sessionId) {
   const reach = DYNAMIC_CHANNEL_REACH[mechanism.kind];
   if (reach === undefined) {
@@ -427,7 +427,7 @@ export function diffSurfaces(staticMechanisms = [], dynamicRecord = { observatio
  * that says what the difference is not.
  */
 export function measureDynamicCoupling({ root, staticMechanisms = [], mechanismInventory = {}, sandboxOptions = {} } = {}) {
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const channel = observeDynamically({ root, sandboxOptions });
 
   // An unrun channel has looked at nothing, so it places nothing: the three sets
@@ -505,7 +505,7 @@ export function buildDynamicAttemptRows({ root, ran, reason, observedCount = 0, 
 }
 
 /** The mechanism kinds the channel cannot reach, grouped with their reason. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function unreachableReasons(mechanisms) {
   const byReason = new Map();
   for (const item of mechanisms) {

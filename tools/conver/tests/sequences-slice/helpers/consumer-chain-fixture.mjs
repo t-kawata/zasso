@@ -12,7 +12,7 @@ import { digestValue } from '../../../.claude/scripts/sequences-slice/lib/digest
 import { digestTicketDistribution } from '../../../.claude/scripts/tickets/add-tickets-for-phase.js';
 
 /** The artifact a schema-valid producer emits: steps carry no order field. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function schemaArtifact({ stepCount, operationCount }) {
   const operationIds = Array.from({ length: operationCount }, (unused, index) => `Op${index + 1}`);
   return {
@@ -36,7 +36,7 @@ function schemaArtifact({ stepCount, operationCount }) {
 }
 
 /** The tree manifest that makes both packages owners of the operation. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function twoOwnerTreeManifest() {
   return {
     inventory: {
@@ -50,7 +50,7 @@ function twoOwnerTreeManifest() {
 }
 
 /** The units a view distributes, in view order. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function viewUnits(view) {
   return [
     ...(view.ownedOperationUnits ?? []),
@@ -61,7 +61,7 @@ function viewUnits(view) {
 }
 
 /** The distribution map rendered from the view, with the package role fixed. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function mapFor(view, role) {
   const map = {
     schemaVersion: 1,
@@ -82,7 +82,7 @@ function mapFor(view, role) {
 }
 
 /** The graph and Dirs-Tree index for one node carrying every unit. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function graphAndDirs(map) {
   const unitIds = (map.units ?? []).map((unit) => unit.unitId);
   const graph = {
@@ -99,7 +99,7 @@ function graphAndDirs(map) {
 }
 
 /** The ticket obligation for one unit. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function obligationFor(unit, role, ticketMode) {
   if (kindOfUnit(unit.unitId) === 'operation') {
     const mode = ticketMode ?? (role === 'implementer' ? 'implement' : 'reference');

@@ -53,7 +53,7 @@ import {
  * text at its anchor, so a classification always needs both halves. The scratch
  * tree keeps them together without touching the real corpus.
  */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'wsp-security-lane-'));
   const subjectRoot = join(root, 'subject');
@@ -62,7 +62,7 @@ function scratch() {
 }
 
 /** Write one source member and return its root-relative path. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function writeSource(subjectRoot, relativePath, lines) {
   const fullPath = join(subjectRoot, relativePath);
   mkdirSync(dirname(fullPath), { recursive: true });
@@ -77,7 +77,7 @@ function writeSource(subjectRoot, relativePath, lines) {
  * without one, and the lane must not be able to classify a claim the ledger
  * itself would have rejected.
  */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function claimAt({ id, file, line, provider = null, scope = 'src' }) {
   return {
     claim_id: id,
@@ -105,7 +105,7 @@ function claimAt({ id, file, line, provider = null, scope = 'src' }) {
 }
 
 /** The ledger one scratch tree and its claims make. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function ledgerOf(subjectRoot, claims) {
   return {
     root: subjectRoot,
@@ -125,7 +125,7 @@ const CATEGORY_ANCHORS = Object.freeze({
 });
 
 /** A scratch subject carrying one risk-bearing anchor per cross-cutting category. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function categoryLedger(subjectRoot) {
   return ledgerOf(
     subjectRoot,
@@ -141,7 +141,7 @@ function categoryLedger(subjectRoot) {
 }
 
 /** The channels a falsification plan may name, one per evidence mode. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function falsificationChannels() {
   return [
     { channel: 'sandbox execution', evidence_mode: 'runtime_dynamic' },

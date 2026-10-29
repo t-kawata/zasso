@@ -1,4 +1,4 @@
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 /**
  * Which of the four declared patterns a subject is, read from the disk.
  *
@@ -65,14 +65,14 @@ const PROJECT_SOURCE_MARKER = 'project-source';
 const LONG_SPECIFICATION_MARKER = 'long-specification';
 
 /** The basename of a path, which is what the artefact-name markers are written against. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function basenameOf(relativePath) {
   const segments = relativePath.split('/');
   return segments[segments.length - 1];
 }
 
 /** True when the path names a file at the top level of the subject. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function isAtRoot(relativePath) {
   return !relativePath.includes('/');
 }
@@ -86,12 +86,12 @@ function isAtRoot(relativePath) {
  * was not measured. Dropping them is what keeps "out of scope" from being read
  * as "part of the project".
  */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function isMeasured(artefact) {
   return artefact.exclusion !== true && artefact.readStatus === 'readable';
 }
 
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function defineMarker(id, searched, matches) {
   return Object.freeze({ id, searched, matches });
 }
@@ -149,7 +149,7 @@ export const SHAPE_MARKERS = Object.freeze([
 ]);
 
 /** The extension a path ends in, or the empty string when it names none. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function extensionOf(relativePath) {
   const name = basenameOf(relativePath);
   const dot = name.lastIndexOf('.');
@@ -178,7 +178,7 @@ const SEARCHED_MARKER_IDS = Object.freeze(SEARCHED_MARKERS.map((entry) => entry.
  * and absence lists are derived from the declaration rather than assembled
  * beside it.
  */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function defineCondition(kind, markerIds, { at = 'anywhere', expected = 'present', quantifier = 'every' } = {}) {
   const satisfied = (hits, id) => (hitFor(hits, id, at) !== null) === (expected === 'present');
   const decide = quantifier === 'some' ? markerIds.some.bind(markerIds) : markerIds.every.bind(markerIds);
@@ -216,7 +216,7 @@ function defineCondition(kind, markerIds, { at = 'anywhere', expected = 'present
 }
 
 /** The hit a marker produced at the scope a condition asks about, or null. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function hitFor(hits, markerId, at) {
   const hit = hits.get(markerId);
   if (hit === undefined) return null;
@@ -247,7 +247,7 @@ export const PATTERN_RULES = Object.freeze([
 ]);
 
 /** One row of the declaration, with the markers it names gathered once. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function defineRule(id, conditions) {
   return Object.freeze({
     id,
@@ -287,7 +287,7 @@ const MARKER_BY_ID = new Map(SEARCHED_MARKERS.map((entry) => [entry.id, entry]))
  * the first time the walk changed, and "the same list yields the same answer" is
  * a property this module claims outright.
  */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function collectHits(artefacts) {
   const hits = new Map();
   for (const artefact of artefacts) {
@@ -307,13 +307,13 @@ function collectHits(artefacts) {
 }
 
 /** Whether a candidate path precedes the one already recorded, or there is none. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function isEarlier(candidate, recorded) {
   return recorded === null || compareText(candidate.path, recorded.path) < 0;
 }
 
 /** The detection's evidence list: one entry per declared marker, found or not. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function buildEvidence(hits) {
   return SEARCHED_MARKERS.map((entry) => {
     const hit = hits.get(entry.id)?.any ?? null;
@@ -328,7 +328,7 @@ function buildEvidence(hits) {
 }
 
 /** The presence and absence lists a matched rule decided, in declaration order. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function buildMaterial(rule, hits) {
   const present = [];
   const absent = [];
@@ -341,7 +341,7 @@ function buildMaterial(rule, hits) {
 }
 
 /** What the reader gets when the instrument could not look at all. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function unreadableResult({ root, reason }) {
   return Object.freeze({
     root,
@@ -358,7 +358,7 @@ function unreadableResult({ root, reason }) {
 }
 
 /** What the reader gets when the instrument looked over a readable subject and found none of the four. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function noPatternResult({ root, hits }) {
   return Object.freeze({
     root,
@@ -412,7 +412,7 @@ export function detectPattern({ root, artefacts } = {}) {
 }
 
 /** One line per marker that was searched and not found. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function renderAbsence(absent) {
   return absent.map((entry) => `- \`${entry.searched}\` — searched, not found`);
 }
@@ -426,14 +426,14 @@ function renderAbsence(absent) {
  * to assemble them differently, and the disagreement would surface as a document nobody
  * is told to compare.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 export function detectPatternAt(root, { artefacts = listArtefacts(root) } = {}) {
   return detectPattern({ root, artefacts });
 }
 
 /** One line per marker that was found, naming the path that evidenced it. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function renderPresence(present) {
   return present.map((entry) => `- \`${entry.marker}\`: \`${entry.path}\` (${entry.scope})`);
 }

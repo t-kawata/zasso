@@ -1,8 +1,8 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-1 --for-spec --no-implementation-order`.
 /**
  * installed-copy-drift — an installed copy that has fallen behind is a recorded
  * fact rather than a silence.
@@ -74,7 +74,7 @@ const ABSENT_FROM_COPIES = Object.freeze([]);
  * `differing` is a lag that has not yet removed the file, and any of the three appearing
  * again fails here by name.
  *
- * [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
  */
 const DIFFERING_IN_COPIES = Object.freeze([]);
 
@@ -91,7 +91,7 @@ const DIFFERING_IN_COPIES = Object.freeze([]);
  * module-selection flag, rewrites every tracked file, and this repository carries a
  * case where a run of it silently reverted another ticket's hand-edits.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 //
 // **Re-measured 2026-09-17 by P26-3**, which added five modules — `published-set.mjs`,
 // `inventory.mjs`, `seam.mjs`, `step-report.mjs` and `decision-writing.mjs` — and
@@ -99,9 +99,9 @@ const DIFFERING_IN_COPIES = Object.freeze([]);
 // file-wise again, and P26-2's reason holds more sharply here: the command file each
 // copy installs now names six subcommands, and a copy whose entrance does not accept
 // them is not a copy behind a release — it is a copy that aborts on its own procedure.
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 const SOURCE_MODULE_COUNT = 61;
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 
 const measure = () => measureInstalledCopyDrift({ repositoryRoot: REPOSITORY_ROOT });
 
@@ -111,7 +111,7 @@ const measure = () => measureInstalledCopyDrift({ repositoryRoot: REPOSITORY_ROO
  * @param {{ sourceModules: Record<string, string>, copyModules: Record<string, string> }} input
  * @returns {{ root: string, dispose: () => void }}
  */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function createSyntheticPair({ sourceModules, copyModules }) {
   const root = mkdtempSync(join(tmpdir(), 'wsp-drift-'));
   for (const [directory, modules] of [['source/lib', sourceModules], ['copy/lib', copyModules]]) {
@@ -122,7 +122,7 @@ function createSyntheticPair({ sourceModules, copyModules }) {
 }
 
 test('the source of record and every installed copy are declared and present', () => {
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
   assert.ok(REPOSITORY_ROOT, 'the tree under test belongs to a repository, or nothing here can be measured');
   assert.strictEqual(SOURCE_LIBRARY, 'tools/conver/.claude/scripts/workspacify-reverse/lib');
   assert.deepStrictEqual(INSTALLED_COPIES, [

@@ -1,4 +1,4 @@
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 /**
  * Fixtures for the reverse-mode allocate gate tests.
  *
@@ -226,7 +226,7 @@ export function collectSeedPaths(root) {
  * @param {string} root - absolute directory
  * @returns {string[]} one line per entry
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 export function fingerprintTree(root) {
   const lines = [];
   const visit = (abs, rel) => {
@@ -270,7 +270,7 @@ export function isDirectory(path) {
   }
 }
 
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }

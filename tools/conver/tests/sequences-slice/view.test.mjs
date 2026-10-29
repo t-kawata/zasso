@@ -30,7 +30,7 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/segments.mjs';
 import { renderLineRangeStatement } from '../../.claude/scripts/sequences-slice/lib/report.mjs';
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function liveShapedInput() {
   const { sequences, steps } = liveShapedSequenceAxis();
   return {
@@ -57,7 +57,7 @@ function liveShapedInput() {
 
 const OCCUPIED_PACKAGE = 'pkg-0011';
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the view names the operations the package owns, each with a stable unit id', () => {
   const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
   assert.equal(view.packageId, OCCUPIED_PACKAGE);
@@ -67,7 +67,7 @@ test('C003 the view names the operations the package owns, each with a stable un
   assert.ok(view.ownedOperationUnits.every((unit) => Array.isArray(unit.resultObjectClasses)));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a sequence owned by one package is a seq unit, and one owned by several is an xdir unit', () => {
   const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
   assert.ok(view.ownedSequenceUnits.every((unit) => unit.unitId === `seq-${unit.sequenceId}`));
@@ -77,7 +77,7 @@ test('C003 a sequence owned by one package is a seq unit, and one owned by sever
   assert.ok(view.crossBoundarySequenceUnits.every((unit) => unit.ownerPackageIds.includes(OCCUPIED_PACKAGE)));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a unit appears in exactly one of the two sequence lists, never both', () => {
   const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
   const seqIds = view.ownedSequenceUnits.map((unit) => unit.sequenceId);
@@ -87,14 +87,14 @@ test('C003 a unit appears in exactly one of the two sequence lists, never both',
   assert.deepEqual(seqIds.filter((id) => xdirIds.includes(id)), []);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the projection is a pure function of its inputs', () => {
   const input = liveShapedInput();
   assert.deepEqual(buildPackageView(input, 'pkg-0002'), buildPackageView(input, 'pkg-0002'));
   assert.notDeepEqual(buildPackageView(input, 'pkg-0002'), buildPackageView(input, 'pkg-0003'));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a sequence appears in exactly as many views as it has owners, so no unit is dropped or doubled', () => {
   const input = liveShapedInput();
   const packageIds = input.treeManifest.workspace.packages.map((entry) => entry.id);
@@ -120,7 +120,7 @@ test('C003 a sequence appears in exactly as many views as it has owners, so no u
   assert.ok([...appearances.values()].some((count) => count > 1));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the markdown carries the same units as the json and states the line coordinate', () => {
   const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
   const markdown = renderPackageViewMarkdown(view);
@@ -131,7 +131,7 @@ test('C003 the markdown carries the same units as the json and states the line c
   assert.equal(renderPackageViewMarkdown(view), markdown);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a package reached by no operation gets an empty view rather than an error', () => {
   const view = buildPackageView(liveShapedInput(), 'pkg-0029');
   assert.equal(view.packageId, 'pkg-0029');
@@ -141,7 +141,7 @@ test('C003 a package reached by no operation gets an empty view rather than an e
   assert.match(renderPackageViewMarkdown(view), /not used as an identity/);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the view states the same line coordinate the calibration measures', () => {
   const expected = renderLineRangeStatement(
     measureLineRangeJoin({
@@ -155,7 +155,7 @@ test('C003 the view states the same line coordinate the calibration measures', (
   assert.equal(view.lineRange.statement, expected);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the line coordinate the view states is measured, not the arithmetic of nothing', () => {
   const view = buildPackageView(liveShapedInput(), OCCUPIED_PACKAGE);
   const packagesWithNoSegments = RECORDED_PACKAGE_SEGMENTS.filter((entry) => entry.segmentIds.length === 0).length;
@@ -166,7 +166,7 @@ test('C003 the line coordinate the view states is measured, not the arithmetic o
   assert.match(view.lineRange.statement, new RegExp(`${packagesWithNoSegments} packages claim no segment at all`));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 two packages state the same line coordinate, and that coordinate is the measured one', () => {
   const input = liveShapedInput();
   const first = buildPackageView(input, 'pkg-0001');
@@ -179,7 +179,7 @@ test('C003 two packages state the same line coordinate, and that coordinate is t
   assert.ok(first.lineRange.unclaimedLineCount < SPEC_LINES);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 a package directory resolves to its package id, and an unknown directory is reported', () => {
   const packages = liveShapedInput().treeManifest.workspace.packages;
   const resolved = resolvePackageByPath(packages, 'crates/protocol/package-0011', '/workspace');
@@ -193,7 +193,7 @@ test('C005 a package directory resolves to its package id, and an unknown direct
 // PX-259 @verifies C004
 // The obligation section is additive: the three lists ownership produces must not move when the two
 // new relations are supplied, or a unit id a materialised record already cites would change meaning.
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 test('C004 the three existing lists are a function of the artifact alone, undisturbed by the new relations', () => {
   const input = liveShapedInput();
   const allocateManifest = {
@@ -267,7 +267,7 @@ test('C004 a view on disk that carries no obligation section reads as absent, ne
 // PX-260 — the recorded judgment reaches the view, with the ground a reader reviews
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 test('C004 a recorded assignment is a unit of the view, printed with its relation and its ground', () => {
   const input = liveShapedInput();
   const record = { serves: [], assignments: [{ unit: 'op-SyntheticOperation0001', ground: 'the specification states it on line 412' }] };
@@ -290,7 +290,7 @@ test('C004 an assignment with no ground reads as ungrounded rather than as a sat
   assert.match(markdown, /recorded with no ground/);
 });
 
-// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
 test('PX-261 the view carries the columns its package adjudicated away, and the section states each ground', () => {
   const input = liveShapedInput();
   const record = { version: 1, serves: [], assignments: [], adjudications: [{ column: 'id', ground: 'the specification states it on line 412' }] };

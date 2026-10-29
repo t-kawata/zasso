@@ -44,7 +44,7 @@ const MARKER_PATTERN = /<::(?:TEMPLATE-README|README-RESIDUE|TEMPLATE-EXAMPLES|E
  * @returns {{ readmePath: string|null }} null means read from stdin
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   if (argv.length > 1) {
@@ -69,7 +69,7 @@ function parseArguments(args) {
  * @param {string} text — Raw text
  * @returns {string} Lower-cased, trimmed text
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function normalize(text) {
   return String(text).trim().toLowerCase();
 }
@@ -80,7 +80,7 @@ function normalize(text) {
  * @param {string} text — README markdown content
  * @returns {Array<{ headingLineIndex: number, headingLevel: number, headingText: string, body: string[] }>}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function splitSections(text) {
   const lines = String(text).split('\n');
   const sections = [];
@@ -109,7 +109,7 @@ function splitSections(text) {
  * @param {string} body — Section body (lines joined)
  * @returns {{ templateReadme: number, readmeResidue: number, templateExamples: number, examplesResidue: number }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function countMarkers(body) {
   return {
     templateReadme: (body.match(/<::TEMPLATE-README::>/g) || []).length,
@@ -125,7 +125,7 @@ function countMarkers(body) {
  * @param {string} text — README markdown content
  * @returns {{ ok: boolean, errors: string[], templateCount: number, sections: object[] }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function validateMarkerGrammar(text) {
   const errors = [];
   const sections = splitSections(text);
@@ -174,7 +174,7 @@ function validateMarkerGrammar(text) {
 /**
  * main — CLI entry point (reads from --readme=<path> or stdin).
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function main() {
   const { readmePath } = parseArguments();
   const finish = (text) => {

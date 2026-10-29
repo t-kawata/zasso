@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-81 --for-spec --no-implementation-order`.
 
 /**
  * enumerate-ticket-targets.test.js — Tests for enumerate-ticket-targets.js
@@ -25,19 +25,19 @@ let classifyStubs;
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function assertDeepEqual(actual, expected, message) {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -67,7 +67,7 @@ const nonexistentDir = path.join(tmpDir, 'nonexistent');
 fs.mkdirSync(targetDir, { recursive: true });
 
 // ===== Helper: create minimal Tickets.json =====
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function makeTicketsData(targetPhaseId, targetId, completedId) {
   return {
     phases: [
@@ -200,7 +200,7 @@ console.log('\n## Error: Nonexistent directory\n');
 
 // ===== PX-139: Test-fixture false positives — quoted-string suppression =====
 // [::TICKET::] PX-139: scan-algorithm quoted-string rejection + fixtures-dir exclusion.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
 console.log('\n## PX-139 — Quoted-string and fixtures-dir suppression\n');
 
 (function () {
@@ -228,7 +228,7 @@ console.log('\n## PX-139 — Quoted-string and fixtures-dir suppression\n');
   // C001-Boundary: a marker whose description contains quotes is not suppressed.
   fs.writeFileSync(path.join(srcDir, 'quotes.rs'), '// [::STUB::] P99-99: use "quotes" in description\n');
   const result3 = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(result3.targetCrimes.some(function (c) { return c.ticketRef === 'P99-99' && c.file.endsWith('quotes.rs'); }),
     'C001-boundary: marker with quotes in description still emitted');
 
@@ -248,14 +248,14 @@ console.log('\n## PX-139 — Quoted-string and fixtures-dir suppression\n');
   const result = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
 
   // C002-Post: the fixtures dir subtree is not scanned.
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(!result.targetCrimes.some(function (c) { return c.file.includes('fixtures'); }),
     'C002: fixtures dir not scanned');
   // C002-Inv: non-fixtures directories are still scanned.
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(result.targetCrimes.some(function (c) { return c.file.endsWith('src/a.rs'); }),
     'C002: src/a.rs (not fixtures) still scanned');
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(result.targetCrimes.some(function (c) { return c.file.endsWith('tests/t.rs'); }),
     'C002-inv: tests/t.rs (not fixtures) still scanned');
 
@@ -280,10 +280,10 @@ console.log('\n## PX-139 — Quoted-string and fixtures-dir suppression\n');
   ];
   assert(typeof lib.containsStubMarker === 'function', 'C003: containsStubMarker exported');
   assert(typeof lib.isStubInQuotes === 'function', 'C003: isStubInQuotes exported');
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(samples.every(function (l) { return lib.containsStubMarker(l) === STUB_RE.test(l); }),
     'C003: containsStubMarker parity with STUB_RE');
-// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
   assert(samples.every(function (l) { return lib.isStubInQuotes(l) === STUB_IN_QUOTES_RE.test(l); }),
     'C003: isStubInQuotes parity with STUB_IN_QUOTES_RE');
 })();

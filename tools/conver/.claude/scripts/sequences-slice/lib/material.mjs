@@ -48,7 +48,7 @@ const REQUIRED_SOURCE_ARRAY_FIELDS = ['sequences', 'steps', 'operations'];
  * @param {object} record
  * @returns {string[]}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function materialPathsOf(record) {
   if (Array.isArray(record?.[MATERIAL_LIST_FIELD])) return [...record[MATERIAL_LIST_FIELD]];
   return record?.[LEGACY_MATERIAL_FIELD] ? [record[LEGACY_MATERIAL_FIELD]] : [];
@@ -70,7 +70,7 @@ const HOME_PREFIX = '~';
  * @param {string|null} homeDirectory
  * @returns {string}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function expandHomePath(materialPath, homeDirectory) {
   if (homeDirectory === null || homeDirectory === undefined || typeof materialPath !== 'string') return materialPath;
   if (materialPath === HOME_PREFIX) return homeDirectory;
@@ -90,7 +90,7 @@ export function expandHomePath(materialPath, homeDirectory) {
  * @param {{ viewExists: boolean, viewDocument: object|null }} input
  * @returns {string|null}
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function viewStalenessOf({ viewExists, viewDocument }) {
   if (!viewExists) return PACKAGE_VERDICT_NO_VIEW;
   if (viewDocument === null) return PACKAGE_VERDICT_UNREADABLE_VIEW;
@@ -98,13 +98,13 @@ function viewStalenessOf({ viewExists, viewDocument }) {
 }
 
 /** Whether a name is one of the two generated view files. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function isViewName(basename) {
   return basename === VIEW_MARKDOWN_NAME || basename === VIEW_JSON_NAME;
 }
 
 /** The arrays a view distributes, in the order a ledger is checked against them. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 const VIEW_UNIT_ARRAY_FIELDS = ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits', 'obligationUnits'];
 
 /**
@@ -138,7 +138,7 @@ export function collectUnitIds(view) {
  * @param {string} materialPath
  * @returns {boolean}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function isUsableSourceArtifact({ readFile }, materialPath) {
   if (!materialPath.endsWith(SOURCE_ARTIFACT_SUFFIX)) return false;
   const text = readFile(materialPath);
@@ -165,7 +165,7 @@ export function isUsableSourceArtifact({ readFile }, materialPath) {
  * @param {{ readFile: (path: string) => string|null }} io
  * @param {string} statusPath
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function readSessionRecord({ readFile }, statusPath) {
   const text = readFile(statusPath);
   if (text === null) {
@@ -204,7 +204,7 @@ function readSessionRecord({ readFile }, statusPath) {
  * }} input
  * @returns {object}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function findSequenceMaterial({ rfcDir, sessionDir = null, homeDirectory = null, io }) {
   const { readFile, fileExists, basename, join } = io;
   const candidateRecords = [
@@ -257,7 +257,7 @@ export function findSequenceMaterial({ rfcDir, sessionDir = null, homeDirectory 
  * A view that cannot be read is reported as a staleness of its own rather than as an absence, because
  * the two call for different repairs and the run has to be able to say which it found.
  */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function parseDocumentOrNull(text) {
   if (text === null || text === undefined) return null;
   try {
@@ -268,13 +268,13 @@ function parseDocumentOrNull(text) {
 }
 
 /** The session directory a drill keeps under the package. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function defaultSessionDirFor(join, rfcDir) {
   return join(rfcDir, SESSION_DIR_NAME);
 }
 
 /** The node:fs calls the two entry points supply, so the rule above stays free of them. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function nodeFileSystem(fs) {
   return {
     readFile: (filePath) => {

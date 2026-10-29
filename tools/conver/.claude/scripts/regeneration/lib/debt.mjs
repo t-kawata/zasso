@@ -55,7 +55,7 @@ export function debtOfReadings({ subjects = new Set(), count = 0, withheldCount 
 
 /** Every identity the staging result adds, and the reading-count movement. */
 export function computeDebtIncrease({ baseline = {}, staging = {} }) {
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
   const baselineFindings = baseline.findings ?? new Set();
   const baselineBlocked = baseline.blocked ?? new Set();
   const baselineSubjects = baseline.readingSubjects ?? new Set();
@@ -157,8 +157,8 @@ export function summarizeDebt(debt = {}) {
 }
 
 /** One line naming the first new identity of each kind. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-287, PX-289, PX-290, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-287|PX-289|PX-290|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287, PX-289, PX-290, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-287|PX-289|PX-290|PX-310) --for-spec --no-implementation-order`.
 function increaseDetail(increase) {
   const parts = [];
   if (increase.newFindings.length > 0) parts.push(`finding ${increase.newFindings[0].replace(IDENTITY_SEPARATOR, ' ')}`);

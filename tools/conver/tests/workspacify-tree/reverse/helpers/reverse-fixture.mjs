@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 /**
  * Fixtures for the reverse-mode gate tests.
  *
@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 /** The sidecar a reverse run reads its provenance from. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 export const FIXTURE_SIDECAR_NAME = 'ANALYSIS-SCOPE.json';
 const FIXTURE_SIDECAR_BODY = '{\n  "scope": "the fixture project"\n}\n';
 

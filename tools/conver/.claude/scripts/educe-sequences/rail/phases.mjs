@@ -82,7 +82,7 @@ export function exitCodeFor(outcome) {
  * Four phases fill one declaration, each its own section, because a single reader asked
  * for all four at once answers three of them from the first and calls it reading.
  */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 export const PHASE_EXPECTS = Object.freeze({
   2: `${DECLARATION_FILE} with predicate.limbs`,
   3: `${DECLARATION_FILE} with rowSchema.fields`,
@@ -96,10 +96,10 @@ export const PHASE_EXPECTS = Object.freeze({
 });
 
 /** What the reader is asked to do, in the words the brief is rendered with. */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-265 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-265 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-265 --for-spec --no-implementation-order`.
 export const PHASE_GUIDANCE = Object.freeze({
   2: 'Find the sentence that says when a procedure counts, quote it verbatim, and record the line and its limbs.',
   3: 'Find the sentence that states the fields an entry carries, and record the line and the fields.',
@@ -113,8 +113,8 @@ export const PHASE_GUIDANCE = Object.freeze({
 });
 
 /** Merge readings by subject, so a later brief's verdict replaces the earlier one. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function mergeBySubject(...groups) {
   const merged = new Map();
   for (const group of groups) for (const reading of group) merged.set(reading.subject, reading);
@@ -122,7 +122,7 @@ function mergeBySubject(...groups) {
 }
 
 /** Read a brief's readings, treating an absent file as no readings rather than as a failure. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function optionalBrief(directory, briefName) {
   const result = readReadingsFile(join(directory, `readings-${briefName}.jsonl`));
   return result.ok ? result.readings : [];
@@ -133,7 +133,7 @@ function optionalBrief(directory, briefName) {
 // account for. They are the same act on two subjects — a span of the document and a name
 // the document must perform — so they are one phase with two questions rather than a
 // nineteenth phase, which would make the phase count a moving number.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const BRIEFS_OF_PHASE = Object.freeze({ 8: ['span', 'uncovered'], 10: ['adversarial'], 11: ['reroute'], 12: ['adjudicate'], 13: ['inquest'] });
 
 /**
@@ -144,7 +144,7 @@ const BRIEFS_OF_PHASE = Object.freeze({ 8: ['span', 'uncovered'], 10: ['adversar
  * is the case the report calls incomplete, which is why the count is taken here rather
  * than assumed from the gate having passed.
  */
-// [::TICKET::] PX-240, PX-241, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-248) --for-spec --no-implementation-order`.
 function claimedBy(directory, id) {
   const briefs = BRIEFS_OF_PHASE[id];
   // A phase with no brief is one of the four that fill the declaration, and each of them
@@ -155,7 +155,7 @@ function claimedBy(directory, id) {
 }
 
 /** How many signed claims one brief produced. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function claimedInBrief(directory, brief) {
   if (brief === null) return existsSync(join(directory, DECLARATION_FILE)) ? 1 : 0;
   return signedCount(optionalBrief(directory, brief));
@@ -167,9 +167,9 @@ function claimedInBrief(directory, brief) {
  * A `[read]` phase has no action: the library cannot read, and giving it one would be
  * the substitution the whole design refuses.
  */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 const ACTIONS = Object.freeze({
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   6: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -192,9 +192,9 @@ const ACTIONS = Object.freeze({
     writeFileSync(join(ctx.directory, UNCOVERED_WORKLIST_FILE), uncovered.length === 0 ? '' : `${uncovered.join('\n')}\n`);
     return { ok: true };
   },
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
   9: (ctx) => {
     const declaration = readDeclarationFile(join(ctx.directory, DECLARATION_FILE));
     if (!declaration.ok) return declaration;
@@ -261,7 +261,7 @@ const ACTIONS = Object.freeze({
  * holding the specification, so that is the default rather than a parameter a caller can
  * forget: a falsification whose restoration is not measured is not falsification.
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot = dirname(specPath) }) {
   return {
     specPath,
@@ -297,7 +297,7 @@ export function buildContext({ specPath, spec, run, recorded = {}, fixtureRoot =
  *            expects: string|null, exitCode: number, loops: number}}
  */
 export function runPhase(id, ctx) {
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const phase = phaseById(id);
   if (phase === null) return { id, tag: null, ok: false, halted: false, reason: `there is no phase ${id}`, backTo: null, expects: null, exitCode: 1, loops: 0 };
 
@@ -408,7 +408,7 @@ export function startRun({ specPath, spec, root = null }) {
 }
 
 /** How many pairs a run's declaration puts and how many its audit answered. */
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
 export function inquestCountsIn(directory, specPath) {
   const declaration = readDeclarationFile(join(directory, DECLARATION_FILE));
   if (!declaration.ok) return { asked: 0, answered: 0, exempt: 0 };
@@ -426,7 +426,7 @@ export function inquestCountsIn(directory, specPath) {
 }
 
 /** The readings a run holds, by brief name, treating an absent file as no readings. */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function readingsByBrief(directory) {
   const briefs = PHASES
     .filter((phase) => phase.tag === PHASE_TAGS.READ)
@@ -442,7 +442,7 @@ function readingsByBrief(directory) {
  * digest of some earlier moment would report a change that had already been absorbed, and
  * the guard against an unattended loop reads it to decide whether anything moved.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function observeAssets(status, directory) {
   status[ASSETS_FIELD] = { ...(status[ASSETS_FIELD] ?? {}), [ASSET_DIGEST_FIELD]: assetDigestOf(directory) };
   return status;
@@ -467,7 +467,7 @@ function observeAssets(status, directory) {
  *            assets: {digest: string}, invalidated: Array<object>}
  *          | {ok: false, refused: string, directory: string, generation: null, status: object}}
  */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 export function beginRun({ specPath, spec, material = '', namedPaths = [], root = null }) {
   const opened = openRun({ specPath, spec, root });
   if (opened.kind === RESUME_KINDS.ANOTHER_SPECIFICATION) {

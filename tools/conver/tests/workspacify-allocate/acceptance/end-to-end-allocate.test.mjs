@@ -1,4 +1,4 @@
-// [::TICKET::] PX-191 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-191 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-191 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-191 --for-spec --no-implementation-order`.
 // PX-191 @verifies C002 C003 C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs'
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with grill-ready seeds', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
@@ -61,7 +61,7 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
   }
 });
 
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 test('C005 acceptance: a host project root holding unrelated directories still publishes', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
@@ -90,7 +90,7 @@ test('C005 acceptance: a host project root holding unrelated directories still p
   }
 });
 
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 test('C005 the two post-publication refusals undo the publication before they throw', () => {
   // A refusal after the publication cannot be produced from the command line: the
   // published set is the plan, and the plan is what the scan compares the root

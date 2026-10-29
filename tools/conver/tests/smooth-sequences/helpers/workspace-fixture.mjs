@@ -1,4 +1,4 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 /**
  * A smooth-sequences workspace assembled from fixtures.
  *
@@ -56,7 +56,7 @@ export function operationRow(id, overrides = {}) {
 }
 
 /** The two operations the clean fixture owns, one on each side of boundary-001. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function defaultOperations() {
   return [
     operationRow('ProduceFact', { registry_contribution: 'required' }),
@@ -65,9 +65,9 @@ function defaultOperations() {
 }
 
 /** The two steps of the clean fixture: one produces order_id, the next consumes it. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 export function defaultSteps() {
   return [
     {
@@ -158,7 +158,7 @@ export function notASequenceArtifact({ grounded = false } = {}) {
 }
 
 /** A v3 artifact that satisfies every Layer A and Layer B check. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function minimalV3Artifact() {
   return {
     schema_version: 3,
@@ -262,7 +262,7 @@ export function defaultAllocateManifest(contractRegistry = defaultContractRegist
 
 /** A package view with one owned operation and the provider or consumer side of boundary-001. */
 export function packageView(input) {
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   const {
     packageId,
     operationId,
@@ -327,7 +327,7 @@ export function packageView(input) {
 }
 
 /** The ledger kind a unit id declares. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function ledgerKindOf(unitId) {
   if (unitId.startsWith('op-')) return 'operation';
   if (unitId.startsWith('ctr-')) return 'contract';
@@ -391,7 +391,7 @@ export function defaultViews() {
  *   viewPathOf: (id: string) => string, readArtifact: () => object,
  *   remove: () => void }}
  */
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 /** The kind a fixture unit id declares. */
 function fixtureKindOf(unitId) {
   if (unitId.startsWith('op-')) return 'operation';

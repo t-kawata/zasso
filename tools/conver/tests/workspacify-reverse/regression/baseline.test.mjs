@@ -1,8 +1,8 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The forward-rotation regression gate: freeze, reproduce, and refuse to guess.
  *
@@ -51,7 +51,7 @@ import { EXPECTED_FROZEN_COMMAND_FILES } from '../helpers/command-file.mjs';
 const MODULE_ROOT = process.cwd();
 
 /** A throwaway project holding copies of the fixtures and command files under test. */
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function makeTempProject() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'p22-1-gate-'));
   for (const dir of [TREE_FIXTURES_RELATIVE_DIR, ALLOCATE_FIXTURES_RELATIVE_DIR, COMMANDS_RELATIVE_DIR]) {
@@ -315,7 +315,7 @@ test('UT-13: two consecutive captures produce byte-identical JSON', () => {
 
 // --- C002: the command files --------------------------------------------------
 
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
 // P22-1 asserted the absence of `workspacify-reverse.md` as a precondition of
 // its own moment, and named P22-9 as the ticket that would create it. That
 // premise is now false, so the assertion is updated to the truth rather than

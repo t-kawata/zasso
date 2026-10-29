@@ -20,7 +20,7 @@ const obligation = {
   claim: 'translation holds',
 };
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function item() {
   return buildWorklist([obligation], {}, {
     reader: readerForGeneration({ generation: 7 }),
@@ -29,7 +29,7 @@ function item() {
 }
 
 // @verifies C006
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the reader and attack reader are derived from the generation', () => {
   assert.equal(readerForGeneration({ generation: 7 }), 'educe-sequences/generation-7');
   assert.equal(attackReaderForGeneration({ generation: 7 }), 'educe-sequences/generation-7/attack');
@@ -37,7 +37,7 @@ test('the reader and attack reader are derived from the generation', () => {
 });
 
 // @verifies C006
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a judgment written by a ticket-key reader is rejected', () => {
   const worklistItem = item();
   const record = {
@@ -56,7 +56,7 @@ test('a judgment written by a ticket-key reader is rejected', () => {
 });
 
 // @verifies C006
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('an attack written by the wrong reader is rejected', () => {
   const worklistItem = item();
   const record = { reader: worklistItem.reader };

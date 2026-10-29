@@ -36,7 +36,7 @@ const MAX_OPTIONS = 4;
  * @param {string} id — Hierarchical path id, e.g. 'H1-2-1'
  * @returns {string|null} Parent id ('H1-2') or null for a top-level heading
  */
-// [::TICKET::] PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-154 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-154 --for-spec --no-implementation-order`.
 function parentIdOf(id) {
   if (typeof id !== 'string') return null;
   const lastDash = id.lastIndexOf('-');
@@ -64,7 +64,7 @@ function parseProposal(raw) {
  * @param {Object} proposal — {id, heading, contentOptions, recommendation, reason, existingIds?}
  * @returns {{ valid: boolean, errors: string[] }} Validation result
  */
-// [::TICKET::] PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-154 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-154 --for-spec --no-implementation-order`.
 function validateProposal(proposal) {
   const errors = [];
   const proposalData = proposal || {};
@@ -106,7 +106,7 @@ function validateProposal(proposal) {
 /**
  * main — read stdin, validate, print the result, exit 0/1.
  */
-// [::TICKET::] PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-154 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-154 --for-spec --no-implementation-order`.
 function main() {
   let raw = '';
   process.stdin.setEncoding('utf8');

@@ -50,19 +50,19 @@ const RUN = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/run.mjs
 const POINT = { origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
 
 /** Run the command and keep both sinks as bytes. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function runCli(argv, { cwd } = {}) {
   return spawnSync(process.execPath, [RUN, ...argv], { cwd, encoding: 'buffer' });
 }
 
 /** Bring one viewpoint to one workspace, the way the AI does after the human has spoken. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function reviseWith(workspace, payload) {
   return runCli(['revise', workspace.seedPath, JSON.stringify(payload)], { cwd: workspace.root });
 }
 
 /** Every line of `before` survives, in order, in `after` — nothing earlier is rewritten. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function isSubsequence(before, after) {
   let cursor = 0;
   for (const line of before) {
@@ -74,7 +74,7 @@ function isSubsequence(before, after) {
 }
 
 /** A materialized workspace with its frame published, removed when the case is done. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function withPublishedWorkspace(body) {
   const workspace = materializeExplainSeedWorkspace();
   try {

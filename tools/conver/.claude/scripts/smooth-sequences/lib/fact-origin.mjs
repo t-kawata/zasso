@@ -78,7 +78,7 @@ export function isFactTextSupported(text, quote) {
 }
 
 /** The family prefix a fact id carries, or the whole id when it has no colon. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function factPrefix(fact) {
   const id = String(fact?.factId ?? '');
   const separator = id.indexOf(':');
@@ -93,7 +93,7 @@ export function fieldForFact(fact) {
 }
 
 /** Whether a value carries a fact's text. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function valueCarriesText(value, text) {
   if (value === undefined || value === null) return false;
   const haystack = normalizeFactText(typeof value === 'string' ? value : JSON.stringify(value));
@@ -102,7 +102,7 @@ function valueCarriesText(value, text) {
 }
 
 /** Whether the boolean row carries the canonical phrase of a legacy fact. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function booleanPhraseSupports(fact, operation, field) {
   const phrase = BOOLEAN_FACT_PHRASES[factPrefix(fact)];
   if (phrase === undefined) return false;
@@ -111,7 +111,7 @@ function booleanPhraseSupports(fact, operation, field) {
 }
 
 /** Whether an operation row carries a fact, by named field or by any scalar row. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function operationSupports(fact, operation) {
   if (operation === null || operation === undefined) return false;
   const field = fieldForFact(fact);
@@ -127,7 +127,7 @@ function operationSupports(fact, operation) {
 }
 
 /** Whether a contract-registry clause carries a fact. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function contractRegistrySupports(fact, contractRegistry) {
   const rows = Array.isArray(contractRegistry) ? contractRegistry : [];
   const declaredBoundary = fact?.source?.boundaryId;

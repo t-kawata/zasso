@@ -1,4 +1,4 @@
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 /**
  * E13 — trivial compiler-normalisation equivalence, and nothing beyond it.
  *
@@ -96,7 +96,7 @@ export function tceConfigurationFor(language) {
  * one exception, and the policy that drops them is recorded in the configuration
  * rather than hidden here.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function canonicalForm(node) {
   if (COMMENT_NODE_TYPES.has(node.type)) return '';
   if (node.childCount === 0) return node.text;
@@ -121,7 +121,7 @@ function canonicalForm(node) {
  * token's text exactly as written while discarding only the whitespace between
  * tokens.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function tokenStream(node) {
   if (COMMENT_NODE_TYPES.has(node.type)) return [];
   if (node.childCount === 0) return [node.text];
@@ -137,7 +137,7 @@ function tokenStream(node) {
  * This is the one place the parse happens, so the throwing reading and the
  * lenient one cannot disagree about what "readable" means.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function readTextUnderGrammar({ language, text }) {
   const configuration = tceConfigurationFor(language);
   const parsed = parseSourceText(text, language);
@@ -155,7 +155,7 @@ function readTextUnderGrammar({ language, text }) {
 }
 
 /** Refuse a text that is not a string, before anything tries to parse it. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function requireText(text, role) {
   if (typeof text !== 'string') {
     throw new Error(
@@ -180,7 +180,7 @@ function requireText(text, role) {
  * @param {string} params.text - the text to normalise
  * @returns {{language: string, configuration: object, normalised: string, errorNodes: boolean}}
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function normaliseUnderGrammar({ language, text } = {}) {
   const read = readTextUnderGrammar({ language, text: requireText(text, 'source') });
   if (!read.ok) {
@@ -210,7 +210,7 @@ export function normaliseUnderGrammar({ language, text } = {}) {
  * @param {string} text - the text to read
  * @param {string} language - the language whose grammar it is read under
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function normaliseForComparison(text, language) {
   if (GRAMMAR_BY_LANGUAGE[language] === undefined) return null;
   let read;
@@ -237,7 +237,7 @@ export function normaliseForComparison(text, language) {
  * @param {Function} [params.normaliser] - `(text, language) => normalised`, for a caller with its own reading
  * @returns {object} the verdict and the two normalised forms it rests on
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function compareTrivially({ original, mutant, language, normaliser = null } = {}) {
   if (typeof original !== 'string' || typeof mutant !== 'string') {
     throw new Error(
@@ -284,19 +284,19 @@ export function compareTrivially({ original, mutant, language, normaliser = null
 }
 
 /** A record claims equivalence when it says so in either of the two shapes used here. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function claimsEquivalence(record) {
   return record?.verdict === 'equivalent' || record?.equivalent === true;
 }
 
 /** The rung a step id names, or null when the id names no rung. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function ladderStepOf(id) {
   return TCE_LADDER_STEPS.find((step) => step.id === id) ?? null;
 }
 
 /** The token stream of a text, or null when the instrument cannot read it. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function tokensOf(text, language) {
   if (GRAMMAR_BY_LANGUAGE[language] === undefined) return null;
   const read = readTextUnderGrammar({ language, text: String(text) });
@@ -316,7 +316,7 @@ function tokensOf(text, language) {
  * the absent value to the empty string would turn "no evidence" into "positively
  * equivalent" and silently discard every survivor a producer left unfilled.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function applyComparisonLadder({ original, mutated, language, normaliser = normaliseForComparison }) {
   if (typeof original !== 'string' || typeof mutated !== 'string') {
     return {
@@ -370,7 +370,7 @@ export function applyComparisonLadder({ original, mutated, language, normaliser 
  * and `i <= n - 1` are not interchangeable once overflow, types, side effects or
  * undefined behaviour are considered.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function assertLadderClaimIsNamed(record) {
   const step = ladderStepOf(record?.ladder_step);
   if (step === null) {

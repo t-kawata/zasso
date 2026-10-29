@@ -399,7 +399,7 @@ describe("detectAnnotationAtLine [RED]", () => {
   it("should detect multi-format annotation line above definition", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// [::TICKET::] PX-59, PX-61 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.",
+      "// [::TICKET::] PX-59, PX-61 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.",
       "fn target() {}",
     ];
     const result = mod.detectAnnotationAtLine(lines, 2);
@@ -458,7 +458,7 @@ describe("mergeAnnotation [RED]", () => {
 
   it("should merge new key into multi-format line", () => {
     const mod = require(SCRIPT);
-    const line = "// [::TICKET::] PX-59, PX-61 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.";
+    const line = "// [::TICKET::] PX-59, PX-61 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.";
     const result = mod.mergeAnnotation(line, "PX-62");
     assert.ok(result !== null);
     assert.ok(result.includes("PX-59, PX-61, PX-62 changes"));
@@ -679,7 +679,7 @@ describe("the comment token is a fact about the language [P24-1]", () => {
     fs.rmSync(languageDir, { recursive: true, force: true });
   });
 
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
   function fixture(name, lines) {
     const fixturePath = path.join(languageDir, name);
     fs.writeFileSync(fixturePath, lines.join("\n"), "utf8");

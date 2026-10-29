@@ -1,4 +1,4 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 /**
  * The one-time PX-290 evidence migration.
  *
@@ -18,7 +18,7 @@ import {
 } from './lib/re-evidence.mjs';
 
 /** Parse `--root=<path>` or `--root <path>`. */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function parse(argv) {
   const [command, ...rest] = argv;
   const inline = rest.find((entry) => entry.startsWith('--root='));
@@ -32,7 +32,7 @@ function parse(argv) {
 }
 
 /** Render the archive summary as Markdown. */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function renderArchive(result) {
   const lines = [
     '# PX-290 evidence archive',
@@ -51,7 +51,7 @@ function renderArchive(result) {
 }
 
 /** Run one subcommand. */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function run(command, root) {
   if (command === 'archive') {
     const result = archiveGeneratedEvidence(root);

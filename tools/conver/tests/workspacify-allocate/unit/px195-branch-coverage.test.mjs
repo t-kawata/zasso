@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-195 --for-spec --no-implementation-order`.
 // PX-195 @verifies C001 C002 C003 C004
 // Branch hardening: the sparse-input and failure paths of the manifest, the
 // publisher, the reload and the cleanup.
@@ -29,7 +29,7 @@ function silent(callback) {
   }
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 a sparse manifest still yields a complete, self-verifying record', () => {
   const { manifest } = buildValidManifest();
   const sparse = { ...manifest, workspace: { ...manifest.workspace, packages: [] }, structure: {}, dependencies: {} };

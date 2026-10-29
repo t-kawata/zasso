@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-185) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-177|PX-185) --for-spec --no-implementation-order`.
 /**
  * Over-split risk discovery (§9.4).
  *

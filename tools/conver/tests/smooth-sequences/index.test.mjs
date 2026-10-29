@@ -5,7 +5,7 @@ import { indexArtifact } from '../../.claude/scripts/smooth-sequences/lib/index.
 import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 test('the index carries every operation, sequence, step, boundary, contract and view exactly once', () => {
   const workspace = materializeSmoothWorkspace();
   try {

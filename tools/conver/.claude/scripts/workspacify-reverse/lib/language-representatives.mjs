@@ -1,4 +1,4 @@
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 /**
  * The language representatives — the declaration, read, measured and verified.
  *
@@ -112,7 +112,7 @@ export const BUILD_BY_LANGUAGE = Object.freeze({
  * material to measure rather than a directory that happens to be there.
  */
 export const CONSTRUCT_MARKERS = Object.freeze({
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   rust: Object.freeze({
     'enum-declaration': 'pub enum LoginError',
     'function-declaration': 'pub fn login',
@@ -423,7 +423,7 @@ export function verifyRepresentative(entry, { projectRoot = PROJECT_ROOT, digest
 }
 
 /** One construct against the file and line the declaration names. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function verifyConstruct(entry, construct, absoluteRoot) {
   const named = {
     code: FINDING_CODES.CONSTRUCT_PATH_ABSENT,
@@ -449,7 +449,7 @@ function verifyConstruct(entry, construct, absoluteRoot) {
 }
 
 /** The two ways the populations could be conflated: the same root twice, or one root inside another. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function verifyPopulationSeparation(declaration, entries) {
   const findings = [];
   const populations = declaration.populations ?? {};
@@ -483,7 +483,7 @@ function verifyPopulationSeparation(declaration, entries) {
 }
 
 /** A finding about an entry rather than about a line of code. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function entryFinding(code, entry, message) {
   return { code, language: entry.language, path: entry.root ?? null, line: null, message };
 }
@@ -495,7 +495,7 @@ function entryFinding(code, entry, message) {
  * The digest is written as data rather than logged, so the command's whole
  * output is the value being compared.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function digestCommandLine(language) {
   const modulePath = './.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
   return `node -e "import('${modulePath}').then((module) => process.stdout.write(module.digestRepresentative('${language}').sha256))"`;
@@ -516,7 +516,7 @@ function digestCommandLine(language) {
  * fail on them. Assuming a build runs is the dangerous direction, so an
  * unreadable manifest is recorded as not-offline too.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function describeBuild(language, representativeRoot) {
   const command = BUILD_BY_LANGUAGE[language].command;
   const manifest = MANIFEST_BY_LANGUAGE[language];
@@ -554,14 +554,14 @@ function describeBuild(language, representativeRoot) {
 }
 
 /** The dependency names a `package.json` declares, or none. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function declaredNpmDependencies(manifestText) {
   const manifest = JSON.parse(manifestText);
   return [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})];
 }
 
 /** The crate names a `Cargo.toml` declares in any of its dependency sections. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function declaredRustDependencies(manifestText) {
   const declared = [];
   let insideDependencySection = false;
@@ -580,7 +580,7 @@ function declaredRustDependencies(manifestText) {
 }
 
 /** The module paths a `go.mod` requires, in either the block or the one-line form. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function declaredGoDependencies(manifestText) {
   const declared = [];
   let insideRequireBlock = false;
@@ -603,7 +603,7 @@ function declaredGoDependencies(manifestText) {
 }
 
 /** The distributions a `pyproject.toml` names for its build backend and for the project itself. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function declaredPythonDependencies(manifestText) {
   const declared = [];
   for (const key of ['requires', 'dependencies']) {
@@ -615,7 +615,7 @@ function declaredPythonDependencies(manifestText) {
 }
 
 /** The content a `CMakeLists.txt` fetches at configure time. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function declaredCMakeDependencies(manifestText) {
   const declared = [];
   for (const line of manifestText.split('\n')) {
@@ -633,7 +633,7 @@ function declaredCMakeDependencies(manifestText) {
  * `export *` to a line of documentation would be claiming the wrong thing while
  * passing every check.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function measureConstructs(language, absoluteRoot, files) {
   const markers = CONSTRUCT_MARKERS[language];
   const pinnedPaths = CONSTRUCT_SEARCH_PATHS[language] ?? {};
@@ -652,7 +652,7 @@ function measureConstructs(language, absoluteRoot, files) {
 }
 
 /** The first file, in the order given, that carries the marker, and the line it carries it on. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function findMarker(candidates, absoluteRoot, marker) {
   for (const file of candidates) {
     const line = readFileSync(join(absoluteRoot, file), 'utf8').split('\n').findIndex((text) => text.includes(marker));
@@ -662,7 +662,7 @@ function findMarker(candidates, absoluteRoot, marker) {
 }
 
 /** The language most of the tree's classified files are written in, or `unknown`. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function dominantLanguageOf(languages) {
   const counts = new Map();
   for (const language of languages) counts.set(language, (counts.get(language) ?? 0) + 1);
@@ -678,7 +678,7 @@ function dominantLanguageOf(languages) {
  * containing one plus the path the tree sits at beneath it — the pair that says
  * where to look, which a bare commit does not.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function measureRevision(root, { projectRoot }) {
   const absoluteRoot = resolve(projectRoot, root);
   const workTree = gitOutput(absoluteRoot, ['rev-parse', '--show-toplevel']);
@@ -696,7 +696,7 @@ function measureRevision(root, { projectRoot }) {
 }
 
 /** Whether the recorded commit is one this repository holds. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function revisionResolves(revision, projectRoot) {
   const commit = revision?.commit;
   if (typeof commit !== 'string' || commit.length === 0) return false;
@@ -705,7 +705,7 @@ function revisionResolves(revision, projectRoot) {
 }
 
 /** One git query in a directory, or null when git cannot answer. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function gitOutput(directory, args) {
   const result = spawnSync('git', ['-C', directory, ...args], { encoding: 'utf8' });
   if (result.status !== 0) return null;
@@ -714,7 +714,7 @@ function gitOutput(directory, args) {
 }
 
 /** A path with forward slashes, so a declaration written here reads the same on every platform. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function toPosixPath(path) {
   return path.split('\\').join('/');
 }

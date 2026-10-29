@@ -9,7 +9,7 @@ import {
   verifyTicketDistribution,
 } from '../../.claude/scripts/tickets/add-tickets-for-phase.js';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg',
@@ -20,17 +20,17 @@ function fixtureView() {
   };
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function fixtureGraph() {
   return { sourceFile: 'RFC.md', distributionDigest: 'a'.repeat(64), nodes: [{ id: 'N0001', unitIds: ['op-A'] }] };
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function fixtureDirs() {
   return { distribution: { digest: 'a'.repeat(64), units: { 'op-A': { nodeIds: ['N0001'], paths: ['src/a.js'] } } } };
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function phaseWith(ticket) {
   return { id: 0, nodeIds: ['N0001'], tickets: [{ id: 1, phaseId: 0, nodeIds: ['N0001', 'op-A'], contracts: [], ...ticket }] };
 }

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 /**
  * The counters the implementation order reads.
  *
@@ -21,7 +21,7 @@ import {
 import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
 /** A workspace with one package, so a counter document has a directory to sit in. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function workspaceWithPackage() {
   return materializeOrderWorkspace({ packages: ['pkg-0001'] });
 }

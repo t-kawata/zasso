@@ -1,4 +1,4 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The matrix as something an author can work on, one cell at a time.
  *
@@ -35,7 +35,7 @@ export const SOURCE_WINDOW_FOR_TEST = SOURCE_WINDOW_LINES;
 const PACKAGES_SECTION_KEY = 'packages';
 
 /** A source line as the window prints it, numbered so the reader can find it. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function numbered(lineNumber, text) {
   return `${String(lineNumber).padStart(4, ' ')} | ${text}`;
 }
@@ -59,13 +59,13 @@ export function readSourceWindow({ root, file, line, size = SOURCE_WINDOW_LINES 
 }
 
 /** The packages the matrix has rows for, taken from the spec the run published. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function packagesOf(spec) {
   return spec?.sections?.[PACKAGES_SECTION_KEY]?.scopes ?? [];
 }
 
 /** The authored claim closing one cell, or `undefined`. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function readingAt(spec, scope, item) {
   return (spec.claims ?? []).find((claim) => claim.semantics_item === item && claim.scope === scope);
 }
@@ -79,21 +79,21 @@ function readingAt(spec, scope, item) {
  * over the document: a spec whose declines were dropped would report every one of them as
  * an omission, which is the opposite of what happened.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function declinedAt(spec) {
   const cells = spec?.sections?.design_semantics?.content?.coverage?.declinedCells ?? [];
   return new Map(cells.map((cell) => [`${cell.scope}\u0000${cell.item}`, cell.reason]));
 }
 
 /** The measured claims a reading rests on, with the span each names. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function basisOf(spec, reading) {
   const byId = new Map((spec.claims ?? []).map((claim) => [claim.claim_id, claim]));
   return (reading?.basis ?? []).map((id) => ({ id, claim: byId.get(id) }));
 }
 
 /** Where the reading's basis points, as lines a reader can open. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderAnchors(lines, spec, reading) {
   const anchors = basisOf(spec, reading).flatMap(({ id, claim }) =>
     (claim?.evidence ?? []).map((item) => ({ id, ...item.source_span })));
@@ -107,7 +107,7 @@ function renderAnchors(lines, spec, reading) {
 }
 
 /** One cell: what closes it, where that comes from, and the source around it. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function renderCell(cell, lines) {
   const { spec, scope, item, root, declines } = cell;
   const reading = readingAt(spec, scope, item);

@@ -220,7 +220,7 @@ export function assertNodeVersionSupported(version) {
  * @param {readonly string[]} extensions — the suffixes to collect
  * @returns {string[]} absolute file paths, sorted
  */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function collectFilesWithExtension(roots, extensions) {
   const found = [];
 

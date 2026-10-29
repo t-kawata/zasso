@@ -19,7 +19,7 @@ import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
  * @param {unknown} value
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function canonicalJson(value) {
   if (value === undefined) return 'null';
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -35,7 +35,7 @@ export function canonicalJson(value) {
  * @param {unknown} value
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function digestValue(value) {
   return sha256Hex(canonicalJson(value));
 }
@@ -46,7 +46,7 @@ export function digestValue(value) {
  * @param {{ artifact: unknown, treeManifest: unknown, allocateManifest: unknown }} triple
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function digestSequenceTriple({ artifact, treeManifest, allocateManifest }) {
   return digestValue({ artifact, treeManifest, allocateManifest });
 }
@@ -57,7 +57,7 @@ export function digestSequenceTriple({ artifact, treeManifest, allocateManifest 
  * @param {{ artifact: unknown, treeManifest: unknown, allocateManifest: unknown }} triple
  * @returns {{ artifact: string, treeManifest: string, allocateManifest: string }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function digestSnapshot({ artifact, treeManifest, allocateManifest }) {
   return {
     artifact: digestValue(artifact),

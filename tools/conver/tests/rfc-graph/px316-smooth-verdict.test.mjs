@@ -31,7 +31,7 @@ const VERIFY_SMOOTH = fileURLToPath(new URL('../../.claude/scripts/rfc-graph/ver
 
 const PASS_VERDICT = Object.freeze({ exitCode: 0, findings: 0, blocked: 0, withheld: 0, readings: 0 });
 
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function createWorkspace(options = {}) {
   const { legacy = false, verdict = PASS_VERDICT } = options;
   const workspaceRoot = mkdtempSync(join(tmpdir(), 'px316-'));
@@ -48,7 +48,7 @@ function createWorkspace(options = {}) {
   return { workspaceRoot, packageDir, fixture, ...smooth };
 }
 
-// [::TICKET::] PX-316 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-316 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 function run(command, args) {
   return spawnSync(process.execPath, [command, ...args], { cwd: ROOT, encoding: 'utf8' });
 }
@@ -80,7 +80,7 @@ test('C002 a design file changed after smooth is STALE_SMOOTH_VERDICT', () => {
   }
 });
 
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 test('C002 a package view changed after the receipt is STALE_SMOOTH_VERDICT', () => {
   const fixture = createWorkspace();
   try {
@@ -95,8 +95,8 @@ test('C002 a package view changed after the receipt is STALE_SMOOTH_VERDICT', ()
   }
 });
 
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('C002 an RFC-only edit after the receipt is not stale', () => {
   const fixture = createWorkspace();
   try {
@@ -133,7 +133,7 @@ test('C003 the certificate must be complete and bind the live artifact', () => {
   }
 });
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
   const fixture = createWorkspace();
   try {

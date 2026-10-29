@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * R-T5 — the logical architecture as a choice between candidate models.
  *
@@ -62,13 +62,13 @@ const STRUCTURE_PATH = join(ANALYSIS_ROOT, 'STRUCTURE.json');
 const DEPENDENCIES_PATH = join(ANALYSIS_ROOT, 'DEPENDENCIES.json');
 
 /** One measured directory, in the shape `measureStructure` writes. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function measuredPackage(directory, files) {
   return { directory, files, declaredModules: [], language: 'rust' };
 }
 
 /** One measured import edge, in the shape `measureDependencies` writes. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function importEdge(from, to) {
   return {
     from,
@@ -86,7 +86,7 @@ function importEdge(from, to) {
  * cycle; `src/empty_measurement` is declared with no files, which is the package
  * the design says must produce no candidate rather than an empty card.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function syntheticMeasurements() {
   return {
     structure: {
@@ -123,7 +123,7 @@ function syntheticMeasurements() {
  * segment of every path the tree maps (`src/api`, `src/model`), which is the
  * convention `dependencyDirections` states in the same file.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function syntheticDirsTree() {
   return {
     schemaVersion: '1.0',
@@ -154,7 +154,7 @@ function syntheticDirsTree() {
 }
 
 /** The candidate that a derivation rule produced, or a failure naming the rule. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function candidateFrom(candidates, rule) {
   const found = candidates.find((candidate) => candidate.derivedFrom === rule);
   assert.ok(found, `no candidate was derived from ${rule}`);
@@ -162,13 +162,13 @@ function candidateFrom(candidates, rule) {
 }
 
 /** The group of a candidate that holds the given directory. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function groupHolding(candidate, directory) {
   return candidate.groups.find((group) => group.members.includes(directory));
 }
 
 /** The candidates the synthetic measurements support. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function syntheticCandidates() {
   const { structure, dependencies } = syntheticMeasurements();
   return generateCandidates({ structure, dependencies, dirsTree: syntheticDirsTree() });
@@ -182,7 +182,7 @@ function syntheticCandidates() {
  * the node mapping is absent: `generateCandidates` takes it as optional and the
  * `mappedNodeIds` chain is exercised by `syntheticDirsTree` above.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function recordedMeasurements() {
   return {
     structure: JSON.parse(readFileSync(STRUCTURE_PATH, 'utf8')),
@@ -191,7 +191,7 @@ function recordedMeasurements() {
 }
 
 /** Write the delta record in the shape `loadArchitectureDelta` reads. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function writeDelta(deltaPath, mismatches) {
   writeFileSync(deltaPath, `${JSON.stringify({ mismatches }, null, 2)}\n`, 'utf8');
 }

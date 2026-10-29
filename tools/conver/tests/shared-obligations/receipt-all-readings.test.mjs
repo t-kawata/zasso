@@ -17,7 +17,7 @@ import {
 } from '../../.claude/scripts/shared-obligations/evidence.mjs';
 import { writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function tempRoot() {
   const root = mkdtempSync(join(tmpdir(), 'px306-receipt-'));
   mkdirSync(join(root, 'educe-sequences'), { recursive: true });

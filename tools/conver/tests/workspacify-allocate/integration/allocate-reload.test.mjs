@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-195|PX-201) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-195|PX-201) --for-spec --no-implementation-order`.
 // PX-195 @verifies C003
 // Reload proves the published workspace still satisfies every gate: rescan,
 // re-parse, re-extract, rebuild the graph, re-derive the order, re-prove coverage
@@ -30,7 +30,7 @@ function silent(callback) {
   }
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function publish() {
   const fixture = materializeSeedFixture();
   const decisionsPath = stageAllocateDecisions(fixture.dir, makeDecisions(fixture.manifest));

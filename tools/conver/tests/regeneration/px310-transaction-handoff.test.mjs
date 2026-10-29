@@ -1,4 +1,4 @@
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 // PX-310 @verifies C003
 // An artifact changed by migrate-v3 without a new reader generation must hand
 // off to educe, not derive. The handoff is bounded so a non-converging

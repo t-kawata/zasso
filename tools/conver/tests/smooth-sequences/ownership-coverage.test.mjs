@@ -11,13 +11,13 @@ import {
 } from './helpers/workspace-fixture.mjs';
 
 /** The findings of one check id in a result. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function findingsOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId);
 }
 
 /** A workspace with one assigned-only operation. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function assignedOnlyWorkspace({ ledgerRow = false } = {}) {
   const artifact = minimalV3Artifact();
   artifact.operations.push(operationRow('AssignedOnly', {

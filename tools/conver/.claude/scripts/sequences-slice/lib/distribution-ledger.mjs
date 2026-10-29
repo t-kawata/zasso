@@ -22,14 +22,14 @@ export const PRECEDENCE_MARKER = 'canonical';
 export const LEDGER_COLUMNS = Object.freeze(['Unit', 'Kind', 'Owner', 'RFC location', 'Ground']);
 
 /** The kinds a row may declare. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 export const UNIT_KINDS = Object.freeze(['operation', 'sequence', 'cross-boundary-sequence', 'contract', 'surface', 'declared-residual']);
 
 /** What a ledger with no rows must say to be told from one nobody read. */
 export const COMPOSITION_CHECK_PATTERN = /composition check/i;
 
 /** A markdown table row's cells, or null when the line is not a table row. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function cellsOf(line) {
   const trimmed = line.trim();
   if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) return null;
@@ -40,7 +40,7 @@ function cellsOf(line) {
 }
 
 /** The ATX heading a line carries, or null. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function headingOf(line) {
   const match = /^(#{1,6})\s+(.*\S)\s*$/.exec(line);
   return match === null ? null : { level: match[1].length, title: match[2].replace(/^#+\s*/, '').trim() };
@@ -52,7 +52,7 @@ function headingOf(line) {
  * @param {string} rfcText
  * @returns {{ body: string, lines: string[] }|null}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function findDistributionLedger(rfcText) {
   const lines = String(rfcText).split('\n');
   const start = lines.findIndex((line) => {
@@ -82,7 +82,7 @@ export function findDistributionLedger(rfcText) {
  * @param {string} rfcText
  * @returns {Array<{ unit: string, kind: string, owner: string, location: string, ground: string, index: number }>|null}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function readLedgerRows(rfcText) {
   const found = findDistributionLedger(rfcText);
   if (found === null) return null;
@@ -118,7 +118,7 @@ export function readLedgerRows(rfcText) {
  * @param {string} location
  * @returns {boolean}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function resolvesInsideRfc(location) {
   const trimmed = String(location).trim();
   return trimmed.length > 0 && !trimmed.endsWith('.md');
@@ -140,7 +140,7 @@ export function resolvesInsideRfc(location) {
  * @param {Set<string>} [unitIds]
  * @returns {{ ok: boolean, reason: string|null, rows: object[] }|null}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function readDistributionLedger(rfcText, unitIds = null) {
   const found = findDistributionLedger(rfcText);
   if (found === null) return null;
@@ -181,7 +181,7 @@ export function readDistributionLedger(rfcText, unitIds = null) {
 }
 
 /** The first table row of a ledger body, which is its header. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function headerOf(lines) {
   for (const line of lines) {
     const cells = cellsOf(line);

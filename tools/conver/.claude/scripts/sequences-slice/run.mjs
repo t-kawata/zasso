@@ -55,8 +55,8 @@ const USAGE = 'usage: run.mjs <sequences-artifact> [<package-dir>] — one packa
  * @param {string} artifactPath
  * @returns {{ projected: string[], present: string[], reported: Array<{packageId: string, reason: string}>, reason?: string }}
  */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function projectWorkspace(artifactPath) {
   const root = path.dirname(artifactPath);
 
@@ -92,8 +92,8 @@ function projectWorkspace(artifactPath) {
   return { projected: projected.sort(), present: present.sort(), reported };
 }
 
-// [::TICKET::] PX-256, PX-260, PX-261, PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-260|PX-261|PX-264) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-260, PX-261, PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-260|PX-261|PX-264) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function main() {
   const positional = process.argv.slice(2);
   if (positional.length !== 1 && positional.length !== 2) {

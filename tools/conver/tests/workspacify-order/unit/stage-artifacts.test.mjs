@@ -14,7 +14,7 @@ import {
 } from '../../../.claude/scripts/workspacify-order/lib/workspace.mjs';
 import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function packageOf(t, options = {}) {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'], ...options });
   t.after(() => workspace.remove());

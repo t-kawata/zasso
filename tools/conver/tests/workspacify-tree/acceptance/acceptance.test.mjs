@@ -20,7 +20,7 @@ function sha256HexBytes(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('acceptance C005 [@verifies C005]: a long specification produces a COMPLETE manifest meeting every §14.4 condition', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-accept-'));
   const specPath = join(dir, 'long-spec.md');

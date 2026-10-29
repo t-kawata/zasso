@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
 // PX-193 @verifies C003
 // A coupling contract is only complete when its clause groups match the scope
 // stage 1 declared for that boundary, with preconditions, postconditions and
@@ -123,7 +123,7 @@ test('C003 a contract edge carries the five owner slots, its paths and its sourc
   assert.equal(edge.provider_path, providerPath);
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 an edge kind that differs from the boundary kind is rejected by name', () => {
   const target = { ...boundary(), connection_kind: 'state_transition' };
   const edge = buildContractEdge({
@@ -138,7 +138,7 @@ test('C003 an edge kind that differs from the boundary kind is rejected by name'
   assert.deepEqual(verdict.kindMismatch, { expected: 'state_transition', actual: 'value_only' });
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 an absent declared non-core clause is refused unless notApplicable names it', () => {
   const target = boundary();
   const withoutErrors = { ...clauses() };
@@ -162,7 +162,7 @@ test('C003 an absent declared non-core clause is refused unless notApplicable na
   assert.deepEqual(excused.absentScopeClauses, []);
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 notApplicable is canonical, and an unknown or core clause name is refused', () => {
   const edge = buildContractEdge({
     boundaryId: 'boundary-001',
@@ -180,7 +180,7 @@ test('C003 notApplicable is canonical, and an unknown or core clause name is ref
   assert.throws(() => canonicalizeClauses({ ...clauses(), notApplicable: ['invariants'] }), /core/);
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 an empty declared non-core clause is refused and cannot be excused by notApplicable', () => {
   const target = boundary();
   const edge = buildContractEdge({

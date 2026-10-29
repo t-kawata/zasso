@@ -41,7 +41,7 @@ const SCHEMA_DIR = path.resolve(__dirname, '../rfc-graph/schema');
  * @returns {{ graphPath: string }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   if (argv.length !== 1) {
@@ -64,7 +64,7 @@ function parseArguments(args) {
  * @param {string} arg — Graph path argument
  * @returns {string} Absolute graph path
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function resolveGraphPath(arg) {
   return path.resolve(process.cwd(), arg);
 }
@@ -76,7 +76,7 @@ function resolveGraphPath(arg) {
  * @returns {Object} Parsed graph data
  * @throws {Error} If the file is missing, unparseable, or structurally invalid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function readGraphFile(graphPath) {
   const resolved = resolveGraphPath(graphPath);
   if (!fs.existsSync(resolved)) {
@@ -110,7 +110,7 @@ function readGraphFile(graphPath) {
  * @param {Object} graph — Graph data to validate
  * @returns {{ valid: boolean, errors?: string[] }} Validation result
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function validateGraphSchema(graph) {
   return validateAgainstSchema(graph, GRAPH_SCHEMA_FILENAME, SCHEMA_DIR);
 }
@@ -122,7 +122,7 @@ function validateGraphSchema(graph) {
  * @returns {{ ok: true, graph: Object }}
  * @throws {Error} On any validation failure
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function validateGraphArgument(graphPath) {
   const graph = readGraphFile(graphPath);
   const result = validateGraphSchema(graph);
@@ -135,7 +135,7 @@ function validateGraphArgument(graphPath) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function main() {
   let graphPath;
   try {

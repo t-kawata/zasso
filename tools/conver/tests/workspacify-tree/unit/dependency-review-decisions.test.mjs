@@ -1,4 +1,4 @@
-// [::TICKET::] PX-200 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-200 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-200 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-200 --for-spec --no-implementation-order`.
 // PX-200 @verifies C002 C003 C004
 // Every review candidate must be decided by the AI in this session, and the published
 // graph must match the decision. Nothing is handed back to a human.
@@ -23,7 +23,7 @@ function review(overrides = {}) {
   return { candidate_id: 'review-000001', decision: 'keep', rationale: 'the edge carries the record the consumer needs', alternatives: ['replace the edge with a port'], ...overrides };
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 the decision vocabulary is closed and every candidate needs one decision', () => {
   assert.deepEqual([...REVIEW_DECISIONS].sort(), ['keep', 'merge', 'replace_with_port', 'residual', 'split'].sort());
   assert.equal(validateDependencyReviews({ candidates: CANDIDATES, reviews: [review()], normalEdges: EDGES, boundaries: [] }).ok, true);

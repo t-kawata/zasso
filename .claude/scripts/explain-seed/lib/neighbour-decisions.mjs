@@ -22,7 +22,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
-// [::TICKET::] PX-225, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225, PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-225|PX-226) --for-spec --no-implementation-order`.
 import { EXPLAIN_FILE_NAME, HUMAN_SECTION_ID, boundPointIds, locateSections } from './frame.mjs';
 import { HUMAN_ITEM_HEADING, decisionUnderPlaceholder, splitItems } from './items.mjs';
 import { countPlaceholdersIn } from './markers.mjs';
@@ -39,7 +39,7 @@ import { countPlaceholdersIn } from './markers.mjs';
  *   one place to write in an item — neither is a document this command writes, and neither
  *   can be read without deciding on the person's behalf which place they meant
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function readSettledDecisions({ documentText }) {
   const humanSection = locateSections(String(documentText)).bodies[HUMAN_SECTION_ID];
   if (humanSection === undefined) {
@@ -67,7 +67,7 @@ export function readSettledDecisions({ documentText }) {
 }
 
 /** Where one counterpart's explanation lives, relative to the workspace root. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function counterpartDocumentPath({ counterpart, pathOf }) {
   const packagePath = pathOf[counterpart];
   return packagePath === undefined ? null : join(packagePath, EXPLAIN_FILE_NAME);
@@ -83,8 +83,8 @@ function counterpartDocumentPath({ counterpart, pathOf }) {
  *
  * @returns {{ absent: boolean, decisions: Map<string, string>|null, reason: string|null }}
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function decisionsInDocument({ root, relativePath }) {
   const absolutePath = join(root, relativePath);
   let stats;
@@ -117,7 +117,7 @@ function decisionsInDocument({ root, relativePath }) {
  * @returns {{ settled: Array<{ boundary_id: string, counterpart: string, counterpart_name: string,
  *   document: string, decision: string }>, unreadable: Array<{ document: string, reason: string }> }}
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function collectSettledDecisions({ root, packageId, boundaries, pathOf }) {
   const answersByBoundary = new Map();
   const unreadable = [];
@@ -158,7 +158,7 @@ export function collectSettledDecisions({ root, packageId, boundaries, pathOf })
 }
 
 /** The settled records, leaving every boundary that carries more than one answer open. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function settle({ answersByBoundary, boundaries, pathOf, nameUnreadable }) {
   const settled = [];
   for (const [boundaryId, answers] of answersByBoundary) {
@@ -188,7 +188,7 @@ function settle({ answersByBoundary, boundaries, pathOf, nameUnreadable }) {
  * and skipped before any answer of its could reach here, so a fallback would be a branch no
  * run can take — and one that would quietly print an id where a name belongs if it ever did.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function packageNameOf(packagePath) {
   return packagePath.split('/').filter((segment) => segment !== '').pop();
 }

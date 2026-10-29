@@ -19,7 +19,7 @@ import {
 const claimNames = () => liveShapedClaims().map((claim) => claim.canonical_name);
 const termCanonicalNames = () => liveShapedTerms().map((term) => term.canonical_name);
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 the declared residuals are the ten names the operations actually name', () => {
   assert.deepEqual([...DECLARED_RESIDUAL_CLASS_NAMES], [
     'CitationCertificate', 'CommunityCertificate', 'ForumGenesis', 'GenesisCertificate',
@@ -29,7 +29,7 @@ test('C005 the declared residuals are the ten names the operations actually name
   assert.ok(Object.isFrozen(DECLARED_RESIDUAL_CLASS_NAMES));
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 the claim table and the term index are the shapes the measurement recorded', () => {
   assert.equal(claimNames().length, 88);
   assert.equal(new Set(claimNames()).size, 88);
@@ -39,7 +39,7 @@ test('C005 the claim table and the term index are the shapes the measurement rec
   assert.ok(DECLARED_RESIDUAL_CLASS_NAMES.every((name) => !termCanonicalNames().includes(name)));
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 no unmatched name resolves, so all ten are declared residuals', () => {
   const disposed = disposeUnmatchedClassNames([...DECLARED_RESIDUAL_CLASS_NAMES], {
     claimNames: claimNames(),
@@ -51,7 +51,7 @@ test('C005 no unmatched name resolves, so all ten are declared residuals', () =>
   assert.deepEqual(disposed.unaccounted, []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 the claims branch is live rather than dead code', () => {
   const disposed = disposeUnmatchedClassNames([...DECLARED_RESIDUAL_CLASS_NAMES], {
     claimNames: [...claimNames(), 'RootEntry'],
@@ -62,14 +62,14 @@ test('C005 the claims branch is live rather than dead code', () => {
   assert.deepEqual(disposed.unaccounted, []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 a name that resolves nowhere and is not declared residual is left unaccounted', () => {
   const disposed = disposeUnmatchedClassNames(['NoSuchObject'], { claimNames: [], termNames: [] });
   assert.deepEqual(disposed.unaccounted, ['NoSuchObject']);
   assert.deepEqual(disposed.declaredResiduals, []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 a class name appearing only inside term prose does not resolve through terms', () => {
   const proseTerms = termsCarryingAClassNameOnlyInProse();
   assert.ok(proseTerms.some((term) => JSON.stringify(term).includes('CommunityCertificate')));

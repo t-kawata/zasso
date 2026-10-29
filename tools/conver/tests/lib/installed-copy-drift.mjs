@@ -1,4 +1,4 @@
-// [::TICKET::] P25-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-1 --for-spec --no-implementation-order`.
 /**
  * installed-copy-drift — how far each installed copy of a library has fallen
  * behind the source of record, measured and named.
@@ -36,7 +36,7 @@ const MODULE_SUFFIX = '.mjs';
  * @param {string} directory
  * @returns {string[]}
  */
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function moduleNames(directory) {
   if (!existsSync(directory)) return [];
   return readdirSync(directory).filter((name) => name.endsWith(MODULE_SUFFIX)).sort();
@@ -48,7 +48,7 @@ function moduleNames(directory) {
  * @param {{ repositoryRoot: string, source: string, copy: string }} input
  * @returns {{ path: string, present: boolean, modules: number, absent: string[], extra: string[], differing: string[] }}
  */
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function measureCopy({ repositoryRoot, source, copy }) {
   const sourceDirectory = join(repositoryRoot, source);
   const copyDirectory = join(repositoryRoot, copy);

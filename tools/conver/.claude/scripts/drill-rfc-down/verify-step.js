@@ -24,7 +24,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const VERIFY_CONSISTENCIES = path.join(SCRIPT_DIR, 'verify-consistencies.js');
 
 /** Run verify-consistencies.js and return the parsed result. */
-// [::TICKET::] PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
 function runVerifyConsistencies(args) {
   const res = spawnSync(process.execPath, [VERIFY_CONSISTENCIES, ...args], { encoding: 'utf8' });
   if (res.status !== 0) {
@@ -35,7 +35,7 @@ function runVerifyConsistencies(args) {
 }
 
 /** Render the findings as a Markdown report grouped by severity. */
-// [::TICKET::] PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
 function formatFindingsReport(result) {
   const lines = ['## /drill-rfc-down Step 5 Verify', ''];
   const high = result.findings.filter((f) => f.severity === 'high');
@@ -52,7 +52,7 @@ function formatFindingsReport(result) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const result = runVerifyConsistencies(args);

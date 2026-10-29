@@ -1,6 +1,6 @@
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -20,13 +20,13 @@ const record = {
   basis: [{ source: 'spec.md', line: 1, quote: 'a substantive specification clause' }],
 };
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('contextDigest binds the judgment to the worklist item', () => {
   assert.equal(validateJudgmentRecord(record, item).ok, true);
   assert.equal(validateJudgmentRecord({ ...record, contextDigest: 'other' }, item).ok, false);
 });
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('a judgment closes only after a held attack', () => {
   assert.equal(decideJudgment({ record, attack: { outcome: 'held', reason: 'no counterexample' } }).state, 'held');
   assert.equal(decideJudgment({ record, attack: { outcome: 'unresolved', reason: 'unclear' } }).state, 'stuck');
@@ -34,7 +34,7 @@ test('a judgment closes only after a held attack', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('the worklist context digest changes when the cited evidence changes', () => {
   const obligation = { id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', kind: 'judgment', subject: 'bd-1', claim: 'translation holds' };
   const first = buildWorklist([obligation], {
@@ -53,7 +53,7 @@ test('the worklist context digest changes when the cited evidence changes', () =
   assert.equal(first.worklistDigest, repeated.worklistDigest);
 });
 
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 test('PX-310 a shared item keeps its worklist digest when another obligation opens or closes', () => {
   const shared = { id: 'JUDGE:TRANSLATION:bd-1', class: 'semantic', state: 'open', kind: 'judgment', subject: 'bd-1', claim: 'translation holds' };
   const other = { id: 'JUDGE:TRANSLATION:bd-2', class: 'semantic', state: 'open', kind: 'judgment', subject: 'bd-2', claim: 'translation holds' };
@@ -70,7 +70,7 @@ test('PX-310 a shared item keeps its worklist digest when another obligation ope
 });
 
 // @verifies C004
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a basis quote must occur on the cited line', () => {
   const worklistItem = {
     ...item,
@@ -88,7 +88,7 @@ test('a basis quote must occur on the cited line', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an attack must carry searched lines and a different reader', () => {
   const attack = {
     obligationId: 'JUDGE:TRANSLATION:bd-1',

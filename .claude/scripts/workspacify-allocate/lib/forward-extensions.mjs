@@ -1,4 +1,4 @@
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 /**
  * The forward artefacts, extended for the reverse rotation without moving a byte.
  *
@@ -251,8 +251,8 @@ export function sidecarReference({ bundleHash, counts = {} } = {}) {
 }
 
 /** The bytes a value has when written: text as itself, a JSON artefact canonically. */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function writtenFormOf(value) {
   return typeof value === 'string' ? value : canonicalSerialize(value);
 }
@@ -265,13 +265,13 @@ function writtenFormOf(value) {
  * `assertReverseAdditions` pass over a key whose value is absent — it would see the
  * key's presence and stop looking.
  */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function suppliedFieldNames(reverseFields, declared) {
   return declared.filter((field) => reverseFields[field] !== undefined);
 }
 
 /** A field the kind does not declare has no meaning here, so supplying one is a caller defect. */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function assertFieldsAreDeclared(reverseFields, declared, kind) {
   const undeclared = Object.keys(reverseFields).filter((field) => !declared.includes(field));
   if (undeclared.length > 0) {

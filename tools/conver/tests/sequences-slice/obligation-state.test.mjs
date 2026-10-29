@@ -33,7 +33,7 @@ const LEDGER_COLUMNS = '| Unit | Kind | Owner | RFC location | Ground |';
 const CITED_SECTION = '1.1';
 
 /** A directory with the two documents a verdict is made of, and nothing else. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function packageDirectory(t, { units = [], ledgerUnits = null, location = CITED_SECTION, ledger = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'px270-obligation-state-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));

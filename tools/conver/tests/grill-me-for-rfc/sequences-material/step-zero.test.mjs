@@ -44,7 +44,7 @@ const SESSION_PACKAGE = 'crates/protocol/gaia-asset';
  * detector or moved it after the strict reader fails here instead of satisfying a test
  * that describes an order the command no longer has.
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function callOrderInStep(commandPath, stepHeading, names) {
   const lines = fs.readFileSync(commandPath, 'utf8').split('\n');
   const start = lines.findIndex((line) => line.trim() === stepHeading);
@@ -63,7 +63,7 @@ function callOrderInStep(commandPath, stepHeading, names) {
   return calls;
 }
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 grill STEP 0 names the detector after init.js and before the strict reader', () => {
   const order = callOrderInStep(GRILL_COMMAND, '### STEP 0: Initialization', [
     'init.js', 'sequences-material.js', 'run.mjs', 'list-files.js', 'settle-run.js',
@@ -77,7 +77,7 @@ test('C002 grill STEP 0 names the detector after init.js and before the strict r
   assert.equal(order.includes('run.mjs'), false, `STEP 0 still projects by hand: ${order.join(' -> ')}`);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 drill Step 1 calls the detector after preflight and before session-init', () => {
   const calls = fs
     .readFileSync(DRILL_COMMAND, 'utf8')
@@ -96,7 +96,7 @@ test('C002 drill Step 1 calls the detector after preflight and before session-in
   assert.ok(detector.at < sessionInit.at, `detector ${detector.at} is not before session-init ${sessionInit.at}`);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 with no sequences material STEP 0 produces byte-identical artifacts', () => {
   withScratch('px256-step0-', (root) => {
     const before = makeGrillSession(path.join(root, 'before'));
@@ -115,7 +115,7 @@ test('C002 with no sequences material STEP 0 produces byte-identical artifacts',
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 with a sequences artifact STEP 0 writes the view and records both names beside it', () => {
   const root = buildSyntheticTriple();
   try {
@@ -151,7 +151,7 @@ test('C002 with a sequences artifact STEP 0 writes the view and records both nam
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 a recorded view that was deleted is regenerated before the strict reader walks the list', () => {
   const root = buildSyntheticTriple();
   try {
@@ -178,7 +178,7 @@ test('C002 a recorded view that was deleted is regenerated before the strict rea
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C002 every material path the session records exists on disk after STEP 0', () => {
   const root = buildSyntheticTriple();
   try {
@@ -200,7 +200,7 @@ test('C002 every material path the session records exists on disk after STEP 0',
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 a view in one package is not read as a prior record by its neighbour', () => {
   withScratch('px256-step0-', (root) => {
     const workspace = path.join(root, 'workspace');
@@ -235,7 +235,7 @@ test('C005 a view in one package is not read as a prior record by its neighbour'
 // ---------------------------------------------------------------------------
 
 /** The view a slice that predates the obligation carriage wrote: no obligation field at all. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function writePreCarriageView(packageDir) {
   fs.writeFileSync(path.join(packageDir, VIEW_JSON_NAME), JSON.stringify({
     packageId: 'pkg-0001',
@@ -248,13 +248,13 @@ function writePreCarriageView(packageDir) {
 }
 
 /** The JSON init.js prints, which is how a caller learns what the run decided. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function runInit(packageDir, args) {
   const result = spawnSync(process.execPath, [INIT, packageDir, ...args], { encoding: 'utf8' });
   return { status: result.status, stderr: result.stderr, report: JSON.parse(result.stdout) };
 }
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 a resume naming the artifact replaces a view that predates the carriage', () => {
   const root = buildSyntheticTriple();
   try {
@@ -275,7 +275,7 @@ test('C001 a resume naming the artifact replaces a view that predates the carria
   }
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 the refresh writes the two view files and leaves the session documents alone', () => {
   const root = buildSyntheticTriple();
   try {
@@ -314,7 +314,7 @@ test('C001 the refresh writes the two view files and leaves the session document
   }
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C002 a resume naming no artifact changes nothing but the session timestamp', () => {
   const root = buildSyntheticTriple();
   try {
@@ -339,7 +339,7 @@ test('C002 a resume naming no artifact changes nothing but the session timestamp
   }
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C005 a second resume over an already current view refreshes nothing and rewrites nothing', () => {
   const root = buildSyntheticTriple();
   try {
@@ -361,7 +361,7 @@ test('C005 a second resume over an already current view refreshes nothing and re
   }
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 an artifact that cannot be used is reported rather than silently skipping the refresh', () => {
   const root = buildSyntheticTriple();
   try {
@@ -381,7 +381,7 @@ test('C001 an artifact that cannot be used is reported rather than silently skip
   }
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 a session being initialized with an artifact projects the view in that same call', () => {
   const root = buildSyntheticTriple();
   try {

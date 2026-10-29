@@ -52,7 +52,7 @@ function formatError(problem, cause, remedy) {
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArgs(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   const afterFlag = argv.find(a => a.startsWith('--graph-after='));
@@ -232,7 +232,7 @@ function checkWithVerifyjs(graphPath, sourcePath) {
  * the view/map chain bound or drop a unit the view distributed. The check is additive to
  * the five structural axes.
  */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function checkDistributionIntegrity(graphAfter, graphBefore) {
   const errors = [];
   const remedies = [];
@@ -271,7 +271,7 @@ function checkDistributionIntegrity(graphAfter, graphBefore) {
  *
  * @param {string[]} [testArgs] — argument array for testing
  */
-// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
 function main(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
   const cwd = options.cwd || process.cwd();

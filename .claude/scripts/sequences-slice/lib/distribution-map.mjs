@@ -44,13 +44,13 @@ export function kindOfUnit(unitId) {
 }
 
 /** Collapse runs of whitespace and trim, so a formatting-only edit does not churn a digest. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function normalizeText(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Normalize a value recursively: strings lose insignificant whitespace, keys are sorted. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function normalizeDeep(value) {
   if (typeof value === 'string') return normalizeText(value);
   if (Array.isArray(value)) return value.map(normalizeDeep);
@@ -63,7 +63,7 @@ function normalizeDeep(value) {
 }
 
 /** The unit records a view distributes, in the four arrays the projection carries. */
-// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 export function collectViewUnits(view) {
   const units = new Map();
   for (const field of VIEW_UNIT_ARRAYS) {
@@ -91,7 +91,7 @@ export function collectViewUnits(view) {
  * The exemption is only the empty-to-empty case. A non-empty map or a non-empty graph
  * still has to satisfy the unit-set equality that the caller keeps running.
  */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 export function isAdditiveEmptyDistribution(view, map) {
   if (collectViewUnits(view).size > 0) return false;
   if (map === null || map === undefined) return true;
@@ -107,7 +107,7 @@ export function isAdditiveEmptyDistribution(view, map) {
  * @param {object} view
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 export function declaredSequenceIds(view) {
   const sequenceIds = new Set();
   for (const field of ['ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
@@ -157,7 +157,7 @@ export function sequenceStepsOf(record) {
  * trusted: it is overwritten with the zero-based position within the sequence so the
  * view producer and this verifier derive the same value.
  */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function groupArtifactStepsBySequence(artifact, sequenceIds) {
   const positions = new Map();
   const bySequence = new Map();
@@ -178,7 +178,7 @@ function groupArtifactStepsBySequence(artifact, sequenceIds) {
 }
 
 /** The artifact steps for the sequences a view declares. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 export function artifactStepsForSequences(artifact, sequenceIds) {
   return groupArtifactStepsBySequence(artifact, sequenceIds);
 }
@@ -219,7 +219,7 @@ export function stepContractMatches(left, right) {
  * @param {object} step
  * @returns {object}
  */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function canonicalStepIdentity(step) {
   return normalizeDeep({
     stepId: step?.stepId ?? step?.id ?? null,
@@ -236,7 +236,7 @@ export function canonicalStepIdentity(step) {
 }
 
 /** Whether two step records carry the same complete identity. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function stepIdentityMatches(left, right) {
   return JSON.stringify(canonicalStepIdentity(left)) === JSON.stringify(canonicalStepIdentity(right));
 }
@@ -253,7 +253,7 @@ export function stepIdentityMatches(left, right) {
  * @param {{ inventory?: { objects?: Array<object> } }|null} treeManifest
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function activeArtifactOperationsForPackage(artifact, packageId, treeManifest = null) {
   const objects = treeManifest?.inventory?.objects;
   if (!Array.isArray(objects) || objects.length === 0) return [];
@@ -275,7 +275,7 @@ export function activeArtifactOperationsForPackage(artifact, packageId, treeMani
  * @param {{ inventory?: { objects?: Array<object> } }|null} treeManifest
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function artifactSequencesForPackage(artifact, packageId, treeManifest = null) {
   const objects = treeManifest?.inventory?.objects;
   if (!Array.isArray(objects) || objects.length === 0) return [];
@@ -311,7 +311,7 @@ export function artifactSequencesForPackage(artifact, packageId, treeManifest = 
  * @param {{ residuals?: Array<object> }|null} map
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function validOperationResiduals(artifact, map) {
   const stepped = new Set((artifact?.steps ?? []).map((step) => `op-${step.operation}`));
   const residuals = new Set();
@@ -328,7 +328,7 @@ export function validOperationResiduals(artifact, map) {
 }
 
 /** The stable projection of a view that the map's source digest binds. */
-// [::TICKET::] PX-307, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-315) --for-spec --no-implementation-order`.
 function canonicalViewProjection(view) {
   const units = [];
   for (const unit of collectViewUnits(view).values()) {
@@ -389,7 +389,7 @@ export function viewDigest(view) {
 }
 
 /** The map body the map digest covers, with the digest itself excluded. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function canonicalMapBody(map) {
   const units = (map?.units ?? []).map((unit) => ({
     unitId: unit.unitId,
@@ -430,7 +430,7 @@ export function renderDistributionMap(map) {
 }
 
 /** The block body between the fence markers, or null when the RFC carries none. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function distributionMapBody(rfcText) {
   const lines = String(rfcText ?? '').split('\n');
   const start = lines.findIndex((line) => FENCE_OPEN.test(line.trim()));
@@ -441,13 +441,13 @@ function distributionMapBody(rfcText) {
 }
 
 /** A finding-shaped refusal from the map reader. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function invalidMap(reason) {
   return { ok: false, code: 'INVALID_DISTRIBUTION_MAP', reason, map: null };
 }
 
 /** Read and validate the map block from an RFC. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function parseDistributionMap(rfcText) {
   const body = distributionMapBody(rfcText);
   if (body === null) return { ok: false, code: 'DISTRIBUTION_MAPPING_MISSING', reason: 'no distribution-map block', map: null };
@@ -509,7 +509,7 @@ export function parseDistributionMap(rfcText) {
 }
 
 /** The headings of an RFC with their level, text and leading dotted number. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function headings(rfcText) {
   const found = [];
   for (const line of String(rfcText ?? '').split('\n')) {
@@ -575,7 +575,7 @@ export function residualRowOf(residual, packageId) {
 }
 
 /** The Owner cell: every co-owner, and this package's role when the row declares one. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 export function ownerCellOf(owners, packageId, role = null) {
   const named = (Array.isArray(owners) ? owners : []).filter((owner) => typeof owner === 'string' && owner.trim().length > 0);
   return (named.length > 0 ? named : [packageId])
@@ -584,7 +584,7 @@ export function ownerCellOf(owners, packageId, role = null) {
 }
 
 /** Compare a map with the view it was authored from. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function validateMapAgainstView(map, view) {
   const viewUnits = collectViewUnits(view);
   const mapUnits = new Set((map?.units ?? []).map((unit) => unit.unitId));

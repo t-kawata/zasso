@@ -32,7 +32,7 @@ const TEMP_SUFFIX = '.tmp';
 /** ASCII code for A; a duplicate count of 1 maps to A. */
 const ASCII_A_OFFSET = 64;
 
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function exitWithError(summary, cause, action) {
   process.stderr.write(`[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`);
   process.exit(1);
@@ -51,7 +51,7 @@ function readLines(filePath) {
  * @param {string[]} lines — Array of file lines
  * @returns {{ result: string[], modified: boolean, changes: string[], unclosedFence: boolean }}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function deduplicateHeadings(lines) {
   const { blocks, unclosed } = findFencedBlocks(lines);
   if (unclosed) {
@@ -100,7 +100,7 @@ function deduplicateHeadings(lines) {
  * @param {string} filePath — Destination source path
  * @param {string} content — Complete new source
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function writeAtomically(filePath, content) {
   const tempPath = filePath + TEMP_SUFFIX;
   try {
@@ -113,7 +113,7 @@ function writeAtomically(filePath, content) {
   }
 }
 
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   if (args.length !== 1 || args[0] === '--help' || args[0] === '-h') {

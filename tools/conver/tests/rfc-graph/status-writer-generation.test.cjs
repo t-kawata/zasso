@@ -10,7 +10,7 @@ const {
   executeEndStep,
 } = require('../../.claude/scripts/rfc-graph/update-step-status.js');
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function statusFixture(t, graphUnits) {
   const directory = mkdtempSync(join(tmpdir(), 'stage-status-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));

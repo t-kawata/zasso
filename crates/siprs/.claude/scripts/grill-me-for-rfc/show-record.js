@@ -24,7 +24,7 @@ const USAGE = 'usage: show-record.js <path> --section "<heading>"';
  * @param {string[]} argv
  * @returns {{ path: string, section: string }}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const sectionIndex = argv.indexOf('--section');
   const section = sectionIndex === -1 ? '' : (argv[sectionIndex + 1] ?? '');

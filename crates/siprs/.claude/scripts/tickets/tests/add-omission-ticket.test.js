@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-100: Create add-omission-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-100 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100: Create add-omission-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-100 --for-spec --no-implementation-order`.
 
 /**
  * add-omission-ticket.test.js — Tests for add-omission-ticket.js
@@ -29,18 +29,18 @@ let extractCodes;
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-105 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-104 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-102 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-105 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-103 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-104 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-104 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -510,7 +510,7 @@ const VALID_TICKET = {
 })();
 
 (function testC005ForNextRound() {
-// [::TICKET::] PX-143 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-143 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-143 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-143 --for-spec --no-implementation-order`.
   console.log('  ── C005 Postcondition: forNextRound=true ──');
   const data = { phases: [
     { id: -1, tickets: [] },

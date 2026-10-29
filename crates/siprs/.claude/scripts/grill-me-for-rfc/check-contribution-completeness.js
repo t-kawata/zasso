@@ -22,7 +22,7 @@ const EXIT_PASS = 0;
 const EXIT_FINDINGS = 1;
 const EXIT_MISUSE = 2;
 
-// [::TICKET::] PX-273, PX-275, PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-275|PX-276) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-275, PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-273|PX-275|PX-276) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
     const root = assertWorkspaceRoot(argv[0] ?? process.cwd());

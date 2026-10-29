@@ -26,7 +26,7 @@ const RUN_SCRIPT = join(process.cwd(), '.claude/scripts/workspacify-tree/run.mjs
 const FIXTURES = join(process.cwd(), 'tests/workspacify-tree/fixtures');
 
 /** A throwaway subject holding a copy of one fixture, so the run reads nothing of this repository. */
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function makeSubject(spec) {
   const dir = mkdtempSync(join(tmpdir(), 'wst-binding-'));
   cpSync(join(FIXTURES, spec), join(dir, spec));
@@ -34,7 +34,7 @@ function makeSubject(spec) {
 }
 
 /** Run `gate` over one fixture with one decisions document, optionally mutated. */
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function runGate({ spec, decisions, mutate = () => {} }) {
   const dir = makeSubject(spec);
   try {

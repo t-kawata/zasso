@@ -61,7 +61,7 @@ const CARGO_MISSING_SKIP =
     : 'cargo is not on PATH, so no start plan can be executed';
 
 const STARTABLE_TREE = Object.freeze({
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
   'Cargo.toml': '[package]\nname = "coupling"\nversion = "0.1.0"\nedition = "2021"\n',
   'src/lib.rs': 'pub fn ping() -> bool {\n    true\n}\n',
 });
@@ -70,13 +70,13 @@ const STARTABLE_TREE = Object.freeze({
 const SESSION_ID = 'ses-0123456789abcdef';
 
 /** One static mechanism, in the shape `measureExecutionSurface` emits. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function mechanism(kind, file, line) {
   return { id: `${kind}:${file}:${line}`, kind, file, line, spelling: '', note: `${kind} at ${file}:${line}` };
 }
 
 /** A dynamic record holding the runtime constructs a session declared it observed. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function recordOf(kinds, { runtime = true } = {}) {
   return buildDynamicSurface({
     observations: kinds.map((kind) => ({
@@ -92,7 +92,7 @@ function recordOf(kinds, { runtime = true } = {}) {
 }
 
 /** Twenty generated static lists, so a partition property is asserted over a population. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function generatedMechanismLists(count) {
   const kinds = [...MECHANISM_KINDS];
   return Array.from({ length: count }, (_, listIndex) => {
@@ -105,7 +105,7 @@ function generatedMechanismLists(count) {
 }
 
 /** The runtime constructs the static list leaves unaccounted for, in the order the record holds them. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function unaccountedConstructs(staticMechanisms, dynamicRecord) {
   const reachable = new Set(
     staticMechanisms.map((item) => DYNAMIC_CHANNEL_REACH[item.kind].construct).filter((kind) => kind !== null),

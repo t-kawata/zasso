@@ -19,7 +19,7 @@ const headerOf = (nodeId, unitIds) => `<!-- Initial Design Artifact — RFC-driv
 const ticketsOf = (entries) => ({ phases: [{ id: 0, name: 'p', tickets: entries.map((nodeIds, index) => ({ id: index + 1, phaseId: 0, nodeIds })) }] });
 const findingsFor = (graph, ledger, headers, tickets) => checkUnitProvenance(graph, ledger, headers, tickets);
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C005 no unit ids anywhere yields no finding, which is the additivity property', () => {
   assert.deepEqual(findingsFor({ nodes: [] }, new Set(), [], { phases: [] }), []);
   assert.deepEqual(findingsFor({ nodes: [] }, null, [], null), []);
@@ -28,7 +28,7 @@ test('C005 no unit ids anywhere yields no finding, which is the additivity prope
   assert.deepEqual(findingsFor(null, null, [], null), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C002 a graph carrying a unit the ledger does not assign is an invented unit at high severity', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A', 'op-Invented'])] };
   const findings = findingsFor(graph, new Set(['op-A']), [], { phases: [] });
@@ -37,7 +37,7 @@ test('C002 a graph carrying a unit the ledger does not assign is an invented uni
   assert.match(findings[0].message, /op-Invented/);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C003 a header naming a unit its own node does not carry is reported', () => {
   const graph = { nodes: [nodeWithUnits('N0007', ['op-A'])] };
   const findings = findingsFor(graph, new Set(['op-A']), [headerOf('N0007', ['op-A', 'op-Ghost'])], { phases: [] });
@@ -47,7 +47,7 @@ test('C003 a header naming a unit its own node does not carry is reported', () =
   assert.match(findings[0].message, /N0007/);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C003 a header and its node agree, and a header for an unknown node is reported', () => {
   const graph = { nodes: [nodeWithUnits('N0007', ['op-A'])] };
   assert.deepEqual(findingsFor(graph, new Set(['op-A']), [headerOf('N0007', ['op-A'])], { phases: [] }), []);
@@ -56,7 +56,7 @@ test('C003 a header and its node agree, and a header for an unknown node is repo
   assert.match(unknown[0].message, /N0999/);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 a ticket naming a unit the graph does not carry is a dangling reference naming the ticket', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A'])] };
   const dangling = ticketsOf([['op-Ghost']]);
@@ -72,7 +72,7 @@ test('C004 a ticket naming a unit the graph does not carry is a dangling referen
   assert.match(omitted.message, /no ticket declares it/);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 a unit the graph carries and no ticket claims is an omission at high severity', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A', 'seq-B'])] };
   const findings = findingsFor(graph, new Set(['op-A', 'seq-B']), [], ticketsOf([['op-A']]));
@@ -81,19 +81,19 @@ test('C004 a unit the graph carries and no ticket claims is an omission at high 
   assert.match(findings[0].message, /seq-B/);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 the two downstream carriers agreeing produces no finding', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A', 'seq-B'])] };
   assert.deepEqual(findingsFor(graph, new Set(['op-A', 'seq-B']), [], ticketsOf([['op-A', 'seq-B']])), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C004 a graph node id in a ticket is not mistaken for a unit id', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A'])] };
   assert.deepEqual(findingsFor(graph, new Set(['op-A']), [], ticketsOf([['N0001', 'op-A']])), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C005 the ship layer sees every unit the graph carries, and nothing when it carries none', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A']), nodeWithUnits('N0002', ['seq-B'])] };
   assert.deepEqual(unitsVisibleToShip(graph).sort(), ['op-A', 'seq-B']);
@@ -101,7 +101,7 @@ test('C005 the ship layer sees every unit the graph carries, and nothing when it
   assert.deepEqual(unitsVisibleToShip(null), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C005 the ship layer and the ledger agree when the ledger assigns exactly what the graph carries', () => {
   const ledgerUnitIds = new Set(['op-A', 'seq-B']);
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A']), nodeWithUnits('N0002', ['seq-B'])] };
@@ -109,7 +109,7 @@ test('C005 the ship layer and the ledger agree when the ledger assigns exactly w
   assert.deepEqual(findingsFor(graph, ledgerUnitIds, [], ticketsOf([['op-A', 'seq-B']])), []);
 });
 
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 test('C005 a unit that belongs to no package is a declared residual and needs no graph node', () => {
   const graph = { nodes: [nodeWithUnits('N0001', ['op-A'])] };
   assert.deepEqual(findingsFor(graph, new Set(['op-A']), [], ticketsOf([['op-A']])), []);

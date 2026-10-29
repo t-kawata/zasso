@@ -38,7 +38,7 @@ function walkFiles(dir, acc = []) {
 }
 
 function discoverTestFiles() {
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
   // Discover tests from .claude/tests/ (legacy location)
   const legacyFiles = walkFiles(testsDir)
     .map(fullPath => path.relative(conftestDir, fullPath))

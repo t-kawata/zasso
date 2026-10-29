@@ -56,6 +56,38 @@ test('C003 invariant: the scan reports a planted bare line and accepts the ancho
   );
 });
 
+test('C003 invariant: every emitted form is reported, not only the unquoted one', () => {
+  assert.deepEqual(
+    scanSourceLine("const command = 'node \".claude/scripts/tickets/update-ticket.js\"';", { file: 'planted.js' }),
+    ['bare-command'],
+    'a quoted bare path is still a bare path',
+  );
+  assert.deepEqual(
+    scanSourceLine("const SCRIPTS_DIR = '.claude/scripts/rfc-graph';", { file: 'planted.js' }),
+    ['bare-script-dir'],
+    'a directory constant emitted into a command is a bare path',
+  );
+  // Split the fixture so a repository-wide annotation rewrite cannot anchor the
+  // negative case and silently turn this test green.
+  const bareAnnotation = [
+    '// [::TICKET::] PX-1 changes. Details: `node ',
+    '.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-1`.',
+  ].join('');
+  assert.deepEqual(
+    scanSourceLine(bareAnnotation, { file: 'planted.js' }),
+    ['bare-annotation'],
+    'a provenance annotation is a command an AI runs',
+  );
+  assert.deepEqual(
+    scanSourceLine(
+      '// [::TICKET::] PX-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-1`.',
+      { file: 'planted.js' },
+    ),
+    [],
+    'the anchored annotation passes',
+  );
+});
+
 test('C003 invariant: each command document resolves the git root once, before the first use', () => {
   const repeated = [
     '\u0060\u0060\u0060bash',

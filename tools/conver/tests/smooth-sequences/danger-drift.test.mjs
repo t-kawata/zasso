@@ -10,13 +10,13 @@ import {
 const NEW_BOUNDARY = 'boundary-009';
 
 /** The findings of one check id in a result. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function findingsOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId);
 }
 
 /** A workspace whose first operation declares a boundary effect. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function driftWorkspace({ ground = null } = {}) {
   const artifact = minimalV3Artifact();
   artifact.operations[0].boundary_effects = [{ boundary: NEW_BOUNDARY, direction: 'provides' }];

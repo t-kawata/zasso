@@ -41,7 +41,7 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const THROUGH_R2 = 'r2';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-p24-7-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };

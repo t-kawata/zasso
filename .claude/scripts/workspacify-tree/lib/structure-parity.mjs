@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 /**
  * T1 to T4 — the structure gates of the reverse rotation (§6.3, §6.14.1).
  *
@@ -68,7 +68,7 @@ export const SOURCE_FILE_EXTENSIONS = Object.freeze([
 /** A package path that denotes the project root. */
 const ROOT_PACKAGE_PATH = '.';
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function gateRecord(gateId, passed, counts, reasons, detail = {}) {
   return {
     gateId,
@@ -168,7 +168,7 @@ export function assertStructureParity({ packagePaths, measuredDirectories }) {
 }
 
 /** True when the package path owns the file, treating `.` as the whole project root. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function packageOwnsPath(packagePath, file) {
   const normalized = packagePath === ROOT_PACKAGE_PATH ? '' : String(packagePath).replace(/\/+$/, '');
   if (normalized === '') {
@@ -244,7 +244,7 @@ export function assertGrounding({ nodes, resolveFilePath }) {
  * cannot place is returned as the normalised spelling, so the caller reports it
  * as an unnamed package rather than silently discarding it.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function resolveMeasuredEndpoint(catalog, endpoint) {
   const normalized = normaliseEndpoint(endpoint);
   const byPath = catalog.find((pkg) => normaliseEndpoint(pkg.path) === normalized);
@@ -252,7 +252,7 @@ function resolveMeasuredEndpoint(catalog, endpoint) {
 }
 
 /** The spelling of a directory, reduced to the way a manifest names it. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function normaliseEndpoint(endpoint) {
   return String(endpoint).replace(/^\.\//, '').replace(/\/+$/, '');
 }

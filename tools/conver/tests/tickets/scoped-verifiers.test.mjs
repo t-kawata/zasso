@@ -15,7 +15,7 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const VERIFY_GRAPH_CONTRACTS = join(ROOT, '.claude/scripts/tickets/verify-graph-contracts.js');
 const VERIFY_TICKET_CLOSURE = join(ROOT, '.claude/scripts/tickets/verify-ticket-closure.js');
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function withWorkspace(body) {
   const root = mkdtempSync(join(tmpdir(), 'px314-scope-'));
   try {
@@ -25,7 +25,7 @@ function withWorkspace(body) {
   }
 }
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function run(script, args) {
   return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
 }

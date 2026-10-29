@@ -1,12 +1,12 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { coveredOperations, performedOperations } from '../../.claude/scripts/shared-obligations/span.mjs';
 
 // @verifies C003
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('only a step performs an operation; the operations list is coverage', () => {
   const span = [{ subject: 's1', steps: [{ operation: 'OpA' }], operations: ['OpA', 'OpB'] }];
   assert.deepEqual([...performedOperations(span)].sort(), ['OpA']);
@@ -16,7 +16,7 @@ test('only a step performs an operation; the operations list is coverage', () =>
 });
 
 // @verifies C003
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('a 257 listed and 149 stepped span leaves 108 operations unperformed', () => {
   const operations = Array.from({ length: 257 }, (_, index) => `Op${index}`);
   const span = [{
@@ -31,7 +31,7 @@ test('a 257 listed and 149 stepped span leaves 108 operations unperformed', () =
 });
 
 // @verifies C003
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
 test('an operation entry in the coverage list is read by id', () => {
   const span = [{ operations: [{ id: 'OpA' }, 'OpB'] }];
   assert.deepEqual([...coveredOperations(span)].sort(), ['OpA', 'OpB']);

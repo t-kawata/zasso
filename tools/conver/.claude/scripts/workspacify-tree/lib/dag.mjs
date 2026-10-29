@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177, PX-188, PX-192, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-188|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-188, PX-192, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-177|PX-188|PX-192) --for-spec --no-implementation-order`.
 /**
  * Dependency graph checks (§11.4).
  *

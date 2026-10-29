@@ -22,7 +22,7 @@ const INTERVAL_MAX_MINUTES = 525_600;
  * Watcher 設定ファイルの型定義。
  * -w/--watcher フラグで指定されるJSON設定ファイルの内容に対応する。
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export interface WatcherConfig {
   /** 定期実行間隔（分）。1以上、525600（1年分）以下。 */
   intervalMinutes: number;
@@ -124,7 +124,7 @@ export function validateWatcherConfig(config: unknown): ValidationResult {
  * @param value 検証対象の値（WatcherConfig.daysOfWeek）
  * @param errors 検証エラーを追記する配列
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function validateDaysOfWeek(value: unknown, errors: string[]): void {
   if (value === undefined || value === null) {
     return;
@@ -159,7 +159,7 @@ function validateDaysOfWeek(value: unknown, errors: string[]): void {
  * @param tz 検証対象のタイムゾーン名
  * @returns 有効なタイムゾーンなら true
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function isValidTimezone(tz: string): boolean {
   try {
     // Intl.supportedValuesOf("timeZone") は有効な IANA 名の一部（例: "UTC"）を

@@ -21,7 +21,7 @@ const GATE_SOURCES = [
   '.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js',
 ];
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function sourceOf(relativePath) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }

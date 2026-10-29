@@ -1,10 +1,10 @@
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { validateEffortTrace } from '../../.claude/scripts/shared-obligations/effort.mjs';
 
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const item = {
   obligationId: 'JUDGE:TRANSLATION:bd-1',
   kind: 'judgment',
@@ -13,7 +13,7 @@ const item = {
   anchorSet: { contract: [{ boundaryId: 'bd-1', field: 'translation' }] },
 };
 
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const effort = {
   obligationId: 'JUDGE:TRANSLATION:bd-1',
   searched: [
@@ -39,19 +39,19 @@ const effort = {
 };
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 a complete effort trace is accepted', () => {
   assert.equal(validateEffortTrace(effort, item).ok, true);
 });
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 a shallow search is rejected', () => {
   assert.equal(validateEffortTrace({ ...effort, searched: [] }, item).code, 'EFFORT_SHALLOW');
 });
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 missing or generic alternatives are rejected', () => {
   assert.equal(validateEffortTrace({ ...effort, alternatives: [] }, item).code, 'ALTERNATIVES_MISSING');
   assert.equal(validateEffortTrace({
@@ -61,14 +61,14 @@ test('C015 missing or generic alternatives are rejected', () => {
 });
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 a missing counterexample attempt or discriminator is rejected', () => {
   assert.equal(validateEffortTrace({ ...effort, counterexampleAttempt: null }, item).code, 'COUNTEREXAMPLE_ATTEMPT_MISSING');
   assert.equal(validateEffortTrace({ ...effort, discriminator: null }, item).code, 'DISCRIMINATOR_MISSING');
 });
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 a discriminator that would not flip the verdict is rejected', () => {
   assert.equal(validateEffortTrace({
     ...effort,
@@ -77,7 +77,7 @@ test('C015 a discriminator that would not flip the verdict is rejected', () => {
 });
 
 // @verifies C015
-// [::TICKET::] PX-295, PX-296 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 test('C015 high uncertainty cannot be held', () => {
   assert.equal(validateEffortTrace({ ...effort, uncertainty: { level: 'high' } }, item).code, 'UNCERTAINTY_HIGH');
 });

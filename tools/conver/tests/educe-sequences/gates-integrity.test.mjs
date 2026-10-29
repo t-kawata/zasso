@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { gateInquestResolutions, gateUncovered } from '../../.claude/scripts/educe-sequences/rail/gates.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 const ARTIFACT = {
   operations: [
     { id: 'op-1', position: 'excluded', grounding: { classification: 'no_act_stated_by_the_specification', line: 10 } },
