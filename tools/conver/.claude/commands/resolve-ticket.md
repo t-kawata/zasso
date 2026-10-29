@@ -149,7 +149,7 @@ Heal-loop crimes (absolute: none may remain unresolved/deferred/pending):
 3. truly unresolvable only → status=`false_positive` + reason in `note` (terminal excuse ≠ valid reason)
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/malfeasance-update.js" "<id>" "status" "resolved"
-.claude/scripts/tickets/scan-crimes.sh "."
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh" "."
 ```
 gate: do not declare command complete until all crimes confirmed resolved.
 
@@ -170,7 +170,7 @@ absent `$ARGUMENTS` → skip directly to Step 9c (default-mode backward compatib
 Step 9c (unconditional):
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
-.claude/scripts/tickets/scan-crimes.sh
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh"
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 

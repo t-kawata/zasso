@@ -99,6 +99,8 @@ export function scanCommandLine(line) {
  */
 export function scanCommandDocument(text) {
   const findings = [];
+  if (/\b(?:node|bash)[ \t]+["']?\.claude\/scripts\//.test(text)) findings.push('bare-claude-command');
+  if (/^[ \t]*["']?\.claude\/scripts\//m.test(text)) findings.push('bare-claude-command');
   const gitRootCalls = (text.match(/git rev-parse --show-toplevel/g) ?? []).length;
   const firstUse = text.indexOf('$CLAUDE_DIR');
   const firstPreflight = text.indexOf('git rev-parse --show-toplevel');

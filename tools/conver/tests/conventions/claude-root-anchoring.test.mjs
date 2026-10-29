@@ -93,6 +93,20 @@ test('C003 invariant: each command document resolves the git root once, before t
     '\u0060\u0060\u0060',
   ].join('\n');
   assert.deepEqual(scanCommandDocument(afterUse), ['preflight-after-use']);
+
+  const inlineBare = 'Run `node .claude/scripts/explain-seed/run.mjs info "$ARGUMENTS"`';
+  assert.deepEqual(scanCommandDocument(inlineBare), ['bare-claude-command']);
+
+  const directBare = ['```bash', '.claude/scripts/tickets/scan-crimes.sh', '```'].join('\n');
+  assert.deepEqual(scanCommandDocument(directBare), ['bare-claude-command']);
+
+  const inlineAnchored = [
+    '```bash',
+    "printf '%s/.claude\\n' \"\$(git rev-parse --show-toplevel)\"",
+    '```',
+    'Run `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$ARGUMENTS"`',
+  ].join('\n');
+  assert.deepEqual(scanCommandDocument(inlineAnchored), []);
 });
 
 test('C003 invariant: every allowlist entry states why it is exempt', () => {

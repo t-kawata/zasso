@@ -110,7 +110,7 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
 
 ```bash
 # Execute crime scan (auto-initializes on first run)
-.claude/scripts/tickets/scan-crimes.sh
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh"
 ```
 
 1. If unresolved crimes exist, start resolving them immediately
@@ -386,7 +386,7 @@ node "$CLAUDE_DIR/scripts/tickets/malfeasance-create.js" "<file>" <line> "<descr
 After recording, re-run `scan-crimes.sh` to verify the crime has been correctly reflected in Malfeasance.json:
 
 ```bash
-.claude/scripts/tickets/scan-crimes.sh
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh"
 ```
 
 ### Step 7: Compilation verification and testing

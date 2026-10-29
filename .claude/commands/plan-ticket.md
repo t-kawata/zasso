@@ -151,7 +151,7 @@ Read `Malfeasance.json`; inspect unresolved crimes. Plan approval requires eithe
 
 ```bash
 # Execute crime scan (auto-initializes on first run)
-.claude/scripts/tickets/scan-crimes.sh
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh"
 ```
 
 Condition B: state resolution steps for each crime clearly in the plan.
